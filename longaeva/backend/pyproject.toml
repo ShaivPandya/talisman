@@ -1,0 +1,20 @@
+[project]
+name = "longaeva"
+version = "0.1.0"
+requires-python = ">=3.12"
+description = "Longaeva Visa business-simulation package (standalone)"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["longaeva_app"]
