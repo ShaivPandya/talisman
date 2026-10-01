@@ -51,6 +51,8 @@ mypy==1.20.2
     # via -r requirements-dev.txt
 mypy-extensions==1.1.0
     # via mypy
+numpy==2.5.3
+    # via -r requirements.txt
 opentelemetry-api==1.45.0
     # via fastapi
 packaging==26.3

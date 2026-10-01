@@ -21,6 +21,25 @@ REQUIRE_DB = os.environ.get("LONGAEVA_REQUIRE_DB", "").strip() in {"1", "true", 
 TEST_DB_NAME = os.environ.get("LONGAEVA_TEST_DB", "longaeva_test")
 BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
+TRUNCATE_SQL = """
+TRUNCATE TABLE
+    evaluation_result,
+    forecast,
+    run,
+    scenario,
+    parameter_update_observation,
+    parameter_update,
+    parameter_set,
+    mapping_rule,
+    review_decision,
+    observation,
+    document_text,
+    source_retrieval,
+    source,
+    job
+RESTART IDENTITY CASCADE
+"""
+
 
 def _clear_settings_cache() -> None:
     from longaeva_app.config import get_settings
@@ -103,7 +122,7 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
     finally:
         session.close()
         with test_engine.begin() as conn:
-            conn.execute(text("TRUNCATE TABLE job RESTART IDENTITY CASCADE"))
+            conn.execute(text(TRUNCATE_SQL))
 
 
 @pytest.fixture()
@@ -131,4 +150,4 @@ def client(test_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Generator[Te
     app.dependency_overrides.clear()
     _clear_settings_cache()
     with test_engine.begin() as conn:
-        conn.execute(text("TRUNCATE TABLE job RESTART IDENTITY CASCADE"))
+        conn.execute(text(TRUNCATE_SQL))

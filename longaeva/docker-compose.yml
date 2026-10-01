@@ -30,6 +30,7 @@ services:
       - "127.0.0.1:${API_PORT:-8000}:8000"
     volumes:
       - ./data:/srv/longaeva/data:ro
+      - ./docs:/srv/longaeva/docs:ro
       - longaeva_artifacts:/srv/longaeva/var/artifacts
     depends_on:
       db:

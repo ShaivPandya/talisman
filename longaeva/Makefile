@@ -5,10 +5,10 @@ COMPOSE ?= docker compose
 PROJECT ?= longaeva
 export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 
-.PHONY: help up down logs check check-local seed lock build
+.PHONY: help up down logs check check-local seed lock build openapi
 
 help:
-	@echo "Targets: up down logs check check-local seed lock build"
+	@echo "Targets: up down logs check check-local seed lock build openapi"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -40,6 +40,11 @@ check-local:
 
 seed:
 	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli seed-demo
+
+openapi:
+	$(COMPOSE) run --rm --no-deps \
+		-v "$(CURDIR)/docs:/out" \
+		api python -m longaeva_app.cli export-openapi --output /out/openapi.json
 
 # Compile a lockfile inside python:3.12-slim so the host needs no pip-tools.
 lock:

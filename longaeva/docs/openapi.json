@@ -1,0 +1,3152 @@
+{
+  "components": {
+    "schemas": {
+      "DocumentTextCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "char_end": {
+            "minimum": 0,
+            "title": "Char End",
+            "type": "integer"
+          },
+          "char_start": {
+            "minimum": 0,
+            "title": "Char Start",
+            "type": "integer"
+          },
+          "page": {
+            "minimum": 0,
+            "title": "Page",
+            "type": "integer"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "text": {
+            "minLength": 1,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "page",
+          "char_start",
+          "char_end",
+          "text"
+        ],
+        "title": "DocumentTextCreate",
+        "type": "object"
+      },
+      "DocumentTextRead": {
+        "properties": {
+          "char_end": {
+            "title": "Char End",
+            "type": "integer"
+          },
+          "char_start": {
+            "title": "Char Start",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "page",
+          "char_start",
+          "char_end",
+          "text"
+        ],
+        "title": "DocumentTextRead",
+        "type": "object"
+      },
+      "EvaluationResultCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "config_hash": {
+            "minLength": 1,
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "metric": {
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "model_variant": {
+            "minLength": 1,
+            "title": "Model Variant",
+            "type": "string"
+          },
+          "origin_ts": {
+            "format": "date-time",
+            "title": "Origin Ts",
+            "type": "string"
+          },
+          "suite_version": {
+            "minLength": 1,
+            "title": "Suite Version",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "suite_version",
+          "origin_ts",
+          "model_variant",
+          "metric",
+          "value",
+          "config_hash"
+        ],
+        "title": "EvaluationResultCreate",
+        "type": "object"
+      },
+      "EvaluationResultRead": {
+        "properties": {
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "details": {
+            "additionalProperties": true,
+            "title": "Details",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "model_variant": {
+            "title": "Model Variant",
+            "type": "string"
+          },
+          "origin_ts": {
+            "format": "date-time",
+            "title": "Origin Ts",
+            "type": "string"
+          },
+          "suite_version": {
+            "title": "Suite Version",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "suite_version",
+          "origin_ts",
+          "model_variant",
+          "metric",
+          "value",
+          "config_hash",
+          "details",
+          "created_at"
+        ],
+        "title": "EvaluationResultRead",
+        "type": "object"
+      },
+      "ForecastCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "retrospective",
+              "prospective"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "metric": {
+            "minLength": 1,
+            "title": "Metric",
+            "type": "string"
+          },
+          "origin_ts": {
+            "format": "date-time",
+            "title": "Origin Ts",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "target_period_end": {
+            "format": "date",
+            "title": "Target Period End",
+            "type": "string"
+          },
+          "target_period_start": {
+            "format": "date",
+            "title": "Target Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "origin_ts",
+          "cutoff_ts",
+          "target_period_start",
+          "target_period_end",
+          "metric",
+          "kind"
+        ],
+        "title": "ForecastCreate",
+        "type": "object"
+      },
+      "ForecastRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "origin_ts": {
+            "format": "date-time",
+            "title": "Origin Ts",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": true,
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "target_period_end": {
+            "format": "date",
+            "title": "Target Period End",
+            "type": "string"
+          },
+          "target_period_start": {
+            "format": "date",
+            "title": "Target Period Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "run_id",
+          "origin_ts",
+          "cutoff_ts",
+          "target_period_start",
+          "target_period_end",
+          "metric",
+          "quantiles",
+          "kind",
+          "created_at"
+        ],
+        "title": "ForecastRead",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HealthResponse": {
+        "properties": {
+          "alembic_revision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alembic Revision"
+          },
+          "database": {
+            "title": "Database",
+            "type": "string"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detail"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "database"
+        ],
+        "title": "HealthResponse",
+        "type": "object"
+      },
+      "JobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "type": {
+            "minLength": 1,
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "title": "JobCreate",
+        "type": "object"
+      },
+      "JobRead": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "additionalProperties": true,
+            "title": "Payload",
+            "type": "object"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          },
+          "worker_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worker Id"
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "payload",
+          "status",
+          "attempts",
+          "created_at"
+        ],
+        "title": "JobRead",
+        "type": "object"
+      },
+      "MappingRuleCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "input_type": {
+            "minLength": 1,
+            "title": "Input Type",
+            "type": "string"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "rule_key": {
+            "minLength": 1,
+            "title": "Rule Key",
+            "type": "string"
+          },
+          "target_parameter": {
+            "minLength": 1,
+            "title": "Target Parameter",
+            "type": "string"
+          },
+          "transform": {
+            "additionalProperties": true,
+            "title": "Transform",
+            "type": "object"
+          },
+          "version": {
+            "minimum": 1,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rule_key",
+          "version",
+          "input_type",
+          "target_parameter",
+          "rationale"
+        ],
+        "title": "MappingRuleCreate",
+        "type": "object"
+      },
+      "MappingRuleRead": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_type": {
+            "title": "Input Type",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "rule_key": {
+            "title": "Rule Key",
+            "type": "string"
+          },
+          "target_parameter": {
+            "title": "Target Parameter",
+            "type": "string"
+          },
+          "transform": {
+            "additionalProperties": true,
+            "title": "Transform",
+            "type": "object"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "rule_key",
+          "version",
+          "input_type",
+          "target_parameter",
+          "transform",
+          "rationale",
+          "created_at"
+        ],
+        "title": "MappingRuleRead",
+        "type": "object"
+      },
+      "ObservationCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "activity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Activity Type"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Basis"
+          },
+          "company": {
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          },
+          "document_text_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Document Text Id"
+          },
+          "extractor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractor Id"
+          },
+          "extractor_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Extractor Version"
+          },
+          "geography": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Geography"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "range_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Range High"
+          },
+          "range_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Range Low"
+          },
+          "review_status": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "accepted",
+              "rejected",
+              "corrected"
+            ],
+            "title": "Review Status",
+            "type": "string"
+          },
+          "source_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Family"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Source Id"
+          },
+          "span_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Span Char End"
+          },
+          "span_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Span Char Start"
+          },
+          "span_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Span Page"
+          },
+          "statement_type": {
+            "enum": [
+              "measured",
+              "guidance",
+              "qualitative",
+              "analyst_assumption",
+              "intervention"
+            ],
+            "title": "Statement Type",
+            "type": "string"
+          },
+          "unit": {
+            "minLength": 1,
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Value"
+          }
+        },
+        "required": [
+          "company",
+          "statement_type",
+          "period_start",
+          "period_end",
+          "unit"
+        ],
+        "title": "ObservationCreate",
+        "type": "object"
+      },
+      "ObservationRead": {
+        "properties": {
+          "activity_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activity Type"
+          },
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "basis": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Basis"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_text_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Text Id"
+          },
+          "extractor_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extractor Id"
+          },
+          "extractor_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extractor Version"
+          },
+          "geography": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geography"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "range_high": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range High"
+          },
+          "range_low": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Range Low"
+          },
+          "review_status": {
+            "title": "Review Status",
+            "type": "string"
+          },
+          "source_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Family"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "span_char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Char End"
+          },
+          "span_char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Char Start"
+          },
+          "span_page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Span Page"
+          },
+          "statement_type": {
+            "title": "Statement Type",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "statement_type",
+          "period_start",
+          "period_end",
+          "unit",
+          "review_status",
+          "attributes",
+          "created_at"
+        ],
+        "title": "ObservationRead",
+        "type": "object"
+      },
+      "ParameterEvidence": {
+        "additionalProperties": false,
+        "properties": {
+          "assumption": {
+            "default": false,
+            "title": "Assumption",
+            "type": "boolean"
+          },
+          "observation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "rationale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rationale"
+          }
+        },
+        "title": "ParameterEvidence",
+        "type": "object"
+      },
+      "ParameterSetCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "assumption_flags": {
+            "additionalProperties": true,
+            "title": "Assumption Flags",
+            "type": "object"
+          },
+          "company": {
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Content Hash"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "evidence_links": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ParameterEvidence"
+            },
+            "title": "Evidence Links",
+            "type": "object"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Parent Id"
+          },
+          "ranges": {
+            "additionalProperties": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Ranges",
+            "type": "object"
+          },
+          "values": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "company",
+          "cutoff_ts"
+        ],
+        "title": "ParameterSetCreate",
+        "type": "object"
+      },
+      "ParameterSetRead": {
+        "properties": {
+          "assumption_flags": {
+            "additionalProperties": true,
+            "title": "Assumption Flags",
+            "type": "object"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "evidence_links": {
+            "additionalProperties": true,
+            "title": "Evidence Links",
+            "type": "object"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "ranges": {
+            "additionalProperties": true,
+            "title": "Ranges",
+            "type": "object"
+          },
+          "values": {
+            "additionalProperties": true,
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "cutoff_ts",
+          "values",
+          "ranges",
+          "evidence_links",
+          "assumption_flags",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "ParameterSetRead",
+        "type": "object"
+      },
+      "ParameterUpdateRead": {
+        "properties": {
+          "after_value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "After Value"
+          },
+          "before_value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Before Value"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "parameter_set_id": {
+            "format": "uuid",
+            "title": "Parameter Set Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Rule Id"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Size"
+          },
+          "target_parameter": {
+            "title": "Target Parameter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parameter_set_id",
+          "target_parameter",
+          "rationale",
+          "created_at"
+        ],
+        "title": "ParameterUpdateRead",
+        "type": "object"
+      },
+      "ReviewDecisionCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "corrected_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Corrected Payload"
+          },
+          "decided_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Decided At"
+          },
+          "decided_by": {
+            "minLength": 1,
+            "title": "Decided By",
+            "type": "string"
+          },
+          "decision": {
+            "enum": [
+              "accept",
+              "reject",
+              "correct"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "observation_id": {
+            "format": "uuid",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "decision",
+          "rationale",
+          "decided_by"
+        ],
+        "title": "ReviewDecisionCreate",
+        "type": "object"
+      },
+      "ReviewDecisionRead": {
+        "properties": {
+          "corrected_payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Corrected Payload"
+          },
+          "decided_at": {
+            "format": "date-time",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decided_by": {
+            "title": "Decided By",
+            "type": "string"
+          },
+          "decision": {
+            "title": "Decision",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "observation_id": {
+            "format": "uuid",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "observation_id",
+          "decision",
+          "rationale",
+          "decided_at",
+          "decided_by"
+        ],
+        "title": "ReviewDecisionRead",
+        "type": "object"
+      },
+      "RunCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "code_version": {
+            "minLength": 1,
+            "title": "Code Version",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Job Id"
+          },
+          "lib_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Lib Versions",
+            "type": "object"
+          },
+          "n_paths": {
+            "minimum": 1,
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "parameter_set_hash": {
+            "minLength": 1,
+            "title": "Parameter Set Hash",
+            "type": "string"
+          },
+          "scenario_id": {
+            "format": "uuid",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "seed": {
+            "minimum": 0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source_manifest": {
+            "items": {
+              "$ref": "#/components/schemas/SourceManifestEntry"
+            },
+            "title": "Source Manifest",
+            "type": "array"
+          },
+          "switches": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Switches",
+            "type": "object"
+          }
+        },
+        "required": [
+          "scenario_id",
+          "cutoff_ts",
+          "parameter_set_hash",
+          "code_version",
+          "seed",
+          "n_paths"
+        ],
+        "title": "RunCreate",
+        "type": "object"
+      },
+      "RunRead": {
+        "properties": {
+          "code_version": {
+            "title": "Code Version",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "lib_versions": {
+            "additionalProperties": true,
+            "title": "Lib Versions",
+            "type": "object"
+          },
+          "n_paths": {
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "outputs_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputs Hash"
+          },
+          "outputs_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputs Path"
+          },
+          "parameter_set_hash": {
+            "title": "Parameter Set Hash",
+            "type": "string"
+          },
+          "scenario_id": {
+            "format": "uuid",
+            "title": "Scenario Id",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source_manifest": {
+            "items": {},
+            "title": "Source Manifest",
+            "type": "array"
+          },
+          "source_manifest_hash": {
+            "title": "Source Manifest Hash",
+            "type": "string"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "switches": {
+            "additionalProperties": true,
+            "title": "Switches",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id",
+          "scenario_id",
+          "cutoff_ts",
+          "source_manifest",
+          "source_manifest_hash",
+          "parameter_set_hash",
+          "code_version",
+          "seed",
+          "n_paths",
+          "switches",
+          "lib_versions",
+          "status",
+          "created_at"
+        ],
+        "title": "RunRead",
+        "type": "object"
+      },
+      "RunResultSummary": {
+        "additionalProperties": false,
+        "properties": {
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "std_error": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Std Error"
+          }
+        },
+        "required": [
+          "metric",
+          "mean"
+        ],
+        "title": "RunResultSummary",
+        "type": "object"
+      },
+      "ScenarioCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "company": {
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          },
+          "interventions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Interventions",
+            "type": "array"
+          },
+          "name": {
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "pair_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pair Group Id"
+          },
+          "parameter_set_id": {
+            "format": "uuid",
+            "title": "Parameter Set Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "company",
+          "name",
+          "parameter_set_id"
+        ],
+        "title": "ScenarioCreate",
+        "type": "object"
+      },
+      "ScenarioRead": {
+        "properties": {
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "interventions": {
+            "items": {},
+            "title": "Interventions",
+            "type": "array"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "pair_group_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pair Group Id"
+          },
+          "parameter_set_id": {
+            "format": "uuid",
+            "title": "Parameter Set Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "company",
+          "name",
+          "parameter_set_id",
+          "interventions",
+          "created_at"
+        ],
+        "title": "ScenarioRead",
+        "type": "object"
+      },
+      "SourceCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "company": {
+            "minLength": 1,
+            "title": "Company",
+            "type": "string"
+          },
+          "content_hash": {
+            "minLength": 1,
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "doc_type": {
+            "minLength": 1,
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "license_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "License Note"
+          },
+          "original_path": {
+            "minLength": 1,
+            "title": "Original Path",
+            "type": "string"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Period Start"
+          },
+          "provider": {
+            "minLength": 1,
+            "title": "Provider",
+            "type": "string"
+          },
+          "publication_ts": {
+            "format": "date-time",
+            "title": "Publication Ts",
+            "type": "string"
+          },
+          "retrieval_ts": {
+            "format": "date-time",
+            "title": "Retrieval Ts",
+            "type": "string"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Supersedes Id"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "provider",
+          "company",
+          "doc_type",
+          "url",
+          "publication_ts",
+          "retrieval_ts",
+          "content_hash",
+          "original_path"
+        ],
+        "title": "SourceCreate",
+        "type": "object"
+      },
+      "SourceManifestEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "content_hash": {
+            "minLength": 1,
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "content_hash"
+        ],
+        "title": "SourceManifestEntry",
+        "type": "object"
+      },
+      "SourceRead": {
+        "properties": {
+          "attributes": {
+            "additionalProperties": true,
+            "title": "Attributes",
+            "type": "object"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "license_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Note"
+          },
+          "original_path": {
+            "title": "Original Path",
+            "type": "string"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "publication_ts": {
+            "format": "date-time",
+            "title": "Publication Ts",
+            "type": "string"
+          },
+          "retrieval_ts": {
+            "format": "date-time",
+            "title": "Retrieval Ts",
+            "type": "string"
+          },
+          "supersedes_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersedes Id"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "company",
+          "doc_type",
+          "url",
+          "publication_ts",
+          "retrieval_ts",
+          "content_hash",
+          "original_path",
+          "attributes",
+          "created_at"
+        ],
+        "title": "SourceRead",
+        "type": "object"
+      },
+      "SourceRetrievalCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Etag"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Http Status"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          },
+          "retrieved_at": {
+            "format": "date-time",
+            "title": "Retrieved At",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "url": {
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "retrieved_at",
+          "url"
+        ],
+        "title": "SourceRetrievalCreate",
+        "type": "object"
+      },
+      "SourceRetrievalRead": {
+        "properties": {
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Etag"
+          },
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Http Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Notes"
+          },
+          "retrieved_at": {
+            "format": "date-time",
+            "title": "Retrieved At",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "source_id",
+          "retrieved_at",
+          "url"
+        ],
+        "title": "SourceRetrievalRead",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Standalone Visa business-simulation API (hackathon).",
+    "title": "Longaeva",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/evaluation-results": {
+      "get": {
+        "operationId": "list_evaluation_results_evaluation_results_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "suite_version",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Suite Version"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationResultRead"
+                  },
+                  "title": "Response List Evaluation Results Evaluation Results Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Evaluation Results",
+        "tags": [
+          "evaluation"
+        ]
+      }
+    },
+    "/forecasts": {
+      "get": {
+        "operationId": "list_forecasts_forecasts_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ForecastRead"
+                  },
+                  "title": "Response List Forecasts Forecasts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Forecasts",
+        "tags": [
+          "forecasts"
+        ]
+      }
+    },
+    "/forecasts/{forecast_id}": {
+      "get": {
+        "operationId": "get_forecast_forecasts__forecast_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "forecast_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Forecast Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ForecastRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Forecast",
+        "tags": [
+          "forecasts"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/jobs": {
+      "get": {
+        "operationId": "list_jobs_jobs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/JobRead"
+                  },
+                  "title": "Response List Jobs Jobs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Jobs",
+        "tags": [
+          "jobs"
+        ]
+      },
+      "post": {
+        "operationId": "create_job_jobs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/JobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/jobs/{job_id}": {
+      "get": {
+        "operationId": "get_job_jobs__job_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Job Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Job",
+        "tags": [
+          "jobs"
+        ]
+      }
+    },
+    "/observations": {
+      "get": {
+        "operationId": "list_observations_observations_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          },
+          {
+            "in": "query",
+            "name": "review_status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Review Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ObservationRead"
+                  },
+                  "title": "Response List Observations Observations Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Observations",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
+    "/observations/{observation_id}": {
+      "get": {
+        "operationId": "get_observation_observations__observation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "observation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Observation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Observation",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
+    "/parameter-sets": {
+      "get": {
+        "operationId": "list_parameter_sets_parameter_sets_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ParameterSetRead"
+                  },
+                  "title": "Response List Parameter Sets Parameter Sets Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Parameter Sets",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}": {
+      "get": {
+        "operationId": "get_parameter_set_parameter_sets__parameter_set_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterSetRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parameter Set",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/runs": {
+      "get": {
+        "operationId": "list_runs_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunRead"
+                  },
+                  "title": "Response List Runs Runs Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Runs",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}": {
+      "get": {
+        "operationId": "get_run_runs__run_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/scenarios": {
+      "get": {
+        "operationId": "list_scenarios_scenarios_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ScenarioRead"
+                  },
+                  "title": "Response List Scenarios Scenarios Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Scenarios",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/scenarios/{scenario_id}": {
+      "get": {
+        "operationId": "get_scenario_scenarios__scenario_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "scenario_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Scenario Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Scenario",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/sources": {
+      "get": {
+        "operationId": "list_sources_sources_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "company",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Company"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SourceRead"
+                  },
+                  "title": "Response List Sources Sources Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Sources",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/sources/{source_id}": {
+      "get": {
+        "operationId": "get_source_sources__source_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Source",
+        "tags": [
+          "sources"
+        ]
+      }
+    },
+    "/sources/{source_id}/passages": {
+      "get": {
+        "operationId": "list_passages_sources__source_id__passages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/DocumentTextRead"
+                  },
+                  "title": "Response List Passages Sources  Source Id  Passages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Passages",
+        "tags": [
+          "sources"
+        ]
+      }
+    }
+  }
+}

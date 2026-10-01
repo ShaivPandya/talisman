@@ -19,6 +19,8 @@ That starts Postgres, runs Alembic migrations, brings up the API and worker, and
 a placeholder web page.
 
 - API health: http://127.0.0.1:8000/health
+- OpenAPI UI: http://127.0.0.1:8000/docs
+- OpenAPI JSON: http://127.0.0.1:8000/openapi.json (snapshot also at `docs/openapi.json`)
 - Web placeholder: http://127.0.0.1:3000/
 - Postgres (host): `127.0.0.1:55432` user/pass/db `longaeva`
 
@@ -26,6 +28,28 @@ Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR 
 (LON-1). Compose does not require a `.env` file.
 
 Stop with `make down`.
+
+## Core read API (LON-10)
+
+Read-only list/detail endpoints (writes arrive in later issues):
+
+| Method | Path |
+| --- | --- |
+| GET | `/sources`, `/sources/{id}`, `/sources/{id}/passages` |
+| GET | `/observations`, `/observations/{id}` |
+| GET | `/parameter-sets`, `/parameter-sets/{id}` |
+| GET | `/scenarios`, `/scenarios/{id}` |
+| GET | `/runs`, `/runs/{id}` |
+| GET | `/forecasts?kind=`, `/forecasts/{id}` |
+| GET | `/evaluation-results` |
+
+Forecast rows are immutable in the database; PUT/PATCH/DELETE on `/forecasts/{id}` return 405.
+
+Refresh the committed OpenAPI snapshot after schema changes:
+
+```bash
+make openapi
+```
 
 ## Checks
 
@@ -62,5 +86,4 @@ python3.12 -m venv .venv
 
 See `docs/reuse-notes.md` for Talisman pattern provenance (copied/adapted, never imported).
 
-Domain schema, Vite frontend, isolation guards, and demo data arrive in later issues
-(LON-10, LON-11, LON-12, LON-37).
+Vite frontend, isolation guards, and demo data arrive in later issues (LON-11, LON-12, LON-37).
