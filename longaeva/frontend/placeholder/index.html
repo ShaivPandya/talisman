@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Longaeva</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f4ef;
+        --ink: #1a1a1a;
+        --muted: #5a5a5a;
+        --accent: #0b5fff;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+        background:
+          radial-gradient(circle at 10% 0%, #e8efe8 0%, transparent 45%),
+          radial-gradient(circle at 90% 20%, #efe8df 0%, transparent 40%),
+          var(--bg);
+        color: var(--ink);
+        display: grid;
+        place-items: center;
+        padding: 2rem;
+      }
+      main {
+        max-width: 36rem;
+      }
+      h1 {
+        font-size: clamp(2.5rem, 6vw, 4rem);
+        letter-spacing: -0.03em;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        color: var(--muted);
+        line-height: 1.5;
+        margin: 0 0 1.25rem;
+      }
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9em;
+      }
+      #status {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.85rem;
+        white-space: pre-wrap;
+        background: rgba(255, 255, 255, 0.7);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        padding: 0.85rem 1rem;
+      }
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Longaeva</h1>
+      <p>
+        Placeholder web shell (Vite frontend lands in LON-11). API health is proxied at
+        <a href="/api/health"><code>/api/health</code></a>.
+      </p>
+      <pre id="status">Loading /api/health…</pre>
+    </main>
+    <script>
+      fetch("/api/health")
+        .then((r) => r.json().then((body) => ({ ok: r.ok, status: r.status, body })))
+        .then(({ ok, status, body }) => {
+          document.getElementById("status").textContent = JSON.stringify(
+            { http: status, ok, ...body },
+            null,
+            2
+          );
+        })
+        .catch((err) => {
+          document.getElementById("status").textContent = String(err);
+        });
+    </script>
+  </body>
+</html>

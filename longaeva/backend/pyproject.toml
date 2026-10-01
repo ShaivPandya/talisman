@@ -7,6 +7,9 @@ description = "Longaeva Visa business-simulation package (standalone)"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "db: tests that require a reachable Postgres database",
+]
 
 [tool.ruff]
 target-version = "py312"
@@ -14,7 +17,20 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B"]
-ignore = ["E501"]
+ignore = ["E501", "B008"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["longaeva_app"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "."
+packages = ["longaeva_app"]
+files = ["tests"]
+
+[[tool.mypy.overrides]]
+module = ["alembic.*"]
+ignore_missing_imports = true

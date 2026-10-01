@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 import io
 from datetime import UTC, date, datetime
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -141,7 +142,7 @@ def test_period_end_mismatch_recorded_as_exclusion_reason() -> None:
     assert "maps to" in q2["exclusion_reasons"]
 
 
-def _toy_snapshot_for_late_document() -> dict:
+def _toy_snapshot_for_late_document() -> dict[str, Any]:
     """Release at T; prior 10-Q before T; same-quarter 10-Q at T+2h; Booking after T."""
     return {
         "visa_filings": [

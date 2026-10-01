@@ -21,6 +21,7 @@ import urllib.request
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import Any
 from zoneinfo import ZoneInfo
 
 VISA_CIK = "0001403161"
@@ -230,7 +231,8 @@ class EdgarClient:
             try:
                 self._last_request_at = time.monotonic()
                 with urllib.request.urlopen(req, timeout=60) as resp:
-                    return resp.read().decode("utf-8", errors="replace")
+                    body: str = resp.read().decode("utf-8", errors="replace")
+                    return body
             except urllib.error.HTTPError as exc:
                 last_error = exc
                 if exc.code == 403:
@@ -244,11 +246,14 @@ class EdgarClient:
                 time.sleep(2**attempt)
         raise RuntimeError(f"EDGAR fetch failed for {url}: {last_error}")
 
-    def get_json(self, url: str) -> dict:
-        return json.loads(self.get_text(url))
+    def get_json(self, url: str) -> dict[str, Any]:
+        data = json.loads(self.get_text(url))
+        if not isinstance(data, dict):
+            raise TypeError(f"Expected JSON object from {url}, got {type(data).__name__}")
+        return data
 
 
-def _zip_filings(cik: int, recent: dict) -> list[Filing]:
+def _zip_filings(cik: int, recent: dict[str, Any]) -> list[Filing]:
     """Convert a submissions 'recent' or file-page parallel arrays into Filings."""
     n = len(recent.get("accessionNumber", []))
     out: list[Filing] = []
@@ -281,7 +286,7 @@ def _zip_filings(cik: int, recent: dict) -> list[Filing]:
     return out
 
 
-def parse_submissions(primary: dict, extra_pages: list[dict], cik: int) -> list[Filing]:
+def parse_submissions(primary: dict[str, Any], extra_pages: list[dict[str, Any]], cik: int) -> list[Filing]:
     """Merge recent + paged submissions; dedupe by accession (keep first = most recent)."""
     filings = _zip_filings(cik, primary.get("filings", {}).get("recent", {}))
     for page in extra_pages:
@@ -307,7 +312,7 @@ def fetch_company_filings(client: EdgarClient, cik_padded: str) -> tuple[list[Fi
     primary_url = f"https://data.sec.gov/submissions/CIK{cik_padded}.json"
     primary = client.get_json(primary_url)
     urls = [primary_url]
-    extra_pages: list[dict] = []
+    extra_pages: list[dict[str, Any]] = []
     for file_meta in primary.get("filings", {}).get("files", []):
         name = file_meta.get("name", "")
         if not name.startswith("submissions-") or not name.endswith(".json"):
@@ -359,8 +364,8 @@ def spot_check_filings(
     client: EdgarClient,
     filings: list[Filing],
     picks: list[Filing],
-) -> list[dict]:
-    results: list[dict] = []
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
     for filing in picks:
         url = accession_to_index_url(filing.cik, filing.accession)
         html = client.get_text(url)
@@ -402,7 +407,7 @@ def select_spot_check_picks(visa_earnings: list[Filing]) -> list[Filing]:
     return picks[:5]
 
 
-def trim_filings_for_snapshot(filings: list[Filing], forms: set[str], since: date) -> list[dict]:
+def trim_filings_for_snapshot(filings: list[Filing], forms: set[str], since: date) -> list[dict[str, Any]]:
     out = []
     for f in filings:
         if f.form not in forms:
@@ -413,7 +418,7 @@ def trim_filings_for_snapshot(filings: list[Filing], forms: set[str], since: dat
     return out
 
 
-def fetch_snapshot(client: EdgarClient) -> dict:
+def fetch_snapshot(client: EdgarClient) -> dict[str, Any]:
     visa_all, visa_urls = fetch_company_filings(client, VISA_CIK)
     booking_all, booking_urls = fetch_company_filings(client, BOOKING_CIK)
 
@@ -443,12 +448,15 @@ def fetch_snapshot(client: EdgarClient) -> dict:
     }
 
 
-def filing_from_dict(row: dict) -> Filing:
+def filing_from_dict(row: dict[str, Any]) -> Filing:
     return Filing(**row)
 
 
-def load_snapshot(path: Path = SNAPSHOT_PATH) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
+def load_snapshot(path: Path = SNAPSHOT_PATH) -> dict[str, Any]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise TypeError(f"Expected JSON object in {path}, got {type(data).__name__}")
+    return data
 
 
 def _parse_utc(s: str) -> datetime:
@@ -472,7 +480,7 @@ def classify_origin_window(fq: FiscalQuarter) -> str:
     return "none"
 
 
-def build_origins(snapshot: dict) -> list[dict]:
+def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
     visa = [filing_from_dict(r) for r in snapshot["visa_filings"]]
     booking = [filing_from_dict(r) for r in snapshot["booking_filings"]]
 
@@ -537,7 +545,7 @@ def build_origins(snapshot: dict) -> list[dict]:
     ]
     mapped.sort(key=lambda t: (t[0].year, t[0].quarter))
 
-    rows: list[dict] = []
+    rows: list[dict[str, Any]] = []
     for fq, release, base_reasons in mapped:
         cutoff = _parse_utc(release.accepted_utc)
         target = fq.next()
@@ -676,7 +684,7 @@ def build_origins(snapshot: dict) -> list[dict]:
     return rows
 
 
-def write_origins_csv(rows: list[dict], path: Path = ORIGINS_CSV_PATH) -> None:
+def write_origins_csv(rows: list[dict[str, Any]], path: Path = ORIGINS_CSV_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=CSV_COLUMNS, lineterminator="\n")
@@ -685,7 +693,7 @@ def write_origins_csv(rows: list[dict], path: Path = ORIGINS_CSV_PATH) -> None:
             writer.writerow({k: row.get(k, "") for k in CSV_COLUMNS})
 
 
-def _amendment_summary(snapshot: dict) -> list[str]:
+def _amendment_summary(snapshot: dict[str, Any]) -> list[str]:
     lines: list[str] = []
     visa = [filing_from_dict(r) for r in snapshot["visa_filings"]]
     earnings_amends = [f for f in visa if is_earnings_8k(f) and f.is_amendment]
@@ -700,7 +708,7 @@ def _amendment_summary(snapshot: dict) -> list[str]:
     return lines
 
 
-def render_inventory_md(snapshot: dict, rows: list[dict]) -> str:
+def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) -> str:
     retrieved = snapshot.get("retrieved_at_utc", "")
     spot = snapshot.get("spot_checks", [])
 
@@ -834,7 +842,7 @@ def render_inventory_md(snapshot: dict, rows: list[dict]) -> str:
     return "\n".join(lines) + "\n"
 
 
-def write_inventory_md(snapshot: dict, rows: list[dict], path: Path = INVENTORY_MD_PATH) -> None:
+def write_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]], path: Path = INVENTORY_MD_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_inventory_md(snapshot, rows), encoding="utf-8")
 
@@ -899,7 +907,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    return int(args.func(args))
 
 
 if __name__ == "__main__":
