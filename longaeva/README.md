@@ -29,6 +29,10 @@ Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR 
 
 Stop with `make down`.
 
+Visa driver and accounting definitions (LON-2) are settled in
+[`docs/definitions.md`](docs/definitions.md); canonical field names live in
+`backend/longaeva_app/companies/visa/definitions.py`.
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):
