@@ -1,0 +1,130 @@
+{
+  "candidate_window": {
+    "n_candidates": "18",
+    "window_end": "2026-07-28",
+    "window_start": "2022-01-27"
+  },
+  "decision": {
+    "key_registration": "none",
+    "primary_option": "B",
+    "secondary_option": "C",
+    "visa_prices": "blocked"
+  },
+  "generated_for": "LON-6",
+  "labels": {
+    "primary": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+    "primary_footnote": "Not the official S&P 500 Total Return index. Prices: S&P Dow Jones Indices via FRED (SP500). Dividends: Shiller ie_data.xls (four-quarter S&P totals interpolated monthly), spread evenly across trading days. Fetched by script; not redistributed.",
+    "secondary": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+    "visa": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)"
+  },
+  "notes": [
+    "Raw vendor payloads processed in memory only; not written to disk.",
+    "probe.json holds metadata only (hashes, dates, counts)."
+  ],
+  "probed_at": "2026-10-02T18:31:43Z",
+  "schema_version": 1,
+  "sources": [
+    {
+      "bytes": 48922,
+      "columns": [
+        "observation_date",
+        "SP500"
+      ],
+      "content_sha256": "8dad2c6099d08783c2e6911f957eca12b35b81f48714f73c182f6521be86e2c3",
+      "covers_candidate_window": true,
+      "first_date": "2016-10-03",
+      "http_last_modified": "Fri, 02 Oct 2026 00:01:43 GMT",
+      "last_date": "2026-10-01",
+      "missing_value_count": 96,
+      "retrieval_ts": "2026-10-02T18:31:40Z",
+      "row_count": 2609,
+      "source_id": "fred_sp500",
+      "status": "ok",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500"
+    },
+    {
+      "bytes": 1674752,
+      "columns": [
+        "Date",
+        "P",
+        "D",
+        "E",
+        "CPI",
+        "Fraction",
+        "Rate GS10",
+        "Price",
+        "Dividend",
+        "Price",
+        "Earnings",
+        "Earnings"
+      ],
+      "content_sha256": "044196dafe44c3030b2facbdea023975b3f6aa68b4e52f8f9bafc403e19589c1",
+      "covers_candidate_window": true,
+      "first_date": "1871-01",
+      "http_last_modified": "Wed, 02 Sep 2026 17:51:53 GMT",
+      "last_date": "2026-09",
+      "last_dividend_month": "2026-06",
+      "missing_value_count": 3,
+      "retrieval_ts": "2026-10-02T18:31:43Z",
+      "row_count": 1869,
+      "source_id": "shiller_ie_data",
+      "status": "ok",
+      "url": "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls?ver=1788371540009"
+    },
+    {
+      "bytes": 178184,
+      "columns": [
+        "",
+        "Mkt-RF",
+        "SMB",
+        "HML",
+        "RF"
+      ],
+      "content_sha256": "2f29e22546069914890a712680a6f81f3680ebc3543b52864484d209ca13a7db",
+      "covers_candidate_window": true,
+      "first_date": "1926-07-01",
+      "http_last_modified": "Fri, 25 Sep 2026 21:55:02 GMT",
+      "last_date": "2026-08-31",
+      "missing_value_count": 0,
+      "retrieval_ts": "2026-10-02T18:31:43Z",
+      "row_count": 26317,
+      "source_id": "ken_french_daily",
+      "status": "ok",
+      "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    }
+  ],
+  "visa_dividends": [
+    {
+      "amount_per_share": 0.52,
+      "ex_dividend_date": "2024-05-16",
+      "path": "data/fixtures/states/sources/0001403161-24-000027/q22024earningsrelease.htm.gz",
+      "payable_date": "2024-06-03",
+      "record_date": "2024-05-17",
+      "status": "ok"
+    },
+    {
+      "amount_per_share": 0.52,
+      "ex_dividend_date": "2024-08-09",
+      "path": "data/fixtures/states/sources/0001403161-24-000040/q32024earningsrelease.htm.gz",
+      "payable_date": "2024-09-03",
+      "record_date": "2024-08-09",
+      "status": "ok"
+    },
+    {
+      "amount_per_share": 0.59,
+      "ex_dividend_date": "2025-08-12",
+      "path": "data/fixtures/states/sources/0001403161-25-000051/q32025earningsrelease.htm.gz",
+      "payable_date": "2025-09-02",
+      "record_date": "2025-08-12",
+      "status": "ok"
+    },
+    {
+      "amount_per_share": 0.67,
+      "ex_dividend_date": "2025-11-12",
+      "path": "data/fixtures/states/sources/0001403161-25-000077/q42025earningsrelease.htm.gz",
+      "payable_date": "2025-12-01",
+      "record_date": "2025-11-12",
+      "status": "ok"
+    }
+  ]
+}

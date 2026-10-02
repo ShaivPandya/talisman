@@ -1,0 +1,240 @@
+# LON-6 · Benchmark and price data decision · planning v1
+# Settled 2026-10-02. No free API key; option B is primary.
+# Raw vendor payloads are never bundled (DR-01 / DR-07). Probe writes metadata only.
+
+decision:
+  settled_at: "2026-10-02"
+  plan_id: DRAFT-06
+  linear_id: LON-6
+  key_registration: none
+  primary_option: B
+  secondary_option: C
+  rejected_option: A
+  visa_prices: blocked
+
+fallback_chain:
+  - A
+  - B
+  - C
+
+labels:
+  primary: >-
+    S&P 500 total return (approximation: FRED S&P 500 price index + Shiller
+    monthly dividends, accrued daily)
+  primary_footnote: >-
+    Not the official S&P 500 Total Return index. Prices: S&P Dow Jones Indices
+    via FRED (SP500). Dividends: Shiller ie_data.xls (four-quarter S&P totals
+    interpolated monthly), spread evenly across trading days. Fetched by script;
+    not redistributed.
+  secondary: >-
+    US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) -
+    not the S&P 500
+  visa: >-
+    Visa buy-and-hold total return: not run (no license-compliant free daily
+    Visa price source)
+
+method:
+  primary_total_return: >-
+    TR_t = TR_{t-1} * (P_t + d_t) / P_{t-1}, where d_t = D_m / (12 * N_m),
+    D_m is Shiller's annualized dividend for month m and N_m is the number of
+    FRED trading days in that month. Carry forward the last available D_m when
+    Shiller has not yet published the current month; flag the result as estimated.
+  visa_ex_dividend: >-
+    Ex-date = record date from 2024-05-28 onward (T+1 settlement); before that,
+    one business day before the record date.
+  ui_rule: >-
+    Never chart raw index levels from FRED, Shiller or Ken French. Show only
+    holding-period returns and aggregate figures that cannot reconstruct the
+    underlying series.
+
+series:
+  - id: sp500_tr_approx
+    option: B
+    role: primary_benchmark
+    status: selected
+    label_key: primary
+    components:
+      - fred_sp500
+      - shiller_ie_data
+    redistribution: fetch_script
+
+  - id: us_total_market_tr
+    option: C
+    role: secondary_reference
+    status: selected
+    label_key: secondary
+    components:
+      - ken_french_daily
+    redistribution: fetch_script
+    note: Never relabeled as the S&P 500.
+
+  - id: spy_div_adjusted_proxy
+    option: A
+    role: rejected_primary
+    status: rejected
+    reason: >-
+      Requires a free Tiingo API key. User chose no-key path on 2026-10-02.
+      Alpha Vantage free tier is also unsuitable (latest 100 daily bars only;
+      daily adjusted is premium; personal non-commercial license).
+    unblock_source: tiingo_eod
+    redistribution: fetch_script
+
+  - id: visa_buy_and_hold
+    role: visa_comparison
+    status: blocked
+    label_key: visa
+    components:
+      - visa_dividends_sec
+    missing:
+      - visa_daily_prices
+    unblock_source: tiingo_visa
+    redistribution: n_a
+
+sources:
+  fred_sp500:
+    provider: Federal Reserve Bank of St. Louis (FRED)
+    series: SP500
+    description: Daily S&P 500 price index (close); not total return
+    access_method: HTTP GET CSV, no key
+    url: "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500"
+    series_page: "https://fred.stlouisfed.org/series/SP500"
+    terms_url: "https://fred.stlouisfed.org/series/SP500"
+    terms_summary: >-
+      S&P Dow Jones Indices LLC copyright; FRED notes "Copyrighted:
+      Pre-Approval Required". Reproduction prohibited without prior written
+      permission of S&P. FRED retains a rolling ~10-year daily window.
+    retrieval_date: "2026-10-02"
+    key_required: false
+    key_env: null
+    redistribution: fetch_script
+    probe: true
+    catalog_page: 5
+
+  shiller_ie_data:
+    provider: Robert J. Shiller
+    series: ie_data.xls (Dividend column)
+    description: >-
+      Monthly S&P composite price, earnings and dividends since 1871;
+      dividends are four-quarter totals interpolated monthly
+    access_method: HTTP GET legacy .xls from shillerdata.com, no key
+    url: "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls?ver=1788371540009"
+    series_page: "https://shillerdata.com/"
+    terms_url: "https://shillerdata.com/"
+    terms_summary: >-
+      Academic data published for research use accompanying Irrational
+      Exuberance. Not an official S&P total-return product. Do not redistribute
+      the raw workbook in the package ZIP.
+    retrieval_date: "2026-10-02"
+    key_required: false
+    key_env: null
+    redistribution: fetch_script
+    probe: true
+    file_format: xls_legacy
+
+  ken_french_daily:
+    provider: Kenneth R. French Data Library (Dartmouth)
+    series: F-F_Research_Data_Factors_daily_CSV.zip (Mkt-RF, RF)
+    description: Daily CRSP value-weighted market excess return plus risk-free rate
+    access_method: HTTP GET ZIP, no key
+    url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    series_page: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
+    terms_url: "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html"
+    terms_summary: >-
+      Free for research with citation. Monthly update lag. Not the S&P 500;
+      CRSP value-weighted total market. Bundle only derived returns needed for
+      a demo with attribution, or fetch by script.
+    retrieval_date: "2026-10-02"
+    key_required: false
+    key_env: null
+    redistribution: fetch_script
+    probe: true
+    catalog_page: 6
+
+  tiingo_eod:
+    provider: Tiingo
+    series: SPY (dividend-adjusted close) as S&P 500 TR proxy
+    description: Rejected for this gate (no key). Unblock path for option A.
+    access_method: REST API with free Starter / Individual key
+    url: "https://api.tiingo.com/tiingo/daily/SPY/prices"
+    series_page: "https://www.tiingo.com/documentation/general/overview"
+    terms_url: "https://app.tiingo.com/tos/"
+    terms_summary: >-
+      Starter/Trial: no persistent storage of Tiingo Data (§1.6(a)); process in
+      volatile memory only. Paid Individual plan required for durable storage.
+      API data is internal consumption only (§7.3); redistribution needs a
+      separate license. Business / corporate email accounts are treated as
+      business accounts (§4.9). Derived Products that cannot substitute for or
+      reconstruct Tiingo Data may be retained (§1.6(c)).
+    retrieval_date: "2026-10-02"
+    key_required: true
+    key_env: TIINGO_API_KEY
+    redistribution: fetch_script
+    probe: false
+    status: rejected_for_gate
+
+  tiingo_visa:
+    provider: Tiingo
+    series: V (Visa Inc. class A common stock)
+    description: Unblock path for Visa daily prices (LON-28).
+    access_method: REST API with free Individual key (personal email)
+    url: "https://api.tiingo.com/tiingo/daily/V/prices"
+    series_page: "https://www.tiingo.com/documentation/general/overview"
+    terms_url: "https://app.tiingo.com/tos/"
+    terms_summary: >-
+      Same Tiingo terms as tiingo_eod. Register as an individual with a personal
+      email. Process prices in memory only; store and display only aggregate
+      Derived Products that cannot reconstruct the price series.
+    retrieval_date: "2026-10-02"
+    key_required: true
+    key_env: TIINGO_API_KEY
+    redistribution: fetch_script
+    probe: false
+    status: unblock_path
+
+  alpha_vantage:
+    provider: Alpha Vantage
+    series: TIME_SERIES_DAILY_ADJUSTED (premium) / TIME_SERIES_DAILY
+    description: Rejected. Free tier unsuitable for daily total-return history.
+    access_method: REST API with free key
+    url: "https://www.alphavantage.co/query"
+    series_page: "https://www.alphavantage.co/documentation/"
+    terms_url: "https://www.alphavantage.co/terms_of_service/"
+    terms_summary: >-
+      Free key is personal, non-commercial (§2). TIME_SERIES_DAILY_ADJUSTED is
+      premium. TIME_SERIES_DAILY outputsize=full (25+ years) is premium-only;
+      free compact returns the latest 100 bars.
+    retrieval_date: "2026-10-02"
+    key_required: true
+    key_env: ALPHA_VANTAGE_API_KEY
+    redistribution: fetch_script
+    probe: false
+    status: rejected
+
+  visa_dividends_sec:
+    provider: SEC EDGAR (Visa Inc. Ex. 99.1 earnings releases)
+    series: Quarterly cash dividend declarations
+    description: Public-domain dividend amount, payable date and record date
+    access_method: Offline parse of retained Ex. 99.1 HTML under data/fixtures/states/sources/
+    url: "https://www.sec.gov/edgar/browse/?CIK=1403161"
+    terms_url: "https://www.sec.gov/edgar/searchedgar/accessing-edgar-data.htm"
+    terms_summary: SEC EDGAR content is public domain; originals may be bundled.
+    retrieval_date: "2026-10-02"
+    key_required: false
+    key_env: null
+    redistribution: bundle_ok
+    probe: false
+    offline: true
+
+rejected:
+  - id: sp_dji_direct
+    reason: S&P DJI site returns 403 to scripted requests.
+  - id: stooq
+    reason: JavaScript challenge page; not bypassed (DR-09).
+  - id: nasdaq_api
+    reason: api.nasdaq.com timed out during planning checks.
+  - id: yfinance
+    reason: Unofficial access; not allowed in the package.
+  - id: visa_10q_repurchase_avg
+    reason: >-
+      Monthly "Average Purchase Price per Share" is too coarse for daily
+      scoring. Noted for LON-25 as a possible historical multiple-range input.

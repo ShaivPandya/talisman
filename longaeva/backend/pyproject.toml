@@ -38,3 +38,7 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["pdfplumber", "pdfplumber.*"]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["xlrd", "xlrd.*"]
+ignore_missing_imports = true

@@ -55,6 +55,15 @@ Booking Holdings family gate (LON-4): observation fixtures
 Booking age-in-weeks, same-day margin, guidance-covers-target and fallback
 accession columns.
 
+Benchmark and price data decision (LON-6): no free API key. Primary benchmark is
+the labeled FRED `SP500` + Shiller dividend approximation; Ken French daily
+`Mkt-RF + RF` is the secondary reference (never relabeled as the S&P 500). Visa
+daily prices are blocked, so buy-and-hold scoring is `not run` until a personal
+Tiingo key is added. Manifest
+[`data/manifest/benchmarks.yaml`](data/manifest/benchmarks.yaml), metadata-only
+probe [`data/fixtures/benchmarks/probe.json`](data/fixtures/benchmarks/probe.json),
+and gate report [`docs/gates/benchmarks.md`](docs/gates/benchmarks.md).
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):
