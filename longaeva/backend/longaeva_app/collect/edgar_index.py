@@ -73,7 +73,12 @@ CSV_COLUMNS = [
     "booking_accession",
     "booking_accepted_utc",
     "booking_age_days",
+    "booking_age_weeks",
     "booking_eligible",
+    "booking_same_day",
+    "booking_margin_seconds",
+    "booking_guidance_covers_target",
+    "booking_fallback_accession",
     "census_release",
     "census_reference_month",
     "census_publication_utc",
@@ -484,7 +489,11 @@ def classify_origin_window(fq: FiscalQuarter) -> str:
     return "none"
 
 
-def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
+def build_origins(
+    snapshot: dict[str, Any],
+    *,
+    booking_calendar: list[dict[str, str]] | None = None,
+) -> list[dict[str, Any]]:
     visa = [filing_from_dict(r) for r in snapshot["visa_filings"]]
     booking = [filing_from_dict(r) for r in snapshot["booking_filings"]]
 
@@ -500,6 +509,19 @@ def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         [f for f in booking if is_earnings_8k(f) and f.form == "8-K"],
         key=lambda f: f.accepted_utc,
     )
+    booking_accessions_ordered = [f.accession for f in booking_earnings]
+
+    # Lazy import: calendar is optional so toy snapshots still build.
+    if booking_calendar is None:
+        try:
+            from longaeva_app.collect.booking_sources import load_calendar
+
+            booking_calendar = load_calendar()
+        except (FileNotFoundError, OSError):
+            booking_calendar = []
+    booking_cal_by_acc = {row["accession"]: row for row in booking_calendar if row.get("accession")}
+
+    from longaeva_app.extract.booking_release import guidance_covers_target
 
     # Map earnings to fiscal quarters; detect duplicates
     quarter_to_release: dict[tuple[int, int], Filing] = {}
@@ -637,10 +659,39 @@ def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         booking_acc = booking_hit.accession if booking_hit else ""
         booking_accepted = booking_hit.accepted_utc if booking_hit else ""
         booking_age = ""
+        booking_age_weeks = ""
         booking_eligible = booking_hit is not None
+        booking_same_day = ""
+        booking_margin_seconds = ""
+        booking_guidance_covers_target = ""
+        booking_fallback_accession = ""
         if booking_hit:
-            age = cutoff - _parse_utc(booking_hit.accepted_utc)
-            booking_age = f"{age.total_seconds() / 86400:.1f}"
+            booking_dt = _parse_utc(booking_hit.accepted_utc)
+            age = cutoff - booking_dt
+            age_seconds = age.total_seconds()
+            booking_age = f"{age_seconds / 86400:.1f}"
+            booking_age_weeks = f"{age_seconds / 86400 / 7:.4f}"
+            cutoff_et_date = cutoff.astimezone(EASTERN).date()
+            booking_et_date = booking_dt.astimezone(EASTERN).date()
+            same_day = cutoff_et_date == booking_et_date
+            booking_same_day = str(same_day).lower()
+            if same_day:
+                booking_margin_seconds = str(int(age_seconds))
+                try:
+                    idx = booking_accessions_ordered.index(booking_hit.accession)
+                except ValueError:
+                    idx = -1
+                if idx > 0:
+                    booking_fallback_accession = booking_accessions_ordered[idx - 1]
+            cal_row = booking_cal_by_acc.get(booking_hit.accession)
+            if cal_row is None:
+                booking_guidance_covers_target = "unknown"
+            else:
+                booking_guidance_covers_target = guidance_covers_target(
+                    cal_row.get("guidance_quarter", ""),
+                    target.year,
+                    target.quarter,
+                )
         else:
             reasons.append("no Booking earnings 8-K accepted ≤ cutoff")
 
@@ -698,7 +749,12 @@ def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
                 "booking_accession": booking_acc,
                 "booking_accepted_utc": booking_accepted,
                 "booking_age_days": booking_age,
+                "booking_age_weeks": booking_age_weeks,
                 "booking_eligible": str(booking_eligible).lower(),
+                "booking_same_day": booking_same_day,
+                "booking_margin_seconds": booking_margin_seconds,
+                "booking_guidance_covers_target": booking_guidance_covers_target,
+                "booking_fallback_accession": booking_fallback_accession,
                 "census_release": census_release,
                 "census_reference_month": census_ref,
                 "census_publication_utc": census_pub,
@@ -833,13 +889,29 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
     lines.append("")
     lines.append("## Booking release age at Visa cutoffs")
     lines.append("")
-    lines.append("| Origin | Booking accession | Age (days) | Eligible |")
-    lines.append("| --- | --- | --- | --- |")
+    lines.append(
+        "| Origin | Booking accession | Age (days) | Age (weeks) | Same-day | "
+        "Margin (s) | Guidance covers target | Fallback | Eligible |"
+    )
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for r in candidates + prospective:
         lines.append(
             f"| FY{r['fiscal_year']}Q{r['fiscal_quarter']} | `{r['booking_accession']}` | "
-            f"{r['booking_age_days']} | {r['booking_eligible']} |"
+            f"{r['booking_age_days']} | {r.get('booking_age_weeks', '')} | "
+            f"{r.get('booking_same_day', '')} | {r.get('booking_margin_seconds', '')} | "
+            f"{r.get('booking_guidance_covers_target', '')} | "
+            f"`{r.get('booking_fallback_accession', '')}` | {r['booking_eligible']} |"
         )
+    lines.append("")
+    lines.append(
+        "Age is from Booking's EDGAR acceptance to the Visa cutoff. "
+        "`same_day` is true when both accepted timestamps fall on the same US/Eastern calendar date. "
+        "Since April 2025 four candidate origins are same-day (Booking accepted 71–233 seconds earlier); "
+        "the evaluation should also report a variant that falls back to `booking_fallback_accession`. "
+        "`guidance_covers_target` is true only when the Ex. 99.1 outlook table's next quarter equals "
+        "Visa's target quarter mapped to a calendar quarter (see `docs/gates/booking.md`). "
+        "Ex. 99.1 guidance tables begin with the 2025-07-29 release."
+    )
     lines.append("")
     lines.append("## Census release age at Visa cutoffs")
     lines.append("")
@@ -893,6 +965,13 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
         "- LON-5: Census MARTS vintage timing relative to each Visa cutoff. "
         "**Done — every inventory origin has a Census advance release ≤ cutoff; "
         "0 exclusions from timing. See `docs/gates/census.md`.**"
+    )
+    lines.append(
+        "- LON-4: Booking Holdings family gate (measured + qualitative/guidance passages, "
+        "staleness in weeks, same-day margin). "
+        "**Done — required family with lagged measured rules and guidance only where it "
+        "covers the Visa target quarter; same-day fallback variant required. "
+        "See `docs/gates/booking.md`.**"
     )
     lines.append("")
     return "\n".join(lines) + "\n"

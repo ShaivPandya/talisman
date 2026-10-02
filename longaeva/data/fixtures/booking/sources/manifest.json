@@ -1,0 +1,59 @@
+{
+  "generated_for": "LON-4",
+  "retrieved_at": "2026-10-02T17:34:45Z",
+  "schema_version": 1,
+  "snapshot_path": "data/fixtures/edgar/filing_index.json",
+  "sources": [
+    {
+      "acceptance_utc": "2024-05-02T20:02:05Z",
+      "accession": "0001075531-24-000026",
+      "content_sha256": "e69c684a88860d998aa75f5436f27c5b2f36b6368012d0b87555c9420d070baf",
+      "document": "ex99133124.htm",
+      "form": "8-K Ex. 99.1",
+      "index_page_accepted_utc": "2024-05-02T20:02:05Z",
+      "note": "Origin A gate release (Booking Q1 2024); 11.7 weeks old at Visa 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001075531-24-000026/ex99133124.htm.gz",
+      "raw_bytes": 376411,
+      "retrieval_ts": "2026-10-02T17:34:45Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553124000026/ex99133124.htm"
+    },
+    {
+      "acceptance_utc": "2025-10-28T20:02:19Z",
+      "accession": "0001075531-25-000050",
+      "content_sha256": "98e8a46ee0d1bf113608ceba45027ffa9414cfcc2bc05dc07056150c2feed61b",
+      "document": "q3-25bkngearningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "index_page_accepted_utc": "2025-10-28T20:02:19Z",
+      "note": "Origin B gate release (Booking Q3 2025); same-day, 224 s before Visa cutoff",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001075531-25-000050/q3-25bkngearningsrelease.htm.gz",
+      "raw_bytes": 40605,
+      "retrieval_ts": "2026-10-02T17:34:45Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm"
+    },
+    {
+      "acceptance_utc": "2026-08-04T20:03:14Z",
+      "accession": "0001075531-26-000036",
+      "content_sha256": "7b7d16620b9f65842ed4269c8618eea54d275fd8d9fc9337fcfb9bb9e42959a7",
+      "document": "q2-26bkngearningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "index_page_accepted_utc": "2026-08-04T20:03:14Z",
+      "note": "Post-cutoff negative test at prospective origin; accepted 2026-08-04",
+      "origins": [
+        "2026-07-28"
+      ],
+      "path": "0001075531-26-000036/q2-26bkngearningsrelease.htm.gz",
+      "raw_bytes": 37176,
+      "retrieval_ts": "2026-10-02T17:34:45Z",
+      "role": "post_cutoff_check",
+      "url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553126000036/q2-26bkngearningsrelease.htm"
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "company": "booking",
+  "release_date": "2024-05-02",
+  "source": {
+    "source_id": "0001075531-24-000026/ex99133124.htm",
+    "accession": "0001075531-24-000026",
+    "document": "ex99133124.htm",
+    "form": "8-K Ex. 99.1",
+    "acceptance_utc": "2024-05-02T20:02:05Z",
+    "url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553124000026/ex99133124.htm",
+    "role": "input",
+    "content_sha256": "e69c684a88860d998aa75f5436f27c5b2f36b6368012d0b87555c9420d070baf",
+    "note": "Origin A gate release (Booking Q1 2024); 11.7 weeks old at Visa 2024-07-23"
+  },
+  "visa_origins": [
+    {
+      "origin_date": "2024-07-23",
+      "cutoff_utc": "2024-07-23T20:05:38Z",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "target_fiscal_year": 2024,
+      "target_fiscal_quarter": 4,
+      "age_seconds": 7085013,
+      "age_days": 82.0025,
+      "age_weeks": 11.7146,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin A; Booking Q1 2024 is 11.7 weeks stale and has no Ex. 99.1 outlook table"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "bkng_2024q1_room_nights_yoy",
+      "statement_type": "measured",
+      "activity_type": "room_nights",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": 9.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "units",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Room nights booked increased",
+        "quote": "9%",
+        "char_start": 3916,
+        "char_end": 3918
+      },
+      "note": "YoY room nights booked growth, Q1 2024",
+      "attributes": {}
+    },
+    {
+      "observation_id": "bkng_2024q1_gross_bookings_yoy",
+      "statement_type": "measured",
+      "activity_type": "gross_travel_bookings",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": 10.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "were $43.5 billion, an increase of",
+        "quote": "10%",
+        "char_start": 3465,
+        "char_end": 3468
+      },
+      "note": "YoY gross travel bookings growth (as reported), Q1 2024",
+      "attributes": {}
+    },
+    {
+      "observation_id": "bkng_2024q1_ceo_qualitative",
+      "statement_type": "qualitative",
+      "activity_type": "travel_demand",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "We are pleased to report a strong start to 2024",
+        "quote": "ahead of our prior expectations",
+        "char_start": 8707,
+        "char_end": 8738
+      },
+      "note": "CEO commentary; backward-looking relative to prior expectations; not guidance",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Ex. 99.1 has no outlook / guidance table. Prepared remarks are posted to Booking's IR site after the call and are not on EDGAR.",
+    "Room nights are booked (not stayed) and are global, including domestic and intra-Europe travel."
+  ]
+}

@@ -1,0 +1,174 @@
+{
+  "schema_version": 1,
+  "company": "booking",
+  "release_date": "2025-10-28",
+  "source": {
+    "source_id": "0001075531-25-000050/q3-25bkngearningsrelease.htm",
+    "accession": "0001075531-25-000050",
+    "document": "q3-25bkngearningsrelease.htm",
+    "form": "8-K Ex. 99.1",
+    "acceptance_utc": "2025-10-28T20:02:19Z",
+    "url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm",
+    "role": "input",
+    "content_sha256": "98e8a46ee0d1bf113608ceba45027ffa9414cfcc2bc05dc07056150c2feed61b",
+    "note": "Origin B gate release (Booking Q3 2025); same-day, 224 s before Visa cutoff"
+  },
+  "visa_origins": [
+    {
+      "origin_date": "2025-10-28",
+      "cutoff_utc": "2025-10-28T20:06:03Z",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "target_fiscal_year": 2026,
+      "target_fiscal_quarter": 1,
+      "age_seconds": 224,
+      "age_days": 0.0026,
+      "age_weeks": 0.0004,
+      "same_day": true,
+      "margin_seconds": 224,
+      "guidance_covers_target": "true",
+      "note": "LON-3 origin B; same-day Booking release; Q4 2025 guidance covers Visa FY2026Q1"
+    },
+    {
+      "origin_date": "2026-01-29",
+      "cutoff_utc": "2026-01-29T21:05:49Z",
+      "fiscal_year": 2026,
+      "fiscal_quarter": 1,
+      "target_fiscal_year": 2026,
+      "target_fiscal_quarter": 2,
+      "age_seconds": 8039010,
+      "age_days": 93.0441,
+      "age_weeks": 13.292,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "Same release is 13.3 weeks old; Q4 2025 guidance covers the quarter Visa has just reported, not the target"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "bkng_2025q3_room_nights_yoy",
+      "statement_type": "measured",
+      "activity_type": "room_nights",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 8.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "units",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Room nights grew",
+        "quote": "8%",
+        "char_start": 740,
+        "char_end": 742
+      },
+      "note": "YoY room nights growth, Q3 2025",
+      "attributes": {}
+    },
+    {
+      "observation_id": "bkng_2025q3_gross_bookings_cc_yoy",
+      "statement_type": "measured",
+      "activity_type": "gross_travel_bookings",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 10.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "constant_currency",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Gross bookings grew 14% compared to the third quarter of 2024, or",
+        "quote": "10%",
+        "char_start": 856,
+        "char_end": 859
+      },
+      "note": "YoY constant-currency gross bookings growth, Q3 2025 (as-reported was +14%)",
+      "attributes": {}
+    },
+    {
+      "observation_id": "bkng_2025q4_room_nights_guidance",
+      "statement_type": "guidance",
+      "activity_type": "room_nights",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": 4.0,
+      "range_high": 6.0,
+      "unit": "percent",
+      "basis": "units",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Room Nights Growth",
+        "quote": "4% - 6%",
+        "char_start": 6206,
+        "char_end": 6213
+      },
+      "note": "Q4 2025 room nights growth outlook; covers Visa FY2026Q1 target at origin B",
+      "attributes": {
+        "guidance_quarter": "2025Q4"
+      }
+    },
+    {
+      "observation_id": "bkng_2025q4_gross_bookings_cc_guidance",
+      "statement_type": "guidance",
+      "activity_type": "gross_travel_bookings",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": 6.0,
+      "range_high": 8.0,
+      "unit": "percent",
+      "basis": "constant_currency",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Constant Currency Gross Bookings Growth",
+        "quote": "6% - 8%",
+        "char_start": 6311,
+        "char_end": 6318
+      },
+      "note": "Q4 2025 constant-currency gross bookings growth outlook",
+      "attributes": {
+        "guidance_quarter": "2025Q4"
+      }
+    },
+    {
+      "observation_id": "bkng_2025q4_qtd_demand_qualitative",
+      "statement_type": "qualitative",
+      "activity_type": "travel_demand",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "booking",
+      "review_status": "pending",
+      "span": {
+        "anchor": "continued momentum with",
+        "quote": "steady travel demand trends in our business so far in the fourth quarter",
+        "char_start": 5963,
+        "char_end": 6035
+      },
+      "note": "Quarter-to-date qualitative forward commentary accompanying the outlook table",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Ex. 99.1 includes a Q4 2025 / FY 2025 guidance table; guidance tables begin with the Q2 2025 release.",
+    "Accepted 224 seconds before the Visa FY2025Q4 cutoff (same Eastern calendar day).",
+    "Booking constant-currency converts at prior-year monthly average rates by transactional currency; this differs from Visa's constant-dollar basis (definitions.md §5)."
+  ]
+}

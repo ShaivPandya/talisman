@@ -46,6 +46,15 @@ Census MARTS vintage gate (LON-5): parsed advance releases
 [`docs/gates/census.md`](docs/gates/census.md). Every Visa origin in
 `data/fixtures/origins.csv` now has Census timing columns.
 
+Booking Holdings family gate (LON-4): observation fixtures
+`data/fixtures/observations/booking_2024-05-02.json` and
+`booking_2025-10-28.json`, release calendar
+`data/fixtures/booking/release_calendar.csv`, retained Ex. 99.1 originals under
+`data/fixtures/booking/sources/`, and the gate report in
+[`docs/gates/booking.md`](docs/gates/booking.md). `origins.csv` now carries
+Booking age-in-weeks, same-day margin, guidance-covers-target and fallback
+accession columns.
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):

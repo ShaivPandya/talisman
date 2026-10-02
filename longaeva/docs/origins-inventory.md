@@ -55,27 +55,29 @@ Under the §2.3 cutoff convention the same-quarter 10-Q is typically accepted ho
 
 ## Booking release age at Visa cutoffs
 
-| Origin | Booking accession | Age (days) | Eligible |
-| --- | --- | --- | --- |
-| FY2022Q1 | `0001075531-21-000051` | 85.0 | true |
-| FY2022Q2 | `0001075531-22-000006` | 62.0 | true |
-| FY2022Q3 | `0001075531-22-000020` | 83.0 | true |
-| FY2022Q4 | `0001075531-22-000031` | 83.0 | true |
-| FY2023Q1 | `0001075531-22-000042` | 85.0 | true |
-| FY2023Q2 | `0001075531-23-000012` | 61.0 | true |
-| FY2023Q3 | `0001075531-23-000029` | 82.0 | true |
-| FY2023Q4 | `0001075531-23-000045` | 82.0 | true |
-| FY2024Q1 | `0001075531-23-000060` | 84.0 | true |
-| FY2024Q2 | `0001075531-24-000011` | 61.0 | true |
-| FY2024Q3 | `0001075531-24-000026` | 82.0 | true |
-| FY2024Q4 | `0001075531-24-000039` | 89.0 | true |
-| FY2025Q1 | `0001075531-24-000047` | 92.0 | true |
-| FY2025Q2 | `0001075531-25-000021` | 0.0 | true |
-| FY2025Q3 | `0001075531-25-000035` | 0.0 | true |
-| FY2025Q4 | `0001075531-25-000050` | 0.0 | true |
-| FY2026Q1 | `0001075531-25-000050` | 93.0 | true |
-| FY2026Q2 | `0001075531-26-000024` | 0.0 | true |
-| FY2026Q3 | `0001075531-26-000024` | 91.0 | true |
+| Origin | Booking accession | Age (days) | Age (weeks) | Same-day | Margin (s) | Guidance covers target | Fallback | Eligible |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| FY2022Q1 | `0001075531-21-000051` | 85.0 | 12.1491 | false |  | false | `` | true |
+| FY2022Q2 | `0001075531-22-000006` | 62.0 | 8.8514 | false |  | false | `` | true |
+| FY2022Q3 | `0001075531-22-000020` | 83.0 | 11.8572 | false |  | false | `` | true |
+| FY2022Q4 | `0001075531-22-000031` | 83.0 | 11.8571 | false |  | false | `` | true |
+| FY2023Q1 | `0001075531-22-000042` | 85.0 | 12.1489 | false |  | false | `` | true |
+| FY2023Q2 | `0001075531-23-000012` | 61.0 | 8.7086 | false |  | false | `` | true |
+| FY2023Q3 | `0001075531-23-000029` | 82.0 | 11.7146 | false |  | false | `` | true |
+| FY2023Q4 | `0001075531-23-000045` | 82.0 | 11.7145 | false |  | false | `` | true |
+| FY2024Q1 | `0001075531-23-000060` | 84.0 | 12.0062 | false |  | false | `` | true |
+| FY2024Q2 | `0001075531-24-000011` | 61.0 | 8.7087 | false |  | false | `` | true |
+| FY2024Q3 | `0001075531-24-000026` | 82.0 | 11.7146 | false |  | false | `` | true |
+| FY2024Q4 | `0001075531-24-000039` | 89.0 | 12.7144 | false |  | false | `` | true |
+| FY2025Q1 | `0001075531-24-000047` | 92.0 | 13.1490 | false |  | false | `` | true |
+| FY2025Q2 | `0001075531-25-000021` | 0.0 | 0.0001 | true | 71 | false | `0001075531-25-000009` | true |
+| FY2025Q3 | `0001075531-25-000035` | 0.0 | 0.0004 | true | 233 | true | `0001075531-25-000021` | true |
+| FY2025Q4 | `0001075531-25-000050` | 0.0 | 0.0004 | true | 224 | true | `0001075531-25-000035` | true |
+| FY2026Q1 | `0001075531-25-000050` | 93.0 | 13.2920 | false |  | false | `` | true |
+| FY2026Q2 | `0001075531-26-000024` | 0.0 | 0.0002 | true | 137 | true | `0001075531-26-000008` | true |
+| FY2026Q3 | `0001075531-26-000024` | 91.0 | 13.0002 | false |  | false | `` | true |
+
+Age is from Booking's EDGAR acceptance to the Visa cutoff. `same_day` is true when both accepted timestamps fall on the same US/Eastern calendar date. Since April 2025 four candidate origins are same-day (Booking accepted 71–233 seconds earlier); the evaluation should also report a variant that falls back to `booking_fallback_accession`. `guidance_covers_target` is true only when the Ex. 99.1 outlook table's next quarter equals Visa's target quarter mapped to a calendar quarter (see `docs/gates/booking.md`). Ex. 99.1 guidance tables begin with the 2025-07-29 release.
 
 ## Census release age at Visa cutoffs
 
@@ -125,4 +127,5 @@ Five earnings 8-K timestamps were compared to the `Accepted` field on the EDGAR 
 - LON-2: Visa driver and accounting definition stability across the window. **Done — 0 exclusions.**
 - LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention. **Done — complete with eligible-family inputs; 0 exclusions. See `docs/gates/starting-states.md`.**
 - LON-5: Census MARTS vintage timing relative to each Visa cutoff. **Done — every inventory origin has a Census advance release ≤ cutoff; 0 exclusions from timing. See `docs/gates/census.md`.**
+- LON-4: Booking Holdings family gate (measured + qualitative/guidance passages, staleness in weeks, same-day margin). **Done — required family with lagged measured rules and guidance only where it covers the Visa target quarter; same-day fallback variant required. See `docs/gates/booking.md`.**
 
