@@ -95,7 +95,7 @@ Five earnings 8-K timestamps were compared to the `Accepted` field on the EDGAR 
 
 ## Pending checks (can only lower the count)
 
-- LON-2: Visa driver and accounting definition stability across the window.
-- LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention.
+- LON-2: Visa driver and accounting definition stability across the window. **Done — 0 exclusions.**
+- LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention. **Done — complete with eligible-family inputs; 0 exclusions. See `docs/gates/starting-states.md`.**
 - LON-5: Census MARTS vintage timing relative to each Visa cutoff.
 

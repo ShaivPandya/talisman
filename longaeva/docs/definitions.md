@@ -344,14 +344,16 @@ Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
 | `effective_yield_data_processing` | ratio | derived | derived | derived | FY2017Q1 | FY2026Q3 | parameter_input |
 | `effective_yield_international` | ratio | derived | derived | derived | FY2017Q1 | FY2026Q3 | parameter_input |
 | `incentive_intensity` | ratio | derived | derived | derived | FY2017Q1 | FY2026Q3 | parameter_input |
-| `tax_rate` | ratio | gaap | current_quarter | form_10q | FY2017Q1 | FY2026Q3 | valuation |
-| `net_interest_other` | usd_millions | gaap | current_quarter | form_10q | FY2017Q1 | FY2026Q3 | valuation |
+| `tax_rate` | ratio | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | valuation |
+| `net_interest_other` | usd_millions | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | valuation |
 | `diluted_shares` | shares_millions | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | valuation |
 
 ## 13. Handoff notes
 
 - **LON-3:** Reconstruct starting states using these field names; nominal PV levels from the
-  prior-quarter 10-Q (period q−2 at cutoff q); apply §5.2 roll-forward.
+  prior-quarter 10-Q (period q−2 at cutoff q); apply §5.2 roll-forward. Done — see
+  `docs/gates/starting-states.md` and `data/fixtures/states/visa_*.json`.
+  `tax_rate` / `net_interest_other` source tags corrected to `earnings_release`.
 - **LON-8:** Second-wave families should map into
   `cross_border_ex_intra_europe_*` or `payments_volume_*` drivers under these definitions.
 - **LON-14:** Parser field names = `FIELDS` above; unit/basis tokens = §9; reproduce the

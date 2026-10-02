@@ -1,0 +1,274 @@
+{
+  "generated_for": "LON-3",
+  "retrieved_at": "2026-10-02T14:02:38Z",
+  "schema_version": 1,
+  "snapshot_path": "data/fixtures/edgar/filing_index.json",
+  "sources": [
+    {
+      "acceptance_utc": "2024-07-23T20:05:38Z",
+      "accession": "0001403161-24-000040",
+      "content_sha256": "c25ad024f6cc3c74893ec3ce4ff81edec3bed64d6f66b0a02b137043d0bc0d2b",
+      "document": "q32024earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "notes": [
+        "Origin A earnings release (FY2024Q3)"
+      ],
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001403161-24-000040/q32024earningsrelease.htm.gz",
+      "raw_bytes": 445091,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "acceptance_utc": "2024-04-23T20:05:39Z",
+      "accession": "0001403161-24-000027",
+      "content_sha256": "c890715c35b5487731efdd4f07058b40992460a9354aaac5e7efd7d364ce480a",
+      "document": "q22024earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "notes": [
+        "Prior-quarter release: nominal PV growth for FY2024Q2 (q\u22121)"
+      ],
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001403161-24-000027/q22024earningsrelease.htm.gz",
+      "raw_bytes": 429953,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000027/q22024earningsrelease.htm"
+    },
+    {
+      "acceptance_utc": "2024-04-23T22:06:59Z",
+      "accession": "0001403161-24-000030",
+      "content_sha256": "667e76b4ade6243e01b2794182586509d2634c51954b3576075af4d1b4df6aaf",
+      "document": "v-20240331.htm",
+      "form": "10-Q",
+      "notes": [
+        "Prior 10-Q at Origin A cutoff; PV for FY2024Q1 (q\u22122)"
+      ],
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001403161-24-000030/v-20240331.htm.gz",
+      "raw_bytes": 1750251,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000030/v-20240331.htm"
+    },
+    {
+      "acceptance_utc": "2023-07-25T22:21:55Z",
+      "accession": "0001403161-23-000072",
+      "content_sha256": "c7b796805192ab9453a847a308f5a07c21f5d081a097eefbcbd76b5705c3b263",
+      "document": "v-20230630.htm",
+      "form": "10-Q",
+      "notes": [
+        "FY2023Q3 10-Q: 3-month and 9-month PV totals through Mar 2023"
+      ],
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001403161-23-000072/v-20230630.htm.gz",
+      "raw_bytes": 1785600,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316123000072/v-20230630.htm"
+    },
+    {
+      "acceptance_utc": "2023-11-15T21:07:14Z",
+      "accession": "0001403161-23-000099",
+      "content_sha256": "45949fee6ec8b2c97c765d9c85d778c816b4b165e4274c54fe0093967d1acdb2",
+      "document": "v-20230930.htm",
+      "form": "10-K",
+      "notes": [
+        "FY2023 10-K: 12-month PV through Jun 2023"
+      ],
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001403161-23-000099/v-20230930.htm.gz",
+      "raw_bytes": 2871229,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316123000099/v-20230930.htm"
+    },
+    {
+      "acceptance_utc": "2024-07-23T22:12:59Z",
+      "accession": "0001403161-24-000041",
+      "content_sha256": "0640af364b83fd18966d35a98009811b57f90cf7b01698b1001ec1e2be9b4ec0",
+      "document": "v-20240630.htm",
+      "form": "10-Q",
+      "notes": [
+        "Same-quarter 10-Q for Origin A (2.12 h after cutoff); also input for Origin B",
+        "FY2024Q3 10-Q: year-ago totals for Origin B derivations"
+      ],
+      "origins": [
+        "2024-07-23",
+        "2025-10-28"
+      ],
+      "path": "0001403161-24-000041/v-20240630.htm.gz",
+      "raw_bytes": 1823532,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input",
+        "post_cutoff_check"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000041/v-20240630.htm"
+    },
+    {
+      "acceptance_utc": "2024-11-13T22:14:01Z",
+      "accession": "0001403161-24-000058",
+      "content_sha256": "8ec55f6d92676dbdb7789d2f560d119ea165c08d0261a63d178ee178db7bc4aa",
+      "document": "v-20240930.htm",
+      "form": "10-K",
+      "notes": [
+        "FY2024 10-K (post Origin A); input for Origin B",
+        "FY2024 10-K: 12-month PV through Jun/Sep 2024"
+      ],
+      "origins": [
+        "2024-07-23",
+        "2025-10-28"
+      ],
+      "path": "0001403161-24-000058/v-20240930.htm.gz",
+      "raw_bytes": 2880181,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input",
+        "post_cutoff_check"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000058/v-20240930.htm"
+    },
+    {
+      "acceptance_utc": "2025-10-28T20:06:03Z",
+      "accession": "0001403161-25-000077",
+      "content_sha256": "a7c7bfeb2847be1358e23f74200449cb406de044a2a052493d308cbd8bbcea8a",
+      "document": "q42025earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "notes": [
+        "Origin B earnings release (FY2025Q4)"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-25-000077/q42025earningsrelease.htm.gz",
+      "raw_bytes": 480282,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000077/q42025earningsrelease.htm"
+    },
+    {
+      "acceptance_utc": "2025-07-29T20:06:16Z",
+      "accession": "0001403161-25-000051",
+      "content_sha256": "84eb44ecad57bab37f5ed8b3bdd4fbd1bbf894adb2873b89f4d64bf5d5b154cd",
+      "document": "q32025earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "notes": [
+        "Prior-quarter release: nominal PV growth for FY2025Q3 (q\u22121)"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-25-000051/q32025earningsrelease.htm.gz",
+      "raw_bytes": 444912,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000051/q32025earningsrelease.htm"
+    },
+    {
+      "acceptance_utc": "2025-07-29T22:06:21Z",
+      "accession": "0001403161-25-000052",
+      "content_sha256": "3c414a0b4b596a056a201571ec94845848d5a643acd8413021e54e84595d9270",
+      "document": "v-20250630.htm",
+      "form": "10-Q",
+      "notes": [
+        "Prior 10-Q at Origin B cutoff; PV for FY2025Q2 (q\u22122)"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-25-000052/v-20250630.htm.gz",
+      "raw_bytes": 1843582,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000052/v-20250630.htm"
+    },
+    {
+      "acceptance_utc": "2025-01-30T23:06:50Z",
+      "accession": "0001403161-25-000017",
+      "content_sha256": "9361e93f4c78591846e96f7c811c61e9f4a73d6e37b66eb1ad83c29f6f4455cb",
+      "document": "v-20241231.htm",
+      "form": "10-Q",
+      "notes": [
+        "FY2025Q1 10-Q: 3-month PV through Sep 2024"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-25-000017/v-20241231.htm.gz",
+      "raw_bytes": 1372819,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "input"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000017/v-20241231.htm"
+    },
+    {
+      "acceptance_utc": "2025-11-06T21:09:41Z",
+      "accession": "0001403161-25-000089",
+      "content_sha256": "40c025df0e7f9d8a072cf8004b96296c2c3cfe3d2557ba259dffa324852f6d4c",
+      "document": "v-20250930.htm",
+      "form": "10-K",
+      "notes": [
+        "Same-quarter 10-K for Origin B (217 h after cutoff)"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-25-000089/v-20250930.htm.gz",
+      "raw_bytes": 2909569,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "post_cutoff_check"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000089/v-20250930.htm"
+    },
+    {
+      "acceptance_utc": "2026-01-29T23:08:26Z",
+      "accession": "0001403161-26-000045",
+      "content_sha256": "dd01dee397ddef0ca6e60e6f0d09c87d85da17d5aeb547eca1f2d7435ff69c5a",
+      "document": "v-20251231.htm",
+      "form": "10-Q",
+      "notes": [
+        "FY2026Q1 10-Q: later-reported PV for Origin B q\u22121 check"
+      ],
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001403161-26-000045/v-20251231.htm.gz",
+      "raw_bytes": 1377724,
+      "retrieval_ts": "2026-10-02T14:02:38Z",
+      "roles": [
+        "post_cutoff_check"
+      ],
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316126000045/v-20251231.htm"
+    }
+  ]
+}

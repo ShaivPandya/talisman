@@ -1,0 +1,904 @@
+{
+  "schema_version": 1,
+  "company": "visa",
+  "origin_date": "2024-07-23",
+  "cutoff_utc": "2024-07-23T20:05:38Z",
+  "fiscal_year": 2024,
+  "fiscal_quarter": 3,
+  "target_fiscal_year": 2024,
+  "target_fiscal_quarter": 4,
+  "release_accession": "0001403161-24-000040",
+  "prior_10q_accession": "0001403161-24-000030",
+  "sources": {
+    "0001403161-24-000040/q32024earningsrelease.htm": {
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "accession": "0001403161-24-000040",
+      "document": "q32024earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "acceptance_utc": "2024-07-23T20:05:38Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm",
+      "role": "input",
+      "content_sha256": "c25ad024f6cc3c74893ec3ce4ff81edec3bed64d6f66b0a02b137043d0bc0d2b",
+      "note": "Origin A earnings release FY2024Q3"
+    },
+    "0001403161-24-000027/q22024earningsrelease.htm": {
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "accession": "0001403161-24-000027",
+      "document": "q22024earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "acceptance_utc": "2024-04-23T20:05:39Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000027/q22024earningsrelease.htm",
+      "role": "input",
+      "content_sha256": "c890715c35b5487731efdd4f07058b40992460a9354aaac5e7efd7d364ce480a",
+      "note": "Prior-quarter release for nominal PV growth q-1"
+    },
+    "0001403161-24-000030/v-20240331.htm": {
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "accession": "0001403161-24-000030",
+      "document": "v-20240331.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2024-04-23T22:06:59Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000030/v-20240331.htm",
+      "role": "input",
+      "content_sha256": "667e76b4ade6243e01b2794182586509d2634c51954b3576075af4d1b4df6aaf",
+      "note": "Prior 10-Q; PV for FY2024Q1 (q-2)"
+    },
+    "0001403161-23-000072/v-20230630.htm": {
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "accession": "0001403161-23-000072",
+      "document": "v-20230630.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2023-07-25T22:21:55Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316123000072/v-20230630.htm",
+      "role": "input",
+      "content_sha256": "c7b796805192ab9453a847a308f5a07c21f5d081a097eefbcbd76b5705c3b263",
+      "note": "FY2023Q3 10-Q; year-ago 3m/9m PV"
+    },
+    "0001403161-23-000099/v-20230930.htm": {
+      "source_id": "0001403161-23-000099/v-20230930.htm",
+      "accession": "0001403161-23-000099",
+      "document": "v-20230930.htm",
+      "form": "10-K",
+      "acceptance_utc": "2023-11-15T21:07:14Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316123000099/v-20230930.htm",
+      "role": "input",
+      "content_sha256": "45949fee6ec8b2c97c765d9c85d778c816b4b165e4274c54fe0093967d1acdb2",
+      "note": "FY2023 10-K; 12m PV through Jun 2023"
+    },
+    "0001403161-24-000041/v-20240630.htm": {
+      "source_id": "0001403161-24-000041/v-20240630.htm",
+      "accession": "0001403161-24-000041",
+      "document": "v-20240630.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2024-07-23T22:12:59Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000041/v-20240630.htm",
+      "role": "post_cutoff_check",
+      "content_sha256": "0640af364b83fd18966d35a98009811b57f90cf7b01698b1001ec1e2be9b4ec0",
+      "note": "Same-quarter 10-Q (2.12h after cutoff)"
+    },
+    "0001403161-24-000058/v-20240930.htm": {
+      "source_id": "0001403161-24-000058/v-20240930.htm",
+      "accession": "0001403161-24-000058",
+      "document": "v-20240930.htm",
+      "form": "10-K",
+      "acceptance_utc": "2024-11-13T22:14:01Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000058/v-20240930.htm",
+      "role": "post_cutoff_check",
+      "content_sha256": "8ec55f6d92676dbdb7789d2f560d119ea165c08d0261a63d178ee178db7bc4aa",
+      "note": "FY2024 10-K later-reported PV(q)"
+    }
+  },
+  "values": {
+    "service_revenue": {
+      "name": "service_revenue",
+      "status": "measured",
+      "value": 3967.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Service revenue</font>",
+        "quote": "3,967",
+        "char_start": 54288,
+        "char_end": 54293
+      },
+      "note": ""
+    },
+    "data_processing_revenue": {
+      "name": "data_processing_revenue",
+      "status": "measured",
+      "value": 4489.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Data processing revenue</font>",
+        "quote": "4,489",
+        "char_start": 55284,
+        "char_end": 55289
+      },
+      "note": ""
+    },
+    "international_transaction_revenue": {
+      "name": "international_transaction_revenue",
+      "status": "measured",
+      "value": 3194.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "International transaction revenue</font>",
+        "quote": "3,194",
+        "char_start": 56290,
+        "char_end": 56295
+      },
+      "note": ""
+    },
+    "other_revenue": {
+      "name": "other_revenue",
+      "status": "measured",
+      "value": 780.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Other revenue</font>",
+        "quote": "780",
+        "char_start": 57276,
+        "char_end": 57279
+      },
+      "note": ""
+    },
+    "client_incentives": {
+      "name": "client_incentives",
+      "status": "measured",
+      "value": 3530.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Client incentives</font>",
+        "quote": "(3,530)",
+        "char_start": 58265,
+        "char_end": 58272
+      },
+      "note": "Contra-revenue; stored as positive magnitude"
+    },
+    "net_revenue": {
+      "name": "net_revenue",
+      "status": "measured",
+      "value": 8900.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Net revenue</font>",
+        "quote": "8,900",
+        "char_start": 59493,
+        "char_end": 59498
+      },
+      "note": "Quote is first income-statement-summary occurrence after Service revenue block"
+    },
+    "operating_expenses_gaap": {
+      "name": "operating_expenses_gaap",
+      "status": "measured",
+      "value": 2962.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Total operating expenses</font>",
+        "quote": "2,962",
+        "char_start": 60791,
+        "char_end": 60796
+      },
+      "note": ""
+    },
+    "operating_expenses_ex_special_items": {
+      "name": "operating_expenses_ex_special_items",
+      "status": "measured",
+      "value": 2927.0,
+      "unit": "usd_millions",
+      "basis": "ex_special_items",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Non-GAAP",
+        "quote": "2,927",
+        "char_start": 67768,
+        "char_end": 67773
+      },
+      "note": "Non-GAAP total operating expenses from income statement summary"
+    },
+    "special_items": {
+      "name": "special_items",
+      "status": "derived",
+      "value": 35.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Total operating expenses</font>",
+        "quote": "2,962",
+        "char_start": 60791,
+        "char_end": 60796
+      },
+      "derivation": {
+        "formula": "opex_gaap - opex_ex",
+        "inputs": {
+          "opex_gaap": 2962.0,
+          "opex_ex": 2927.0
+        },
+        "rounding_band": null
+      },
+      "note": "Net amount removed from GAAP opex in non-GAAP bridge (amort 48 + acq 28 + lit 10 + charity 67 \u2212 indirect-tax benefit 118)"
+    },
+    "operating_profit_gaap": {
+      "name": "operating_profit_gaap",
+      "status": "derived",
+      "value": 5938.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Net revenue</font>",
+        "quote": "8,900",
+        "char_start": 59493,
+        "char_end": 59498
+      },
+      "derivation": {
+        "formula": "net_revenue - opex_gaap",
+        "inputs": {
+          "net_revenue": 8900.0,
+          "opex_gaap": 2962.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "operating_profit_ex_special_items": {
+      "name": "operating_profit_ex_special_items",
+      "status": "derived",
+      "value": 5973.0,
+      "unit": "usd_millions",
+      "basis": "ex_special_items",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Non-GAAP",
+        "quote": "2,927",
+        "char_start": 67768,
+        "char_end": 67773
+      },
+      "derivation": {
+        "formula": "net_revenue - opex_ex",
+        "inputs": {
+          "net_revenue": 8900.0,
+          "opex_ex": 2927.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "payments_volume_nominal_us": {
+      "name": "payments_volume_nominal_us",
+      "status": "derived",
+      "value": 3324.3,
+      "unit": "usd_billions",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "5%",
+        "char_start": 76711,
+        "char_end": 76713
+      },
+      "derivation": {
+        "formula": "year_ago * (1 + growth_pct/100)",
+        "inputs": {
+          "year_ago": 3166.0,
+          "growth_pct": 5.0
+        },
+        "rounding_band": 15.83
+      },
+      "note": "Rolled-forward PV for origin quarter q from year-ago residual \u00d7 release nominal growth"
+    },
+    "cash_volume_nominal_us": {
+      "name": "cash_volume_nominal_us",
+      "status": "measured",
+      "value": 634.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2024Q1",
+      "period_start": "2023-10-01",
+      "period_end": "2023-12-31",
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "span": {
+        "anchor": "Cash volume",
+        "quote": "634",
+        "char_start": 1452328,
+        "char_end": 1452331
+      },
+      "note": "Visa cash volume for q-2"
+    },
+    "total_volume_nominal_us": {
+      "name": "total_volume_nominal_us",
+      "status": "measured",
+      "value": 3914.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2024Q1",
+      "period_start": "2023-10-01",
+      "period_end": "2023-12-31",
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "span": {
+        "anchor": "Total nominal volume",
+        "quote": "3,914",
+        "char_start": 1458357,
+        "char_end": 1458362
+      },
+      "note": "Visa total nominal volume for q-2"
+    },
+    "processed_transactions_count": {
+      "name": "processed_transactions_count",
+      "status": "measured",
+      "value": 59300.0,
+      "unit": "transactions_millions",
+      "basis": "count",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "three months ended June 30, 2024, were ",
+        "quote": "59.3",
+        "char_start": 22172,
+        "char_end": 22176
+      },
+      "note": "59.3 billion transactions = 59,300 million"
+    },
+    "payments_volume_growth_constant": {
+      "name": "payments_volume_growth_constant",
+      "status": "measured",
+      "value": 7.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "7%",
+        "char_start": 76467,
+        "char_end": 76469
+      },
+      "note": ""
+    },
+    "payments_volume_growth_nominal": {
+      "name": "payments_volume_growth_nominal",
+      "status": "measured",
+      "value": 5.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "5%",
+        "char_start": 76711,
+        "char_end": 76713
+      },
+      "note": ""
+    },
+    "payments_volume_prior_quarter_growth_constant": {
+      "name": "payments_volume_prior_quarter_growth_constant",
+      "status": "measured",
+      "value": 8.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2024Q2",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "on which fiscal third quarter service revenue is recognized, increased ",
+        "quote": "8%",
+        "char_start": 20619,
+        "char_end": 20621
+      },
+      "note": ""
+    },
+    "cross_border_ex_intra_europe_growth_constant": {
+      "name": "cross_border_ex_intra_europe_growth_constant",
+      "status": "measured",
+      "value": 14.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume excluding intra-Europe",
+        "quote": "14%",
+        "char_start": 77362,
+        "char_end": 77365
+      },
+      "note": ""
+    },
+    "cross_border_ex_intra_europe_growth_nominal": {
+      "name": "cross_border_ex_intra_europe_growth_nominal",
+      "status": "measured",
+      "value": 12.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume excluding intra-Europe",
+        "quote": "12%",
+        "char_start": 77607,
+        "char_end": 77610
+      },
+      "note": ""
+    },
+    "cross_border_total_growth_constant": {
+      "name": "cross_border_total_growth_constant",
+      "status": "measured",
+      "value": 14.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume total",
+        "quote": "14%",
+        "char_start": 78060,
+        "char_end": 78063
+      },
+      "note": ""
+    },
+    "cross_border_total_growth_nominal": {
+      "name": "cross_border_total_growth_nominal",
+      "status": "measured",
+      "value": 12.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume total",
+        "quote": "12%",
+        "char_start": 78305,
+        "char_end": 78308
+      },
+      "note": ""
+    },
+    "processed_transactions_growth": {
+      "name": "processed_transactions_growth",
+      "status": "measured",
+      "value": 10.0,
+      "unit": "percent",
+      "basis": "count",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Processed transactions</font>",
+        "quote": "10%",
+        "char_start": 78755,
+        "char_end": 78758
+      },
+      "note": "Anchor uses closing tag unique to KBD row"
+    },
+    "payments_volume_index_nominal": {
+      "name": "payments_volume_index_nominal",
+      "status": "derived",
+      "value": 101.35060975609755,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "5%",
+        "char_start": 76711,
+        "char_end": 76713
+      },
+      "derivation": {
+        "formula": "year_ago * (1 + growth_pct/100)",
+        "inputs": {
+          "year_ago": 96.52439024390245,
+          "growth_pct": 5.0
+        },
+        "rounding_band": 0.482622
+      },
+      "note": "Index=100 at measured q-2 PV; rolled with same nominal growth as PV(q)"
+    },
+    "cross_border_ex_intra_europe_index_nominal": {
+      "name": "cross_border_ex_intra_europe_index_nominal",
+      "status": "unavailable_at_cutoff",
+      "value": null,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "source_id": null,
+      "span": null,
+      "unavailable_reason": "No cross-border volume level is disclosed at any filing; only growth rates. Index deferred to LON-19/LON-20.",
+      "first_post_cutoff_source_id": null,
+      "note": "MR-01: growth rates remain growth rates unless a level is supported"
+    },
+    "processed_transactions_index": {
+      "name": "processed_transactions_index",
+      "status": "derived",
+      "value": 100.0,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "three months ended June 30, 2024, were ",
+        "quote": "59.3",
+        "char_start": 22172,
+        "char_end": 22176
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 59300.0,
+          "b": 593.0
+        },
+        "rounding_band": null
+      },
+      "note": "Index set to 100 at this origin's processed_transactions_count (59,300 million); scale factor 593 stored for recompute"
+    },
+    "effective_yield_service": {
+      "name": "effective_yield_service",
+      "status": "derived",
+      "value": 0.0012537966302042672,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Service revenue",
+        "quote": "3,967",
+        "char_start": 54288,
+        "char_end": 54293
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 3967.0,
+          "b": 3163990.0000000005
+        },
+        "rounding_band": null
+      },
+      "note": "service_revenue (USD millions) / PV(q-1) (USD millions)"
+    },
+    "effective_yield_data_processing": {
+      "name": "effective_yield_data_processing",
+      "status": "derived",
+      "value": 0.07569983136593592,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Data processing revenue",
+        "quote": "4,489",
+        "char_start": 55284,
+        "char_end": 55289
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 4489.0,
+          "b": 59300.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "effective_yield_international": {
+      "name": "effective_yield_international",
+      "status": "unavailable_at_cutoff",
+      "value": null,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "source_id": null,
+      "span": null,
+      "unavailable_reason": "Requires a cross-border volume level; none disclosed at cutoff.",
+      "first_post_cutoff_source_id": null,
+      "note": ""
+    },
+    "incentive_intensity": {
+      "name": "incentive_intensity",
+      "status": "derived",
+      "value": 0.2839903459372486,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Client incentives",
+        "quote": "(3,530)",
+        "char_start": 58265,
+        "char_end": 58272
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 3530.0,
+          "b": 12430.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "tax_rate": {
+      "name": "tax_rate",
+      "status": "measured",
+      "value": 0.186,
+      "unit": "ratio",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "GAAP effective income tax rate was ",
+        "quote": "18.6",
+        "char_start": 24817,
+        "char_end": 24821
+      },
+      "note": "Stored as ratio 0.186; quote is percent points"
+    },
+    "net_interest_other": {
+      "name": "net_interest_other",
+      "status": "measured",
+      "value": 51.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Non-operating income (expense)",
+        "quote": "51",
+        "char_start": 61846,
+        "char_end": 61848
+      },
+      "note": ""
+    },
+    "diluted_shares": {
+      "name": "diluted_shares",
+      "status": "measured",
+      "value": 2029.0,
+      "unit": "shares_millions",
+      "basis": "gaap",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "span": {
+        "anchor": "Diluted Weighted-average Shares Outstanding",
+        "quote": "2,029",
+        "char_start": 212461,
+        "char_end": 212466
+      },
+      "note": ""
+    }
+  },
+  "supporting_levels": {
+    "pv_q_minus_2": {
+      "key": "pv_q_minus_2",
+      "value": 3280.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2024Q1",
+      "period_start": "2023-10-01",
+      "period_end": "2023-12-31",
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "3,280",
+        "char_start": 1447357,
+        "char_end": 1447362
+      },
+      "note": "Visa total nominal PV for FY2024Q1 (q-2)"
+    },
+    "pv_year_ago_q_minus_1": {
+      "key": "pv_year_ago_q_minus_1",
+      "value": 2957.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2023Q2",
+      "period_start": "2023-01-01",
+      "period_end": "2023-03-31",
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "2,957",
+        "char_start": 1473512,
+        "char_end": 1473517
+      },
+      "note": "Visa PV for FY2023Q2"
+    },
+    "pv_ttm_jun_2023": {
+      "key": "pv_ttm_jun_2023",
+      "value": 12074.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "TTM_2023-06-30",
+      "period_start": "2022-07-01",
+      "period_end": "2023-06-30",
+      "source_id": "0001403161-23-000099/v-20230930.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "12,074",
+        "char_start": 676981,
+        "char_end": 676987
+      },
+      "note": "Visa 12-month PV ended Jun 2023"
+    },
+    "pv_nine_month_mar_2023": {
+      "key": "pv_nine_month_mar_2023",
+      "value": 8908.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "9M_2023-03-31",
+      "period_start": "2022-07-01",
+      "period_end": "2023-03-31",
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "8,908",
+        "char_start": 1514843,
+        "char_end": 1514848
+      },
+      "note": "Visa 9-month PV ended Mar 2023"
+    },
+    "pv_year_ago_q": {
+      "key": "pv_year_ago_q",
+      "value": 3166.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2023Q3",
+      "period_start": "2023-04-01",
+      "period_end": "2023-06-30",
+      "source_id": "0001403161-23-000099/v-20230930.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "12,074",
+        "char_start": 676981,
+        "char_end": 676987
+      },
+      "note": "Computed residual 12,074 \u2212 8,908 = 3,166; span points at TTM figure used in the residual"
+    },
+    "growth_q_minus_1_nominal": {
+      "key": "growth_q_minus_1_nominal",
+      "value": 7.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2024Q2",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "7%",
+        "char_start": 77402,
+        "char_end": 77404
+      },
+      "note": "Q2 FY2024 release nominal PV growth for rolling PV(q-1)"
+    }
+  },
+  "post_cutoff_comparisons": {
+    "derived_pv_q_minus_1": {
+      "value": 3163.9900000000002,
+      "formula": "year_ago * (1 + growth_pct/100)",
+      "inputs": {
+        "year_ago": 2957.0,
+        "growth_pct": 7.0
+      },
+      "rounding_band": 14.785,
+      "period_label": "FY2024Q2"
+    },
+    "later_reported": {
+      "pv_q_minus_1": {
+        "value": 3172.0,
+        "source_id": "0001403161-24-000041/v-20240630.htm",
+        "period_label": "FY2024Q2",
+        "note": "Three Months Ended March 31, 2024 Visa total from same-quarter 10-Q (post-cutoff)",
+        "derived_minus_reported": -8.01,
+        "within_rounding_band": true
+      },
+      "pv_year_ago_q_minus_1_restated": {
+        "value": 2963.0,
+        "source_id": "0001403161-24-000041/v-20240630.htm",
+        "note": "Year-ago column in post-cutoff 10-Q restates FY2023Q2 from 2,957 to 2,963",
+        "vintage_delta": 6.0
+      },
+      "pv_q": {
+        "value": 3328.0,
+        "source_ids": [
+          "0001403161-24-000058/v-20240930.htm",
+          "0001403161-24-000041/v-20240630.htm"
+        ],
+        "period_label": "FY2024Q3",
+        "note": "Later: (12,984 \u2212 9,656) from FY2024 10-K TTM Jun 2024 and FY2024Q3 10-Q 9M Mar 2024",
+        "derived_minus_reported": -3.7,
+        "within_rounding_band": true
+      }
+    }
+  },
+  "notes": [
+    "Cutoff convention: EDGAR acceptance of the FY2024Q3 earnings 8-K (data plan \u00a72.3 / D-03).",
+    "Release + prior 10-Q alone cannot produce PV(q-1) or PV(q); older eligible filings supply year-ago levels.",
+    "special_items = operating_expenses_gaap \u2212 operating_expenses_ex_special_items (= 35).",
+    "tax_rate and net_interest_other taken from the earnings release (LON-2 source tag updated to earnings_release).",
+    "client_incentives stored as positive magnitude; identity subtracts it.",
+    "processed_transactions_count: 59.3 billion \u2192 59,300 million."
+  ]
+}

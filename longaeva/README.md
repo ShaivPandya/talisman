@@ -33,6 +33,12 @@ Visa driver and accounting definitions (LON-2) are settled in
 [`docs/definitions.md`](docs/definitions.md); canonical field names live in
 `backend/longaeva_app/companies/visa/definitions.py`.
 
+Two reconciled historical starting states (LON-3) live at
+`data/fixtures/states/visa_2024-07-23.json` and
+`data/fixtures/states/visa_2025-10-28.json`, with retained EDGAR originals under
+`data/fixtures/states/sources/` and the gate report in
+[`docs/gates/starting-states.md`](docs/gates/starting-states.md).
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):

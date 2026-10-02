@@ -1,0 +1,907 @@
+{
+  "schema_version": 1,
+  "company": "visa",
+  "origin_date": "2025-10-28",
+  "cutoff_utc": "2025-10-28T20:06:03Z",
+  "fiscal_year": 2025,
+  "fiscal_quarter": 4,
+  "target_fiscal_year": 2026,
+  "target_fiscal_quarter": 1,
+  "release_accession": "0001403161-25-000077",
+  "prior_10q_accession": "0001403161-25-000052",
+  "sources": {
+    "0001403161-25-000077/q42025earningsrelease.htm": {
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "accession": "0001403161-25-000077",
+      "document": "q42025earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "acceptance_utc": "2025-10-28T20:06:03Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000077/q42025earningsrelease.htm",
+      "role": "input",
+      "content_sha256": "a7c7bfeb2847be1358e23f74200449cb406de044a2a052493d308cbd8bbcea8a",
+      "note": "Origin B earnings release FY2025Q4"
+    },
+    "0001403161-25-000051/q32025earningsrelease.htm": {
+      "source_id": "0001403161-25-000051/q32025earningsrelease.htm",
+      "accession": "0001403161-25-000051",
+      "document": "q32025earningsrelease.htm",
+      "form": "8-K Ex. 99.1",
+      "acceptance_utc": "2025-07-29T20:06:16Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000051/q32025earningsrelease.htm",
+      "role": "input",
+      "content_sha256": "84eb44ecad57bab37f5ed8b3bdd4fbd1bbf894adb2873b89f4d64bf5d5b154cd",
+      "note": "Prior-quarter release for nominal PV growth q-1"
+    },
+    "0001403161-25-000052/v-20250630.htm": {
+      "source_id": "0001403161-25-000052/v-20250630.htm",
+      "accession": "0001403161-25-000052",
+      "document": "v-20250630.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2025-07-29T22:06:21Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000052/v-20250630.htm",
+      "role": "input",
+      "content_sha256": "3c414a0b4b596a056a201571ec94845848d5a643acd8413021e54e84595d9270",
+      "note": "Prior 10-Q; PV for FY2025Q2 (q-2)"
+    },
+    "0001403161-24-000041/v-20240630.htm": {
+      "source_id": "0001403161-24-000041/v-20240630.htm",
+      "accession": "0001403161-24-000041",
+      "document": "v-20240630.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2024-07-23T22:12:59Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000041/v-20240630.htm",
+      "role": "input",
+      "content_sha256": "0640af364b83fd18966d35a98009811b57f90cf7b01698b1001ec1e2be9b4ec0",
+      "note": "FY2024Q3 10-Q; 9m PV through Mar 2024"
+    },
+    "0001403161-24-000058/v-20240930.htm": {
+      "source_id": "0001403161-24-000058/v-20240930.htm",
+      "accession": "0001403161-24-000058",
+      "document": "v-20240930.htm",
+      "form": "10-K",
+      "acceptance_utc": "2024-11-13T22:14:01Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000058/v-20240930.htm",
+      "role": "input",
+      "content_sha256": "8ec55f6d92676dbdb7789d2f560d119ea165c08d0261a63d178ee178db7bc4aa",
+      "note": "FY2024 10-K; 12m PV through Jun 2024"
+    },
+    "0001403161-25-000017/v-20241231.htm": {
+      "source_id": "0001403161-25-000017/v-20241231.htm",
+      "accession": "0001403161-25-000017",
+      "document": "v-20241231.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2025-01-30T23:06:50Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000017/v-20241231.htm",
+      "role": "input",
+      "content_sha256": "9361e93f4c78591846e96f7c811c61e9f4a73d6e37b66eb1ad83c29f6f4455cb",
+      "note": "FY2025Q1 10-Q; PV for FY2024Q4"
+    },
+    "0001403161-25-000089/v-20250930.htm": {
+      "source_id": "0001403161-25-000089/v-20250930.htm",
+      "accession": "0001403161-25-000089",
+      "document": "v-20250930.htm",
+      "form": "10-K",
+      "acceptance_utc": "2025-11-06T21:09:41Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316125000089/v-20250930.htm",
+      "role": "post_cutoff_check",
+      "content_sha256": "40c025df0e7f9d8a072cf8004b96296c2c3cfe3d2557ba259dffa324852f6d4c",
+      "note": "Same-quarter 10-K (217h after cutoff)"
+    },
+    "0001403161-26-000045/v-20251231.htm": {
+      "source_id": "0001403161-26-000045/v-20251231.htm",
+      "accession": "0001403161-26-000045",
+      "document": "v-20251231.htm",
+      "form": "10-Q",
+      "acceptance_utc": "2026-01-29T23:08:26Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316126000045/v-20251231.htm",
+      "role": "post_cutoff_check",
+      "content_sha256": "dd01dee397ddef0ca6e60e6f0d09c87d85da17d5aeb547eca1f2d7435ff69c5a",
+      "note": "FY2026Q1 10-Q later-reported PV"
+    }
+  },
+  "values": {
+    "service_revenue": {
+      "name": "service_revenue",
+      "status": "measured",
+      "value": 4602.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Service revenue</font>",
+        "quote": "4,602",
+        "char_start": 72692,
+        "char_end": 72697
+      },
+      "note": ""
+    },
+    "data_processing_revenue": {
+      "name": "data_processing_revenue",
+      "status": "measured",
+      "value": 5394.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Data processing revenue</font>",
+        "quote": "5,394",
+        "char_start": 74632,
+        "char_end": 74637
+      },
+      "note": ""
+    },
+    "international_transaction_revenue": {
+      "name": "international_transaction_revenue",
+      "status": "measured",
+      "value": 3800.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "International transaction revenue</font>",
+        "quote": "3,800",
+        "char_start": 76411,
+        "char_end": 76416
+      },
+      "note": ""
+    },
+    "other_revenue": {
+      "name": "other_revenue",
+      "status": "measured",
+      "value": 1176.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Other revenue</font>",
+        "quote": "1,176",
+        "char_start": 78170,
+        "char_end": 78175
+      },
+      "note": ""
+    },
+    "client_incentives": {
+      "name": "client_incentives",
+      "status": "measured",
+      "value": 4248.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Client incentives</font>",
+        "quote": "(4,248)",
+        "char_start": 79932,
+        "char_end": 79939
+      },
+      "note": ""
+    },
+    "net_revenue": {
+      "name": "net_revenue",
+      "status": "measured",
+      "value": 10724.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Net revenue</font>",
+        "quote": "10,724",
+        "char_start": 81928,
+        "char_end": 81934
+      },
+      "note": ""
+    },
+    "operating_expenses_gaap": {
+      "name": "operating_expenses_gaap",
+      "status": "measured",
+      "value": 4576.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Total operating expenses</font>",
+        "quote": "4,576",
+        "char_start": 84690,
+        "char_end": 84695
+      },
+      "note": ""
+    },
+    "operating_expenses_ex_special_items": {
+      "name": "operating_expenses_ex_special_items",
+      "status": "measured",
+      "value": 3611.0,
+      "unit": "usd_millions",
+      "basis": "ex_special_items",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Non-GAAP",
+        "quote": "3,611",
+        "char_start": 97089,
+        "char_end": 97094
+      },
+      "note": ""
+    },
+    "special_items": {
+      "name": "special_items",
+      "status": "derived",
+      "value": 965.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Total operating expenses</font>",
+        "quote": "4,576",
+        "char_start": 84690,
+        "char_end": 84695
+      },
+      "derivation": {
+        "formula": "opex_gaap - opex_ex",
+        "inputs": {
+          "opex_gaap": 4576.0,
+          "opex_ex": 3611.0
+        },
+        "rounding_band": null
+      },
+      "note": "Bridge: amort 54 + acq 12 + litigation 899 = 965"
+    },
+    "operating_profit_gaap": {
+      "name": "operating_profit_gaap",
+      "status": "derived",
+      "value": 6148.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Net revenue</font>",
+        "quote": "10,724",
+        "char_start": 81928,
+        "char_end": 81934
+      },
+      "derivation": {
+        "formula": "net_revenue - opex_gaap",
+        "inputs": {
+          "net_revenue": 10724.0,
+          "opex_gaap": 4576.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "operating_profit_ex_special_items": {
+      "name": "operating_profit_ex_special_items",
+      "status": "derived",
+      "value": 7113.0,
+      "unit": "usd_millions",
+      "basis": "ex_special_items",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Non-GAAP",
+        "quote": "3,611",
+        "char_start": 97089,
+        "char_end": 97094
+      },
+      "derivation": {
+        "formula": "net_revenue - opex_ex",
+        "inputs": {
+          "net_revenue": 10724.0,
+          "opex_ex": 3611.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "payments_volume_nominal_us": {
+      "name": "payments_volume_nominal_us",
+      "status": "derived",
+      "value": 3716.9,
+      "unit": "usd_billions",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "9%",
+        "char_start": 112485,
+        "char_end": 112487
+      },
+      "derivation": {
+        "formula": "year_ago * (1 + growth_pct/100)",
+        "inputs": {
+          "year_ago": 3410.0,
+          "growth_pct": 9.0
+        },
+        "rounding_band": 17.05
+      },
+      "note": "PV(q)=PV(FY2024Q4)\u00d7(1+0.09); span cites KBD nominal (=constant) 9%"
+    },
+    "cash_volume_nominal_us": {
+      "name": "cash_volume_nominal_us",
+      "status": "measured",
+      "value": 599.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2025Q2",
+      "period_start": "2025-01-01",
+      "period_end": "2025-03-31",
+      "source_id": "0001403161-25-000052/v-20250630.htm",
+      "span": {
+        "anchor": "Cash volume",
+        "quote": "599",
+        "char_start": 1524587,
+        "char_end": 1524590
+      },
+      "note": "Will verify against HTML; placeholder if locate fails"
+    },
+    "total_volume_nominal_us": {
+      "name": "total_volume_nominal_us",
+      "status": "measured",
+      "value": 3943.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2025Q2",
+      "period_start": "2025-01-01",
+      "period_end": "2025-03-31",
+      "source_id": "0001403161-25-000052/v-20250630.htm",
+      "span": {
+        "anchor": "Total nominal volume",
+        "quote": "3,943",
+        "char_start": 1530617,
+        "char_end": 1530622
+      },
+      "note": "Will verify"
+    },
+    "processed_transactions_count": {
+      "name": "processed_transactions_count",
+      "status": "measured",
+      "value": 67700.0,
+      "unit": "transactions_millions",
+      "basis": "count",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "three months ended September 30, 2025, were ",
+        "quote": "67.7",
+        "char_start": 29562,
+        "char_end": 29566
+      },
+      "note": "67.7 billion = 67,700 million"
+    },
+    "payments_volume_growth_constant": {
+      "name": "payments_volume_growth_constant",
+      "status": "measured",
+      "value": 9.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "9%",
+        "char_start": 112485,
+        "char_end": 112487
+      },
+      "note": ""
+    },
+    "payments_volume_growth_nominal": {
+      "name": "payments_volume_growth_nominal",
+      "status": "measured",
+      "value": 9.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Payments volume</font>",
+        "quote": "9%",
+        "char_start": 112485,
+        "char_end": 112487
+      },
+      "note": "Second 9% in KBD payments row is nominal; locate uses first after anchor \u2014 both equal 9"
+    },
+    "payments_volume_prior_quarter_growth_constant": {
+      "name": "payments_volume_prior_quarter_growth_constant",
+      "status": "measured",
+      "value": 8.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2025Q3",
+      "period_start": "2025-04-01",
+      "period_end": "2025-06-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "on which fiscal fourth quarter service revenue is recognized, increased ",
+        "quote": "8%",
+        "char_start": 27995,
+        "char_end": 27997
+      },
+      "note": ""
+    },
+    "cross_border_ex_intra_europe_growth_constant": {
+      "name": "cross_border_ex_intra_europe_growth_constant",
+      "status": "measured",
+      "value": 11.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume excluding intra-Europe",
+        "quote": "11%",
+        "char_start": 113868,
+        "char_end": 113871
+      },
+      "note": ""
+    },
+    "cross_border_ex_intra_europe_growth_nominal": {
+      "name": "cross_border_ex_intra_europe_growth_nominal",
+      "status": "measured",
+      "value": 14.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume excluding intra-Europe",
+        "quote": "14%",
+        "char_start": 114113,
+        "char_end": 114116
+      },
+      "note": ""
+    },
+    "cross_border_total_growth_constant": {
+      "name": "cross_border_total_growth_constant",
+      "status": "measured",
+      "value": 12.0,
+      "unit": "percent",
+      "basis": "constant_dollar",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume total",
+        "quote": "12%",
+        "char_start": 115056,
+        "char_end": 115059
+      },
+      "note": ""
+    },
+    "cross_border_total_growth_nominal": {
+      "name": "cross_border_total_growth_nominal",
+      "status": "measured",
+      "value": 17.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Cross-border volume total",
+        "quote": "17%",
+        "char_start": 115301,
+        "char_end": 115304
+      },
+      "note": ""
+    },
+    "processed_transactions_growth": {
+      "name": "processed_transactions_growth",
+      "status": "measured",
+      "value": 10.0,
+      "unit": "percent",
+      "basis": "count",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Processed transactions</font>",
+        "quote": "10%",
+        "char_start": 116241,
+        "char_end": 116244
+      },
+      "note": ""
+    },
+    "payments_volume_index_nominal": {
+      "name": "payments_volume_index_nominal",
+      "status": "derived",
+      "value": 111.15131578947368,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "9%",
+        "char_start": 112485,
+        "char_end": 112487
+      },
+      "derivation": {
+        "formula": "year_ago * (1 + growth_pct/100)",
+        "inputs": {
+          "year_ago": 101.97368421052632,
+          "growth_pct": 9.0
+        },
+        "rounding_band": 0.509868
+      },
+      "note": ""
+    },
+    "cross_border_ex_intra_europe_index_nominal": {
+      "name": "cross_border_ex_intra_europe_index_nominal",
+      "status": "unavailable_at_cutoff",
+      "value": null,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "source_id": null,
+      "span": null,
+      "unavailable_reason": "No cross-border volume level disclosed at cutoff.",
+      "first_post_cutoff_source_id": null,
+      "note": ""
+    },
+    "processed_transactions_index": {
+      "name": "processed_transactions_index",
+      "status": "derived",
+      "value": 100.0,
+      "unit": "index",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "three months ended September 30, 2025, were ",
+        "quote": "67.7",
+        "char_start": 29562,
+        "char_end": 29566
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 67700.0,
+          "b": 677.0
+        },
+        "rounding_band": null
+      },
+      "note": "Index=100 at this origin's processed_transactions_count"
+    },
+    "effective_yield_service": {
+      "name": "effective_yield_service",
+      "status": "derived",
+      "value": 0.0012686353211009173,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Service revenue",
+        "quote": "4,602",
+        "char_start": 72692,
+        "char_end": 72697
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 4602.0,
+          "b": 3627520.0000000005
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "effective_yield_data_processing": {
+      "name": "effective_yield_data_processing",
+      "status": "derived",
+      "value": 0.07967503692762186,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Data processing revenue",
+        "quote": "5,394",
+        "char_start": 74632,
+        "char_end": 74637
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 5394.0,
+          "b": 67700.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "effective_yield_international": {
+      "name": "effective_yield_international",
+      "status": "unavailable_at_cutoff",
+      "value": null,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": null,
+      "period_start": null,
+      "period_end": null,
+      "source_id": null,
+      "span": null,
+      "unavailable_reason": "Requires a cross-border volume level; none disclosed at cutoff.",
+      "first_post_cutoff_source_id": null,
+      "note": ""
+    },
+    "incentive_intensity": {
+      "name": "incentive_intensity",
+      "status": "derived",
+      "value": 0.28372962864012824,
+      "unit": "ratio",
+      "basis": "derived",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Client incentives",
+        "quote": "(4,248)",
+        "char_start": 79932,
+        "char_end": 79939
+      },
+      "derivation": {
+        "formula": "a / b",
+        "inputs": {
+          "a": 4248.0,
+          "b": 14972.0
+        },
+        "rounding_band": null
+      },
+      "note": ""
+    },
+    "tax_rate": {
+      "name": "tax_rate",
+      "status": "measured",
+      "value": 0.182,
+      "unit": "ratio",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "GAAP effective income tax rate was ",
+        "quote": "18.2",
+        "char_start": 32324,
+        "char_end": 32328
+      },
+      "note": ""
+    },
+    "net_interest_other": {
+      "name": "net_interest_other",
+      "status": "measured",
+      "value": 75.0,
+      "unit": "usd_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Non-operating income (expense)",
+        "quote": "75",
+        "char_start": 86688,
+        "char_end": 86690
+      },
+      "note": ""
+    },
+    "diluted_shares": {
+      "name": "diluted_shares",
+      "status": "measured",
+      "value": 1945.0,
+      "unit": "shares_millions",
+      "basis": "gaap",
+      "period_label": "FY2025Q4",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
+      "span": {
+        "anchor": "Diluted Weighted-average Shares Outstanding",
+        "quote": "1,945",
+        "char_start": 251989,
+        "char_end": 251994
+      },
+      "note": ""
+    }
+  },
+  "supporting_levels": {
+    "pv_q_minus_2": {
+      "key": "pv_q_minus_2",
+      "value": 3344.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2025Q2",
+      "period_start": "2025-01-01",
+      "period_end": "2025-03-31",
+      "source_id": "0001403161-25-000052/v-20250630.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "3,344",
+        "char_start": 1519614,
+        "char_end": 1519619
+      },
+      "note": "Visa PV for FY2025Q2 (q-2)"
+    },
+    "pv_ttm_jun_2024": {
+      "key": "pv_ttm_jun_2024",
+      "value": 12984.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "TTM_2024-06-30",
+      "period_start": "2023-07-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000058/v-20240930.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "12,984",
+        "char_start": 724760,
+        "char_end": 724766
+      },
+      "note": ""
+    },
+    "pv_nine_month_mar_2024": {
+      "key": "pv_nine_month_mar_2024",
+      "value": 9656.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "9M_2024-03-31",
+      "period_start": "2023-07-01",
+      "period_end": "2024-03-31",
+      "source_id": "0001403161-24-000041/v-20240630.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "9,656",
+        "char_start": 1556341,
+        "char_end": 1556346
+      },
+      "note": ""
+    },
+    "pv_year_ago_q_minus_1": {
+      "key": "pv_year_ago_q_minus_1",
+      "value": 3328.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2024Q3",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "source_id": "0001403161-24-000058/v-20240930.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "12,984",
+        "char_start": 724760,
+        "char_end": 724766
+      },
+      "note": "Residual 12,984 \u2212 9,656 = 3,328 (FY2024Q3)"
+    },
+    "pv_year_ago_q": {
+      "key": "pv_year_ago_q",
+      "value": 3410.0,
+      "unit": "usd_billions",
+      "basis": "nominal",
+      "period_label": "FY2024Q4",
+      "period_start": "2024-07-01",
+      "period_end": "2024-09-30",
+      "source_id": "0001403161-25-000017/v-20241231.htm",
+      "span": {
+        "anchor": "Total nominal payments volume",
+        "quote": "3,410",
+        "char_start": 1150837,
+        "char_end": 1150842
+      },
+      "note": "Visa PV for FY2024Q4"
+    },
+    "growth_q_minus_1_nominal": {
+      "key": "growth_q_minus_1_nominal",
+      "value": 9.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "period_label": "FY2025Q3",
+      "period_start": "2025-04-01",
+      "period_end": "2025-06-30",
+      "source_id": "0001403161-25-000051/q32025earningsrelease.htm",
+      "span": {
+        "anchor": "KEY BUSINESS DRIVERS",
+        "quote": "9%",
+        "char_start": 75255,
+        "char_end": 75257
+      },
+      "note": "Q3 FY2025 release nominal PV growth"
+    }
+  },
+  "post_cutoff_comparisons": {
+    "derived_pv_q_minus_1": {
+      "value": 3627.5200000000004,
+      "formula": "year_ago * (1 + growth_pct/100)",
+      "inputs": {
+        "year_ago": 3328.0,
+        "growth_pct": 9.0
+      },
+      "rounding_band": 16.64,
+      "period_label": "FY2025Q3"
+    },
+    "later_reported": {
+      "pv_q_minus_1": {
+        "value": 3617.0,
+        "source_ids": [
+          "0001403161-25-000089/v-20250930.htm",
+          "0001403161-25-000052/v-20250630.htm"
+        ],
+        "period_label": "FY2025Q3",
+        "note": "FY2025 10-K TTM Jun 2025 (13,894) \u2212 prior-10-Q 9M Mar 2025 (10,277) = 3,617",
+        "derived_minus_reported": 10.52,
+        "within_rounding_band": true
+      },
+      "pv_q": {
+        "value": 3732.0,
+        "source_id": "0001403161-26-000045/v-20251231.htm",
+        "period_label": "FY2025Q4",
+        "note": "FY2026Q1 10-Q Three Months Ended September 30, 2025 Visa total",
+        "derived_minus_reported": -15.1,
+        "within_rounding_band": true
+      }
+    }
+  },
+  "notes": [
+    "Cutoff convention: EDGAR acceptance of the FY2025Q4 earnings 8-K (data plan \u00a72.3 / D-03).",
+    "Same-quarter 10-K arrives 217 hours after cutoff and still does not publish PV(q); keep \u00a72.3.",
+    "special_items = 965 (= amort 54 + acquisition-related 12 + litigation 899).",
+    "processed_transactions_count: 67.7 billion \u2192 67,700 million."
+  ]
+}
