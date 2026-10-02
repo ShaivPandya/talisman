@@ -27,6 +27,20 @@ def cmd_export_openapi(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_check(args: argparse.Namespace) -> int:
+    """Run the isolation guard (LON-12) or list the export file set."""
+    from longaeva_app.isolation_guard import format_findings, list_export_paths, scan
+
+    root = Path(args.root).resolve() if args.root else None
+    if args.list:
+        for rel in list_export_paths(root):
+            print(rel)
+        return 0
+    findings = scan(root, strict=bool(args.strict))
+    print(format_findings(findings))
+    return 1 if findings else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -41,6 +55,27 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Output path (default: {DEFAULT_OPENAPI_PATH})",
     )
     openapi.set_defaults(func=cmd_export_openapi)
+
+    guard = sub.add_parser(
+        "export-check",
+        help="Run the isolation guard over the export set (LON-12)",
+    )
+    guard.add_argument(
+        "--root",
+        default=None,
+        help="Package root containing .exportignore (default: LONGAEVA_GUARD_ROOT or PACKAGE_ROOT)",
+    )
+    guard.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also fail when excluded paths (e.g. .env) are present — for unpacked export copies",
+    )
+    guard.add_argument(
+        "--list",
+        action="store_true",
+        help="Print the export file set (relative paths) and exit 0",
+    )
+    guard.set_defaults(func=cmd_export_check)
 
     return parser
 

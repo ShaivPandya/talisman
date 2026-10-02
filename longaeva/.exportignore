@@ -1,0 +1,35 @@
+# Exclusion manifest for the submission export (LON-12 / PR-07).
+# Gitignore syntax, applied by longaeva_app.isolation_guard and later
+# by scripts/export_submission.sh (LON-24).
+
+# Secrets and local environment (keep the committed example)
+.env
+.env.*
+!.env.example
+
+# VCS and local tooling
+.git/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
+.DS_Store
+*.log
+.idea/
+.vscode/
+.cursor/
+
+# Frontend and build artifacts
+node_modules/
+dist/
+build/
+
+# Runtime artifact store (created under the package when unset)
+var/

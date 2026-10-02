@@ -5,10 +5,14 @@ COMPOSE ?= docker compose
 PROJECT ?= longaeva
 export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 
-.PHONY: help up down logs check check-local seed lock build openapi
+# Mount the package root so the isolation guard (LON-12) can see README,
+# .exportignore, frontend/, data/, and docs/ (the API image only contains backend/).
+GUARD_MOUNT := -v "$(CURDIR):/srv/longaeva-src:ro" -e LONGAEVA_GUARD_ROOT=/srv/longaeva-src
+
+.PHONY: help up down logs check check-local seed lock build openapi guard
 
 help:
-	@echo "Targets: up down logs check check-local seed lock build openapi"
+	@echo "Targets: up down logs check check-local guard seed lock build openapi"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -26,16 +30,24 @@ build:
 check: build
 	$(COMPOSE) up -d --wait db
 	$(COMPOSE) run --rm --no-deps \
+		$(GUARD_MOUNT) \
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		-e LONGAEVA_REQUIRE_DB=1 \
 		-e LONGAEVA_TEST_DB=longaeva_test \
 		api sh -c 'scripts/check.sh'
+
+# Isolation guard only (LON-12). Uses the same root mount as ``check``.
+guard: build
+	$(COMPOSE) run --rm --no-deps \
+		$(GUARD_MOUNT) \
+		api python -m longaeva_app.cli export-check
 
 check-local:
 	cd backend && \
 	  if [[ ! -d .venv ]]; then python3.12 -m venv .venv; fi && \
 	  .venv/bin/pip install -q -r requirements-dev.txt -c requirements.lock && \
 	  LONGAEVA_REQUIRE_DB=1 DATABASE_URL=$${DATABASE_URL:-postgresql://longaeva:longaeva@127.0.0.1:55432/longaeva} \
+	    LONGAEVA_GUARD_ROOT="$(CURDIR)" \
 	    .venv/bin/bash scripts/check.sh
 
 seed:

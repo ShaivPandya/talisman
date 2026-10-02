@@ -93,7 +93,35 @@ make check
 ```
 
 Runs ruff, mypy, and pytest inside the API image against a disposable `longaeva_test`
-database.
+database. The isolation guard (LON-12) runs as part of pytest.
+
+```bash
+make guard
+```
+
+Runs only the isolation guard (`python -m longaeva_app.cli export-check`) against the
+export file set.
+
+## Isolation guard (LON-12)
+
+[`.exportignore`](.exportignore) is the exclusion manifest for the future submission
+ZIP (LON-24). The guard scans every path that would ship and fails on:
+
+- out-of-package Python/JS imports, path escapes, and absolute developer paths
+- symlinks, non-regular files, and `.env` files other than `.env.example`
+- secret-shaped strings and leaked values of local secret keys / `SEC_USER_AGENT`
+
+CLI:
+
+```bash
+python -m longaeva_app.cli export-check            # exit 1 on findings
+python -m longaeva_app.cli export-check --list      # print export paths
+python -m longaeva_app.cli export-check --strict    # also fail if excluded paths exist
+```
+
+`--strict` is for the unpacked export copy (LON-24), not the developer working tree
+(where a gitignored `.env` for `SEC_USER_AGENT` is expected). Personal-data checklist:
+[`docs/limitations.md`](docs/limitations.md).
 
 ## Seed
 
@@ -121,4 +149,4 @@ python3.12 -m venv .venv
 
 See `docs/reuse-notes.md` for Talisman pattern provenance (copied/adapted, never imported).
 
-Vite frontend, isolation guards, and demo data arrive in later issues (LON-11, LON-12, LON-37).
+Vite frontend and demo data arrive in later issues (LON-11, LON-37).
