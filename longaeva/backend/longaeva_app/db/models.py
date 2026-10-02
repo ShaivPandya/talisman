@@ -135,6 +135,7 @@ class DocumentText(Base):
         CheckConstraint("char_end >= char_start", name="char_span_order"),
         CheckConstraint("page >= 0", name="page_nonneg"),
         Index("ix_document_text_tsv", "tsv", postgresql_using="gin"),
+        Index("ix_document_text_text_hash", "text_hash"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -154,6 +155,14 @@ class DocumentText(Base):
     tsv: Mapped[Any] = mapped_column(
         TSVECTOR,
         Computed("to_tsvector('english', text)", persisted=True),
+        nullable=True,
+    )
+    text_hash: Mapped[str | None] = mapped_column(
+        Text,
+        Computed(
+            "md5(lower(btrim(regexp_replace(text, '\\s+', ' ', 'g'))))",
+            persisted=True,
+        ),
         nullable=True,
     )
 

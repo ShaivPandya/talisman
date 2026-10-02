@@ -1,3 +1,5 @@
+httpx>=0.28.0,<1
+pdfminer.six>=20240706,<20260201
 fastapi>=0.115.0,<1
 uvicorn[standard]>=0.32.0,<1
 SQLAlchemy>=2.0.36,<2.1

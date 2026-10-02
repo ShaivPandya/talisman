@@ -10,6 +10,8 @@ this package imports Talisman at runtime.
 | Job queue status model | `api/job_queue.py`, `api/async_job_runner.py` | Pattern only | Postgres table + `FOR UPDATE SKIP LOCKED` claim; single polling worker; no in-memory Talisman job runner and no app imports. |
 | `backend/longaeva_app/storage/local.py` | `api/state_storage.py` | Pattern only | Local atomic write (`tempfile` + `os.replace`), directory layout under `ARTIFACT_DIR`; no GCS branch and no Talisman project write-guard import. Keys are relative POSIX paths only. |
 | Source publication vs retrieval timestamps | `ontology/temporal_repository.py` (`SourceRecordWrite`) | Pattern only | Valid-time / transaction-time split maps to required `publication_ts` / `retrieval_ts` on `source` (CHECK `publication_ts < retrieval_ts`); no ontology versioning tables. |
+| Content-addressed originals + SHA-256 | `ontology/source_ingestion.py` | Pattern only | `LocalArtifactStore.put_original` stores under `originals/<ab>/<sha256>`; collector dedups on `source.content_hash`. No Talisman ontology imports. |
+| PDF/HTML text extraction | `ontology/extractors/deterministic.py::_extract_text` | Pattern only | pdfminer.six `extract_pages` with no page/character caps; HTML via stdlib `HTMLParser` with CSS page-break splits. Adapted without Talisman's 25-page limit. |
 
 Later issues will extend this file when chart components, evidence UI, and action-cost
 arithmetic are copied (LON-11, LON-26, LON-35).

@@ -41,6 +41,33 @@ def cmd_export_check(args: argparse.Namespace) -> int:
     return 1 if findings else 0
 
 
+def cmd_build_manifests(args: argparse.Namespace) -> int:
+    """Regenerate visa/booking/census YAML manifests from committed fixtures."""
+    from longaeva_app.collect.manifest import MANIFEST_DIR, build_manifests
+
+    out_dir = Path(args.output) if args.output else MANIFEST_DIR
+    built = build_manifests(manifest_dir=out_dir, write=True)
+    for name, docs in built.items():
+        print(f"Wrote {out_dir / name} ({len(docs)} documents)")
+    return 0
+
+
+def cmd_collect(args: argparse.Namespace) -> int:
+    """Fetch curated manifests into the artifact store and database (LON-13)."""
+    from longaeva_app.collect.collector import collect, summarize_report
+
+    manifests = list(args.manifest) if args.manifest else None
+    only = list(args.only) if args.only else None
+    report = collect(
+        manifests=manifests,
+        only_keys=only,
+        refresh=bool(args.refresh),
+        dry_run=bool(args.dry_run),
+    )
+    print(summarize_report(report))
+    return 1 if report.failed_count else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -76,6 +103,45 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the export file set (relative paths) and exit 0",
     )
     guard.set_defaults(func=cmd_export_check)
+
+    manifests = sub.add_parser(
+        "build-manifests",
+        help="Regenerate visa/booking/census manifests from committed fixtures (LON-13)",
+    )
+    manifests.add_argument(
+        "--output",
+        default=None,
+        help="Manifest directory (default: data/manifest)",
+    )
+    manifests.set_defaults(func=cmd_build_manifests)
+
+    collect_p = sub.add_parser(
+        "collect",
+        help="Fetch curated source manifests into artifacts + database (LON-13)",
+    )
+    collect_p.add_argument(
+        "--manifest",
+        action="append",
+        default=None,
+        help="Manifest name (repeatable), e.g. visa.yaml; default: all",
+    )
+    collect_p.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Collect only this manifest key (repeatable)",
+    )
+    collect_p.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Re-fetch even when a source for the key already exists on disk",
+    )
+    collect_p.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Resolve the selection and print actions without fetching or writing",
+    )
+    collect_p.set_defaults(func=cmd_collect)
 
     return parser
 

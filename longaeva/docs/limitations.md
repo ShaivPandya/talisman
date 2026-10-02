@@ -48,3 +48,18 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 7. Validation logs for export rehearsals stay under Talisman's
    `docs/hackathon/planning/validation/` directory and are **not** bundled in the
    package export.
+
+## Collector caveats (LON-13)
+
+- **IR publication timestamps** come from the CDN `Last-Modified` header, not an
+  EDGAR acceptance field. Decks are checked against a one-hour event window around
+  the origin cutoff; mismatches are flagged in `source.attributes` but still stored.
+  Missing `Last-Modified` refuses ingest (DR-04).
+- **Census integrity:** some archived MARTS PDFs are flagged `possibly_replaced` in
+  the release calendar; the collector carries the flag into `source.attributes` and
+  still uses the printed release line as `publication_ts`.
+- **Excluded vintages:** the revised Census XLSX (`mrtssales92-present.xlsx`) and
+  EDGAR XBRL `companyfacts` feeds are not collected here — they lack a single
+  immutable publication vintage suitable for DR-04.
+- **IR redistribution:** Visa IR decks/transcripts are fetch-by-script only and must
+  not be bundled in the export ZIP (see `visa_ir.yaml` terms).

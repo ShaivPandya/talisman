@@ -147,6 +147,38 @@ python -m longaeva_app.cli export-check --strict    # also fail if excluded path
 (where a gitignored `.env` for `SEC_USER_AGENT` is expected). Personal-data checklist:
 [`docs/limitations.md`](docs/limitations.md).
 
+## Collector (LON-13)
+
+Curated manifests under [`data/manifest/`](data/manifest/) drive polite fetches of
+EDGAR filings, Census MARTS advance PDFs, and Visa IR CDN decks/transcripts.
+
+```bash
+# Regenerate visa/booking/census YAML from committed fixtures
+python -m longaeva_app.cli build-manifests
+
+# Collect (Compose db + artifact volume). Requires SEC_USER_AGENT in the environment.
+make collect ARGS='--only visa:release:FY2026Q3 --only visa:release:FY2017Q1'
+make collect ARGS='--manifest census.yaml --only census:marts:adv2406'
+make collect ARGS='--manifest visa_ir.yaml --only visa_ir:deck:FY2024Q3'
+```
+
+Rules:
+
+- **Cache:** a previously collected key whose original is still on disk is skipped
+  unless `--refresh` is passed.
+- **Dedup:** identical bytes reuse the existing `source` row and add a
+  `source_retrieval` row only.
+- **Supersede:** `--refresh` with changed bytes creates a new `source` with
+  `supersedes_id` pointing at the prior row for that key.
+- **Unavailable:** HTTP 403 and JavaScript-challenge pages are logged as
+  unavailable and never bypassed (DR-09). `visa_ir:quarterly_html` is marked
+  unavailable in the manifest.
+- **Timestamps:** EDGAR `publication_ts` is the filing-index Accepted time;
+  Census uses the printed release line; IR uses HTTP `Last-Modified`.
+  `retrieval_ts` is always later.
+- **Passages:** HTML/PDF text is stored in `document_text` with page-local spans
+  and a generated normalized `text_hash` for DR-08 dedup.
+
 ## Seed
 
 ```bash
