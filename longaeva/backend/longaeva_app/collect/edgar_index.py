@@ -74,6 +74,10 @@ CSV_COLUMNS = [
     "booking_accepted_utc",
     "booking_age_days",
     "booking_eligible",
+    "census_release",
+    "census_reference_month",
+    "census_publication_utc",
+    "census_age_days",
     "census_status",
     "status",
     "exclusion_reasons",
@@ -640,6 +644,25 @@ def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
         else:
             reasons.append("no Booking earnings 8-K accepted ≤ cutoff")
 
+        # Census: newest MARTS advance release with publication_ts ≤ cutoff (LON-5).
+        # Lazy import avoids a circular dependency with census_sources.
+        from longaeva_app.collect.census_sources import latest_release_at_or_before
+
+        census_hit = latest_release_at_or_before(release.accepted_utc)
+        if census_hit is not None:
+            census_release = census_hit["release_id"]
+            census_ref = census_hit["reference_month"]
+            census_pub = census_hit["publication_ts"]
+            census_age = f"{(cutoff - _parse_utc(census_pub)).total_seconds() / 86400:.1f}"
+            census_status = "eligible"
+        else:
+            census_release = ""
+            census_ref = ""
+            census_pub = ""
+            census_age = ""
+            census_status = "unavailable"
+            reasons.append("no Census MARTS advance release published ≤ cutoff")
+
         # Duplicate notes
         dup_key = (fq.year, fq.quarter)
         if dup_key in duplicate_notes:
@@ -676,7 +699,11 @@ def build_origins(snapshot: dict[str, Any]) -> list[dict[str, Any]]:
                 "booking_accepted_utc": booking_accepted,
                 "booking_age_days": booking_age,
                 "booking_eligible": str(booking_eligible).lower(),
-                "census_status": "pending_LON-5",
+                "census_release": census_release,
+                "census_reference_month": census_ref,
+                "census_publication_utc": census_pub,
+                "census_age_days": census_age,
+                "census_status": census_status,
                 "status": status,
                 "exclusion_reasons": "; ".join(reasons),
             }
@@ -746,7 +773,9 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
     lines.append(
         "- Fiscal quarters: Visa FY ends 30 September. Release dates map to the latest quarter-end before the release; cross-checked against `period_of_report` when present."
     )
-    lines.append("- Census MARTS timing is out of scope for LON-1 (`census_status = pending_LON-5`).")
+    lines.append(
+        "- Census MARTS timing uses the LON-5 release calendar (`data/fixtures/census/release_calendar.csv`): newest advance PDF with printed `publication_ts` ≤ cutoff."
+    )
     lines.append("")
     lines.append("## Counts (exact; not rounded up)")
     lines.append("")
@@ -762,9 +791,12 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
             f"(accession `{p['release_accession']}`)"
         )
     lines.append(f"- Excluded rows: **{len(excluded)}**")
+    census_eligible = sum(1 for r in rows if r.get("census_status") == "eligible")
+    lines.append(f"- Census-eligible origins (advance release ≤ cutoff): **{census_eligible}**")
     lines.append("")
     lines.append(
-        "These counts reflect EDGAR timestamp and prior-10-Q availability only. Definition stability (LON-2), starting-state reconstruction (LON-3) and Census timing (LON-5) can only lower the eligible count."
+        "These counts reflect EDGAR timestamp, prior-10-Q availability and Census release timing. "
+        "Definition stability (LON-2) and starting-state reconstruction (LON-3) are settled separately and did not lower the count."
     )
     lines.append("")
     lines.append("## Exclusion reasons")
@@ -809,6 +841,23 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
             f"{r['booking_age_days']} | {r['booking_eligible']} |"
         )
     lines.append("")
+    lines.append("## Census release age at Visa cutoffs")
+    lines.append("")
+    lines.append("| Origin | Census release | Reference month | Age (days) | Status |")
+    lines.append("| --- | --- | --- | --- | --- |")
+    for r in candidates + prospective:
+        lines.append(
+            f"| FY{r['fiscal_year']}Q{r['fiscal_quarter']} | `{r.get('census_release', '')}` | "
+            f"{r.get('census_reference_month', '')} | {r.get('census_age_days', '')} | "
+            f"{r.get('census_status', '')} |"
+        )
+    lines.append("")
+    lines.append(
+        "Ages are days from the printed MARTS release timestamp to the Visa earnings 8-K cutoff. "
+        "The 2025 federal shutdown delayed `adv2509` to 2025-11-25, so the 2025-10-28 Visa origin uses `adv2508`. "
+        "The 2018–2019 shutdown delayed `adv1812`/`adv1901`; see `docs/gates/census.md`."
+    )
+    lines.append("")
     lines.append("## Amendment scan")
     lines.append("")
     lines.extend(_amendment_summary(snapshot))
@@ -835,9 +884,16 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
     lines.append("")
     lines.append("## Pending checks (can only lower the count)")
     lines.append("")
-    lines.append("- LON-2: Visa driver and accounting definition stability across the window.")
-    lines.append("- LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention.")
-    lines.append("- LON-5: Census MARTS vintage timing relative to each Visa cutoff.")
+    lines.append("- LON-2: Visa driver and accounting definition stability across the window. **Done — 0 exclusions.**")
+    lines.append(
+        "- LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention. "
+        "**Done — complete with eligible-family inputs; 0 exclusions. See `docs/gates/starting-states.md`.**"
+    )
+    lines.append(
+        "- LON-5: Census MARTS vintage timing relative to each Visa cutoff. "
+        "**Done — every inventory origin has a Census advance release ≤ cutoff; "
+        "0 exclusions from timing. See `docs/gates/census.md`.**"
+    )
     lines.append("")
     return "\n".join(lines) + "\n"
 

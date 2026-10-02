@@ -19,8 +19,16 @@ certifi==2026.7.22
     # via
     #   httpcore
     #   httpx
+cffi==2.1.1
+    # via cryptography
+charset-normalizer==3.5.2
+    # via pdfminer-six
 click==8.5.0
     # via uvicorn
+cryptography==50.0.2
+    # via pdfminer-six
+et-xmlfile==2.0.0
+    # via openpyxl
 fastapi==0.142.2
     # via -r requirements.txt
 greenlet==3.5.6
@@ -53,18 +61,28 @@ mypy-extensions==1.1.0
     # via mypy
 numpy==2.5.3
     # via -r requirements.txt
+openpyxl==3.1.5
+    # via -r requirements.txt
 opentelemetry-api==1.45.0
     # via fastapi
 packaging==26.3
     # via pytest
 pathspec==1.1.1
     # via mypy
+pdfminer-six==20260107
+    # via pdfplumber
+pdfplumber==0.11.10
+    # via -r requirements.txt
+pillow==12.3.0
+    # via pdfplumber
 pluggy==1.6.0
     # via pytest
 psycopg==3.3.6
     # via -r requirements.txt
 psycopg-binary==3.3.6
     # via psycopg
+pycparser==3.0
+    # via cffi
 pydantic==2.13.5
     # via
     #   -r requirements.txt
@@ -76,6 +94,8 @@ pydantic-settings==2.15.0
     # via -r requirements.txt
 pygments==2.21.0
     # via pytest
+pypdfium2==5.13.0
+    # via pdfplumber
 pytest==8.4.2
     # via -r requirements-dev.txt
 python-dotenv==1.2.4
@@ -92,6 +112,8 @@ sqlalchemy==2.0.54
     #   alembic
 starlette==1.7.0
     # via fastapi
+types-openpyxl==3.1.5.20260827
+    # via -r requirements-dev.txt
 types-psycopg2==2.9.21.20260911
     # via -r requirements-dev.txt
 typing-extensions==4.16.0

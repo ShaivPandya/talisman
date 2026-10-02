@@ -1,0 +1,52 @@
+{
+  "generated_for": "LON-5",
+  "retrieved_at": "2026-10-02T16:36:58Z",
+  "schema_version": 1,
+  "sources": [
+    {
+      "bytes": 326576,
+      "content_sha256": "9b25aa36163643ad2e65d8c6e211cfb5e7326ee2c1a46438a8fe99c34326017d",
+      "headline_billions": 704.3,
+      "http_last_modified": "Tue, 16 Jul 2024 12:30:36 GMT",
+      "kind": "advance_pdf",
+      "page_count": 7,
+      "path": "data/fixtures/census/sources/adv2406.pdf",
+      "pdf_creation_date": "2024-07-15T18:14:48Z",
+      "pdf_mod_date": "2024-07-15T18:14:48Z",
+      "publication_ts": "2024-07-16T12:30:00Z",
+      "reference_month": "2024-06",
+      "release_id": "adv2406",
+      "release_number": "CB24-110",
+      "retrieval_ts": "2026-10-02T16:36:58Z",
+      "url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "bytes": 262487,
+      "content_sha256": "d90dbe4a3e2ec531af675830b6fca9bcca90f404fcbacf39d8e53675c91fa4d2",
+      "headline_billions": 720.1,
+      "http_last_modified": "Thu, 17 Jul 2025 12:45:27 GMT",
+      "kind": "advance_pdf",
+      "page_count": 7,
+      "path": "data/fixtures/census/sources/adv2506.pdf",
+      "pdf_creation_date": "2025-07-16T16:37:04Z",
+      "pdf_mod_date": "2025-07-16T16:39:28Z",
+      "publication_ts": "2025-07-17T12:30:00Z",
+      "reference_month": "2025-06",
+      "release_id": "adv2506",
+      "release_number": "CB25-106",
+      "retrieval_ts": "2026-10-02T16:36:58Z",
+      "url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "bytes": 441281,
+      "content_sha256": "6b2cb26926ba0a438f2b45c4b38b218045273f63a674c11b1cbb7bf1cf9a7956",
+      "http_last_modified": "Mon, 28 Sep 2026 14:07:39 GMT",
+      "kind": "revised_xlsx",
+      "note": "Revised monthly retail sales workbook; not a vintage source (DR-04). Header cites Annual Integrated Economic Survey.",
+      "path": "data/fixtures/census/sources/mrtssales92-present_20261002.xlsx",
+      "release_id": null,
+      "retrieval_ts": "2026-10-02T16:36:58Z",
+      "url": "https://www.census.gov/retail/mrts/www/mrtssales92-present.xlsx"
+    }
+  ]
+}

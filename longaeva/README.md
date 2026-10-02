@@ -39,6 +39,13 @@ Two reconciled historical starting states (LON-3) live at
 `data/fixtures/states/sources/` and the gate report in
 [`docs/gates/starting-states.md`](docs/gates/starting-states.md).
 
+Census MARTS vintage gate (LON-5): parsed advance releases
+`data/fixtures/census/adv2406.csv` and `adv2506.csv`, release calendar
+`data/fixtures/census/release_calendar.csv`, retained PDFs/XLSX under
+`data/fixtures/census/sources/`, and the gate report in
+[`docs/gates/census.md`](docs/gates/census.md). Every Visa origin in
+`data/fixtures/origins.csv` now has Census timing columns.
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):

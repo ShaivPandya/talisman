@@ -1,0 +1,571 @@
+release_id,release_number,publication_ts,reference_month,table,series_key,naics_code,kind_of_business,measure,basis,period_start,period_end,base_period_start,base_period_end,estimate_status,value,value_flag,unit,geography,page
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,4138967,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,2.8,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,nsa,2024-06-01,2024-06-30,,,advance,703632,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,nsa,2024-05-01,2024-05-31,,,preliminary,745229,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,nsa,2024-04-01,2024-04-30,,,revised,700302,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,nsa,2023-06-01,2023-06-30,,,year_ago,702231,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,nsa,2023-05-01,2023-05-31,,,year_ago,722019,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,sa,2024-06-01,2024-06-30,,,advance,704324,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,sa,2024-05-01,2024-05-31,,,preliminary,704483,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,sa,2024-04-01,2024-04-30,,,revised,702681,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,sa,2023-06-01,2023-06-30,,,year_ago,688630,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_food_services_total,,"Retail & food services, total",level,sa,2023-05-01,2023-05-31,,,year_ago,686672,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,3338181,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,3.2,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,nsa,2024-06-01,2024-06-30,,,advance,571141,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,nsa,2024-05-01,2024-05-31,,,preliminary,600414,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,nsa,2024-04-01,2024-04-30,,,revised,561592,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,nsa,2023-06-01,2023-06-30,,,year_ago,563062,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,nsa,2023-05-01,2023-05-31,,,year_ago,579809,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,sa,2024-06-01,2024-06-30,,,advance,573593,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,sa,2024-05-01,2024-05-31,,,preliminary,571095,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,sa,2024-04-01,2024-04-30,,,revised,570577,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,sa,2023-06-01,2023-06-30,,,year_ago,554922,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor,,Total (excl motor vehicle & parts),level,sa,2023-05-01,2023-05-31,,,year_ago,554719,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,3824542,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,3.1,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,nsa,2024-06-01,2024-06-30,,,advance,648859,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,nsa,2024-05-01,2024-05-31,,,preliminary,687329,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,nsa,2024-04-01,2024-04-30,,,revised,645366,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,nsa,2023-06-01,2023-06-30,,,year_ago,646294,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,nsa,2023-05-01,2023-05-31,,,year_ago,665570,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,sa,2024-06-01,2024-06-30,,,advance,652406,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,sa,2024-05-01,2024-05-31,,,preliminary,650971,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,sa,2024-04-01,2024-04-30,,,revised,648018,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,sa,2023-06-01,2023-06-30,,,year_ago,636499,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_gas,,Total (excl gasoline stations),level,sa,2023-05-01,2023-05-31,,,year_ago,634112,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,3023756,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,3.6,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,nsa,2024-06-01,2024-06-30,,,advance,516368,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,nsa,2024-05-01,2024-05-31,,,preliminary,542514,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,nsa,2024-04-01,2024-04-30,,,revised,506656,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,nsa,2023-06-01,2023-06-30,,,year_ago,507125,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,nsa,2023-05-01,2023-05-31,,,year_ago,523360,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,sa,2024-06-01,2024-06-30,,,advance,521675,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,sa,2024-05-01,2024-05-31,,,preliminary,517583,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,sa,2024-04-01,2024-04-30,,,revised,515914,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,sa,2023-06-01,2023-06-30,,,year_ago,502791,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),level,sa,2023-05-01,2023-05-31,,,year_ago,502159,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,3573219,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,2.3,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,nsa,2024-06-01,2024-06-30,,,advance,606051,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,nsa,2024-05-01,2024-05-31,,,preliminary,644318,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,nsa,2024-04-01,2024-04-30,,,revised,605419,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,nsa,2023-06-01,2023-06-30,,,year_ago,608430,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,nsa,2023-05-01,2023-05-31,,,year_ago,627266,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,sa,2024-06-01,2024-06-30,,,advance,609493,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,sa,2024-05-01,2024-05-31,,,preliminary,609908,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,sa,2024-04-01,2024-04-30,,,revised,608458,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,sa,2023-06-01,2023-06-30,,,year_ago,597826,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,retail_total,,Retail,level,sa,2023-05-01,2023-05-31,,,year_ago,596688,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,nsa,2024-05-01,2024-05-31,,,preliminary,134697,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,nsa,2024-04-01,2024-04-30,,,revised,121802,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,nsa,2023-06-01,2023-06-30,,,year_ago,127859,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,nsa,2023-05-01,2023-05-31,,,year_ago,130729,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,sa,2024-05-01,2024-05-31,,,preliminary,130975,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,sa,2024-04-01,2024-04-30,,,revised,130367,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,sa,2023-06-01,2023-06-30,,,year_ago,128802,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,gafo,,GAFO,level,sa,2023-05-01,2023-05-31,,,year_ago,128712,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,800786,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,1.3,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,nsa,2024-06-01,2024-06-30,,,advance,132491,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,nsa,2024-05-01,2024-05-31,,,preliminary,144815,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,nsa,2024-04-01,2024-04-30,,,revised,138710,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,nsa,2023-06-01,2023-06-30,,,year_ago,139169,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,nsa,2023-05-01,2023-05-31,,,year_ago,142210,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,sa,2024-06-01,2024-06-30,,,advance,130731,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,sa,2024-05-01,2024-05-31,,,preliminary,133388,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,sa,2024-04-01,2024-04-30,,,revised,132104,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,sa,2023-06-01,2023-06-30,,,year_ago,133708,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_441,441,Motor vehicle & parts dealers,level,sa,2023-05-01,2023-05-31,,,year_ago,131953,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,732495,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,0.9,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,nsa,2024-06-01,2024-06-30,,,advance,120763,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,nsa,2024-05-01,2024-05-31,,,preliminary,132598,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,nsa,2024-04-01,2024-04-30,,,revised,126921,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,nsa,2023-06-01,2023-06-30,,,year_ago,127343,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,nsa,2023-05-01,2023-05-31,,,year_ago,130540,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,sa,2024-06-01,2024-06-30,,,advance,119096,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,sa,2024-05-01,2024-05-31,,,preliminary,121873,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,sa,2024-04-01,2024-04-30,,,revised,120647,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,sa,2023-06-01,2023-06-30,,,year_ago,122445,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,level,sa,2023-05-01,2023-05-31,,,year_ago,120870,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,nsa,2024-05-01,2024-05-31,,,preliminary,108397,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,nsa,2024-04-01,2024-04-30,,,revised,103876,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,nsa,2023-06-01,2023-06-30,,,year_ago,102861,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,nsa,2023-05-01,2023-05-31,,,year_ago,104507,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,sa,2024-06-01,2024-06-30,,,advance,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,sa,2024-05-01,2024-05-31,,,preliminary,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,sa,2024-04-01,2024-04-30,,,revised,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,sa,2023-06-01,2023-06-30,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44111,44111,New car dealers,level,sa,2023-05-01,2023-05-31,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,nsa,2024-05-01,2024-05-31,,,preliminary,12217,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,nsa,2024-04-01,2024-04-30,,,revised,11789,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,nsa,2023-06-01,2023-06-30,,,year_ago,11826,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,nsa,2023-05-01,2023-05-31,,,year_ago,11670,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,sa,2024-05-01,2024-05-31,,,preliminary,11515,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,sa,2024-04-01,2024-04-30,,,revised,11457,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,sa,2023-06-01,2023-06-30,,,year_ago,11263,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4413,4413,"Auto parts, acc & tire stores",level,sa,2023-05-01,2023-05-31,,,year_ago,11083,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,64392,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,-7.0,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,nsa,2024-06-01,2024-06-30,,,advance,10940,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,11420,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,nsa,2024-04-01,2024-04-30,,,revised,10635,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,11689,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,11732,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,sa,2024-06-01,2024-06-30,,,advance,11084,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,sa,2024-05-01,2024-05-31,,,preliminary,11013,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,sa,2024-04-01,2024-04-30,,,revised,10941,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,sa,2023-06-01,2023-06-30,,,year_ago,11550,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_442,442,Furniture & home furn stores,level,sa,2023-05-01,2023-05-31,,,year_ago,11446,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,5988,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,nsa,2024-04-01,2024-04-30,,,revised,5562,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,6448,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,6198,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,sa,2024-06-01,2024-06-30,,,advance,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,sa,2024-05-01,2024-05-31,,,preliminary,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,sa,2024-04-01,2024-04-30,,,revised,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,sa,2023-06-01,2023-06-30,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4421,4421,Furniture stores,level,sa,2023-05-01,2023-05-31,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,nsa,2024-04-01,2024-04-30,,,revised,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,sa,2024-06-01,2024-06-30,,,advance,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,sa,2024-05-01,2024-05-31,,,preliminary,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,sa,2024-04-01,2024-04-30,,,revised,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,sa,2023-06-01,2023-06-30,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4422,4422,Home furnishings stores,level,sa,2023-05-01,2023-05-31,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,43559,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,0.8,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,nsa,2024-06-01,2024-06-30,,,advance,7454,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,7462,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,nsa,2024-04-01,2024-04-30,,,revised,6974,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,7359,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,7279,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,sa,2024-06-01,2024-06-30,,,advance,7863,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,sa,2024-05-01,2024-05-31,,,preliminary,7830,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,sa,2024-04-01,2024-04-30,,,revised,7810,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,sa,2023-06-01,2023-06-30,,,year_ago,7658,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_443,443,Electronics & appliance stores,level,sa,2023-05-01,2023-05-31,,,year_ago,7711,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,242376,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,-3.5,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,nsa,2024-06-01,2024-06-30,,,advance,43741,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,nsa,2024-05-01,2024-05-31,,,preliminary,48457,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,nsa,2024-04-01,2024-04-30,,,revised,44866,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,nsa,2023-06-01,2023-06-30,,,year_ago,46360,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,nsa,2023-05-01,2023-05-31,,,year_ago,50535,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,sa,2024-06-01,2024-06-30,,,advance,40675,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,sa,2024-05-01,2024-05-31,,,preliminary,40112,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,sa,2024-04-01,2024-04-30,,,revised,40402,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,sa,2023-06-01,2023-06-30,,,year_ago,41034,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_444,444,Building material & garden eq & supplies dealers,level,sa,2023-05-01,2023-05-31,,,year_ago,41919,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,nsa,2024-05-01,2024-05-31,,,preliminary,41313,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,nsa,2024-04-01,2024-04-30,,,revised,38192,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,nsa,2023-06-01,2023-06-30,,,year_ago,39816,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,nsa,2023-05-01,2023-05-31,,,year_ago,42641,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,sa,2024-05-01,2024-05-31,,,preliminary,34863,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,sa,2024-04-01,2024-04-30,,,revised,35071,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,sa,2023-06-01,2023-06-30,,,year_ago,35329,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4441,4441,Building mat & sup dealers,level,sa,2023-05-01,2023-05-31,,,year_ago,36106,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,487444,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,1.9,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,nsa,2024-06-01,2024-06-30,,,advance,82661,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,85921,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,nsa,2024-04-01,2024-04-30,,,revised,78846,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,81316,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,83500,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,sa,2024-06-01,2024-06-30,,,advance,82674,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,sa,2024-05-01,2024-05-31,,,preliminary,82626,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,sa,2024-04-01,2024-04-30,,,revised,82825,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,sa,2023-06-01,2023-06-30,,,year_ago,81107,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_445,445,Food & beverage stores,level,sa,2023-05-01,2023-05-31,,,year_ago,81288,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,438194,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,1.7,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,nsa,2024-06-01,2024-06-30,,,advance,73847,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,76844,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,nsa,2024-04-01,2024-04-30,,,revised,70765,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,72659,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,74846,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,sa,2024-06-01,2024-06-30,,,advance,73921,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,sa,2024-05-01,2024-05-31,,,preliminary,73888,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,sa,2024-04-01,2024-04-30,,,revised,74099,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,sa,2023-06-01,2023-06-30,,,year_ago,72659,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4451,4451,Grocery stores,level,sa,2023-05-01,2023-05-31,,,year_ago,72807,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,nsa,2024-05-01,2024-05-31,,,preliminary,6391,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,nsa,2024-04-01,2024-04-30,,,revised,5646,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,nsa,2023-06-01,2023-06-30,,,year_ago,6157,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,nsa,2023-05-01,2023-05-31,,,year_ago,6184,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,sa,2024-05-01,2024-05-31,,,preliminary,6092,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,sa,2024-04-01,2024-04-30,,,revised,6071,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,sa,2023-06-01,2023-06-30,,,year_ago,5960,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4453,4453,"Beer, wine & liquor stores",level,sa,2023-05-01,2023-05-31,,,year_ago,6021,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,214904,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,1.4,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,nsa,2024-06-01,2024-06-30,,,advance,35484,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,36733,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,nsa,2024-04-01,2024-04-30,,,revised,35467,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,36375,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,36924,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,sa,2024-06-01,2024-06-30,,,advance,36544,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,sa,2024-05-01,2024-05-31,,,preliminary,36226,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,sa,2024-04-01,2024-04-30,,,revised,36117,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,sa,2023-06-01,2023-06-30,,,year_ago,36302,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_446,446,Health & personal care stores,level,sa,2023-05-01,2023-05-31,,,year_ago,36414,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,30618,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,nsa,2024-04-01,2024-04-30,,,revised,29687,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,30324,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,30906,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,sa,2024-05-01,2024-05-31,,,preliminary,30077,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,sa,2024-04-01,2024-04-30,,,revised,30139,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,sa,2023-06-01,2023-06-30,,,year_ago,30385,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44611,44611,Pharmacies & drug stores,level,sa,2023-05-01,2023-05-31,,,year_ago,30389,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,314425,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,-0.9,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,nsa,2024-06-01,2024-06-30,,,advance,54773,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,nsa,2024-05-01,2024-05-31,,,preliminary,57900,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,nsa,2024-04-01,2024-04-30,,,revised,54936,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,nsa,2023-06-01,2023-06-30,,,year_ago,55937,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,nsa,2023-05-01,2023-05-31,,,year_ago,56449,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,sa,2024-06-01,2024-06-30,,,advance,51918,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,sa,2024-05-01,2024-05-31,,,preliminary,53512,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,sa,2024-04-01,2024-04-30,,,revised,54663,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,sa,2023-06-01,2023-06-30,,,year_ago,52131,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_447,447,Gasoline stations,level,sa,2023-05-01,2023-05-31,,,year_ago,52560,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,142997,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,2.9,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,nsa,2024-06-01,2024-06-30,,,advance,25282,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,27543,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,nsa,2024-04-01,2024-04-30,,,revised,23993,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,24364,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,26096,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,sa,2024-06-01,2024-06-30,,,advance,26363,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,sa,2024-05-01,2024-05-31,,,preliminary,26210,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,sa,2024-04-01,2024-04-30,,,revised,25893,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,sa,2023-06-01,2023-06-30,,,year_ago,25277,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_448,448,Clothing & clothing accessories stores,level,sa,2023-05-01,2023-05-31,,,year_ago,25195,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,nsa,2024-04-01,2024-04-30,,,revised,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,sa,2024-05-01,2024-05-31,,,preliminary,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,sa,2024-04-01,2024-04-30,,,revised,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,sa,2023-06-01,2023-06-30,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44811,44811,Men's clothing stores,level,sa,2023-05-01,2023-05-31,,,year_ago,,suppressed,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,3411,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,nsa,2024-04-01,2024-04-30,,,revised,3052,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,2915,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,3398,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,sa,2024-05-01,2024-05-31,,,preliminary,3090,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,sa,2024-04-01,2024-04-30,,,revised,3089,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,sa,2023-06-01,2023-06-30,,,year_ago,3033,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44812,44812,Women's clothing stores,level,sa,2023-05-01,2023-05-31,,,year_ago,3109,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,11541,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,nsa,2024-04-01,2024-04-30,,,revised,10067,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,10010,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,10305,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,sa,2024-06-01,2024-06-30,,,advance,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,sa,2024-05-01,2024-05-31,,,preliminary,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,sa,2024-04-01,2024-04-30,,,revised,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,sa,2023-06-01,2023-06-30,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_44814,44814,Family clothing stores,level,sa,2023-05-01,2023-05-31,,,year_ago,,na,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,3206,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,nsa,2024-04-01,2024-04-30,,,revised,2902,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,3146,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,3327,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,sa,2024-05-01,2024-05-31,,,preliminary,3156,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,sa,2024-04-01,2024-04-30,,,revised,3175,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,sa,2023-06-01,2023-06-30,,,year_ago,3354,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4482,4482,Shoe stores,level,sa,2023-05-01,2023-05-31,,,year_ago,3337,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,45476,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,-3.2,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,nsa,2024-06-01,2024-06-30,,,advance,8141,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,nsa,2024-05-01,2024-05-31,,,preliminary,8033,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,nsa,2024-04-01,2024-04-30,,,revised,7332,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,nsa,2023-06-01,2023-06-30,,,year_ago,8590,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,nsa,2023-05-01,2023-05-31,,,year_ago,8291,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,sa,2024-06-01,2024-06-30,,,advance,8257,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,sa,2024-05-01,2024-05-31,,,preliminary,8264,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,sa,2024-04-01,2024-04-30,,,revised,8129,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,sa,2023-06-01,2023-06-30,,,year_ago,8547,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",level,sa,2023-05-01,2023-05-31,,,year_ago,8574,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,433773,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,3.3,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,nsa,2024-06-01,2024-06-30,,,advance,76084,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,77816,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,nsa,2024-04-01,2024-04-30,,,revised,70741,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,73294,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,74795,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,sa,2024-06-01,2024-06-30,,,advance,75619,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,sa,2024-05-01,2024-05-31,,,preliminary,75283,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,sa,2024-04-01,2024-04-30,,,revised,75189,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,sa,2023-06-01,2023-06-30,,,year_ago,73238,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452,452,General merchandise stores,level,sa,2023-05-01,2023-05-31,,,year_ago,73235,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,60350,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,-1.4,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,nsa,2024-06-01,2024-06-30,,,advance,10543,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,11054,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,nsa,2024-04-01,2024-04-30,,,revised,9871,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,10398,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,10975,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,sa,2024-06-01,2024-06-30,,,advance,10976,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,sa,2024-05-01,2024-05-31,,,preliminary,10934,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,sa,2024-04-01,2024-04-30,,,revised,10931,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,sa,2023-06-01,2023-06-30,,,year_ago,10795,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_dept,4521,Department stores,level,sa,2023-05-01,2023-05-31,,,year_ago,11106,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,66762,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,nsa,2024-04-01,2024-04-30,,,revised,60870,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,62896,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,63820,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,sa,2024-05-01,2024-05-31,,,preliminary,64349,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,sa,2024-04-01,2024-04-30,,,revised,64258,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,sa,2023-06-01,2023-06-30,,,year_ago,62443,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_other_legacy,4529,Other general merch stores,level,sa,2023-05-01,2023-05-31,,,year_ago,62129,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,nsa,2024-05-01,2024-05-31,,,preliminary,57041,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,nsa,2024-04-01,2024-04-30,,,revised,52046,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,nsa,2023-06-01,2023-06-30,,,year_ago,54040,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,nsa,2023-05-01,2023-05-31,,,year_ago,54622,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,sa,2024-05-01,2024-05-31,,,preliminary,55272,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,sa,2024-04-01,2024-04-30,,,revised,55133,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,sa,2023-06-01,2023-06-30,,,year_ago,53718,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_warehouse,45291,Warehouse clubs & supercenters,level,sa,2023-05-01,2023-05-31,,,year_ago,53394,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,nsa,2024-05-01,2024-05-31,,,preliminary,9721,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,nsa,2024-04-01,2024-04-30,,,revised,8824,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,nsa,2023-06-01,2023-06-30,,,year_ago,8856,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,nsa,2023-05-01,2023-05-31,,,year_ago,9198,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,sa,2024-05-01,2024-05-31,,,preliminary,9077,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,sa,2024-04-01,2024-04-30,,,revised,9125,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,sa,2023-06-01,2023-06-30,,,year_ago,8725,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_452_all_other,45299,All oth gen merch stores,level,sa,2023-05-01,2023-05-31,,,year_ago,8735,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,88837,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,5.3,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,nsa,2024-06-01,2024-06-30,,,advance,15440,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,nsa,2024-05-01,2024-05-31,,,preliminary,16651,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,nsa,2024-04-01,2024-04-30,,,revised,15387,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,nsa,2023-06-01,2023-06-30,,,year_ago,15572,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,nsa,2023-05-01,2023-05-31,,,year_ago,15761,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,sa,2024-06-01,2024-06-30,,,advance,15055,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,sa,2024-05-01,2024-05-31,,,preliminary,15008,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,sa,2024-04-01,2024-04-30,,,revised,15201,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,sa,2023-06-01,2023-06-30,,,year_ago,14643,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_453,453,Miscellaneous store retailers,level,sa,2023-05-01,2023-05-31,,,year_ago,14338,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,694250,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,8.5,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,nsa,2024-06-01,2024-06-30,,,advance,113560,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,nsa,2024-05-01,2024-05-31,,,preliminary,121567,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,nsa,2024-04-01,2024-04-30,,,revised,117532,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,nsa,2023-06-01,2023-06-30,,,year_ago,108405,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,nsa,2023-05-01,2023-05-31,,,year_ago,113694,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,sa,2024-06-01,2024-06-30,,,advance,122710,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,sa,2024-05-01,2024-05-31,,,preliminary,120436,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,sa,2024-04-01,2024-04-30,,,revised,119184,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,sa,2023-06-01,2023-06-30,,,year_ago,112631,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_454,454,Nonstore retailers,level,sa,2023-05-01,2023-05-31,,,year_ago,112055,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,,unavailable,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,nsa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,nsa,2024-05-01,2024-05-31,,,preliminary,112929,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,nsa,2024-04-01,2024-04-30,,,revised,108547,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,nsa,2023-06-01,2023-06-30,,,year_ago,98994,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,nsa,2023-05-01,2023-05-31,,,year_ago,104270,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,sa,2024-06-01,2024-06-30,,,advance,,unavailable,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,sa,2024-05-01,2024-05-31,,,preliminary,111590,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,sa,2024-04-01,2024-04-30,,,revised,109865,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,sa,2023-06-01,2023-06-30,,,year_ago,102478,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_4541,4541,Elect shopping & m/o houses,level,sa,2023-05-01,2023-05-31,,,year_ago,102326,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,ytd_level,nsa,2024-01-01,2024-06-30,,,ytd,565748,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,ytd_pct_chg,nsa,2024-01-01,2024-06-30,2023-01-01,2023-06-30,ytd,6.0,,pct,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,nsa,2024-06-01,2024-06-30,,,advance,97581,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,nsa,2024-05-01,2024-05-31,,,preliminary,100911,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,nsa,2024-04-01,2024-04-30,,,revised,94883,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,nsa,2023-06-01,2023-06-30,,,year_ago,93801,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,nsa,2023-05-01,2023-05-31,,,year_ago,94753,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,sa,2024-06-01,2024-06-30,,,advance,94831,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,sa,2024-05-01,2024-05-31,,,preliminary,94575,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,sa,2024-04-01,2024-04-30,,,revised,94223,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,sa,2023-06-01,2023-06-30,,,year_ago,90804,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,1,naics_722,722,Food services & drinking places,level,sa,2023-05-01,2023-05-31,,,year_ago,89984,,usd_millions,US,5
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,2.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,2.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_food_services_total,,"Retail & food services, total",yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,2.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,3.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,3.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor,,Total (excl motor vehicle & parts),yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,3.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,2.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,2.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_gas,,Total (excl gasoline stations),yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,2.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,3.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,3.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,total_ex_motor_gas,,Total (excl motor vehicle & parts & gasoline stations),yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,3.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,-0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,2.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,2.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,retail_total,,Retail,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,2.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,-2.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-2.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,1.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,1.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,-0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_441,441,Motor vehicle & parts dealers,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,-2.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-2.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,1.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,0.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,-0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4411_4412,"4411,4412",Auto & other motor veh dealers,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-0.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-4.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,-3.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_442,442,Furniture & home furn stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-4.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,2.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,1.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,2.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_443,443,Electronics & appliance stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,2.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,1.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-0.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,-0.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,-4.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,1.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_444,444,Building material & garden eq & supplies dealers,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-2.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,1.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,-0.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,1.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_445,445,Food & beverage stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,1.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,1.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,-0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,1.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_4451,4451,Grocery stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,1.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,0.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,-0.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_446,446,Health & personal care stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,-3.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,-2.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,1.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_447,447,Gasoline stations,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,0.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,4.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,1.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,4.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,1.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_448,448,Clothing & clothing accessories stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,3.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,-0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,-3.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,1.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,-3.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,-1.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_451,451,"Sporting goods, hobby, musical instrument, & book stores",yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-4.2,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,3.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,2.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452,452,General merchandise stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,2.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,1.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.0,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,-1.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,-0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_452_dept,4521,Department stores,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,-0.6,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,2.8,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,-1.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,4.7,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,-0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_453,453,Miscellaneous store retailers,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,4.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,1.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,8.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,1.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,7.5,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,1.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_454,454,Nonstore retailers,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,7.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,mom_pct,sa,2024-06-01,2024-06-30,2024-05-01,2024-05-31,advance,0.3,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,yoy_pct,sa,2024-06-01,2024-06-30,2023-06-01,2023-06-30,advance,4.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,mom_pct,sa,2024-05-01,2024-05-31,2024-04-01,2024-04-30,preliminary,0.4,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,yoy_pct,sa,2024-05-01,2024-05-31,2023-05-01,2023-05-31,preliminary,5.1,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,qoq_pct,sa,2024-04-01,2024-06-30,2024-01-01,2024-03-31,three_month,0.9,,pct,US,6
+adv2406,CB24-110,2024-07-16T12:30:00Z,2024-06,2,naics_722,722,Food services & drinking places,yoy_3m_pct,sa,2024-04-01,2024-06-30,2023-04-01,2023-06-30,three_month,5.2,,pct,US,6
