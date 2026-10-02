@@ -1,0 +1,157 @@
+{
+  "schema_version": 1,
+  "company": "united",
+  "family": "airline",
+  "release_date": "2025-10-15",
+  "sources": [
+    {
+      "source_id": "0000100517-25-000190/ual_09302025erex991.htm",
+      "accession": "0000100517-25-000190",
+      "document": "ual_09302025erex991.htm",
+      "exhibit": "EX-99.1",
+      "form": "8-K EX-99.1",
+      "cik": 100517,
+      "acceptance_utc": "2025-10-15T20:00:15Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm",
+      "role": "input",
+      "content_sha256": "d33ebc25346ef70d3c859fecc3795fc6011bd3fff14c684aeba12b4d690ad927",
+      "note": "United Airlines Holdings release eligible at Visa origin 2025-10-28"
+    },
+    {
+      "source_id": "0000100517-25-000190/ual_09302025erex992.htm",
+      "accession": "0000100517-25-000190",
+      "document": "ual_09302025erex992.htm",
+      "exhibit": "EX-99.2",
+      "form": "8-K EX-99.2",
+      "cik": 100517,
+      "acceptance_utc": "2025-10-15T20:00:15Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex992.htm",
+      "role": "input",
+      "content_sha256": "19ff2e655c656e6f904cdb38690649b464e34cef08b0696459ea45b00a4effd9",
+      "note": "United Airlines Holdings release eligible at Visa origin 2025-10-28"
+    }
+  ],
+  "visa_origins": [
+    {
+      "origin_date": "2025-10-28",
+      "cutoff_utc": "2025-10-28T20:06:03Z",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "target_fiscal_year": 2026,
+      "target_fiscal_quarter": 1,
+      "age_seconds": 1123548,
+      "age_days": 13.004,
+      "age_weeks": 1.8577,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin B; United Q3 2025 release 13 days earlier"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "ual_2025q3_capacity_yoy",
+      "statement_type": "measured",
+      "activity_type": "available_seat_miles",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 7.2,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-25-000190/ual_09302025erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Capacity up",
+        "quote": "7.2%",
+        "char_start": 15932,
+        "char_end": 15936
+      },
+      "note": "System capacity YoY",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2025q3_atlantic_passenger_revenue_yoy",
+      "statement_type": "measured",
+      "activity_type": "passenger_revenue",
+      "geography": "atlantic",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 1.3,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-25-000190/ual_09302025erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "3,280",
+        "quote": "1.3%",
+        "char_start": 173353,
+        "char_end": 173357
+      },
+      "note": "Atlantic passenger-revenue YoY from geographic table",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2025q4_investor_update_guidance_presence",
+      "statement_type": "qualitative",
+      "activity_type": "operating_outlook",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-25-000190/ual_09302025erex992.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "This Investor Update provides",
+        "quote": "guidance",
+        "char_start": 2213,
+        "char_end": 2221
+      },
+      "note": "Ex. 99.2 forward guidance presence; numeric ranges deferred to LON-16",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2025q3_atlantic_expansion_qualitative",
+      "statement_type": "qualitative",
+      "activity_type": "international_expansion",
+      "geography": "atlantic",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-25-000190/ual_09302025erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "bringing back all six new",
+        "quote": "Atlantic destinations",
+        "char_start": 14025,
+        "char_end": 14046
+      },
+      "note": "Summer 2025 Atlantic expansion commentary",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Atlantic/Pacific/Latin America tables present.",
+    "Context-first recommendation."
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "company": "paypal",
+  "family": "processor",
+  "release_date": "2024-04-30",
+  "sources": [
+    {
+      "source_id": "0001193125-24-123690/d831310dex991.htm",
+      "accession": "0001193125-24-123690",
+      "document": "d831310dex991.htm",
+      "exhibit": "EX-99.1",
+      "form": "8-K EX-99.1",
+      "cik": 1633917,
+      "acceptance_utc": "2024-04-30T11:30:30Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633917/000119312524123690/d831310dex991.htm",
+      "role": "input",
+      "content_sha256": "eeaa31b635812def4f1d03582f408bfa6264722895b791da61754add42af9c62",
+      "note": "PayPal Holdings release eligible at Visa origin 2024-07-23"
+    }
+  ],
+  "visa_origins": [
+    {
+      "origin_date": "2024-07-23",
+      "cutoff_utc": "2024-07-23T20:05:38Z",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "target_fiscal_year": 2024,
+      "target_fiscal_quarter": 4,
+      "age_seconds": 7288508,
+      "age_days": 84.3577,
+      "age_weeks": 12.0511,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin A; PayPal Q1 2024 release ~84 days earlier"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "pypl_2024q1_tpv_yoy",
+      "statement_type": "measured",
+      "activity_type": "total_payment_volume",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": 14.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001193125-24-123690/d831310dex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Total payment volume increased",
+        "quote": "14%",
+        "char_start": 8539,
+        "char_end": 8542
+      },
+      "note": "TPV YoY as reported",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2024q1_tpv_fxn_yoy",
+      "statement_type": "measured",
+      "activity_type": "total_payment_volume",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": 14.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "fx_neutral",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001193125-24-123690/d831310dex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "$403.9&nbsp;billion; ",
+        "quote": "14%",
+        "char_start": 8567,
+        "char_end": 8570
+      },
+      "note": "TPV YoY FX-neutral (second 14% after as-reported); not Visa constant_dollar",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2024q1_payment_transactions_yoy",
+      "statement_type": "measured",
+      "activity_type": "payment_transactions",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-03-31",
+      "value": 11.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "processed_transactions_growth",
+      "source_id": "0001193125-24-123690/d831310dex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Payment transactions increased",
+        "quote": "11%",
+        "char_start": 9112,
+        "char_end": 9115
+      },
+      "note": "Payment transactions YoY",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2024_guidance_reference",
+      "statement_type": "qualitative",
+      "activity_type": "full_year_outlook",
+      "geography": "global",
+      "period_start": "2024-01-01",
+      "period_end": "2024-12-31",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001193125-24-123690/d831310dex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "compared to guidance",
+        "quote": "guidance",
+        "char_start": 16912,
+        "char_end": 16920
+      },
+      "note": "EPS compared to prior guidance; context only",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Pure processor TPV cross-check.",
+    "fx_neutral must not be relabeled constant_dollar."
+  ]
+}

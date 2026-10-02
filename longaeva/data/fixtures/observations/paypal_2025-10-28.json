@@ -1,0 +1,144 @@
+{
+  "schema_version": 1,
+  "company": "paypal",
+  "family": "processor",
+  "release_date": "2025-10-28",
+  "sources": [
+    {
+      "source_id": "0001633917-25-000194/pypl3q-25earningsrelease.htm",
+      "accession": "0001633917-25-000194",
+      "document": "pypl3q-25earningsrelease.htm",
+      "exhibit": "EX-99.1",
+      "form": "8-K EX-99.1",
+      "cik": 1633917,
+      "acceptance_utc": "2025-10-28T11:01:13Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm",
+      "role": "input",
+      "content_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "note": "PayPal Holdings release eligible at Visa origin 2025-10-28"
+    }
+  ],
+  "visa_origins": [
+    {
+      "origin_date": "2025-10-28",
+      "cutoff_utc": "2025-10-28T20:06:03Z",
+      "fiscal_year": 2025,
+      "fiscal_quarter": 4,
+      "target_fiscal_year": 2026,
+      "target_fiscal_quarter": 1,
+      "age_seconds": 32690,
+      "age_days": 0.3784,
+      "age_weeks": 0.0541,
+      "same_day": true,
+      "margin_seconds": 32690,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin B; same Eastern day, PayPal accepted earlier the same day"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "pypl_2025q3_tpv_yoy",
+      "statement_type": "measured",
+      "activity_type": "total_payment_volume",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 8.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001633917-25-000194/pypl3q-25earningsrelease.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Total payment volume",
+        "quote": "8%",
+        "char_start": 7793,
+        "char_end": 7795
+      },
+      "note": "TPV YoY as reported",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2025q3_tpv_fxn_yoy",
+      "statement_type": "measured",
+      "activity_type": "total_payment_volume",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": 7.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "fx_neutral",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001633917-25-000194/pypl3q-25earningsrelease.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "$458.1 billion&#59; ",
+        "quote": "7%",
+        "char_start": 7819,
+        "char_end": 7821
+      },
+      "note": "TPV YoY FX-neutral; not Visa constant_dollar",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2025q3_payment_transactions_yoy",
+      "statement_type": "measured",
+      "activity_type": "payment_transactions",
+      "geography": "global",
+      "period_start": "2025-07-01",
+      "period_end": "2025-09-30",
+      "value": -5.0,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "processed_transactions_growth",
+      "source_id": "0001633917-25-000194/pypl3q-25earningsrelease.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Payment transactions decreased",
+        "quote": "5%",
+        "char_start": 8192,
+        "char_end": 8194
+      },
+      "note": "Printed 5% decline; stored value -5.0",
+      "attributes": {}
+    },
+    {
+      "observation_id": "pypl_2025_raises_fy_guidance",
+      "statement_type": "qualitative",
+      "activity_type": "full_year_outlook",
+      "geography": "global",
+      "period_start": "2025-01-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "processor",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0001633917-25-000194/pypl3q-25earningsrelease.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Delivers strong results and raises full year",
+        "quote": "guidance",
+        "char_start": 1382,
+        "char_end": 1390
+      },
+      "note": "Full-year guidance raise; context only",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Same-day at Visa FY2025Q4 cutoff.",
+    "Payment transactions decreased 5% → value -5.0."
+  ]
+}

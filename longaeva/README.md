@@ -75,6 +75,19 @@ consensus unavailable (no licensed free historical source). Manifest
 [`docs/gates/guidance.md`](docs/gates/guidance.md). Originals stay in
 `var/cache/visa_ir/` (fetch by script; never bundled).
 
+Second-wave disclosure families (LON-8): **United** (airline), **Costco**
+(retailer) and **PayPal** (pure processor) selected as context-first external
+families. Timing table
+[`data/fixtures/second_wave/timing.csv`](data/fixtures/second_wave/timing.csv),
+release scan
+[`data/fixtures/second_wave/release_scan.csv`](data/fixtures/second_wave/release_scan.csv),
+retained Ex. 99.1/99.2 originals under
+[`data/fixtures/second_wave/sources/`](data/fixtures/second_wave/sources/),
+observation fixtures `data/fixtures/observations/{united,costco,paypal}_*.json`,
+manifest [`data/manifest/second_wave.yaml`](data/manifest/second_wave.yaml), and
+gate report [`docs/gates/second-wave.md`](docs/gates/second-wave.md). Mastercard /
+Amex / JPMorgan are out of family (stretch S6). Does not change origin eligibility.
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):

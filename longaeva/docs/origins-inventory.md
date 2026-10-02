@@ -129,4 +129,5 @@ Five earnings 8-K timestamps were compared to the `Accepted` field on the EDGAR 
 - LON-5: Census MARTS vintage timing relative to each Visa cutoff. **Done — every inventory origin has a Census advance release ≤ cutoff; 0 exclusions from timing. See `docs/gates/census.md`.**
 - LON-4: Booking Holdings family gate (measured + qualitative/guidance passages, staleness in weeks, same-day margin). **Done — required family with lagged measured rules and guidance only where it covers the Visa target quarter; same-day fallback variant required. See `docs/gates/booking.md`.**
 - LON-7: Visa IR guidance availability (earnings deck / transcript outlook) and analyst-estimate confirmation. **Done — guidance is a comparison baseline only (never a model input), so gaps do not change origin eligibility. 16/19 origins have next-quarter company guidance; consensus unavailable (no licensed free historical source). See `docs/gates/guidance.md`.**
+- LON-8: Second-wave disclosure families (one airline, one retailer, one pure payment processor). **Done — context-first families; selection and timing live in `docs/gates/second-wave.md` and do not change origin eligibility.**
 

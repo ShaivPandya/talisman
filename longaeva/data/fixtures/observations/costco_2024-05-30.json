@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "company": "costco",
+  "family": "retailer",
+  "release_date": "2024-05-30",
+  "sources": [
+    {
+      "source_id": "0000909832-24-000026/costex9918-k51224.htm",
+      "accession": "0000909832-24-000026",
+      "document": "costex9918-k51224.htm",
+      "exhibit": "EX-99.1",
+      "form": "8-K EX-99.1",
+      "cik": 909832,
+      "acceptance_utc": "2024-05-30T20:26:46Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983224000026/costex9918-k51224.htm",
+      "role": "input",
+      "content_sha256": "5cbc188d682209917226ac890a4a6875ef2a5c85c6bfb1286b81617cd6014c5e",
+      "note": "Costco Wholesale release eligible at Visa origin 2024-07-23"
+    },
+    {
+      "source_id": "0000909832-24-000026/costex9928-k51224.htm",
+      "accession": "0000909832-24-000026",
+      "document": "costex9928-k51224.htm",
+      "exhibit": "EX-99.2",
+      "form": "8-K EX-99.2",
+      "cik": 909832,
+      "acceptance_utc": "2024-05-30T20:26:46Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983224000026/costex9928-k51224.htm",
+      "role": "input",
+      "content_sha256": "2205bf1c3bd94e4aa060399c020f0e794a15edc24cf0a69af9faf688cebcfb96",
+      "note": "Costco Wholesale release eligible at Visa origin 2024-07-23"
+    }
+  ],
+  "visa_origins": [
+    {
+      "origin_date": "2024-07-23",
+      "cutoff_utc": "2024-07-23T20:05:38Z",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "target_fiscal_year": 2024,
+      "target_fiscal_quarter": 4,
+      "age_seconds": 4664332,
+      "age_days": 53.9853,
+      "age_weeks": 7.7122,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin A; Costco Q3 FY2024 release ~54 days earlier"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "cost_2024q3_us_comp_sales_yoy",
+      "statement_type": "measured",
+      "activity_type": "comparable_sales",
+      "geography": "us",
+      "period_start": "2024-02-12",
+      "period_end": "2024-05-12",
+      "value": 6.2,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "retailer",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0000909832-24-000026/costex9918-k51224.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "U.S.",
+        "quote": "6.2%",
+        "char_start": 6030,
+        "char_end": 6034
+      },
+      "note": "U.S. comparable sales YoY (as reported)",
+      "attributes": {}
+    },
+    {
+      "observation_id": "cost_2024q3_other_intl_comp_sales_yoy",
+      "statement_type": "measured",
+      "activity_type": "comparable_sales",
+      "geography": "other_international",
+      "period_start": "2024-02-12",
+      "period_end": "2024-05-12",
+      "value": 7.7,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "retailer",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0000909832-24-000026/costex9918-k51224.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Other International",
+        "quote": "7.7%",
+        "char_start": 8749,
+        "char_end": 8753
+      },
+      "note": "Other International comparable sales YoY",
+      "attributes": {}
+    },
+    {
+      "observation_id": "cost_2024q3_traffic_yoy",
+      "statement_type": "measured",
+      "activity_type": "comparable_traffic",
+      "geography": "global",
+      "period_start": "2024-02-12",
+      "period_end": "2024-05-12",
+      "value": 0.5,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "retailer",
+      "visa_driver": "processed_transactions_growth",
+      "source_id": "0000909832-24-000026/costex9928-k51224.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Comparable Traffic",
+        "quote": "+0.5%",
+        "char_start": 938,
+        "char_end": 943
+      },
+      "note": "Company comparable traffic YoY from Ex. 99.2",
+      "attributes": {}
+    },
+    {
+      "observation_id": "cost_2024q3_ticket_yoy",
+      "statement_type": "measured",
+      "activity_type": "comparable_ticket",
+      "geography": "global",
+      "period_start": "2024-02-12",
+      "period_end": "2024-05-12",
+      "value": 20.7,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "retailer",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0000909832-24-000026/costex9928-k51224.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Comparable Ticket",
+        "quote": "+20.7%",
+        "char_start": 963,
+        "char_end": 969
+      },
+      "note": "Company comparable ticket YoY from Ex. 99.2",
+      "attributes": {}
+    },
+    {
+      "observation_id": "cost_2024q3_ecommerce_comp_yoy",
+      "statement_type": "measured",
+      "activity_type": "ecommerce_comparable_sales",
+      "geography": "global",
+      "period_start": "2024-02-12",
+      "period_end": "2024-05-12",
+      "value": 20.7,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "retailer",
+      "visa_driver": "payments_volume_growth_constant",
+      "source_id": "0000909832-24-000026/costex9918-k51224.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "E-commerce",
+        "quote": "20.7%",
+        "char_start": 11518,
+        "char_end": 11523
+      },
+      "note": "E-commerce comparable sales YoY",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "No next-quarter guidance on Ex. 99.1.",
+    "Adjusted (ex gas/FX) column exists; fixtures store as_reported; never relabel as Visa constant_dollar."
+  ]
+}

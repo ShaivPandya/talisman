@@ -1,0 +1,158 @@
+{
+  "schema_version": 1,
+  "company": "united",
+  "family": "airline",
+  "release_date": "2024-07-17",
+  "sources": [
+    {
+      "source_id": "0000100517-24-000117/ual_06302024erex991.htm",
+      "accession": "0000100517-24-000117",
+      "document": "ual_06302024erex991.htm",
+      "exhibit": "EX-99.1",
+      "form": "8-K EX-99.1",
+      "cik": 100517,
+      "acceptance_utc": "2024-07-17T20:00:08Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051724000117/ual_06302024erex991.htm",
+      "role": "input",
+      "content_sha256": "d378d23a2f78c57c3a8a0a102d231de21332e79091dd646b05425083f4df79cc",
+      "note": "United Airlines Holdings release eligible at Visa origin 2024-07-23"
+    },
+    {
+      "source_id": "0000100517-24-000117/ual_06302024erex992.htm",
+      "accession": "0000100517-24-000117",
+      "document": "ual_06302024erex992.htm",
+      "exhibit": "EX-99.2",
+      "form": "8-K EX-99.2",
+      "cik": 100517,
+      "acceptance_utc": "2024-07-17T20:00:08Z",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051724000117/ual_06302024erex992.htm",
+      "role": "input",
+      "content_sha256": "9ac393ddb09e4f30943bb795bdaaaa2fe61b479cf8f1acc7fc89edb7ac91c8d7",
+      "note": "United Airlines Holdings release eligible at Visa origin 2024-07-23"
+    }
+  ],
+  "visa_origins": [
+    {
+      "origin_date": "2024-07-23",
+      "cutoff_utc": "2024-07-23T20:05:38Z",
+      "fiscal_year": 2024,
+      "fiscal_quarter": 3,
+      "target_fiscal_year": 2024,
+      "target_fiscal_quarter": 4,
+      "age_seconds": 518730,
+      "age_days": 6.0038,
+      "age_weeks": 0.8577,
+      "same_day": false,
+      "margin_seconds": null,
+      "guidance_covers_target": "false",
+      "note": "LON-3 origin A; United Q2 2024 release ~6 days earlier"
+    }
+  ],
+  "observations": [
+    {
+      "observation_id": "ual_2024q2_capacity_yoy",
+      "statement_type": "measured",
+      "activity_type": "available_seat_miles",
+      "geography": "global",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "value": 8.3,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-24-000117/ual_06302024erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Capacity up",
+        "quote": "8.3%",
+        "char_start": 14660,
+        "char_end": 14664
+      },
+      "note": "System capacity YoY",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2024q2_atlantic_passenger_revenue_yoy",
+      "statement_type": "measured",
+      "activity_type": "passenger_revenue",
+      "geography": "atlantic",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "value": 2.9,
+      "range_low": null,
+      "range_high": null,
+      "unit": "percent",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-24-000117/ual_06302024erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "3,095",
+        "quote": "2.9%",
+        "char_start": 172535,
+        "char_end": 172539
+      },
+      "note": "Atlantic passenger-revenue YoY from geographic table",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2024q2_investor_update_guidance_presence",
+      "statement_type": "qualitative",
+      "activity_type": "operating_outlook",
+      "geography": "global",
+      "period_start": "2024-07-01",
+      "period_end": "2024-09-30",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-24-000117/ual_06302024erex992.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "This Investor Update provides",
+        "quote": "guidance",
+        "char_start": 2191,
+        "char_end": 2199
+      },
+      "note": "Ex. 99.2 carries numeric forward guidance tables; text-only capture here (no single range extracted). Context.",
+      "attributes": {}
+    },
+    {
+      "observation_id": "ual_2024q2_premium_qualitative",
+      "statement_type": "qualitative",
+      "activity_type": "premium_revenue",
+      "geography": "global",
+      "period_start": "2024-04-01",
+      "period_end": "2024-06-30",
+      "value": null,
+      "range_low": null,
+      "range_high": null,
+      "unit": "text",
+      "basis": "as_reported",
+      "source_family": "airline",
+      "visa_driver": "cross_border_ex_intra_europe_growth_constant",
+      "source_id": "0000100517-24-000117/ual_06302024erex991.htm",
+      "review_status": "pending",
+      "span": {
+        "anchor": "Premium revenue, Basic Economy revenue and market share shift",
+        "quote": "gained additional momentum in 2Q",
+        "char_start": 3657,
+        "char_end": 3689
+      },
+      "note": "Qualitative demand/mix commentary",
+      "attributes": {}
+    }
+  ],
+  "notes": [
+    "Geographic revenue table + Ex. 99.2 investor update.",
+    "Context for cross_border_ex_intra_europe_growth_constant.",
+    "Numeric Ex. 99.2 guidance ranges left for LON-16; presence recorded as qualitative."
+  ]
+}

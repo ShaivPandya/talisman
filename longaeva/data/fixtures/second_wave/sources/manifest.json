@@ -1,0 +1,228 @@
+{
+  "generated_for": "LON-8",
+  "retrieved_at": "2026-10-02T22:58:23Z",
+  "schema_version": 1,
+  "snapshot_path": "data/fixtures/second_wave/filing_index.json",
+  "sources": [
+    {
+      "acceptance_utc": "2024-07-17T20:00:08Z",
+      "accession": "0000100517-24-000117",
+      "candidate_id": "united",
+      "cik": 100517,
+      "content_sha256": "d378d23a2f78c57c3a8a0a102d231de21332e79091dd646b05425083f4df79cc",
+      "document": "ual_06302024erex991.htm",
+      "exhibit": "EX-99.1",
+      "family": "airline",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2024-07-17T20:00:08Z",
+      "name": "United Airlines Holdings",
+      "note": "United Airlines Holdings release eligible at Visa origin 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0000100517-24-000117/ual_06302024erex991.htm.gz",
+      "raw_bytes": 591824,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051724000117/ual_06302024erex991.htm"
+    },
+    {
+      "acceptance_utc": "2024-07-17T20:00:08Z",
+      "accession": "0000100517-24-000117",
+      "candidate_id": "united",
+      "cik": 100517,
+      "content_sha256": "9ac393ddb09e4f30943bb795bdaaaa2fe61b479cf8f1acc7fc89edb7ac91c8d7",
+      "document": "ual_06302024erex992.htm",
+      "exhibit": "EX-99.2",
+      "family": "airline",
+      "form": "8-K EX-99.2",
+      "index_page_accepted_utc": "2024-07-17T20:00:08Z",
+      "name": "United Airlines Holdings",
+      "note": "United Airlines Holdings release eligible at Visa origin 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0000100517-24-000117/ual_06302024erex992.htm.gz",
+      "raw_bytes": 43573,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051724000117/ual_06302024erex992.htm"
+    },
+    {
+      "acceptance_utc": "2025-10-15T20:00:15Z",
+      "accession": "0000100517-25-000190",
+      "candidate_id": "united",
+      "cik": 100517,
+      "content_sha256": "d33ebc25346ef70d3c859fecc3795fc6011bd3fff14c684aeba12b4d690ad927",
+      "document": "ual_09302025erex991.htm",
+      "exhibit": "EX-99.1",
+      "family": "airline",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2025-10-15T20:00:15Z",
+      "name": "United Airlines Holdings",
+      "note": "United Airlines Holdings release eligible at Visa origin 2025-10-28",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0000100517-25-000190/ual_09302025erex991.htm.gz",
+      "raw_bytes": 606644,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "acceptance_utc": "2025-10-15T20:00:15Z",
+      "accession": "0000100517-25-000190",
+      "candidate_id": "united",
+      "cik": 100517,
+      "content_sha256": "19ff2e655c656e6f904cdb38690649b464e34cef08b0696459ea45b00a4effd9",
+      "document": "ual_09302025erex992.htm",
+      "exhibit": "EX-99.2",
+      "family": "airline",
+      "form": "8-K EX-99.2",
+      "index_page_accepted_utc": "2025-10-15T20:00:15Z",
+      "name": "United Airlines Holdings",
+      "note": "United Airlines Holdings release eligible at Visa origin 2025-10-28",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0000100517-25-000190/ual_09302025erex992.htm.gz",
+      "raw_bytes": 42752,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex992.htm"
+    },
+    {
+      "acceptance_utc": "2024-05-30T20:26:46Z",
+      "accession": "0000909832-24-000026",
+      "candidate_id": "costco",
+      "cik": 909832,
+      "content_sha256": "5cbc188d682209917226ac890a4a6875ef2a5c85c6bfb1286b81617cd6014c5e",
+      "document": "costex9918-k51224.htm",
+      "exhibit": "EX-99.1",
+      "family": "retailer",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2024-05-30T20:26:46Z",
+      "name": "Costco Wholesale",
+      "note": "Costco Wholesale release eligible at Visa origin 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0000909832-24-000026/costex9918-k51224.htm.gz",
+      "raw_bytes": 134602,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983224000026/costex9918-k51224.htm"
+    },
+    {
+      "acceptance_utc": "2024-05-30T20:26:46Z",
+      "accession": "0000909832-24-000026",
+      "candidate_id": "costco",
+      "cik": 909832,
+      "content_sha256": "2205bf1c3bd94e4aa060399c020f0e794a15edc24cf0a69af9faf688cebcfb96",
+      "document": "costex9928-k51224.htm",
+      "exhibit": "EX-99.2",
+      "family": "retailer",
+      "form": "8-K EX-99.2",
+      "index_page_accepted_utc": "2024-05-30T20:26:46Z",
+      "name": "Costco Wholesale",
+      "note": "Costco Wholesale release eligible at Visa origin 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0000909832-24-000026/costex9928-k51224.htm.gz",
+      "raw_bytes": 8092,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983224000026/costex9928-k51224.htm"
+    },
+    {
+      "acceptance_utc": "2025-09-25T20:16:57Z",
+      "accession": "0000909832-25-000093",
+      "candidate_id": "costco",
+      "cik": 909832,
+      "content_sha256": "d325c97604c04754684661ce21e4e2f55b8c2d3020f2b9875ee5332948e1c099",
+      "document": "costex9918-k92525.htm",
+      "exhibit": "EX-99.1",
+      "family": "retailer",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2025-09-25T20:16:57Z",
+      "name": "Costco Wholesale",
+      "note": "Costco Wholesale release eligible at Visa origin 2025-10-28",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0000909832-25-000093/costex9918-k92525.htm.gz",
+      "raw_bytes": 133560,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "acceptance_utc": "2025-09-25T20:16:57Z",
+      "accession": "0000909832-25-000093",
+      "candidate_id": "costco",
+      "cik": 909832,
+      "content_sha256": "f08494af198cc39f806cdd2bc5875acb58a96b8ad3178363be5f3d4093877e15",
+      "document": "costex9928-k92525.htm",
+      "exhibit": "EX-99.2",
+      "family": "retailer",
+      "form": "8-K EX-99.2",
+      "index_page_accepted_utc": "2025-09-25T20:16:57Z",
+      "name": "Costco Wholesale",
+      "note": "Costco Wholesale release eligible at Visa origin 2025-10-28",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0000909832-25-000093/costex9928-k92525.htm.gz",
+      "raw_bytes": 8764,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9928-k92525.htm"
+    },
+    {
+      "acceptance_utc": "2024-04-30T11:30:30Z",
+      "accession": "0001193125-24-123690",
+      "candidate_id": "paypal",
+      "cik": 1633917,
+      "content_sha256": "eeaa31b635812def4f1d03582f408bfa6264722895b791da61754add42af9c62",
+      "document": "d831310dex991.htm",
+      "exhibit": "EX-99.1",
+      "family": "processor",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2024-04-30T11:30:30Z",
+      "name": "PayPal Holdings",
+      "note": "PayPal Holdings release eligible at Visa origin 2024-07-23",
+      "origins": [
+        "2024-07-23"
+      ],
+      "path": "0001193125-24-123690/d831310dex991.htm.gz",
+      "raw_bytes": 390284,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633917/000119312524123690/d831310dex991.htm"
+    },
+    {
+      "acceptance_utc": "2025-10-28T11:01:13Z",
+      "accession": "0001633917-25-000194",
+      "candidate_id": "paypal",
+      "cik": 1633917,
+      "content_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "document": "pypl3q-25earningsrelease.htm",
+      "exhibit": "EX-99.1",
+      "family": "processor",
+      "form": "8-K EX-99.1",
+      "index_page_accepted_utc": "2025-10-28T11:01:13Z",
+      "name": "PayPal Holdings",
+      "note": "PayPal Holdings release eligible at Visa origin 2025-10-28",
+      "origins": [
+        "2025-10-28"
+      ],
+      "path": "0001633917-25-000194/pypl3q-25earningsrelease.htm.gz",
+      "raw_bytes": 563871,
+      "retrieval_ts": "2026-10-02T22:58:23Z",
+      "role": "input",
+      "url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    }
+  ]
+}

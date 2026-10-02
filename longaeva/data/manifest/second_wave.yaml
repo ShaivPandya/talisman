@@ -1,0 +1,310 @@
+# LON-8 · Second-wave disclosure families selection · planning v1
+# Settled 2026-10-02. One airline, one retailer, one pure payment processor.
+# SEC EDGAR Item 2.02 Ex. 99.1 (and Ex. 99.2 when the metric lives there).
+
+decision:
+  settled_at: "2026-10-02"
+  plan_id: DRAFT-08
+  linear_id: LON-8
+  processor_scope: strict_pure_processor
+  retention: bundled_public_domain
+  rule_stance: context_first
+
+question: >-
+  Which airline, retailer and payment processor EDGAR earnings releases provide
+  a dated metric tied to a named Visa driver under DR-03?
+
+selection_criteria:
+  - metric_present_at_most_origins
+  - next_quarter_guidance_covers_visa_target
+  - lower_median_age_at_cutoff
+  - stronger_driver_link
+
+selected:
+  airline: united
+  retailer: costco
+  processor: paypal
+
+recommendation:
+  airline:
+    stance: context
+    note: >-
+      Atlantic / Pacific / Latin America tables corroborate the travel /
+      cross-border prior. Next-quarter guidance may become an analyst-ranged
+      rule in LON-21 only where guidance_covers_target=true.
+  retailer:
+    stance: context
+    note: >-
+      Costco U.S. / Other International comps and traffic/ticket corroborate
+      domestic payments-volume and processed-transactions priors. No Ex. 99.1
+      next-quarter guidance; stay context.
+  processor:
+    stance: context
+    note: >-
+      PayPal TPV (FXN) and payment transactions are a payments-volume
+      cross-check. Same-day at five origins; elsewhere ~83 days stale. Context
+      only under data plan §3.2.
+
+timing:
+  rule: acceptance_ts_le_cutoff
+  origins_csv: data/fixtures/origins.csv
+  origins_filter: status in {candidate, prospective}
+  same_day: US/Eastern calendar date equality
+
+access:
+  provider: SEC EDGAR
+  form: 8-K Item 2.02
+  exhibits: ["EX-99.1", "EX-99.2"]
+  rate_limit_seconds: 0.5
+  user_agent_env: SEC_USER_AGENT
+  redistribution: bundled
+
+terms:
+  sec_edgar:
+    summary: >-
+      SEC EDGAR filings are U.S. government works / public domain. Originals
+      may be bundled in the package.
+    redistribution: bundled
+
+visa_drivers:
+  airline: cross_border_ex_intra_europe_growth_constant
+  retailer:
+    - payments_volume_growth_constant
+    - processed_transactions_growth
+  processor: payments_volume_growth_constant
+
+candidates:
+  - id: delta
+    name: Delta Air Lines
+    family: airline
+    cik: "0000027904"
+    ticker: DAL
+    status: finalist_rejected
+    reason: >-
+      Metric present, but median age 13.4 days vs United 7.0; Transatlantic
+      commentary is prose rather than a geographic table.
+    metric: international / Transatlantic unit revenue and capacity commentary
+    visa_driver: cross_border_ex_intra_europe_growth_constant
+    scan_patterns:
+      - "[Ii]nternational"
+      - "Transatlantic|Atlantic"
+      - "[Cc]apacity"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: united
+    name: United Airlines Holdings
+    family: airline
+    cik: "0000100517"
+    ticker: UAL
+    status: selected
+    reason: >-
+      Geographic passenger-revenue / unit-revenue / capacity tables
+      (Atlantic, Pacific, Latin America) plus Ex. 99.2 investor-update
+      guidance; freshest airline median age (7.0 days).
+    metric: Atlantic / Pacific / Latin America passenger revenue, PRASM, capacity
+    visa_driver: cross_border_ex_intra_europe_growth_constant
+    exhibits: ["EX-99.1", "EX-99.2"]
+    scan_patterns:
+      - "Atlantic"
+      - "Pacific"
+      - "[Ii]nternational"
+      - "[Cc]apacity"
+      - "(?:[Gg]uidance|[Oo]utlook|expects)"
+
+  - id: american
+    name: American Airlines Group
+    family: airline
+    cik: "0000006201"
+    ticker: AAL
+    status: rejected
+    reason: >-
+      Reports after Visa at some origins (next release ≤7 days after cutoff at
+      3 origins); same-day at 2; age max 89 days.
+    metric: Atlantic / Pacific passenger revenue
+    visa_driver: cross_border_ex_intra_europe_growth_constant
+    scan_patterns:
+      - "Atlantic"
+      - "Pacific"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: walmart
+    name: Walmart
+    family: retailer
+    cik: "0000104169"
+    ticker: WMT
+    status: finalist_rejected
+    reason: >-
+      Strong transactions / average-ticket / comp-sales metrics and next-quarter
+      guidance, but median age 68.2 days vs Costco 49.0.
+    metric: U.S. comp sales, transactions, average ticket
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Tt]ransactions"
+      - "[Aa]verage ticket|[Tt]icket"
+      - "[Cc]omp sales"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: target
+    name: Target
+    family: retailer
+    cik: "0000027419"
+    ticker: TGT
+    status: rejected
+    reason: >-
+      Traffic figures appear only in prose; no average-ticket table; median age
+      69.4 days.
+    metric: comparable sales; traffic prose
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Tt]raffic"
+      - "[Cc]omparable sales"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: costco
+    name: Costco Wholesale
+    family: retailer
+    cik: "0000909832"
+    ticker: COST
+    status: selected
+    reason: >-
+      Comparable sales by U.S. / Canada / Other International with gas+FX
+      adjustments; Ex. 99.2 adds traffic and ticket; freshest retailer median
+      age (49.0 days). No next-quarter guidance.
+    metric: comparable sales (U.S., Canada, Other International); traffic; ticket
+    visa_driver: payments_volume_growth_constant
+    exhibits: ["EX-99.1", "EX-99.2"]
+    scan_patterns:
+      - "[Cc]omparable sales"
+      - "Other International"
+      - "[Dd]igitally|[Ee]-commerce"
+      - "[Tt]raffic|[Ff]requency"
+
+  - id: paypal
+    name: PayPal Holdings
+    family: processor
+    cik: "0001633917"
+    ticker: PYPL
+    status: selected
+    reason: >-
+      Pure payment processor with Total Payment Volume (TPV) and payment
+      transactions; FX-neutral growth reported; same-day at 5 of 19 origins.
+    metric: Total Payment Volume (TPV) YoY; payment transactions
+    visa_driver: payments_volume_growth_constant
+    exhibits: ["EX-99.1"]
+    scan_patterns:
+      - "[Tt]otal [Pp]ayment [Vv]olume|TPV"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: fiserv
+    name: Fiserv
+    family: processor
+    cik: "0000798354"
+    ticker: FI
+    status: rejected
+    reason: >-
+      No payment-volume / GPV metric in the EDGAR Ex. 99.1; Clover is product
+      branding only.
+    metric: none found
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "Clover"
+      - "[Pp]ayment [Vv]olume|GPV"
+      - "(?:[Oo]utlook|[Gg]uidance)"
+
+  - id: global_payments
+    name: Global Payments
+    family: processor
+    cik: "0001123360"
+    ticker: GPN
+    status: rejected
+    reason: No payment-volume metric in the EDGAR Ex. 99.1 (merchant revenue only).
+    metric: none found
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Vv]olume"
+      - "Merchant"
+      - "(?:[Oo]utlook)"
+
+  - id: block
+    name: Block (Square)
+    family: processor
+    cik: "0001512673"
+    ticker: XYZ
+    status: finalist_rejected
+    reason: >-
+      Square GPV present, but median age 81.8 days and never same-day; PayPal
+      is fresher and a clearer TPV cross-check.
+    metric: Square Gross Payment Volume (GPV)
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Gg]ross [Pp]ayment [Vv]olume|GPV"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: shift4
+    name: Shift4 Payments
+    family: processor
+    cik: "0001794669"
+    ticker: FOUR
+    status: rejected
+    reason: One origin has a 182-day age gap; sparse calendar relative to Visa.
+    metric: end-to-end payment volume (when disclosed)
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Vv]olume"
+      - "(?:[Gg]uidance|[Oo]utlook)"
+
+  - id: mastercard
+    name: Mastercard
+    family: out_of_family
+    cik: "0001141391"
+    ticker: MA
+    status: stretch_s6
+    reason: >-
+      Card network (peer to Visa), not a payment processor/acquirer. Next
+      release ≤7 days after Visa cutoff at 13 of 19 origins.
+    metric: switched transactions / cross-border volume
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Cc]ross-border"
+      - "[Ss]witched"
+
+  - id: amex
+    name: American Express
+    family: out_of_family
+    cik: "0000004962"
+    ticker: AXP
+    status: stretch_s6
+    reason: Card network / issuer, not a pure processor/acquirer (strict scope).
+    metric: billed business
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Bb]illed [Bb]usiness"
+      - "[Cc]ard"
+
+  - id: jpmorgan
+    name: JPMorgan Chase
+    family: out_of_family
+    cik: "0000019617"
+    ticker: JPM
+    status: stretch_s6
+    reason: >-
+      Bank issuer, not a pure processor. Debit and credit card sales volume is
+      fresher (11–18 days) but covers the quarter Visa has just reported.
+    metric: debit and credit card sales volume
+    visa_driver: payments_volume_growth_constant
+    scan_patterns:
+      - "[Cc]ard sales volume"
+      - "Card Services"
+
+retained_origins:
+  - "2024-07-23"
+  - "2025-10-28"
+
+handoff:
+  - LON-13: collector ingests retained Ex. 99.1 / 99.2 originals from the manifest
+  - LON-16: LLM extraction over retained passages; statement types already FR-03
+  - LON-18: second-wave passages enter the extraction evaluation set
+  - LON-21: mapping rules start as context; promote airline guidance only with rationale
+  - LON-27: ablation (a) rebuilds without second-wave updates
+  - LON-31: same ablation across origins
+  - DRAFT-S6: Mastercard / Amex / JPMorgan screen after evaluation

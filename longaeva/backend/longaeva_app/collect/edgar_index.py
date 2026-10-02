@@ -324,7 +324,9 @@ def fetch_company_filings(client: EdgarClient, cik_padded: str) -> tuple[list[Fi
     extra_pages: list[dict[str, Any]] = []
     for file_meta in primary.get("filings", {}).get("files", []):
         name = file_meta.get("name", "")
-        if not name.startswith("submissions-") or not name.endswith(".json"):
+        # Older pages are named either ``submissions-001.json`` (Visa/Booking)
+        # or ``CIK0000104169-submissions-001.json`` (Walmart/JPMorgan, …).
+        if not re.search(r"(?:^|-)submissions-\d{3}\.json$", name):
             continue
         page_url = f"https://data.sec.gov/submissions/{name}"
         extra_pages.append(client.get_json(page_url))
@@ -972,6 +974,18 @@ def render_inventory_md(snapshot: dict[str, Any], rows: list[dict[str, Any]]) ->
         "**Done — required family with lagged measured rules and guidance only where it "
         "covers the Visa target quarter; same-day fallback variant required. "
         "See `docs/gates/booking.md`.**"
+    )
+    lines.append(
+        "- LON-7: Visa IR guidance availability (earnings deck / transcript outlook) and "
+        "analyst-estimate confirmation. **Done — guidance is a comparison baseline only "
+        "(never a model input), so gaps do not change origin eligibility. 16/19 origins "
+        "have next-quarter company guidance; consensus unavailable (no licensed free "
+        "historical source). See `docs/gates/guidance.md`.**"
+    )
+    lines.append(
+        "- LON-8: Second-wave disclosure families (one airline, one retailer, one pure "
+        "payment processor). **Done — context-first families; selection and timing live "
+        "in `docs/gates/second-wave.md` and do not change origin eligibility.**"
     )
     lines.append("")
     return "\n".join(lines) + "\n"

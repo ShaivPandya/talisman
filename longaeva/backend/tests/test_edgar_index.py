@@ -408,6 +408,57 @@ def test_parse_submissions_dedupes_by_accession() -> None:
     assert "0001403161-17-000001" in accessions
 
 
+def test_fetch_company_filings_accepts_cik_prefixed_submission_pages() -> None:
+    """Walmart/JPMorgan older pages are ``CIK…-submissions-001.json``, not ``submissions-001.json``."""
+
+    class FakeClient:
+        def __init__(self) -> None:
+            self.urls: list[str] = []
+
+        def get_json(self, url: str) -> dict[str, Any]:
+            self.urls.append(url)
+            if url.endswith("CIK0000104169.json"):
+                return {
+                    "filings": {
+                        "recent": {
+                            "accessionNumber": ["0000104169-25-000120"],
+                            "form": ["8-K"],
+                            "filingDate": ["2025-08-21"],
+                            "acceptanceDateTime": ["2025-08-21 10:59:09"],
+                            "reportDate": ["2025-08-21"],
+                            "items": ["2.02,9.01"],
+                            "primaryDocument": ["earningsreleasefy26q2.htm"],
+                        },
+                        "files": [
+                            {"name": "CIK0000104169-submissions-001.json", "filingTo": "2023-05-15"},
+                            {"name": "README.txt"},
+                            {"name": "other.json"},
+                        ],
+                    }
+                }
+            if url.endswith("CIK0000104169-submissions-001.json"):
+                return {
+                    "accessionNumber": ["0000104169-22-000040"],
+                    "form": ["8-K"],
+                    "filingDate": ["2022-08-16"],
+                    "acceptanceDateTime": ["2022-08-16 10:00:00"],
+                    "reportDate": ["2022-08-16"],
+                    "items": ["2.02,9.01"],
+                    "primaryDocument": ["earlier.htm"],
+                }
+            raise AssertionError(f"unexpected URL {url}")
+
+    from longaeva_app.collect.edgar_index import fetch_company_filings
+
+    client = FakeClient()
+    filings, urls = fetch_company_filings(client, "0000104169")  # type: ignore[arg-type]
+    assert any(u.endswith("CIK0000104169-submissions-001.json") for u in urls)
+    assert len(client.urls) == 2
+    accessions = {f.accession for f in filings}
+    assert "0000104169-25-000120" in accessions
+    assert "0000104169-22-000040" in accessions
+
+
 @pytest.mark.skipif(not SNAPSHOT_PATH.exists(), reason="filing_index.json not generated yet")
 def test_snapshot_regression_meets_acceptance() -> None:
     snapshot = load_snapshot()
