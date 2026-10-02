@@ -1,0 +1,90 @@
+{
+  "schema_version": 1,
+  "company": "visa",
+  "origin_label": "FY2025Q4",
+  "origin_fiscal_year": 2025,
+  "origin_fiscal_quarter": 4,
+  "target_fiscal_year": 2026,
+  "target_fiscal_quarter": 1,
+  "cutoff_utc": "2025-10-28T20:06:03Z",
+  "release_date": "2025-10-28",
+  "source": {
+    "source_id": "visa_ir/fy2025q4/deck",
+    "kind": "deck",
+    "url": "https://s1.q4cdn.com/050606653/files/doc_financials/2025/q4/Visa-Inc-Fourth-Quarter-2025-Financial-Results-Presentation.pdf",
+    "statement_ts": "2025-10-28T20:06:03Z",
+    "document_ts": "2025-10-28T20:13:03Z",
+    "content_sha256": "1413f94b4379a406d664554170571e7753d41fc4c390e657e9339fa6e302481c",
+    "note": "deck outlook for FY2025Q4"
+  },
+  "observations": [
+    {
+      "observation_id": "visa_fy2025q4_net_revenue_next_quarter_deck",
+      "statement_type": "guidance",
+      "activity_type": "net_revenue",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": 11.0,
+      "range_high": 12.0,
+      "unit": "percent",
+      "basis": "gaap",
+      "source_family": "visa_ir",
+      "review_status": "pending",
+      "span": {
+        "anchor": "net_revenue:next_quarter",
+        "quote": "High-end of low-double-digit",
+        "char_start": 0,
+        "char_end": 28,
+        "page": 14
+      },
+      "note": "outlook slide adjusted constant-dollar",
+      "attributes": {
+        "guidance_label": "company guidance",
+        "guidance_quarter": "2026Q1",
+        "phrase": "High-end of low-double-digit",
+        "comparable": "true",
+        "source_kind": "deck"
+      }
+    },
+    {
+      "observation_id": "visa_fy2025q4_operating_expenses_next_quarter_deck",
+      "statement_type": "guidance",
+      "activity_type": "operating_expenses",
+      "geography": "global",
+      "period_start": "2025-10-01",
+      "period_end": "2025-12-31",
+      "value": null,
+      "range_low": 10.0,
+      "range_high": 12.0,
+      "unit": "percent",
+      "basis": "ex_special_items",
+      "source_family": "visa_ir",
+      "review_status": "pending",
+      "span": {
+        "anchor": "operating_expenses:next_quarter",
+        "quote": "Low-double-digit",
+        "char_start": 0,
+        "char_end": 16,
+        "page": 14
+      },
+      "note": "outlook phrase; recon has non-GAAP nominal row",
+      "attributes": {
+        "guidance_label": "company guidance",
+        "guidance_quarter": "2026Q1",
+        "phrase": "Low-double-digit",
+        "comparable": "true",
+        "source_kind": "deck"
+      }
+    }
+  ],
+  "notes": [
+    "Guidance is company guidance only; never a model input.",
+    "consensus unavailable (no licensed free historical source)"
+  ],
+  "labels": {
+    "company_guidance": "company guidance",
+    "estimates_unavailable": "consensus unavailable (no licensed free historical source)"
+  }
+}

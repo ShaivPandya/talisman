@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "company": "visa",
+  "origin_label": "FY2023Q2",
+  "origin_fiscal_year": 2023,
+  "origin_fiscal_quarter": 2,
+  "target_fiscal_year": 2023,
+  "target_fiscal_quarter": 3,
+  "cutoff_utc": "2023-04-25T20:05:31Z",
+  "release_date": "2023-04-25",
+  "source": {
+    "source_id": "visa_ir/fy2023q2/transcript",
+    "kind": "transcript",
+    "url": "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q2/CORRECTED-TRANSCRIPT-Visa-Inc-V-US-Q2-2023-Earnings-Call-25-April-2023-500-PM-ET.pdf",
+    "statement_ts": "2023-04-25T20:05:31Z",
+    "document_ts": "2023-05-01T15:44:52Z",
+    "content_sha256": "8302b76f0af7dfce3271f2e6d533b175bc15404cada2df57020d0a7e281259ef",
+    "note": "transcript outlook for FY2023Q2"
+  },
+  "observations": [
+    {
+      "observation_id": "visa_fy2023q2_net_revenue_next_quarter_transcript",
+      "statement_type": "guidance",
+      "activity_type": "net_revenue",
+      "geography": "global",
+      "period_start": "2023-04-01",
+      "period_end": "2023-06-30",
+      "value": null,
+      "range_low": 10.0,
+      "range_high": 12.0,
+      "unit": "percent",
+      "basis": "nominal",
+      "source_family": "visa_ir",
+      "review_status": "pending",
+      "span": {
+        "anchor": "net_revenue:next_quarter",
+        "quote": "third quarter net revenue growth is expected to be in the low-double digits, inclusive of an approximately 1-point drag from exchange rates",
+        "char_start": 0,
+        "char_end": 139,
+        "page": null
+      },
+      "note": "transcript spoken nominal net revenue outlook",
+      "attributes": {
+        "guidance_label": "company guidance",
+        "guidance_quarter": "2023Q3",
+        "phrase": "low-double digits",
+        "comparable": "true",
+        "source_kind": "transcript"
+      }
+    }
+  ],
+  "notes": [
+    "Guidance is company guidance only; never a model input.",
+    "consensus unavailable (no licensed free historical source)"
+  ],
+  "labels": {
+    "company_guidance": "company guidance",
+    "estimates_unavailable": "consensus unavailable (no licensed free historical source)"
+  }
+}

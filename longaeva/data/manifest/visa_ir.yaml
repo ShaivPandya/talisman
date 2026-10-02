@@ -1,0 +1,348 @@
+# LON-7 · Guidance availability and analyst-estimate confirmation · planning v1
+# Settled 2026-10-02. Decks + Visa-posted FactSet transcripts for extension origins.
+# Originals cached under var/cache/visa_ir/ only (fetch_script; never bundled).
+
+decision:
+  settled_at: "2026-10-02"
+  plan_id: DRAFT-07
+  linear_id: LON-7
+  extension_sources: decks_plus_transcripts
+  retention: metadata_and_short_quotes
+  ir_html_pages: unavailable_for_automation
+
+labels:
+  company_guidance: company guidance
+  estimates_unavailable: "consensus unavailable (no licensed free historical source)"
+  ui_rule: >-
+    Guidance comparison widgets must label company guidance and show the
+    estimates-unavailable string below. Never present a numeric analyst-estimate
+    figure as if a free historical source were licensed.
+    Label text: consensus unavailable (no licensed free historical source).
+
+timing:
+  rule: same_earnings_event
+  deck_last_modified_max_delta_seconds: 3600
+  transcript_call_date_equals_cutoff_eastern_date: true
+  note: >-
+    Guidance is never a model input (ER-07). The at-or-before-cutoff input rule
+    does not apply. LON-30 must not receive these IR decks or transcripts as
+    LLM context.
+
+comparability:
+  net_revenue: >-
+    Prefer the reconciliation GAAP nominal-dollar row when present; otherwise
+    the outlook-slide adjusted constant-dollar phrase with a note. Transcript-era
+    net revenue is nominal, often inclusive of an FX drag called out in the same
+    sentence.
+  operating_expenses: >-
+    Prefer the reconciliation non-GAAP nominal-dollar row (matches
+    ex_special_items). Transcript-era relative statements ("N to M points lower
+    than Qref") are resolved against reported growth and flagged derived.
+  operating_profit: >-
+    Not guided. LON-29 may derive from net revenue and opex guidance applied to
+    prior-year bases; flag as derived.
+  diluted_eps: context_only
+  drivers: no_numeric_guidance
+  full_year: context_only
+
+access:
+  ir_quarterly_html:
+    url_pattern: "https://investor.visa.com/news/quarterly-earnings/*"
+    status: unavailable_for_automation
+    http_status: 403
+    reason: Cloudflare JavaScript challenge (DR-09); not bypassed
+  cdn:
+    host: "https://s1.q4cdn.com/050606653/files/doc_financials/"
+    discovery: Internet Archive CDX prefix listing of the CDN host
+    crawl_delay_seconds: 10
+    user_agent_env: SEC_USER_AGENT
+  cache_dir: var/cache/visa_ir
+  redistribution: fetch_script
+
+terms:
+  visa_site:
+    terms_url: "https://www.visa.com/en-us/legal"
+    summary: >-
+      Personal, non-commercial download only. May not distribute, copy, publish,
+      transmit, display, sell, license, reuse or create derivative works for any
+      public or commercial purpose without Visa written consent.
+    redistribution: fetch_script
+  factset_callstreet:
+    notice: "Copyrighted FactSet CallStreet, LLC. All rights reserved."
+    summary: >-
+      Transcripts posted on Visa's IR CDN carry FactSet CallStreet copyright.
+      Short fair-use quotes only in committed fixtures; full PDFs stay in the
+      local cache and are never bundled.
+    redistribution: fetch_script
+
+lexicon:
+  version: v1
+  unit: percent_yoy
+  role: analyst_assumption
+  base_phrases:
+    approximately flat: [-1, 1]
+    low single-digit: [1, 3]
+    mid single-digit: [4, 6]
+    high single-digit: [7, 9]
+    low double-digit: [10, 12]
+    low-teens: [12, 14]
+    mid-teens: [14, 16]
+    high-teens: [17, 19]
+    low 20s: [20, 23]
+    mid 20s: [24, 26]
+    high 20s: [27, 29]
+  combinators:
+    high_end_of: upper_half
+    low_end_of: lower_half
+    x_to_y: low_of_x_to_high_of_y
+
+analyst_estimates_checked:
+  - provider: LSEG I/B/E/S
+    access: paid
+    terms_url: "https://www.lseg.com/en/data-analytics/financial-data/company-data/ibes-estimates"
+    historical_as_of: paid
+  - provider: FactSet
+    access: paid
+    terms_url: "https://www.factset.com/"
+    historical_as_of: paid
+  - provider: S&P Capital IQ
+    access: paid
+    terms_url: "https://www.spglobal.com/marketintelligence/"
+    historical_as_of: paid
+  - provider: Bloomberg
+    access: paid
+    terms_url: "https://www.bloomberg.com/professional/"
+    historical_as_of: paid
+  - provider: Zacks
+    access: paid
+    terms_url: "https://www.zacks.com/"
+    historical_as_of: paid
+  - provider: Visible Alpha
+    access: paid
+    terms_url: "https://visiblealpha.com/"
+    historical_as_of: paid
+  - provider: Alpha Vantage
+    access: free_key
+    terms_url: "https://www.alphavantage.co/terms_of_service/"
+    historical_as_of: false
+    note: >-
+      EARNINGS estimatedEPS is EPS-only, personal/non-commercial key, no as-of
+      vintage. LON-6 chose the no-key path.
+  - provider: Finnhub
+    access: free_key
+    terms_url: "https://finnhub.io/docs/api/terms-of-service"
+    historical_as_of: limited
+  - provider: Financial Modeling Prep
+    access: free_key_or_paid
+    terms_url: "https://site.financialmodelingprep.com/terms-of-service"
+    historical_as_of: limited
+  - provider: Yahoo Finance / yfinance
+    access: unofficial
+    terms_url: "https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html"
+    historical_as_of: false
+    note: Unofficial scrape; not license-compliant for this package.
+  - provider: SEC EDGAR
+    access: free
+    terms_url: "https://www.sec.gov/os/accessing-edgar-data"
+    historical_as_of: n_a
+    note: No analyst estimates.
+
+origins:
+  - fiscal_year: 2022
+    fiscal_quarter: 1
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q1/Visa-Inc.-First-Quarter-2022-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q1/CORRECTED-TRANSCRIPT_-Visa,-Inc.(V-US),-Q1-2022-Earnings-Call,-27-January-2022-5_00-PM-ET.pdf"
+      discovery: ia_cdx
+      call_date: "2022-01-27"
+  - fiscal_year: 2022
+    fiscal_quarter: 2
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q2/Visa-Inc.-Second-Quarter-2022-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q2/CORRECTED-TRANSCRIPT_-Visa,-Inc.(V-US),-Q2-2022-Earnings-Call,-26-April-2022-5_00-PM-ET.pdf"
+      discovery: ia_cdx
+      call_date: "2022-04-26"
+  - fiscal_year: 2022
+    fiscal_quarter: 3
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q3/Visa-Inc.-Third-Quarter-2022-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q3/CORRECTED-TRANSCRIPT_-Visa,-Inc.%28V-US%29,-Q3-2022-Earnings-Call.pdf"
+      discovery: ia_cdx
+      call_date: "2022-07-26"
+  - fiscal_year: 2022
+    fiscal_quarter: 4
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q4/Visa-Inc.-Fourth-Quarter-2022-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2022/q4/CORRECTED-TRANSCRIPT_-Visa-Inc.(V-US)-Q4-2022-Earnings-Call-25-October-2022-5_00-PM-ET.pdf"
+      discovery: ia_cdx
+      call_date: "2022-10-25"
+  - fiscal_year: 2023
+    fiscal_quarter: 1
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q1/Visa-Inc.-First-Quarter-2023-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q1/CORRECTED-TRANSCRIPT_-Visa-Inc.(V-US)-Q1-2023-Earnings-Call-26-January-2023-5_00-PM-ET.pdf"
+      discovery: ia_cdx
+      call_date: "2023-01-26"
+  - fiscal_year: 2023
+    fiscal_quarter: 2
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q2/Visa-Inc-Second-Quarter-2023-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q2/CORRECTED-TRANSCRIPT-Visa-Inc-V-US-Q2-2023-Earnings-Call-25-April-2023-500-PM-ET.pdf"
+      discovery: ia_cdx
+      call_date: "2023-04-25"
+  - fiscal_year: 2023
+    fiscal_quarter: 3
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q3/Q3-2023-Earnings-Deck.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: ia_cdx_absent
+      call_date: "2023-07-25"
+      note: No FactSet transcript PDF found under the Visa CDN for FY2023Q3.
+  - fiscal_year: 2023
+    fiscal_quarter: 4
+    origin_window: extension
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2023/q4/Q4-23-Earnings-Deck-FINAL.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: ia_cdx_absent
+      call_date: "2023-10-24"
+      note: No FactSet transcript PDF found under the Visa CDN for FY2023Q4; deck has full-year outlook only.
+  - fiscal_year: 2024
+    fiscal_quarter: 1
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2024/q1/Visa-Inc-First-Quarter-2024-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2024-01-25"
+  - fiscal_year: 2024
+    fiscal_quarter: 2
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2024/q2/Visa-Inc-Second-Quarter-2024-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2024-04-23"
+  - fiscal_year: 2024
+    fiscal_quarter: 3
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2024/q3/Visa-Inc-Third-Quarter-2024-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2024-07-23"
+  - fiscal_year: 2024
+    fiscal_quarter: 4
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2024/q4/Visa-Inc-Fourth-Quarter-2024-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2024-10-29"
+  - fiscal_year: 2025
+    fiscal_quarter: 1
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2025/q1/Visa-Inc-First-Quarter-2025-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2025-01-30"
+  - fiscal_year: 2025
+    fiscal_quarter: 2
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2025/q2/Visa-Inc-Second-Quarter-2025-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2025-04-29"
+  - fiscal_year: 2025
+    fiscal_quarter: 3
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2025/q3/Visa-Inc-Third-Quarter-2025-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2025-07-29"
+  - fiscal_year: 2025
+    fiscal_quarter: 4
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2025/q4/Visa-Inc-Fourth-Quarter-2025-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2025-10-28"
+  - fiscal_year: 2026
+    fiscal_quarter: 1
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2026/q1/Visa-Inc-First-Quarter-2026-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2026-01-29"
+  - fiscal_year: 2026
+    fiscal_quarter: 2
+    origin_window: primary
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2026/q2/Visa-Inc-Second-Quarter-2026-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2026-04-28"
+  - fiscal_year: 2026
+    fiscal_quarter: 3
+    origin_window: prospective
+    deck:
+      url: "https://s1.q4cdn.com/050606653/files/doc_financials/2026/q3/Visa-Inc-Third-Quarter-2026-Financial-Results-Presentation.pdf"
+      discovery: ia_cdx
+    transcript:
+      url: null
+      discovery: not_required_deck_era
+      call_date: "2026-07-28"
+
+sample_origins:
+  - {fiscal_year: 2023, fiscal_quarter: 2, release_date: "2023-04-25", role: transcript_era}
+  - {fiscal_year: 2024, fiscal_quarter: 3, release_date: "2024-07-23", role: lon3_origin_a}
+  - {fiscal_year: 2025, fiscal_quarter: 4, release_date: "2025-10-28", role: lon3_origin_b}
+  - {fiscal_year: 2026, fiscal_quarter: 3, release_date: "2026-07-28", role: prospective}

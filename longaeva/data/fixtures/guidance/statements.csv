@@ -1,0 +1,42 @@
+origin_label,source_kind,metric,period_kind,target_fiscal_year,target_fiscal_quarter,basis,phrase,range_low,range_high,unit,page,quote,comparable,note
+FY2022Q1,transcript,net_revenue,next_quarter,2022,2,nominal,high end of high teens,18,19,percent,,we expect net revenues to grow at the high end of high teens in the second quarter,true,transcript spoken nominal net revenue outlook
+FY2022Q3,transcript,net_revenue,next_quarter,2022,4,nominal,high-teens to 20%,17,20,percent,,fourth quarter net revenues could grow at the high-teens to 20% range in constant dollars,true,transcript spoken nominal net revenue outlook
+FY2022Q4,transcript,net_revenue,next_quarter,2023,1,nominal,high single-digit,7,9,percent,,we expect reported nominal dollar net revenue growth in the high single-digit,true,transcript spoken nominal net revenue outlook
+FY2022Q4,transcript,operating_expenses,next_quarter,2023,1,ex_special_items,low teens,12,14,percent,,Nominal dollar non-GAAP operating expense growth is expected to be in the low teens,true,transcript spoken non-GAAP operating expense outlook
+FY2023Q1,transcript,net_revenue,next_quarter,2023,2,nominal,high-single digits,7,9,percent,,reported nominal dollar Q2 net revenue growth would be in the high-single digits,true,transcript spoken nominal net revenue outlook
+FY2023Q1,transcript,operating_expenses,next_quarter,2023,2,derived,"In the second quarter, non-GAAP operating expense growth in nominal dollars is expected to be 2 to 3 points lower than the first quarter",,,percent,,"In the second quarter, non-GAAP operating expense growth in nominal dollars is expected to be 2 to 3 points lower than the first quarter",derived,relative: 2-3 points lower than first quarter; resolve against reported growth in LON-29
+FY2023Q2,transcript,net_revenue,next_quarter,2023,3,nominal,low-double digits,10,12,percent,,"third quarter net revenue growth is expected to be in the low-double digits, inclusive of an approximately 1-point drag from exchange rates",true,transcript spoken nominal net revenue outlook
+FY2023Q2,transcript,operating_expenses,next_quarter,2023,3,derived,Q3 non-GAAP operating expense growth is expected to be 2 to 3 points lower than the second quarter,,,percent,,Q3 non-GAAP operating expense growth is expected to be 2 to 3 points lower than the second quarter,derived,relative: 2-3 points lower than second quarter; resolve against reported growth in LON-29
+FY2024Q1,deck,net_revenue,next_quarter,2024,2,gaap,Upper mid to high single-digit,5,9,percent,14,Upper mid to high single-digit,true,outlook slide adjusted constant-dollar
+FY2024Q1,deck,operating_expenses,next_quarter,2024,2,ex_special_items,Low double-digit,10,12,percent,14,Low double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2024Q1,deck,diluted_eps,next_quarter,2024,2,gaap,High-teens,17,19,percent,14,High-teens,context_only,EPS guidance is context only for LON-29
+FY2024Q2,deck,net_revenue,next_quarter,2024,3,gaap,Low double-digit,10,12,percent,14,Low double-digit,true,outlook slide adjusted constant-dollar
+FY2024Q2,deck,operating_expenses,next_quarter,2024,3,ex_special_items,Low-teens,12,14,percent,14,Low-teens,true,outlook phrase; recon has non-GAAP nominal row
+FY2024Q2,deck,diluted_eps,next_quarter,2024,3,gaap,High end of low double-digit,11,12,percent,14,High end of low double-digit,context_only,EPS guidance is context only for LON-29
+FY2024Q3,deck,net_revenue,next_quarter,2024,4,gaap,Low double-digit,10,12,percent,14,Low double-digit,true,outlook slide adjusted constant-dollar
+FY2024Q3,deck,operating_expenses,next_quarter,2024,4,ex_special_items,High single-digit,7,9,percent,14,High single-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2024Q3,deck,diluted_eps,next_quarter,2024,4,gaap,High end of low double-digit,11,12,percent,14,High end of low double-digit,context_only,EPS guidance is context only for LON-29
+FY2024Q4,deck,net_revenue,next_quarter,2025,1,gaap,High single-digit,7,9,percent,14,High single-digit,true,outlook slide adjusted constant-dollar
+FY2024Q4,deck,operating_expenses,next_quarter,2025,1,ex_special_items,High single-digit to low double-digit,7,12,percent,14,High single-digit to low double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2024Q4,deck,diluted_eps,next_quarter,2025,1,gaap,Low double-digit,10,12,percent,14,Low double-digit,context_only,EPS guidance is context only for LON-29
+FY2025Q1,deck,net_revenue,next_quarter,2025,2,gaap,High single-digit to low double-digit,7,12,percent,14,High single-digit to low double-digit,true,outlook slide adjusted constant-dollar
+FY2025Q1,deck,operating_expenses,next_quarter,2025,2,ex_special_items,High single-digit to low double-digit,7,12,percent,14,High single-digit to low double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2025Q1,deck,diluted_eps,next_quarter,2025,2,gaap,High single-digit,7,9,percent,14,High single-digit,context_only,EPS guidance is context only for LON-29
+FY2025Q2,deck,net_revenue,next_quarter,2025,3,gaap,Low double-digit,10,12,percent,14,Low double-digit,true,outlook slide adjusted constant-dollar
+FY2025Q2,deck,operating_expenses,next_quarter,2025,3,ex_special_items,Low double-digit,10,12,percent,14,Low double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2025Q2,deck,diluted_eps,next_quarter,2025,3,gaap,High-teens,17,19,percent,14,High-teens,context_only,EPS guidance is context only for LON-29
+FY2025Q3,deck,net_revenue,next_quarter,2025,4,gaap,High-single-digit to low-double-digit,7,12,percent,14,High-single-digit to low-double-digit,true,outlook slide adjusted constant-dollar
+FY2025Q3,deck,operating_expenses,next_quarter,2025,4,ex_special_items,High-single-digit to low-double-digit,7,12,percent,14,High-single-digit to low-double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2025Q3,deck,diluted_eps,next_quarter,2025,4,gaap,High-single-digit,7,9,percent,14,High-single-digit,context_only,EPS guidance is context only for LON-29
+FY2025Q4,deck,net_revenue,next_quarter,2026,1,gaap,High-end of low-double-digit,11,12,percent,14,High-end of low-double-digit,true,outlook slide adjusted constant-dollar
+FY2025Q4,deck,operating_expenses,next_quarter,2026,1,ex_special_items,Low-double-digit,10,12,percent,14,Low-double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2025Q4,deck,diluted_eps,next_quarter,2026,1,gaap,Low-teens,12,14,percent,14,Low-teens,context_only,EPS guidance is context only for LON-29
+FY2026Q1,deck,net_revenue,next_quarter,2026,2,gaap,Low-double-digit,10,12,percent,14,Low-double-digit,true,outlook slide adjusted constant-dollar
+FY2026Q1,deck,operating_expenses,next_quarter,2026,2,ex_special_items,Mid-teens,14,16,percent,14,Mid-teens,true,outlook phrase; recon has non-GAAP nominal row
+FY2026Q1,deck,diluted_eps,next_quarter,2026,2,gaap,High-end of low-double-digit,11,12,percent,14,High-end of low-double-digit,context_only,EPS guidance is context only for LON-29
+FY2026Q2,deck,net_revenue,next_quarter,2026,3,gaap,Low-double-digit,10,12,percent,14,Low-double-digit,true,outlook slide adjusted constant-dollar
+FY2026Q2,deck,operating_expenses,next_quarter,2026,3,ex_special_items,Low-teens,12,14,percent,14,Low-teens,true,outlook phrase; recon has non-GAAP nominal row
+FY2026Q2,deck,diluted_eps,next_quarter,2026,3,gaap,Mid-to high-single-digit,4,9,percent,14,Mid-to high-single-digit,context_only,EPS guidance is context only for LON-29
+FY2026Q3,deck,net_revenue,next_quarter,2026,4,gaap,High-end of low-double-digit,11,12,percent,14,High-end of low-double-digit,true,outlook slide adjusted constant-dollar
+FY2026Q3,deck,operating_expenses,next_quarter,2026,4,ex_special_items,Low-double-digit,10,12,percent,14,Low-double-digit,true,outlook phrase; recon has non-GAAP nominal row
+FY2026Q3,deck,diluted_eps,next_quarter,2026,4,gaap,Low-end of mid-teens,14,15,percent,14,Low-end of mid-teens,context_only,EPS guidance is context only for LON-29

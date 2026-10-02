@@ -64,6 +64,17 @@ Tiingo key is added. Manifest
 probe [`data/fixtures/benchmarks/probe.json`](data/fixtures/benchmarks/probe.json),
 and gate report [`docs/gates/benchmarks.md`](docs/gates/benchmarks.md).
 
+Guidance availability and analyst-estimate confirmation (LON-7): 16 of 19 origins have
+a recoverable next-quarter company-guidance outlook (11 earnings decks from
+FY2024Q1; 5 Visa-posted FactSet transcripts in the extension window). Three gaps
+(FY2022Q2, FY2023Q3, FY2023Q4). Analyst estimates:
+consensus unavailable (no licensed free historical source). Manifest
+[`data/manifest/visa_ir.yaml`](data/manifest/visa_ir.yaml), fixtures under
+[`data/fixtures/guidance/`](data/fixtures/guidance/), sample observations
+`data/fixtures/observations/visa_guidance_*.json`, and gate report
+[`docs/gates/guidance.md`](docs/gates/guidance.md). Originals stay in
+`var/cache/visa_ir/` (fetch by script; never bundled).
+
 ## Core read API (LON-10)
 
 Read-only list/detail endpoints (writes arrive in later issues):
