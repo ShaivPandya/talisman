@@ -356,8 +356,13 @@ Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
   `tax_rate` / `net_interest_other` source tags corrected to `earnings_release`.
 - **LON-8:** Second-wave families should map into
   `cross_border_ex_intra_europe_*` or `payments_volume_*` drivers under these definitions.
-- **LON-14:** Parser field names = `FIELDS` above; unit/basis tokens = §9; reproduce the
-  two LON-3 fixtures exactly once they exist.
+- **LON-14:** Done — see [`docs/visa-parser.md`](visa-parser.md). Parser field names =
+  `FIELDS` plus observation-only `REPORTED_FIELDS` in §14; unit/basis tokens = §9.
+  Structured HTML/table extraction for 39 releases and prior 10-Q/10-Ks; the two
+  LON-3 fixtures reproduce on measured values, spans and derived formulas.
+- **LON-16:** LLM extraction for fields the structured parser cannot locate (prose-only
+  operational performance data in FY2017–FY2021Q2) can consume `parse_status.csv`
+  missing-field reasons.
 - **LON-19:** Done — see [`docs/model-spec.md`](model-spec.md). `VisaModel` implements
   `CompanyModel` with these field names; six factors (demand/travel/FX correlated;
   pricing/incentives/costs independent); cross-border as a share of payments volume
@@ -365,3 +370,18 @@ Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
   `service_lag` / `pool_mix` switches; no teaching-fee constants.
 - **LON-25:** Valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`
   and `operating_profit_*` on the bases in §6.
+
+## 14. Observation-only reported fields (LON-14)
+
+These names live in `REPORTED_FIELDS`, not `FIELDS`, so the LON-3 starting-state
+fixtures keep their original key set. The parser still emits them as typed observations.
+
+| Field | Unit | Basis | Period | Source | First | Last | Role |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `eps_diluted_gaap` | usd_per_share | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | context |
+| `eps_diluted_ex_special_items` | usd_per_share | ex_special_items | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | context |
+| `special_item_operating_expense` | usd_millions | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | context |
+
+`special_item_operating_expense` is one row per three-month operating-expense bridge
+line; the item label is stored in `attributes.item`. The unit `usd_per_share` is added
+to the LON-2 unit vocabulary for EPS.

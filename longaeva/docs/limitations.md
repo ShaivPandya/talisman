@@ -80,3 +80,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   immutable publication vintage suitable for DR-04.
 - **IR redistribution:** Visa IR decks/transcripts are fetch-by-script only and must
   not be bundled in the export ZIP (see `visa_ir.yaml` terms).
+- **Visa parser (LON-14):** FY2018Q1–FY2021Q2 releases are page images. The hidden
+  text layer is incomplete for some Key Business Drivers tables; those quarters stay
+  `partial` rather than fabricating growth rates. Operational Performance Data volume
+  *levels* in older releases are out of scope (LON-20 / LON-16).

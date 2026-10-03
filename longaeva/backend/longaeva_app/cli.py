@@ -124,6 +124,25 @@ def cmd_engine_benchmark(args: argparse.Namespace) -> int:
     return 0 if payload["nr01_pass"] else 1
 
 
+def cmd_parse_visa(args: argparse.Namespace) -> int:
+    """Offline Visa table parser (LON-14)."""
+    from collections import Counter
+
+    from longaeva_app.extract.visa_tables import iter_origin_parses, write_outputs
+
+    status_rows, obs_rows = iter_origin_parses()
+    counts = Counter(row["status"] for row in status_rows)
+    eras = Counter(row["era"] for row in status_rows)
+    print(f"releases: {len(status_rows)}  observations: {len(obs_rows)}")
+    print("status:", dict(counts))
+    print("era:", dict(eras))
+    if args.write:
+        status_path, obs_path = write_outputs(status_rows, obs_rows)
+        print(f"Wrote {status_path}")
+        print(f"Wrote {obs_path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -212,6 +231,17 @@ def build_parser() -> argparse.ArgumentParser:
     bench.add_argument("--n-quarters", type=int, default=4, help="Horizon in fiscal quarters")
     bench.add_argument("--repeats", type=int, default=3, help="Timed repeats after a warm-up")
     bench.set_defaults(func=cmd_engine_benchmark)
+
+    parse_visa = sub.add_parser(
+        "parse-visa",
+        help="Parse retained Visa releases and 10-Q/10-K tables (LON-14, offline)",
+    )
+    parse_visa.add_argument(
+        "--write",
+        action="store_true",
+        help="Regenerate data/fixtures/visa_releases/observations.csv and parse_status.csv",
+    )
+    parse_visa.set_defaults(func=cmd_parse_visa)
 
     return parser
 

@@ -14,6 +14,7 @@ from longaeva_app.companies.visa.definitions import (
     FIELDS,
     MODEL_ROLE_VOCABULARY,
     PERIOD_RULE_VOCABULARY,
+    REPORTED_FIELDS,
     SOURCE_VOCABULARY,
     UNIT_VOCABULARY,
     VISA_FISCAL_CALENDAR,
@@ -56,7 +57,7 @@ def test_field_names_unique_snake_case() -> None:
 
 
 def test_field_vocabularies_and_citations() -> None:
-    for field in FIELDS:
+    for field in (*FIELDS, *REPORTED_FIELDS):
         assert field.unit in UNIT_VOCABULARY, field.name
         assert field.basis in BASIS_VOCABULARY, field.name
         assert field.period_rule in PERIOD_RULE_VOCABULARY, field.name

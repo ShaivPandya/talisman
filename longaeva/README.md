@@ -39,6 +39,12 @@ Two reconciled historical starting states (LON-3) live at
 `data/fixtures/states/sources/` and the gate report in
 [`docs/gates/starting-states.md`](docs/gates/starting-states.md).
 
+The Visa release / 10-Q table parser (LON-14) lives in
+`backend/longaeva_app/extract/visa_tables.py`. Retained extras are under
+`data/fixtures/visa_releases/`; regenerate with
+`python -m longaeva_app.cli parse-visa --write`. See
+[`docs/visa-parser.md`](docs/visa-parser.md).
+
 Census MARTS vintage gate (LON-5): parsed advance releases
 `data/fixtures/census/adv2406.csv` and `adv2506.csv`, release calendar
 `data/fixtures/census/release_calendar.csv`, retained PDFs/XLSX under

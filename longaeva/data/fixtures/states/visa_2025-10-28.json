@@ -333,10 +333,10 @@
       "period_end": "2025-09-30",
       "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
       "span": {
-        "anchor": "KEY BUSINESS DRIVERS",
+        "anchor": "9%</font></td><td colspan=\"3\" style=\"padding:0 1pt\"></td><td colspan=\"3\" st",
         "quote": "9%",
-        "char_start": 112485,
-        "char_end": 112487
+        "char_start": 112729,
+        "char_end": 112731
       },
       "derivation": {
         "formula": "year_ago * (1 + growth_pct/100)",
@@ -346,7 +346,7 @@
         },
         "rounding_band": 17.05
       },
-      "note": "PV(q)=PV(FY2024Q4)\u00d7(1+0.09); span cites KBD nominal (=constant) 9%"
+      "note": "PV(q)=PV(FY2024Q4)\u00d7(1+0.09); span cites KBD nominal 9% (LON-14)"
     },
     "cash_volume_nominal_us": {
       "name": "cash_volume_nominal_us",
@@ -431,12 +431,12 @@
       "period_end": "2025-09-30",
       "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
       "span": {
-        "anchor": "Payments volume</font>",
+        "anchor": "9%</font></td><td colspan=\"3\" style=\"padding:0 1pt\"></td><td colspan=\"3\" st",
         "quote": "9%",
-        "char_start": 112485,
-        "char_end": 112487
+        "char_start": 112729,
+        "char_end": 112731
       },
-      "note": "Second 9% in KBD payments row is nominal; locate uses first after anchor \u2014 both equal 9"
+      "note": "KBD Nominal column (LON-14); both Constant and Nominal print 9%"
     },
     "payments_volume_prior_quarter_growth_constant": {
       "name": "payments_volume_prior_quarter_growth_constant",
@@ -557,10 +557,10 @@
       "period_end": "2025-09-30",
       "source_id": "0001403161-25-000077/q42025earningsrelease.htm",
       "span": {
-        "anchor": "KEY BUSINESS DRIVERS",
+        "anchor": "9%</font></td><td colspan=\"3\" style=\"padding:0 1pt\"></td><td colspan=\"3\" st",
         "quote": "9%",
-        "char_start": 112485,
-        "char_end": 112487
+        "char_start": 112729,
+        "char_end": 112731
       },
       "derivation": {
         "formula": "year_ago * (1 + growth_pct/100)",

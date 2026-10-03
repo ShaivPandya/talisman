@@ -33,6 +33,7 @@ UNIT_VOCABULARY: frozenset[str] = frozenset(
         "index",
         "transactions_millions",
         "shares_millions",
+        "usd_per_share",
     }
 )
 
@@ -844,6 +845,50 @@ FIELDS: tuple[FieldDefinition, ...] = (
         model_role="valuation",
         description="Diluted class A share count used for EPS and the valuation bridge.",
         citations=(_CITE_REL_FY2026Q3_LAG,),
+    ),
+)
+
+# Observation-only fields emitted by the LON-14 parser. Kept out of FIELDS so
+# LON-3 starting-state fixtures keep their original key set.
+REPORTED_FIELDS: tuple[FieldDefinition, ...] = (
+    FieldDefinition(
+        name="eps_diluted_gaap",
+        unit="usd_per_share",
+        basis="gaap",
+        period_rule="current_quarter",
+        source="earnings_release",
+        first_period="FY2017Q1",
+        last_period="FY2026Q3",
+        model_role="context",
+        description="GAAP diluted class A earnings per share from the income statement summary.",
+        citations=(_CITE_REL_FY2026Q3_LAG,),
+    ),
+    FieldDefinition(
+        name="eps_diluted_ex_special_items",
+        unit="usd_per_share",
+        basis="ex_special_items",
+        period_rule="current_quarter",
+        source="earnings_release",
+        first_period="FY2017Q1",
+        last_period="FY2026Q3",
+        model_role="context",
+        description="Non-GAAP / adjusted diluted class A earnings per share from the income statement summary.",
+        citations=(_CITE_REL_FY2026Q3_LAG,),
+    ),
+    FieldDefinition(
+        name="special_item_operating_expense",
+        unit="usd_millions",
+        basis="gaap",
+        period_rule="current_quarter",
+        source="earnings_release",
+        first_period="FY2017Q1",
+        last_period="FY2026Q3",
+        model_role="context",
+        description=(
+            "One operating-expense bridge line from the three-month non-GAAP reconciliation "
+            "(item label stored in attributes.item)."
+        ),
+        citations=(_CITE_FY2025_10K_LITIGATION, _CITE_FY2025_10K_AMORT),
     ),
 )
 

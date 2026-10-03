@@ -161,6 +161,16 @@ Census timing (LON-5) can still lower the count.
 
 `tax_rate` and `net_interest_other` field `source` tags were corrected from `form_10q` to `earnings_release` (both appear in the release at the cutoff). Field **names** are unchanged.
 
+## LON-14 span correction (Origin B nominal growth)
+
+In `visa_2025-10-28.json`, three FY2025Q4 entries originally cited the Key Business
+Drivers **Constant** cell (`char_start` 112485, quote `9%`) for **nominal** growth:
+`payments_volume_growth_nominal` and the supporting spans on derived
+`payments_volume_nominal_us` and `payments_volume_index_nominal`. Values were already
+9% on both columns. LON-14 repoints those spans to the **Nominal** cell at 112729
+with an anchor that `locate_span` resolves there. Constant-dollar growth remains at
+112485.
+
 ## Five-value reviewer checklist
 
 Re-checked against live EDGAR HTML on October 2, 2026:
@@ -179,7 +189,9 @@ Thirteen unique filings retained under [`data/fixtures/states/sources/`](../../d
 
 ## Handoff
 
-- **LON-14:** reproduce both fixtures exactly; field names = `FIELDS`; basis tokens = definitions §9.
+- **LON-14:** Done — structured parser in `extract/visa_tables.py` reproduces both
+  fixtures (measured values and spans; derived values via fixture formulas). See
+  [`docs/visa-parser.md`](../visa-parser.md).
 - **LON-19:** `to_starting_state()` returns the numeric map; service lag uses PV(t−1); no teaching-fee constants; CB index remains unavailable until a level source exists or an analyst assumption is reviewed.
 - **LON-20:** use derived PV series with rounding bands; do not substitute post-cutoff restatements into earlier cutoffs.
 - **LON-25:** valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`, `operating_profit_*`.
