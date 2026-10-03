@@ -52,8 +52,8 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 ## Engine caveats (LON-19)
 
 - **Uncalibrated defaults.** Parameter defaults in `companies/visa/parameters.py` are
-  placeholders. A run on defaults is not a forecast. LON-20 fits free parameters and
-  residual scales chronologically.
+  placeholders. A run on defaults is not a forecast. Prefer a LON-20 calibrated
+  parameter set (`make calibrate ARGS='--persist'`, scenario name `calibrated`).
 - **Cross-border share is an assumption.** Visa does not disclose a cross-border volume
   level at the earnings cutoff (LON-3). `cross_border_share_at_origin` is an
   analyst-assumption parameter (range midpoint 0.20). International yield is scaled by
@@ -63,8 +63,20 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   `operating_profit_ex_special_items` / `operating_expenses_ex_special_items`. GAAP
   operating profit remains on fixtures for reporting, not as a simulated path.
 - **One shared pricing shock.** The three category yields share a single pricing factor.
-  Category-specific yield uncertainty is only through separate drift parameters until
-  LON-20 revisits residual structure.
+  Category-specific yield uncertainty is only through separate drift parameters; residual
+  pricing scale is pooled across service and data-processing yields in LON-20.
+
+## Calibration caveats (LON-20)
+
+- **Short post-pandemic history.** FY2020Q2–FY2021Q4 (and YoY bases through FY2022Q4)
+  have zero estimation weight, so early origins lean on FY2018Q2–FY2020Q1 growth rates
+  and modern-era opex only.
+- **Whole-percent growth rounding.** Disclosed driver growth rates are integers; residual
+  shock scales inherit that quantization.
+- **Cross-border seasonals assumed.** Only YoY cross-border growth is disclosed, so
+  `cross_border_seasonal_q*` stay at 1.0 with `assumption=true`.
+- **Pooled set in runs.** Ensemble members and weights are in the calibration artifact;
+  submitted runs use the pooled parameter set until LON-27 records weights with each run.
 
 ## Collector caveats (LON-13)
 
@@ -93,7 +105,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Runs on uncalibrated defaults are not forecasts.** `POST /runs/{id}/forecasts`
   refuses all-assumption parameter sets.
 - **Two origins only.** Reconciled starting states exist for 2024-07-23 and
-  2025-10-28. Other cutoffs return 422 until LON-20 / LON-27.
+  2025-10-28. Other cutoffs return 422 until LON-27 wires calibrated starts.
 - **Progress is status only.** There is no per-path progress stream; poll
   `GET /runs/{id}` (`queued` / `running` / `succeeded` / `failed`).
 - **Prospective vs retrospective** archive checks use the static

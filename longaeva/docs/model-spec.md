@@ -1,12 +1,12 @@
 # Visa model specification
 
-LON-19 · planning v1 · engine core settled October 3, 2026.
+LON-19 / LON-20 · planning v1 · engine core settled October 3, 2026; calibration
+settled October 3, 2026.
 
 This document describes the Visa quarterly operating model implemented in
 `backend/longaeva_app/companies/visa/` and the company-agnostic Monte Carlo engine in
 `backend/longaeva_app/engine/`. Field names follow [`docs/definitions.md`](definitions.md).
-Calibration (LON-20), interventions (LON-22) and run persistence (LON-23) are out of
-scope here.
+Interventions (LON-22) remain out of scope here.
 
 ## 1. Overview
 
@@ -161,6 +161,60 @@ remains a reporting field on fixtures, not a path metric.
 | `cross_border_share_at_origin` | assumption | ratio | 0.05 | 0.35 | 0.2 | Analyst-assumption share of payments volume that is cross-border ex-intra-Europe at the origin quarter. Midpoint of the allowed range; not an estimate (LON-3: no disclosed CB level). |
 | `international_fx_sensitivity` | assumption | ratio | -1.0 | 1.0 | 0.0 | Additional FX sensitivity on the international yield (0 = pricing shock only). |
 
+### 6.1 Calibration (LON-20)
+
+Implementation: `companies/visa/calibration.py`. Artifacts:
+`data/calibration/visa_<origin-date>.json`. CLI: `python -m longaeva_app.cli calibrate`
+(prefer the host venv for `--write`; Compose mounts `data/` read-only).
+
+**Vintage rule.** Each observation's publication time is its source's EDGAR
+`acceptance_utc`. Fits use the latest vintage published at or before the origin cutoff.
+Comparative quarterly levels are remapped to the year-ago period so post-cutoff
+restatements cannot leak (tested: FY2023Q2 payments volume is 2,957 at the FY2024Q3
+cutoff and 2,963 at the FY2024Q4 cutoff). Fiscal Q3 payments-volume levels are
+`TTM − 9M` with publication time equal to the later of the two windows.
+
+**Quality gates.** FY2017 and FY2018Q1 are unused. Image-era net revenue and
+GAAP-derived opex are excluded; opex enters only when `statement_type=measured`
+(modern table era). Non-positive or ±25% QoQ-jump PV levels are dropped. Cross-border
+uses ex-intra-Europe growth only (disclosed from FY2021Q3).
+
+**Pandemic treatment.** Estimation weight is zero for FY2020Q2–FY2021Q4, for YoY
+comparisons against those quarters (through FY2022Q4), and for QoQ comparisons that
+touch them (through FY2022Q1). Quarters remain in the panel, flagged. An
+"if included" alternative is reported in each artifact's sensitivity table.
+
+**Estimators.** Activity and opex seasonal ratios are demeaned mean log QoQ changes,
+geo-mean normalized to 1. Cross-border seasonals are assumed 1.0 (not identifiable from
+YoY-only disclosure). The eight free parameters plus `other_revenue_growth` are fitted
+with bounded `scipy.optimize.least_squares` on YoY log residuals implied by four
+zero-shock steps of `transition_quarter`. Shock scales are residual SD / 2 (travel also
+`/ (1 − share)`; FX is RMS of nominal−constant gaps / 2). Macro correlations are
+nearest-PSD projections (defaults when fewer than six common quarters). Ranges are 90%
+intervals clipped to `ParameterSpec` bounds.
+
+**Ensemble.** Members end at the origin: last 4 quarters, last 8 quarters, and full
+history from FY2018Q2. Weights are inverse MSE of one-step pseudo-OOS errors over the
+last four eligible quarters (Bates–Granger), normalized to sum to 1. The pooled set is
+a weight-average (geo-mean for seasonals; PSD projection for correlations). Runs today
+use the pooled set; recording members/weights with each evaluation run is LON-27.
+
+**Evidence.** Each parameter links to deterministic observation UUIDs
+(`observation_uuid_for` in `extract/visa_tables.py`) or `assumption=true` with a
+rationale. Artifacts carry an `evidence_index`; LON-37 loads rows under the same IDs.
+
+**Calibrated pooled values (committed artifacts).**
+
+| origin | weights (last_4q / last_8q / full) | `payments_volume_growth` | `opex_growth` | `demand_vol` |
+| --- | --- | --- | --- | --- |
+| 2024-07-23 (FY2024Q3) | 0.499 / 0.364 / 0.137 | 0.0825 | 0.1086 | 0.0047 |
+| 2025-10-28 (FY2025Q4) | 0.647 / 0.149 / 0.204 | 0.0852 | 0.1108 | 0.0034 |
+
+**Sensitivity.** Each artifact includes a table of next-quarter mean net revenue,
+next-quarter mean operating profit (ex special items), and four-quarter mean net
+revenue under low/high yield and incentive drifts (90% ranges), assumption-parameter
+bounds, and the pandemic-included alternative. Common seed, 2,000 paths.
+
 ## 7. Outputs
 
 `engine/runner.simulate` returns path-complete metric and end-of-quarter state arrays of
@@ -199,8 +253,8 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
 ## 9. Handoffs
 
 - **LON-14:** parsers must reproduce LON-3 fixtures; engine consumes the same field names.
-- **LON-20:** fit the 8 free parameters and residual vols/correlations chronologically;
-  seasonal ratios from history; pandemic treatment documented here later.
+- **LON-20 (done):** chronological fit, ensemble weights, evidence UUIDs, sensitivity
+  table, and pandemic exclusion are implemented; see §6.1.
 - **LON-21:** mapping rules update parameter sets (including the share assumption) with
   provenance; assumption flags already declared on the two assumption parameters.
 - **LON-22:** interventions (`mix_shift_conserving_total`, `total_spend_reduction`) and
@@ -210,3 +264,8 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
 - **LON-25:** valuation bridge consumes `operating_profit_ex_special_items` paths plus
   fixture `tax_rate` / `net_interest_other` / `diluted_shares`.
+- **LON-27:** record ensemble members and weights with each evaluation run; calibrate at
+  each origin; note that `payments_volume_growth_constant` is annualized QoQ growth, not
+  true YoY growth, for scoring.
+- **LON-32:** reuse the sensitivity harness for ablations.
+- **LON-37:** load observations under the deterministic UUIDs so evidence links resolve.

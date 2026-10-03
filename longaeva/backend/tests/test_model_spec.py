@@ -39,7 +39,9 @@ def test_model_spec_state_table_matches_code() -> None:
 def test_model_spec_parameter_table_matches_code() -> None:
     text = MODEL_SPEC.read_text(encoding="utf-8")
     section = _section(text, "## 6. Parameters")
-    names = _ROW_NAME.findall(section)
+    # Only the first markdown table in §6 is the parameter inventory (LON-20 adds more).
+    table = section.split("\n\n### ", 1)[0]
+    names = _ROW_NAME.findall(table)
     assert names == [spec.name for spec in VISA_PARAMETERS]
 
 

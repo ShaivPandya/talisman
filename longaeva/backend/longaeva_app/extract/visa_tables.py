@@ -40,6 +40,8 @@ PACKAGE_ROOT = Path(__file__).resolve().parents[3]
 EXTRACTOR_ID = "visa_tables"
 EXTRACTOR_VERSION = "lon-14-v1"
 SOURCE_UUID_NAMESPACE = uuid.UUID("a14e0c14-14a4-4c14-a14e-000000000014")
+# Deterministic observation IDs for calibration evidence (LON-20); LON-37 loads under the same IDs.
+OBSERVATION_UUID_NAMESPACE = uuid.UUID("b25f1d25-25b5-5d25-b25f-000000000025")
 
 FIELD_BY_NAME = {f.name: f for f in (*FIELDS, *REPORTED_FIELDS)}
 _PERIOD_RE = re.compile(r"^FY(20\d{2})Q([1-4])$")
@@ -210,6 +212,31 @@ def detect_format(layout: DocumentLayout, fiscal_year: int) -> FormatEra:
 
 def source_uuid_for(source_id: str) -> UUID:
     return uuid.uuid5(SOURCE_UUID_NAMESPACE, source_id)
+
+
+def observation_uuid_for(
+    *,
+    source_id: str,
+    field: str,
+    period_label: str,
+    geography: str,
+    vintage_role: str,
+    char_start: int,
+    char_end: int,
+) -> UUID:
+    """Deterministic observation UUID from the parser row identity (LON-20 / LON-37)."""
+    key = "|".join(
+        [
+            source_id,
+            field,
+            period_label,
+            geography,
+            vintage_role,
+            str(int(char_start)),
+            str(int(char_end)),
+        ]
+    )
+    return uuid.uuid5(OBSERVATION_UUID_NAMESPACE, key)
 
 
 def _norm_label(text: str) -> str:

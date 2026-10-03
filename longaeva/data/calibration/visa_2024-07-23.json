@@ -1,0 +1,5285 @@
+{
+  "cutoff_ts": "2024-07-23T20:05:38Z",
+  "evidence_index": {
+    "00ad1832-7f0f-58eb-8679-5cf31f327ec6": {
+      "char_end": 1908772,
+      "char_start": 1908767,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-04-26T21:36:19Z",
+      "source_id": "0001403161-23-000031/v-20230331.htm",
+      "unit": "usd_billions",
+      "value": 2964.0,
+      "vintage_role": "comparative"
+    },
+    "01ac9b89-0776-5281-9087-095a9b77be92": {
+      "char_end": 26041,
+      "char_start": 26036,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2402.0,
+      "vintage_role": ""
+    },
+    "034195b8-f6bb-55f3-989e-4d5b41c1b305": {
+      "char_end": 94619,
+      "char_start": 94614,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2632.0,
+      "vintage_role": ""
+    },
+    "03ff9503-7ecf-5255-a215-db85f78c73bb": {
+      "char_end": 114015,
+      "char_start": 114012,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "0496e056-26b6-5c23-9ba0-3fa74d06625b": {
+      "char_end": 62821,
+      "char_start": 62816,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2581.0,
+      "vintage_role": ""
+    },
+    "0632a885-4ac5-5c4c-81d4-b60cdbd7ad85": {
+      "char_end": 18827,
+      "char_start": 18822,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2864.0,
+      "vintage_role": ""
+    },
+    "063c1a3d-56a0-5cf5-a27e-c88fd040c423": {
+      "char_end": 52251,
+      "char_start": 52246,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3193.0,
+      "vintage_role": ""
+    },
+    "06473618-79cb-5bc7-a9f5-8fe1942337aa": {
+      "char_end": 18588,
+      "char_start": 18585,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "07482eb9-2a9c-55e1-8b62-6dd4f3fe4749": {
+      "char_end": 55299,
+      "char_start": 55292,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2786.0,
+      "vintage_role": ""
+    },
+    "078f5c2c-aa87-5808-a900-5c7b8c102ce5": {
+      "char_end": 94801,
+      "char_start": 94797,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "percent",
+      "value": 53.0,
+      "vintage_role": ""
+    },
+    "08281e96-9a18-5a32-a0d3-235f616b214c": {
+      "char_end": 15117,
+      "char_start": 15112,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 1796.0,
+      "vintage_role": ""
+    },
+    "082eadcd-e295-5254-9825-f6a67f4e24a2": {
+      "char_end": 55803,
+      "char_start": 55798,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4259.0,
+      "vintage_role": ""
+    },
+    "0855fe13-3b59-5b8f-8d60-86c06928073d": {
+      "char_end": 17659,
+      "char_start": 17654,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 2355.0,
+      "vintage_role": ""
+    },
+    "085bba12-c268-5af1-8641-6dd6afb2cf20": {
+      "char_end": 65635,
+      "char_start": 65630,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2353.0,
+      "vintage_role": ""
+    },
+    "0b31ff5b-b1c5-531f-99f8-8b19b4276941": {
+      "char_end": 74252,
+      "char_start": 74250,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "0c85b64f-60af-5135-af7b-4d3db0476d81": {
+      "char_end": 110500,
+      "char_start": 110498,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "0df0e0f9-14fa-568d-84fc-9134a5a4217a": {
+      "char_end": 51372,
+      "char_start": 51367,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2749.0,
+      "vintage_role": ""
+    },
+    "0fed9e77-06b2-54ef-8cc3-0a0ca6fa30d8": {
+      "char_end": 52313,
+      "char_start": 52308,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3827.0,
+      "vintage_role": ""
+    },
+    "10cf9d80-50e3-5a4e-a9f6-ce904a7a2c63": {
+      "char_end": 21670,
+      "char_start": 21665,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 2323.0,
+      "vintage_role": ""
+    },
+    "10e22407-f2da-5322-9fe4-d42d87d30b33": {
+      "char_end": 2107280,
+      "char_start": 2107275,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-07-28T20:04:21Z",
+      "source_id": "0001403161-22-000058/v-20220630.htm",
+      "unit": "usd_billions",
+      "value": 2424.0,
+      "vintage_role": "comparative"
+    },
+    "112062d2-97d5-59e7-95cf-adc3cb04249d": {
+      "char_end": 77160,
+      "char_start": 77158,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "1227a592-7f86-5b3f-b61e-74c1591c6dfc": {
+      "char_end": 50995,
+      "char_start": 50990,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3521.0,
+      "vintage_role": ""
+    },
+    "124bf7d1-ae29-53db-ad2f-e3b59d33f799": {
+      "char_end": 54425,
+      "char_start": 54418,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3167.0,
+      "vintage_role": ""
+    },
+    "12cfa7af-65e5-5dc7-a9f2-84569b74f586": {
+      "char_end": 14434,
+      "char_start": 14429,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "usd_millions",
+      "value": 2996.0,
+      "vintage_role": ""
+    },
+    "13ec57b4-5a68-52b6-8071-b29a5d875f8f": {
+      "char_end": 56295,
+      "char_start": 56290,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3194.0,
+      "vintage_role": ""
+    },
+    "16416178-7cad-56e7-8c47-8150fe395159": {
+      "char_end": 22618,
+      "char_start": 22616,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "165c49f2-bbb1-5263-a40a-c92693637b32": {
+      "char_end": 73068,
+      "char_start": 73065,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "percent",
+      "value": 14.0,
+      "vintage_role": ""
+    },
+    "1745e4b4-ef89-5f3f-bdfb-4fbd723610e4": {
+      "char_end": 15010,
+      "char_start": 15005,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 2417.0,
+      "vintage_role": ""
+    },
+    "180de1ab-1c1b-5095-a17c-8a45fe7b19dc": {
+      "char_end": 15757,
+      "char_start": 15755,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "1811c274-ac0a-5c4e-b5de-6718c2542162": {
+      "char_end": 1879531,
+      "char_start": 1879526,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-04-29T20:06:43Z",
+      "source_id": "0001403161-21-000029/v-20210331.htm",
+      "unit": "usd_billions",
+      "value": 2360.0,
+      "vintage_role": "comparative"
+    },
+    "186222a5-adc3-55e2-9491-c322649f79f1": {
+      "char_end": 15248,
+      "char_start": 15245,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "percent",
+      "value": 14.0,
+      "vintage_role": ""
+    },
+    "19d63fff-6e2a-5dfc-b4b0-e1d13863a3c4": {
+      "char_end": 70666,
+      "char_start": 70663,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 490.0,
+      "vintage_role": ""
+    },
+    "1a022a93-7754-51b2-8c0d-e32178d1ed05": {
+      "char_end": 19130,
+      "char_start": 19123,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 1748.0,
+      "vintage_role": ""
+    },
+    "1a890411-cbc3-52c2-b20e-742da1c26183": {
+      "char_end": 74904,
+      "char_start": 74901,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "percent",
+      "value": 48.0,
+      "vintage_role": ""
+    },
+    "1b08196b-8c5b-5926-8bf2-1e0de8eab796": {
+      "char_end": 18469,
+      "char_start": 18466,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "percent",
+      "value": 13.0,
+      "vintage_role": ""
+    },
+    "1b628df2-ca29-56bd-9819-36592bd9b6a2": {
+      "char_end": 1957302,
+      "char_start": 1957297,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-07-29T20:03:32Z",
+      "source_id": "0001403161-21-000042/v-20210630.htm",
+      "unit": "usd_billions",
+      "value": 2131.0,
+      "vintage_role": "comparative"
+    },
+    "1cc15bda-f599-5517-bfbf-135c5a885688": {
+      "char_end": 24754,
+      "char_start": 24751,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "usd_millions",
+      "value": 361.0,
+      "vintage_role": ""
+    },
+    "1d0b3566-9a8e-5358-ae5d-09a54d5a484f": {
+      "char_end": 26968,
+      "char_start": 26965,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e": {
+      "char_end": 422325,
+      "char_start": 422320,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2223.0,
+      "vintage_role": ""
+    },
+    "1ea2c98e-2b29-5631-a062-13d971196cd8": {
+      "char_end": 17189,
+      "char_start": 17184,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q3",
+      "publication_ts": "2020-07-28T20:05:10Z",
+      "source_id": "0001403161-20-000043/q32020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2525.0,
+      "vintage_role": ""
+    },
+    "2115f31c-c17b-56c0-a93c-06478b49579c": {
+      "char_end": 19002,
+      "char_start": 19000,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "21408b49-a305-5ab8-a65b-9fe552c29a80": {
+      "char_end": 17172,
+      "char_start": 17167,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 2662.0,
+      "vintage_role": ""
+    },
+    "21b7257d-70f1-560a-b135-40a66759dd1b": {
+      "char_end": 14522,
+      "char_start": 14519,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "usd_millions",
+      "value": 384.0,
+      "vintage_role": ""
+    },
+    "22c11236-0b16-50d0-b98e-de8701a6f467": {
+      "char_end": 16873,
+      "char_start": 16868,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2711.0,
+      "vintage_role": ""
+    },
+    "22e66802-4151-5923-bfef-5fd236792048": {
+      "char_end": 15173,
+      "char_start": 15166,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 1478.0,
+      "vintage_role": ""
+    },
+    "2465c4e4-b263-536e-916a-f3461aeddd47": {
+      "char_end": 20054,
+      "char_start": 20049,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2038.0,
+      "vintage_role": ""
+    },
+    "25545227-6daa-5821-a061-93ddbadb8baf": {
+      "char_end": 15244,
+      "char_start": 15241,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "2628d2cb-dfd9-5154-b0ff-a7f3cb200fa8": {
+      "char_end": 93334,
+      "char_start": 93331,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "percent",
+      "value": 20.0,
+      "vintage_role": ""
+    },
+    "292ae6b3-a985-5442-894c-2cd4a673fba1": {
+      "char_end": 113730,
+      "char_start": 113725,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2883.0,
+      "vintage_role": ""
+    },
+    "29514021-c941-5b9e-bcb3-4a63c3b2469b": {
+      "char_end": 16321,
+      "char_start": 16316,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 2196.0,
+      "vintage_role": ""
+    },
+    "298c0ab3-b8ab-5a8f-9d9d-f013295aca3b": {
+      "char_end": 2125322,
+      "char_start": 2125317,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-07-26T20:07:11Z",
+      "source_id": "0001403161-19-000030/v63019form10q.htm",
+      "unit": "usd_billions",
+      "value": 2018.0,
+      "vintage_role": "comparative"
+    },
+    "29af7716-d0be-5d71-82b8-b9d530c22a1a": {
+      "char_end": 15359,
+      "char_start": 15357,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "percent",
+      "value": 4.0,
+      "vintage_role": ""
+    },
+    "2b509bfb-7cc3-5cab-8888-d65139fa6921": {
+      "char_end": 53351,
+      "char_start": 53344,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2905.0,
+      "vintage_role": ""
+    },
+    "2bba3be3-4b44-5505-89e4-51a948104bd9": {
+      "char_end": 15944,
+      "char_start": 15939,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 2470.0,
+      "vintage_role": ""
+    },
+    "2c777c2c-af2c-59bc-a8b3-db97a3343032": {
+      "char_end": 21599,
+      "char_start": 21594,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 1737.0,
+      "vintage_role": ""
+    },
+    "2d630691-4e2c-513f-81a0-5d5d8c1394ae": {
+      "char_end": 864976,
+      "char_start": 864971,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "TTM_2021-06-30",
+      "publication_ts": "2022-11-16T21:06:43Z",
+      "source_id": "0001403161-22-000081/v-20220930.htm",
+      "unit": "usd_billions",
+      "value": 9971.0,
+      "vintage_role": "current"
+    },
+    "2d6e9c49-963c-5ee4-9440-4caf1b4f5b03": {
+      "char_end": 16974,
+      "char_start": 16969,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1833.0,
+      "vintage_role": ""
+    },
+    "2e652e28-5d91-51a0-9a07-fbaa00e8ffd0": {
+      "char_end": 72772,
+      "char_start": 72767,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3765.0,
+      "vintage_role": ""
+    },
+    "2f1245a2-9438-5dab-944a-38b5ee7adee0": {
+      "char_end": 55979,
+      "char_start": 55974,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2174.0,
+      "vintage_role": ""
+    },
+    "2f45faab-dd69-5e2e-95e5-e832617db278": {
+      "char_end": 76713,
+      "char_start": 76711,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12": {
+      "char_end": 19664,
+      "char_start": 19659,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "usd_millions",
+      "value": 1843.0,
+      "vintage_role": ""
+    },
+    "3083eaa8-61f7-53cd-a695-f59c56314ccc": {
+      "char_end": 20824,
+      "char_start": 20822,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "34d6cf78-3eac-5cd5-a833-f183c7b4ea0d": {
+      "char_end": 79449,
+      "char_start": 79446,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "35b7c1c7-e655-5e25-be59-241098b1a060": {
+      "char_end": 67877,
+      "char_start": 67872,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2619.0,
+      "vintage_role": ""
+    },
+    "36f06a8d-d397-59c6-8d19-0714d687e18e": {
+      "char_end": 53987,
+      "char_start": 53984,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 474.0,
+      "vintage_role": ""
+    },
+    "37978c10-a729-5ca6-bca1-527e4be2ad4c": {
+      "char_end": 16422,
+      "char_start": 16417,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 2359.0,
+      "vintage_role": ""
+    },
+    "37a0f182-b566-5387-bc2c-86baccf0154d": {
+      "char_end": 129206,
+      "char_start": 129204,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "392f862a-64cb-5861-9996-f278189b31d1": {
+      "char_end": 26847,
+      "char_start": 26845,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "39c17834-676f-5275-875e-6fe5f82e6093": {
+      "char_end": 71441,
+      "char_start": 71439,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "percent",
+      "value": 6.0,
+      "vintage_role": ""
+    },
+    "3d7698fc-f725-58d2-bd15-7b1848d4549c": {
+      "char_end": 21885,
+      "char_start": 21878,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 1502.0,
+      "vintage_role": ""
+    },
+    "40b7e454-2c73-59ae-8b4c-5a62e433ed33": {
+      "char_end": 4145,
+      "char_start": 4143,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "percent",
+      "value": 4.0,
+      "vintage_role": ""
+    },
+    "40eb0a37-2fa1-58f9-aab7-9da377668821": {
+      "char_end": 93436,
+      "char_start": 93431,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3172.0,
+      "vintage_role": ""
+    },
+    "421b1709-1eb3-5457-939a-86915d228efb": {
+      "char_end": 14363,
+      "char_start": 14358,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "usd_millions",
+      "value": 2845.0,
+      "vintage_role": ""
+    },
+    "42a0e154-c6f3-5f10-b783-298cdd8461d8": {
+      "char_end": 17088,
+      "char_start": 17083,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q3",
+      "publication_ts": "2020-07-28T20:05:10Z",
+      "source_id": "0001403161-20-000043/q32020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2409.0,
+      "vintage_role": ""
+    },
+    "43ddc045-919b-5b4a-93ac-a22327c38460": {
+      "char_end": 1391944,
+      "char_start": 1391939,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2020-01-31T21:06:01Z",
+      "source_id": "0001403161-20-000012/v123119form10q.htm",
+      "unit": "usd_billions",
+      "value": 2112.0,
+      "vintage_role": "comparative"
+    },
+    "44d51808-4f93-5d6a-b6d4-2856153dda09": {
+      "char_end": 26831,
+      "char_start": 26829,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "44dde51b-8006-5f9b-97e5-8c1d0782d666": {
+      "char_end": 15269,
+      "char_start": 15262,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 1289.0,
+      "vintage_role": ""
+    },
+    "45e38948-bc1c-53e7-9397-19d7e99c2baf": {
+      "char_end": 17274,
+      "char_start": 17269,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 1977.0,
+      "vintage_role": ""
+    },
+    "46946514-d112-5016-94fa-c0de9a8709c1": {
+      "char_end": 93328,
+      "char_start": 93324,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "percent",
+      "value": 34.0,
+      "vintage_role": ""
+    },
+    "47801700-59b7-528a-bc0e-9640af5baff3": {
+      "char_end": 19028,
+      "char_start": 19025,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 365.0,
+      "vintage_role": ""
+    },
+    "47e710be-0b87-581e-9744-73e2f9299e0b": {
+      "char_end": 93775,
+      "char_start": 93771,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "percent",
+      "value": 39.0,
+      "vintage_role": ""
+    },
+    "48bc8ef6-b5b7-5e3f-a227-0eb4417ec1aa": {
+      "char_end": 4163,
+      "char_start": 4161,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "percent",
+      "value": 2.0,
+      "vintage_role": ""
+    },
+    "48df370d-9b26-559f-b40c-dab9cce77ea1": {
+      "char_end": 49367,
+      "char_start": 49362,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3771.0,
+      "vintage_role": ""
+    },
+    "49bb9def-da64-5446-be95-fe034fd4b626": {
+      "char_end": 1540276,
+      "char_start": 1540271,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2022-01-28T21:06:16Z",
+      "source_id": "0001403161-22-000013/v-20211231.htm",
+      "unit": "usd_billions",
+      "value": 2349.0,
+      "vintage_role": "comparative"
+    },
+    "4c98939d-ef4f-5d67-928c-b3248235cab8": {
+      "char_end": 18865,
+      "char_start": 18863,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "4df053c7-a515-5f58-88eb-2a774b01ecdf": {
+      "char_end": 72519,
+      "char_start": 72517,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "4f57ed9d-d7a8-52ed-9b49-5dedb969fced": {
+      "char_end": 53432,
+      "char_start": 53429,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 597.0,
+      "vintage_role": ""
+    },
+    "4fe9399a-28ed-5950-aae8-3fd04f382daa": {
+      "char_end": 17374,
+      "char_start": 17371,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 342.0,
+      "vintage_role": ""
+    },
+    "5713f085-b840-59ea-a059-5fb6a08f7381": {
+      "char_end": 721099,
+      "char_start": 721093,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "TTM_2022-06-30",
+      "publication_ts": "2023-11-15T21:07:14Z",
+      "source_id": "0001403161-23-000099/v-20230930.htm",
+      "unit": "usd_billions",
+      "value": 11470.0,
+      "vintage_role": "current"
+    },
+    "574af173-f274-51e6-9235-db3923990f12": {
+      "char_end": 54980,
+      "char_start": 54973,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2494.0,
+      "vintage_role": ""
+    },
+    "57aff212-df48-5dc0-83e5-4884eee9d96a": {
+      "char_end": 129450,
+      "char_start": 129448,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "584a40a2-3d99-5fe5-b798-344507e43954": {
+      "char_end": 111642,
+      "char_start": 111639,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "percent",
+      "value": 49.0,
+      "vintage_role": ""
+    },
+    "5858ebae-08c0-5d54-9a40-52d948bdfa27": {
+      "char_end": 1189608,
+      "char_start": 1189603,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2024-01-25T23:17:40Z",
+      "source_id": "0001403161-24-000016/v-20231231.htm",
+      "unit": "usd_billions",
+      "value": 3198.0,
+      "vintage_role": "current"
+    },
+    "58a76d79-616c-55e4-9f44-22d07d629dca": {
+      "char_end": 77365,
+      "char_start": 77362,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "percent",
+      "value": 14.0,
+      "vintage_role": ""
+    },
+    "58e7d54d-a1d4-5141-86b9-90a42449350c": {
+      "char_end": 95895,
+      "char_start": 95892,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "percent",
+      "value": 21.0,
+      "vintage_role": ""
+    },
+    "59ad0a87-239e-509e-b155-a65c55051420": {
+      "char_end": 20824,
+      "char_start": 20822,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "5a24ca7d-0e4a-5d59-83ba-f6d5b7f999bf": {
+      "char_end": 58324,
+      "char_start": 58321,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 409.0,
+      "vintage_role": ""
+    },
+    "5b1518d9-bf36-58ac-b90b-7c2938ccaa4e": {
+      "char_end": 56563,
+      "char_start": 56558,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 1696.0,
+      "vintage_role": ""
+    },
+    "5bea8930-1d18-5254-8029-90b22083323f": {
+      "char_end": 676987,
+      "char_start": 676981,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "TTM_2023-06-30",
+      "publication_ts": "2023-11-15T21:07:14Z",
+      "source_id": "0001403161-23-000099/v-20230930.htm",
+      "unit": "usd_billions",
+      "value": 12074.0,
+      "vintage_role": "current"
+    },
+    "5c23256b-4737-5ffa-846a-55940e29619a": {
+      "char_end": 17073,
+      "char_start": 17070,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 392.0,
+      "vintage_role": ""
+    },
+    "5cc0a1c7-ae9c-53e0-a751-67ac06c5f610": {
+      "char_end": 54807,
+      "char_start": 54802,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4033.0,
+      "vintage_role": ""
+    },
+    "5cd627db-1687-5b61-9cd8-0fdd5cc47583": {
+      "char_end": 21845,
+      "char_start": 21842,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 256.0,
+      "vintage_role": ""
+    },
+    "5ced81d3-f397-5fee-ae1d-ebf532df5aad": {
+      "char_end": 72432,
+      "char_start": 72425,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2387.0,
+      "vintage_role": ""
+    },
+    "5f7d7104-ba19-5f4e-af01-db6da4c66b65": {
+      "char_end": 55167,
+      "char_start": 55164,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 517.0,
+      "vintage_role": ""
+    },
+    "609389be-b76f-5db9-bf34-bd65f9a03ff0": {
+      "char_end": 14562,
+      "char_start": 14555,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "usd_millions",
+      "value": 1992.0,
+      "vintage_role": ""
+    },
+    "60bdd34a-7323-52c1-ac14-3c1bcd8e27ce": {
+      "char_end": 1975953,
+      "char_start": 1975948,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-05-04T13:04:51Z",
+      "source_id": "0001403161-20-000028/v033120form10q.htm",
+      "unit": "usd_billions",
+      "value": 2194.0,
+      "vintage_role": "comparative"
+    },
+    "62c86b9a-e2f3-52f8-ba58-83ce14547f2e": {
+      "char_end": 17391,
+      "char_start": 17388,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q3",
+      "publication_ts": "2020-07-28T20:05:10Z",
+      "source_id": "0001403161-20-000043/q32020ex991.htm",
+      "unit": "usd_millions",
+      "value": 314.0,
+      "vintage_role": ""
+    },
+    "63dfef28-35fe-5a3e-af4c-c9fca79af453": {
+      "char_end": 1514848,
+      "char_start": 1514843,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "9M_2023-03-31",
+      "publication_ts": "2023-07-25T22:21:55Z",
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "unit": "usd_billions",
+      "value": 8908.0,
+      "vintage_role": "current"
+    },
+    "653c5b09-ea22-5838-93e4-bcb3f72f683f": {
+      "char_end": 109687,
+      "char_start": 109683,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "percent",
+      "value": 21.0,
+      "vintage_role": ""
+    },
+    "657a811d-ca28-5e0a-9459-3852e562fff7": {
+      "char_end": 357223,
+      "char_start": 357218,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2048.0,
+      "vintage_role": ""
+    },
+    "65957590-eb6a-50fc-ac84-39b19bb2e462": {
+      "char_end": 68461,
+      "char_start": 68456,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2871.0,
+      "vintage_role": ""
+    },
+    "664616a6-4f52-5478-940b-3c277a14a00b": {
+      "char_end": 71197,
+      "char_start": 71194,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "66c27d34-bfb9-54a1-9101-13158bbd97c0": {
+      "char_end": 76366,
+      "char_start": 76364,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "6879aa7d-f13b-5c8a-863c-33d6443a33c3": {
+      "char_end": 1474323,
+      "char_start": 1474318,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-07-25T22:21:55Z",
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "unit": "usd_billions",
+      "value": 2778.0,
+      "vintage_role": "comparative"
+    },
+    "68a7d2ea-db7f-505b-82a2-d20bc6108170": {
+      "char_end": 2429108,
+      "char_start": 2429103,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-07-31T01:38:58Z",
+      "source_id": "0001403161-20-000048/v-20200630.htm",
+      "unit": "usd_billions",
+      "value": 2130.0,
+      "vintage_role": "comparative"
+    },
+    "6cf2e4e2-858f-5b80-a27d-1749ef68c1ed": {
+      "char_end": 21810,
+      "char_start": 21805,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 1963.0,
+      "vintage_role": ""
+    },
+    "70e3fa72-2b8c-51fb-a6ed-54719fd6674e": {
+      "char_end": 15084,
+      "char_start": 15079,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 2253.0,
+      "vintage_role": ""
+    },
+    "7191807f-b54b-583e-b117-519782e52a71": {
+      "char_end": 52446,
+      "char_start": 52441,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2920.0,
+      "vintage_role": ""
+    },
+    "73167937-b3fe-5da6-9313-eb523901de09": {
+      "char_end": 57794,
+      "char_start": 57791,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 756.0,
+      "vintage_role": ""
+    },
+    "7366a011-1a63-5c65-b2ca-742687362b8c": {
+      "char_end": 57212,
+      "char_start": 57209,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 692.0,
+      "vintage_role": ""
+    },
+    "752bb835-cc53-56b7-85d3-eca0de946542": {
+      "char_end": 110256,
+      "char_start": 110253,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "759fc85b-2d29-5e04-b4dd-2d146af5a183": {
+      "char_end": 14432,
+      "char_start": 14427,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "usd_millions",
+      "value": 3033.0,
+      "vintage_role": ""
+    },
+    "75a888da-054d-5cd7-9b0c-8a532cf262b1": {
+      "char_end": 74564,
+      "char_start": 74561,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "75c99ab0-0d55-5735-ab18-ae4b3a4a45bb": {
+      "char_end": 55289,
+      "char_start": 55284,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4489.0,
+      "vintage_role": ""
+    },
+    "769bd0f7-21ee-5b04-a1f3-897c2264fbba": {
+      "char_end": 132963,
+      "char_start": 132960,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "7736fc2f-de86-59fa-8e41-fe5c004de736": {
+      "char_end": 15234,
+      "char_start": 15232,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "77a743dd-ac81-5527-aefb-1bdade6166e3": {
+      "char_end": 54306,
+      "char_start": 54303,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 587.0,
+      "vintage_role": ""
+    },
+    "7862cc78-b2fa-5107-9a48-c7d5f1af38c2": {
+      "char_end": 15234,
+      "char_start": 15232,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "789f8c36-0388-5631-83a8-f1d5d9fc1b7d": {
+      "char_end": 106116,
+      "char_start": 106112,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "percent",
+      "value": 18.0,
+      "vintage_role": ""
+    },
+    "79392aff-aaac-5913-9f85-22daca469832": {
+      "char_end": 25786,
+      "char_start": 25781,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1959.0,
+      "vintage_role": ""
+    },
+    "79742185-d690-5700-a16b-7286283b08f3": {
+      "char_end": 56160,
+      "char_start": 56153,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2570.0,
+      "vintage_role": ""
+    },
+    "7b756262-5a2b-5dc3-88f3-b4aae744ba9d": {
+      "char_end": 96982,
+      "char_start": 96975,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3439.0,
+      "vintage_role": ""
+    },
+    "7c5c4088-a985-5f02-844e-8c34d14b21d7": {
+      "char_end": 76610,
+      "char_start": 76608,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "7cb6eeb1-1418-5095-9969-a62ebe29b981": {
+      "char_end": 74038,
+      "char_start": 74035,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "percent",
+      "value": 31.0,
+      "vintage_role": ""
+    },
+    "7cdaa7d5-3c35-51dd-ab48-b5c7ddb3884f": {
+      "char_end": 51993,
+      "char_start": 51988,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3480.0,
+      "vintage_role": ""
+    },
+    "7d05d297-b0d4-5cec-b4c9-e8068946398d": {
+      "char_end": 54293,
+      "char_start": 54288,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3967.0,
+      "vintage_role": ""
+    },
+    "7d1578b1-e9af-51d9-9e14-8847927b781b": {
+      "char_end": 18929,
+      "char_start": 18924,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2018.0,
+      "vintage_role": ""
+    },
+    "7e3e6a72-9091-578e-a66c-f9b9f4f9fc68": {
+      "char_end": 18727,
+      "char_start": 18722,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2555.0,
+      "vintage_role": ""
+    },
+    "7fb723d7-68dc-5448-a778-066cfe515a61": {
+      "char_end": 17477,
+      "char_start": 17470,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 1546.0,
+      "vintage_role": ""
+    },
+    "7fba40d4-4073-5394-8924-fd94e86aab3e": {
+      "char_end": 74564,
+      "char_start": 74559,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2873.0,
+      "vintage_role": ""
+    },
+    "80d99330-6978-5bf1-8474-0a0f130838e8": {
+      "char_end": 21145,
+      "char_start": 21140,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 1853.0,
+      "vintage_role": ""
+    },
+    "822cae48-022f-519b-9f90-251b88178cab": {
+      "char_end": 1463404,
+      "char_start": 1463399,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2021-01-29T21:02:28Z",
+      "source_id": "0001403161-21-000012/v-20201231.htm",
+      "unit": "usd_billions",
+      "value": 2269.0,
+      "vintage_role": "comparative"
+    },
+    "825ace66-0b4f-5de9-a78c-0ff489096e9a": {
+      "char_end": 14558,
+      "char_start": 14551,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "usd_millions",
+      "value": 1858.0,
+      "vintage_role": ""
+    },
+    "8384a2ed-e12f-5421-a73c-efe737b62bbb": {
+      "char_end": 74008,
+      "char_start": 74005,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "83925960-028d-5e90-bec8-97ce79d5aec8": {
+      "char_end": 18452,
+      "char_start": 18449,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "84f9ce45-9a9b-568d-ac72-e5c076883b83": {
+      "char_end": 19903,
+      "char_start": 19898,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "usd_millions",
+      "value": 2148.0,
+      "vintage_role": ""
+    },
+    "853adf32-133a-5017-8e19-233de933cdbf": {
+      "char_end": 65177,
+      "char_start": 65172,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3125.0,
+      "vintage_role": ""
+    },
+    "86db09c7-a0fe-52b1-95cf-1c66e2125598": {
+      "char_end": 25016,
+      "char_start": 25013,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 345.0,
+      "vintage_role": ""
+    },
+    "871efdac-ce07-50d8-b2cd-ef5dfe38db66": {
+      "char_end": 70818,
+      "char_start": 70813,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3458.0,
+      "vintage_role": ""
+    },
+    "8af55a90-46cd-505b-bb7c-8307fb28502f": {
+      "char_end": 51438,
+      "char_start": 51433,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4105.0,
+      "vintage_role": ""
+    },
+    "8b3f2c99-2fee-514f-9dda-59483a36b721": {
+      "char_end": 56810,
+      "char_start": 56805,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2984.0,
+      "vintage_role": ""
+    },
+    "8b8b8f74-7d96-56ec-b25b-f50337d13be5": {
+      "char_end": 75431,
+      "char_start": 75428,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "8be9b2fc-4e6e-5273-936f-d5885f3bee3a": {
+      "char_end": 19342,
+      "char_start": 19339,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "8c6ba8a3-93e6-5317-83ca-a1d0bc3d8373": {
+      "char_end": 73386,
+      "char_start": 73384,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "percent",
+      "value": 2.0,
+      "vintage_role": ""
+    },
+    "8c7fcd18-299b-559e-9679-8824371fd616": {
+      "char_end": 68905,
+      "char_start": 68900,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 1895.0,
+      "vintage_role": ""
+    },
+    "8ea65250-0ae7-523d-8edc-0d2daa98cbbe": {
+      "char_end": 52176,
+      "char_start": 52171,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3189.0,
+      "vintage_role": ""
+    },
+    "8fc119bd-7d56-527e-9d19-5cd0c96d2927": {
+      "char_end": 67122,
+      "char_start": 67117,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3436.0,
+      "vintage_role": ""
+    },
+    "8fc8485d-7ac7-596d-a5bc-6d471aaf0802": {
+      "char_end": 54196,
+      "char_start": 54191,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3614.0,
+      "vintage_role": ""
+    },
+    "9227d741-ab52-511b-a867-bb94314d93ce": {
+      "char_end": 54221,
+      "char_start": 54216,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3915.0,
+      "vintage_role": ""
+    },
+    "93413ba9-7f31-5671-9dbc-e90e169086ef": {
+      "char_end": 2027707,
+      "char_start": 2027702,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-04-28T20:07:54Z",
+      "source_id": "0001403161-22-000027/v-20220331.htm",
+      "unit": "usd_billions",
+      "value": 2476.0,
+      "vintage_role": "comparative"
+    },
+    "941279b4-11da-5ef2-adb3-0143ab10fdc0": {
+      "char_end": 52835,
+      "char_start": 52830,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2828.0,
+      "vintage_role": ""
+    },
+    "94562c3b-750f-53cb-82b8-4cbfa79c368a": {
+      "char_end": 97346,
+      "char_start": 97342,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "percent",
+      "value": 39.0,
+      "vintage_role": ""
+    },
+    "94ab4eb1-37d8-5c44-85a8-7cab9fd1f4b5": {
+      "char_end": 16525,
+      "char_start": 16520,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 1830.0,
+      "vintage_role": ""
+    },
+    "94d773f9-95b0-5cc2-86c0-3d0978208efb": {
+      "char_end": 15204,
+      "char_start": 15199,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 1752.0,
+      "vintage_role": ""
+    },
+    "94d7fac4-9f5e-5982-9ee3-0ca95b2ce102": {
+      "char_end": 17175,
+      "char_start": 17168,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1705.0,
+      "vintage_role": ""
+    },
+    "96d4dd10-b2ba-5875-ab94-a9d794fd45c9": {
+      "char_end": 76333,
+      "char_start": 76330,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 551.0,
+      "vintage_role": ""
+    },
+    "985ae187-31b9-5034-81e3-a484d9ed0e47": {
+      "char_end": 24814,
+      "char_start": 24809,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2769.0,
+      "vintage_role": ""
+    },
+    "994a5782-7ce2-59f8-9f46-4be8808a810d": {
+      "char_end": 89690,
+      "char_start": 89685,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3876.0,
+      "vintage_role": ""
+    },
+    "99847412-1c0d-5f1d-9f8c-e74b60f56226": {
+      "char_end": 54780,
+      "char_start": 54775,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3327.0,
+      "vintage_role": ""
+    },
+    "99f132cf-4411-58bf-a556-6add92fc7121": {
+      "char_end": 16729,
+      "char_start": 16722,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 1374.0,
+      "vintage_role": ""
+    },
+    "99f89976-7897-5031-9caf-88f318242488": {
+      "char_end": 77262,
+      "char_start": 77259,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "percent",
+      "value": 16.0,
+      "vintage_role": ""
+    },
+    "9a1ecd7e-f07e-5daf-9872-977ec4b8360d": {
+      "char_end": 1996508,
+      "char_start": 1996503,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "9M_2021-03-31",
+      "publication_ts": "2021-07-29T20:03:32Z",
+      "source_id": "0001403161-21-000042/v-20210630.htm",
+      "unit": "usd_billions",
+      "value": 7248.0,
+      "vintage_role": "current"
+    },
+    "9dca9481-2fab-56d2-a08b-c5ce83254e7b": {
+      "char_end": 14359,
+      "char_start": 14354,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q1",
+      "publication_ts": "2021-01-28T21:02:48Z",
+      "source_id": "0001403161-21-000009/q12021ex991.htm",
+      "unit": "usd_millions",
+      "value": 2677.0,
+      "vintage_role": ""
+    },
+    "a01a3723-3142-5415-aac9-4aaaef425447": {
+      "char_end": 78758,
+      "char_start": 78755,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "percent",
+      "value": 10.0,
+      "vintage_role": ""
+    },
+    "a07fd4fe-facf-5690-a9de-e840e9e8667f": {
+      "char_end": 21753,
+      "char_start": 21748,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 2394.0,
+      "vintage_role": ""
+    },
+    "a11f26b3-fc5e-59f4-bba4-7e5679a7f1f5": {
+      "char_end": 16787,
+      "char_start": 16785,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "a1ea622f-71ab-510a-890d-58a2882d2818": {
+      "char_end": 15902,
+      "char_start": 15899,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "a2f9415d-eeec-5916-b06a-70539201eec0": {
+      "char_end": 78109,
+      "char_start": 78102,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2022-10-25T20:05:34Z",
+      "source_id": "0001403161-22-000076/q42022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2860.0,
+      "vintage_role": ""
+    },
+    "a3d2dde9-72c8-5e0d-a5d6-9997653fd7c5": {
+      "char_end": 15141,
+      "char_start": 15138,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 327.0,
+      "vintage_role": ""
+    },
+    "a4cf9643-231c-5e63-8788-e7ab07d3e0c9": {
+      "char_end": 50440,
+      "char_start": 50435,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3668.0,
+      "vintage_role": ""
+    },
+    "a59c9e1f-0e53-558b-847d-94f15ff6b2a8": {
+      "char_end": 15819,
+      "char_start": 15816,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "a5bbd615-cdf4-5290-8c63-0124af0db275": {
+      "char_end": 52358,
+      "char_start": 52355,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 551.0,
+      "vintage_role": ""
+    },
+    "a5e4fffe-1d13-536a-a505-02ec2ed22d68": {
+      "char_end": 15369,
+      "char_start": 15367,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "percent",
+      "value": 8.0,
+      "vintage_role": ""
+    },
+    "a617df37-692b-5a84-a775-8f039f8bf835": {
+      "char_end": 22676,
+      "char_start": 22673,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "a789000b-e180-5c7c-82d5-de6077679b08": {
+      "char_end": 330230,
+      "char_start": 330225,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2115.0,
+      "vintage_role": ""
+    },
+    "a7f74c2f-ab16-5444-a0cc-58c4ce9f3efa": {
+      "char_end": 16626,
+      "char_start": 16623,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q3",
+      "publication_ts": "2018-07-25T20:05:30Z",
+      "source_id": "0001403161-18-000030/vex991earningsrelease630.htm",
+      "unit": "usd_millions",
+      "value": 229.0,
+      "vintage_role": ""
+    },
+    "a80d5e9f-d759-5c29-b432-4891b6d679c0": {
+      "char_end": 2147818,
+      "char_start": 2147813,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "9M_2022-03-31",
+      "publication_ts": "2022-07-28T20:04:21Z",
+      "source_id": "0001403161-22-000058/v-20220630.htm",
+      "unit": "usd_billions",
+      "value": 8522.0,
+      "vintage_role": "current"
+    },
+    "aa20f5e5-7aac-5b42-a7f7-833b2cc385ad": {
+      "char_end": 57740,
+      "char_start": 57737,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 449.0,
+      "vintage_role": ""
+    },
+    "ab93b7d9-1368-525e-a08d-bc4806c0de27": {
+      "char_end": 16778,
+      "char_start": 16773,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2623.0,
+      "vintage_role": ""
+    },
+    "ab9d2126-2bdb-5672-a752-677e2c1542a1": {
+      "char_end": 30543,
+      "char_start": 30538,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "usd_millions",
+      "value": 2028.0,
+      "vintage_role": ""
+    },
+    "acd323d7-149a-5c6c-b94d-e82f361c271e": {
+      "char_end": 19220,
+      "char_start": 19218,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "percent",
+      "value": 5.0,
+      "vintage_role": ""
+    },
+    "ad083c0d-5c45-555b-95c6-17f6823a2714": {
+      "char_end": 64453,
+      "char_start": 64448,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2287.0,
+      "vintage_role": ""
+    },
+    "adb57b68-0680-5812-a2d3-041bf19e266f": {
+      "char_end": 64771,
+      "char_start": 64766,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2439.0,
+      "vintage_role": ""
+    },
+    "af1e638f-1d59-5f52-b905-f2376081bea4": {
+      "char_end": 24552,
+      "char_start": 24547,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2875.0,
+      "vintage_role": ""
+    },
+    "b09fff1e-34c3-554f-af91-6e5dd2652432": {
+      "char_end": 15871,
+      "char_start": 15866,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 2342.0,
+      "vintage_role": ""
+    },
+    "b0c570bd-ae61-5bf1-8336-63831bdccecd": {
+      "char_end": 55219,
+      "char_start": 55214,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4356.0,
+      "vintage_role": ""
+    },
+    "b26db3d3-a265-5d68-9413-7116602c1518": {
+      "char_end": 1473517,
+      "char_start": 1473512,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-07-25T22:21:55Z",
+      "source_id": "0001403161-23-000072/v-20230630.htm",
+      "unit": "usd_billions",
+      "value": 2957.0,
+      "vintage_role": "current"
+    },
+    "b37d77f2-ab06-509f-9c5f-e647d5a5b0e9": {
+      "char_end": 91644,
+      "char_start": 91639,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 4256.0,
+      "vintage_role": ""
+    },
+    "b5c40416-5827-5509-b157-44903c94dda6": {
+      "char_end": 22615,
+      "char_start": 22612,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2018Q4",
+      "publication_ts": "2018-10-24T20:05:37Z",
+      "source_id": "0001403161-18-000052/fy18q4pressrelease10.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "b6743e1f-2c1d-5828-a70e-9583fc176aad": {
+      "char_end": 53001,
+      "char_start": 52996,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2208.0,
+      "vintage_role": ""
+    },
+    "b73017d9-a428-54d0-90f3-281e04943fd0": {
+      "char_end": 78654,
+      "char_start": 78652,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "b8fac425-0225-50a1-8ace-a37a033303b8": {
+      "char_end": 16036,
+      "char_start": 16033,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 299.0,
+      "vintage_role": ""
+    },
+    "b93a161f-7bd7-5a3b-b4a9-2df53c79d942": {
+      "char_end": 24714,
+      "char_start": 24709,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2536.0,
+      "vintage_role": ""
+    },
+    "b95cb830-95df-59bc-b0eb-774b0a805f30": {
+      "char_end": 95206,
+      "char_start": 95203,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 744.0,
+      "vintage_role": ""
+    },
+    "b9cc300c-269f-5e2b-87a7-1c4b3fcb8143": {
+      "char_end": 107142,
+      "char_start": 107138,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "percent",
+      "value": 46.0,
+      "vintage_role": ""
+    },
+    "bb665589-833e-5f7f-8ee3-0a4412d002bb": {
+      "char_end": 75113,
+      "char_start": 75110,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "percent",
+      "value": 19.0,
+      "vintage_role": ""
+    },
+    "bb7e797d-3045-52ef-ac8a-1d6ec552de3f": {
+      "char_end": 58272,
+      "char_start": 58265,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3530.0,
+      "vintage_role": ""
+    },
+    "bc719280-35a6-5049-9c10-6da17ac45613": {
+      "char_end": 16076,
+      "char_start": 16069,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 1456.0,
+      "vintage_role": ""
+    },
+    "bdf3f2c7-39dc-5b6c-9d47-2da9c6b6d59d": {
+      "char_end": 54181,
+      "char_start": 54176,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2560.0,
+      "vintage_role": ""
+    },
+    "bfac5063-edf6-53e9-8c78-7c1d998cad65": {
+      "char_end": 56227,
+      "char_start": 56222,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3019.0,
+      "vintage_role": ""
+    },
+    "c3682cd7-0c45-563e-a5c6-386e11c9196c": {
+      "char_end": 14526,
+      "char_start": 14523,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2021Q2",
+      "publication_ts": "2021-04-27T20:06:08Z",
+      "source_id": "0001403161-21-000023/q22021ex991.htm",
+      "unit": "usd_millions",
+      "value": 392.0,
+      "vintage_role": ""
+    },
+    "c40a7067-cc06-5b9d-8936-a0b9a4d4cfed": {
+      "char_end": 1447362,
+      "char_start": 1447357,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-04-23T22:06:59Z",
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "unit": "usd_billions",
+      "value": 3280.0,
+      "vintage_role": "current"
+    },
+    "c4fdb5ac-fc03-529b-8a99-81ecbe1bf19d": {
+      "char_end": 1561467,
+      "char_start": 1561462,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2022Q4",
+      "publication_ts": "2023-01-27T21:05:51Z",
+      "source_id": "0001403161-23-000013/v-20221231.htm",
+      "unit": "usd_billions",
+      "value": 2787.0,
+      "vintage_role": "comparative"
+    },
+    "c680737a-6512-5704-8a04-5ad363d71821": {
+      "char_end": 17494,
+      "char_start": 17487,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2020Q3",
+      "publication_ts": "2020-07-28T20:05:10Z",
+      "source_id": "0001403161-20-000043/q32020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1513.0,
+      "vintage_role": ""
+    },
+    "c7054e30-40e9-548c-93d8-ece28d6c473e": {
+      "char_end": 73486,
+      "char_start": 73483,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb": {
+      "char_end": 72275,
+      "char_start": 72273,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "c9c7c54c-a50e-599f-88ab-b8f53ebddf80": {
+      "char_end": 67773,
+      "char_start": 67768,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2927.0,
+      "vintage_role": ""
+    },
+    "ca3ba9b7-7a40-5858-80a4-5938da5079ee": {
+      "char_end": 58787,
+      "char_start": 58780,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3257.0,
+      "vintage_role": ""
+    },
+    "ca4c0f66-e772-5f46-8b09-18374affc383": {
+      "char_end": 18424,
+      "char_start": 18419,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2020Q3",
+      "publication_ts": "2020-07-28T20:05:10Z",
+      "source_id": "0001403161-20-000043/q32020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1838.0,
+      "vintage_role": ""
+    },
+    "cb7ce1ec-c4d6-5c02-8501-95433b086c8d": {
+      "char_end": 24434,
+      "char_start": 24429,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "usd_millions",
+      "value": 2217.0,
+      "vintage_role": ""
+    },
+    "cbd7d8d2-8dbd-5cf1-b9ea-040f6fbed48a": {
+      "char_end": 130590,
+      "char_start": 130587,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2023-10-24T20:05:35Z",
+      "source_id": "0001403161-23-000092/q42023earningsrelease.htm",
+      "unit": "percent",
+      "value": 18.0,
+      "vintage_role": ""
+    },
+    "cc5bec9f-c5f5-5842-8842-1a1e7ce0de36": {
+      "char_end": 57279,
+      "char_start": 57276,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 780.0,
+      "vintage_role": ""
+    },
+    "cd87e97d-de3b-55c6-9469-28fa3fba87ba": {
+      "char_end": 15070,
+      "char_start": 15065,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "usd_millions",
+      "value": 2432.0,
+      "vintage_role": ""
+    },
+    "cdad975f-7f42-58f0-8ad9-10c9794ca528": {
+      "char_end": 24857,
+      "char_start": 24850,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1698.0,
+      "vintage_role": ""
+    },
+    "cdb8d23e-b618-5b4a-928f-f7808e6d74c4": {
+      "char_end": 19204,
+      "char_start": 19202,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "percent",
+      "value": 9.0,
+      "vintage_role": ""
+    },
+    "ce12ef66-ed07-5d04-b9a7-5297da39b8f9": {
+      "char_end": 105669,
+      "char_start": 105665,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2021Q4",
+      "publication_ts": "2021-10-26T20:06:19Z",
+      "source_id": "0001403161-21-000056/q42021earningsrelease.htm",
+      "unit": "percent",
+      "value": 17.0,
+      "vintage_role": ""
+    },
+    "cefb81a1-6513-51b7-82c6-44af667162d9": {
+      "char_end": 15906,
+      "char_start": 15903,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "percent",
+      "value": 15.0,
+      "vintage_role": ""
+    },
+    "d03d0097-1cd1-5c5d-9584-de633e3f979b": {
+      "char_end": 58205,
+      "char_start": 58198,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-01-25T21:05:41Z",
+      "source_id": "0001403161-24-000013/q12024earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3348.0,
+      "vintage_role": ""
+    },
+    "d2369817-2213-5c20-9188-f2691368b364": {
+      "char_end": 73171,
+      "char_start": 73168,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "percent",
+      "value": 22.0,
+      "vintage_role": ""
+    },
+    "d252a6d8-88f7-5b01-bbb1-178914d7cafc": {
+      "char_end": 53174,
+      "char_start": 53169,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3579.0,
+      "vintage_role": ""
+    },
+    "d4e49d66-3c93-5065-a986-d32982f300c5": {
+      "char_end": 16844,
+      "char_start": 16841,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "d50c4df0-89c7-5386-b378-96fbdc0c71e1": {
+      "char_end": 94158,
+      "char_start": 94155,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "percent",
+      "value": 51.0,
+      "vintage_role": ""
+    },
+    "d573a26d-667f-5fc5-b867-50c26e7c3382": {
+      "char_end": 18881,
+      "char_start": 18879,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "percent",
+      "value": 3.0,
+      "vintage_role": ""
+    },
+    "d66a2576-b0f0-580e-8f16-3fbb12bfaf0b": {
+      "char_end": 17074,
+      "char_start": 17069,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 2405.0,
+      "vintage_role": ""
+    },
+    "d716a417-ed24-5465-8138-0424a4f7db5a": {
+      "char_end": 25118,
+      "char_start": 25111,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 1693.0,
+      "vintage_role": ""
+    },
+    "d8ba590e-5d18-52b1-a475-e8735ae8d250": {
+      "char_end": 15760,
+      "char_start": 15758,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2019Q2",
+      "publication_ts": "2019-04-24T20:04:01Z",
+      "source_id": "0001403161-19-000014/fy19q2pressreleasefinal.htm",
+      "unit": "percent",
+      "value": 4.0,
+      "vintage_role": ""
+    },
+    "da6fb63f-63a4-5086-9e15-d51d3c85ff18": {
+      "char_end": 78056,
+      "char_start": 78053,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "percent",
+      "value": 16.0,
+      "vintage_role": ""
+    },
+    "dc14523d-8765-50c5-af74-ed863c8411d9": {
+      "char_end": 73142,
+      "char_start": 73140,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "dd54cb9a-b399-56fd-8a92-fe6012058fd3": {
+      "char_end": 15233,
+      "char_start": 15230,
+      "field": "other_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 230.0,
+      "vintage_role": ""
+    },
+    "dd58cb1e-466f-5397-8ff2-3d0105254dde": {
+      "char_end": 51315,
+      "char_start": 51310,
+      "field": "service_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3511.0,
+      "vintage_role": ""
+    },
+    "dd9f12cb-683d-58af-b3b2-a62a616fb104": {
+      "char_end": 20961,
+      "char_start": 20958,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2020Q1",
+      "publication_ts": "2020-01-30T21:07:20Z",
+      "source_id": "0001403161-20-000010/q12020ex9913.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "de388a86-4d68-5fc1-b7bc-ba449610bcb1": {
+      "char_end": 77404,
+      "char_start": 77402,
+      "field": "payments_volume_growth_nominal",
+      "geography": "global",
+      "period_label": "FY2024Q2",
+      "publication_ts": "2024-04-23T20:05:39Z",
+      "source_id": "0001403161-24-000027/q22024earningsrelease.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "e0c7a0fa-b089-520f-89e4-a741082aef86": {
+      "char_end": 1448160,
+      "char_start": 1448155,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2024Q1",
+      "publication_ts": "2024-04-23T22:06:59Z",
+      "source_id": "0001403161-24-000030/v-20240331.htm",
+      "unit": "usd_billions",
+      "value": 3020.0,
+      "vintage_role": "comparative"
+    },
+    "e13cb6f2-92ee-5f26-b933-0d26c06f335a": {
+      "char_end": 76297,
+      "char_start": 76294,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2022Q3",
+      "publication_ts": "2022-07-26T20:05:57Z",
+      "source_id": "0001403161-22-000055/q32022earningsrelease.htm",
+      "unit": "percent",
+      "value": 16.0,
+      "vintage_role": ""
+    },
+    "e1d43439-1005-5906-847b-de76f2294a4f": {
+      "char_end": 72823,
+      "char_start": 72820,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "percent",
+      "value": 17.0,
+      "vintage_role": ""
+    },
+    "e205618c-7436-52b6-b122-42161ea9635d": {
+      "char_end": 1190414,
+      "char_start": 1190409,
+      "field": "payments_volume_nominal_us",
+      "geography": "global",
+      "period_label": "FY2023Q4",
+      "publication_ts": "2024-01-25T23:17:40Z",
+      "source_id": "0001403161-24-000016/v-20231231.htm",
+      "unit": "usd_billions",
+      "value": 2932.0,
+      "vintage_role": "comparative"
+    },
+    "e3a72873-7552-5649-910f-f2e96682cd3e": {
+      "char_end": 16001,
+      "char_start": 15996,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 1851.0,
+      "vintage_role": ""
+    },
+    "e3b2274e-df07-5fcd-83fb-d341411863af": {
+      "char_end": 73720,
+      "char_start": 73717,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q2",
+      "publication_ts": "2022-04-26T20:05:54Z",
+      "source_id": "0001403161-22-000023/q22022earningsrelease.htm",
+      "unit": "percent",
+      "value": 47.0,
+      "vintage_role": ""
+    },
+    "e43ba299-b1a6-5e62-8118-58460906509e": {
+      "char_end": 16784,
+      "char_start": 16781,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "percent",
+      "value": 11.0,
+      "vintage_role": ""
+    },
+    "e9473425-204c-5089-b42c-48fd99af8133": {
+      "char_end": 53320,
+      "char_start": 53315,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q1",
+      "publication_ts": "2023-01-26T21:05:49Z",
+      "source_id": "0001403161-23-000010/q12023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2797.0,
+      "vintage_role": ""
+    },
+    "ec8c5553-3ea2-527c-8cf1-3870768b9675": {
+      "char_end": 76469,
+      "char_start": 76467,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2024Q3",
+      "publication_ts": "2024-07-23T20:05:38Z",
+      "source_id": "0001403161-24-000040/q32024earningsrelease.htm",
+      "unit": "percent",
+      "value": 7.0,
+      "vintage_role": ""
+    },
+    "edcad966-5162-5133-9fcc-f374d733cafe": {
+      "char_end": 50364,
+      "char_start": 50359,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 3819.0,
+      "vintage_role": ""
+    },
+    "eddebfb3-34a1-5cad-8f69-b9d27284235d": {
+      "char_end": 93089,
+      "char_start": 93086,
+      "field": "payments_volume_growth_constant",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "percent",
+      "value": 20.0,
+      "vintage_role": ""
+    },
+    "edeeeb7d-3016-5348-95e5-c13feeb39535": {
+      "char_end": 72093,
+      "char_start": 72090,
+      "field": "cross_border_ex_intra_europe_growth_constant",
+      "geography": "global",
+      "period_label": "FY2023Q2",
+      "publication_ts": "2023-04-25T20:05:31Z",
+      "source_id": "0001403161-23-000027/q22023earningsrelease.htm",
+      "unit": "percent",
+      "value": 32.0,
+      "vintage_role": ""
+    },
+    "ee3df0f7-50e2-54b3-aac8-7c277d0f370e": {
+      "char_end": 18098,
+      "char_start": 18093,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2020Q2",
+      "publication_ts": "2020-04-30T20:01:39Z",
+      "source_id": "0001403161-20-000024/q22020ex991.htm",
+      "unit": "usd_millions",
+      "value": 1930.0,
+      "vintage_role": ""
+    },
+    "ee5c61ed-5d47-578d-9e6f-817cb0fddc42": {
+      "char_end": 22179,
+      "char_start": 22174,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2019Q1",
+      "publication_ts": "2019-01-30T21:05:27Z",
+      "source_id": "0001403161-19-000002/fy19q1pressrelease.htm",
+      "unit": "usd_millions",
+      "value": 1789.0,
+      "vintage_role": ""
+    },
+    "ef1d970f-2b5c-5da2-8fd6-c6d9968623df": {
+      "char_end": 24916,
+      "char_start": 24911,
+      "field": "international_transaction_revenue",
+      "geography": "global",
+      "period_label": "FY2019Q4",
+      "publication_ts": "2019-10-24T20:10:57Z",
+      "source_id": "0001403161-19-000042/q42019ex9913.htm",
+      "unit": "usd_millions",
+      "value": 2180.0,
+      "vintage_role": ""
+    },
+    "ef660ea0-c3ba-5944-ad9e-528dde72d29c": {
+      "char_end": 59506,
+      "char_start": 59499,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2022Q1",
+      "publication_ts": "2022-01-27T21:08:07Z",
+      "source_id": "0001403161-22-000009/q12022earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2371.0,
+      "vintage_role": ""
+    },
+    "efdc1bd9-8a69-55e9-88f7-58b9eea2768f": {
+      "char_end": 60090,
+      "char_start": 60083,
+      "field": "client_incentives",
+      "geography": "global",
+      "period_label": "FY2021Q3",
+      "publication_ts": "2021-07-27T20:40:27Z",
+      "source_id": "0001403161-21-000038/q32021earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2130.0,
+      "vintage_role": ""
+    },
+    "f364d9f1-6d47-5b9d-9d15-c71832048328": {
+      "char_end": 15965,
+      "char_start": 15962,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "percent",
+      "value": 12.0,
+      "vintage_role": ""
+    },
+    "f6d5255c-9860-59df-a4f4-a99e6ec322a8": {
+      "char_end": 15153,
+      "char_start": 15148,
+      "field": "data_processing_revenue",
+      "geography": "global",
+      "period_label": "FY2018Q2",
+      "publication_ts": "2018-04-25T20:05:23Z",
+      "source_id": "0001403161-18-000018/vex991earningsrelease033.htm",
+      "unit": "usd_millions",
+      "value": 2127.0,
+      "vintage_role": ""
+    },
+    "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d": {
+      "char_end": 18406,
+      "char_start": 18401,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2019Q3",
+      "publication_ts": "2019-07-23T20:02:50Z",
+      "source_id": "0001403161-19-000026/q19ex9912.htm",
+      "unit": "usd_millions",
+      "value": 1932.0,
+      "vintage_role": ""
+    },
+    "fdd4a1ef-c092-59d1-8c33-e7f96a5ac267": {
+      "char_end": 4921,
+      "char_start": 4919,
+      "field": "processed_transactions_growth",
+      "geography": "global",
+      "period_label": "FY2020Q4",
+      "publication_ts": "2020-10-28T20:03:00Z",
+      "source_id": "0001403161-20-000061/q42020ex991.htm",
+      "unit": "percent",
+      "value": 3.0,
+      "vintage_role": ""
+    },
+    "feab286c-82ac-582e-8870-6f61e6ace096": {
+      "char_end": 63902,
+      "char_start": 63897,
+      "field": "operating_expenses_ex_special_items",
+      "geography": "global",
+      "period_label": "FY2023Q3",
+      "publication_ts": "2023-07-25T20:05:51Z",
+      "source_id": "0001403161-23-000069/q32023earningsrelease.htm",
+      "unit": "usd_millions",
+      "value": 2578.0,
+      "vintage_role": ""
+    }
+  },
+  "exclusions": [
+    {
+      "field": "*",
+      "period": "FY2017Q1",
+      "reason": "pre_history_or_failed_parse",
+      "value": null
+    },
+    {
+      "field": "*",
+      "period": "FY2017Q2",
+      "reason": "pre_history_or_failed_parse",
+      "value": null
+    },
+    {
+      "field": "*",
+      "period": "FY2017Q3",
+      "reason": "pre_history_or_failed_parse",
+      "value": null
+    },
+    {
+      "field": "*",
+      "period": "FY2017Q4",
+      "reason": "pre_history_or_failed_parse",
+      "value": null
+    },
+    {
+      "field": "*",
+      "period": "FY2018Q1",
+      "reason": "pre_history_or_failed_parse",
+      "value": null
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q2",
+      "reason": "image_era_gaap_derived",
+      "value": 1737.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2018Q2",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q2",
+      "reason": "not_measured",
+      "value": 1737.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q3",
+      "reason": "image_era_gaap_derived",
+      "value": 2355.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2018Q3",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q3",
+      "reason": "not_measured",
+      "value": 2355.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q4",
+      "reason": "image_era_gaap_derived",
+      "value": 2028.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2018Q4",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2018Q4",
+      "reason": "not_measured",
+      "value": 2028.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q1",
+      "reason": "image_era_gaap_derived",
+      "value": 1789.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2019Q1",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q1",
+      "reason": "not_measured",
+      "value": 1789.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q2",
+      "reason": "image_era_gaap_derived",
+      "value": 1853.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2019Q2",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q2",
+      "reason": "not_measured",
+      "value": 1853.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q3",
+      "reason": "image_era_gaap_derived",
+      "value": 1932.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2019Q3",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q3",
+      "reason": "not_measured",
+      "value": 1932.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q4",
+      "reason": "image_era_gaap_derived",
+      "value": 2402.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2019Q4",
+      "reason": "image_era_misparsed",
+      "value": 6.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2019Q4",
+      "reason": "not_measured",
+      "value": 2402.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q1",
+      "reason": "image_era_gaap_derived",
+      "value": 2038.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2020Q1",
+      "reason": "image_era_misparsed",
+      "value": 6.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q1",
+      "reason": "not_measured",
+      "value": 2038.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q2",
+      "reason": "image_era_gaap_derived",
+      "value": 1930.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2020Q2",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q2",
+      "reason": "not_measured",
+      "value": 1930.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q3",
+      "reason": "image_era_gaap_derived",
+      "value": 1838.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2020Q3",
+      "reason": "image_era_misparsed",
+      "value": 4.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q3",
+      "reason": "not_measured",
+      "value": 1838.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q4",
+      "reason": "image_era_gaap_derived",
+      "value": 1959.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2020Q4",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2020Q4",
+      "reason": "not_measured",
+      "value": 1959.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2021Q1",
+      "reason": "image_era_gaap_derived",
+      "value": 1843.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2021Q1",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2021Q1",
+      "reason": "not_measured",
+      "value": 1843.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2021Q2",
+      "reason": "image_era_gaap_derived",
+      "value": 2148.0
+    },
+    {
+      "field": "net_revenue",
+      "period": "FY2021Q2",
+      "reason": "image_era_misparsed",
+      "value": 5.0
+    },
+    {
+      "field": "operating_expenses_ex_special_items",
+      "period": "FY2021Q2",
+      "reason": "not_measured",
+      "value": 2148.0
+    }
+  ],
+  "members": [
+    {
+      "assumption_flags": {
+        "activity_seasonal_q1": false,
+        "activity_seasonal_q2": false,
+        "activity_seasonal_q3": false,
+        "activity_seasonal_q4": false,
+        "corr_demand_fx": true,
+        "corr_demand_travel": true,
+        "corr_travel_fx": true,
+        "cost_vol": false,
+        "cross_border_growth_premium": false,
+        "cross_border_seasonal_q1": true,
+        "cross_border_seasonal_q2": true,
+        "cross_border_seasonal_q3": true,
+        "cross_border_seasonal_q4": true,
+        "cross_border_share_at_origin": true,
+        "data_processing_yield_drift": false,
+        "demand_vol": false,
+        "fx_vol": false,
+        "incentive_intensity_drift": false,
+        "incentive_vol": false,
+        "international_fx_sensitivity": true,
+        "international_yield_drift": false,
+        "opex_growth": false,
+        "opex_seasonal_q1": false,
+        "opex_seasonal_q2": false,
+        "opex_seasonal_q3": false,
+        "opex_seasonal_q4": false,
+        "other_revenue_growth": false,
+        "payments_volume_growth": false,
+        "pricing_vol": false,
+        "service_yield_drift": false,
+        "transactions_growth_premium": false,
+        "travel_vol": false
+      },
+      "n_obs": {
+        "cross_border_growth_premium": 4,
+        "data_processing_yield_drift": 4,
+        "incentive_intensity_drift": 4,
+        "international_yield_drift": 2,
+        "opex_growth": 4,
+        "other_revenue_growth": 4,
+        "payments_volume_growth": 4,
+        "service_yield_drift": 2,
+        "transactions_growth_premium": 4
+      },
+      "name": "last_4q",
+      "ranges": {
+        "activity_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "corr_demand_fx": [
+          -1.0,
+          1.0
+        ],
+        "corr_demand_travel": [
+          -1.0,
+          1.0
+        ],
+        "corr_travel_fx": [
+          -1.0,
+          1.0
+        ],
+        "cost_vol": [
+          0.007316177206,
+          0.03447979233
+        ],
+        "cross_border_growth_premium": [
+          -0.008729333821,
+          0.2009195472
+        ],
+        "cross_border_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "cross_border_share_at_origin": [
+          0.05,
+          0.35
+        ],
+        "data_processing_yield_drift": [
+          -0.03633724009,
+          0.07066708167
+        ],
+        "demand_vol": [
+          0.002342173457,
+          0.01103823105
+        ],
+        "fx_vol": [
+          0.003794192233,
+          0.01788132744
+        ],
+        "incentive_intensity_drift": [
+          0.001510259634,
+          0.1111215581
+        ],
+        "incentive_vol": [
+          0.01323122338,
+          0.06235631283
+        ],
+        "international_fx_sensitivity": [
+          -1.0,
+          1.0
+        ],
+        "international_yield_drift": [
+          -0.004035671003,
+          0.1083605183
+        ],
+        "opex_growth": [
+          0.0459250527,
+          0.1620637105
+        ],
+        "opex_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "other_revenue_growth": [
+          0.2313418796,
+          0.368069077
+        ],
+        "payments_volume_growth": [
+          0.02317082701,
+          0.1367828756
+        ],
+        "pricing_vol": [
+          0.005489208268,
+          0.01706476224
+        ],
+        "service_yield_drift": [
+          -0.02979465737,
+          0.0934387993
+        ],
+        "transactions_growth_premium": [
+          -0.05815900983,
+          0.09589667984
+        ],
+        "travel_vol": [
+          0.005452067193,
+          0.02569458603
+        ]
+      },
+      "values": {
+        "activity_seasonal_q1": 1.0171107,
+        "activity_seasonal_q2": 0.9503754083,
+        "activity_seasonal_q3": 1.048892525,
+        "activity_seasonal_q4": 0.9862921952,
+        "corr_demand_fx": 0.2,
+        "corr_demand_travel": 0.4,
+        "corr_travel_fx": 0.15,
+        "cost_vol": 0.01180811351,
+        "cross_border_growth_premium": 0.09609510668,
+        "cross_border_seasonal_q1": 1.0,
+        "cross_border_seasonal_q2": 1.0,
+        "cross_border_seasonal_q3": 1.0,
+        "cross_border_seasonal_q4": 1.0,
+        "cross_border_share_at_origin": 0.2,
+        "data_processing_yield_drift": 0.01716492079,
+        "demand_vol": 0.003780205052,
+        "fx_vol": 0.006123724357,
+        "incentive_intensity_drift": 0.05631590884,
+        "incentive_vol": 0.02135483917,
+        "international_fx_sensitivity": 0.0,
+        "international_yield_drift": 0.05216242363,
+        "opex_growth": 0.1039943816,
+        "opex_seasonal_q1": 0.8910743053,
+        "opex_seasonal_q2": 1.047406904,
+        "opex_seasonal_q3": 0.9863981945,
+        "opex_seasonal_q4": 1.08622146,
+        "other_revenue_growth": 0.2997054783,
+        "payments_volume_growth": 0.0799768513,
+        "pricing_vol": 0.008167859893,
+        "service_yield_drift": 0.03182207096,
+        "transactions_growth_premium": 0.018868835,
+        "travel_vol": 0.008799490014
+      },
+      "window_end": "FY2024Q3",
+      "window_start": "FY2023Q4"
+    },
+    {
+      "assumption_flags": {
+        "activity_seasonal_q1": false,
+        "activity_seasonal_q2": false,
+        "activity_seasonal_q3": false,
+        "activity_seasonal_q4": false,
+        "corr_demand_fx": false,
+        "corr_demand_travel": false,
+        "corr_travel_fx": false,
+        "cost_vol": false,
+        "cross_border_growth_premium": false,
+        "cross_border_seasonal_q1": true,
+        "cross_border_seasonal_q2": true,
+        "cross_border_seasonal_q3": true,
+        "cross_border_seasonal_q4": true,
+        "cross_border_share_at_origin": true,
+        "data_processing_yield_drift": false,
+        "demand_vol": false,
+        "fx_vol": false,
+        "incentive_intensity_drift": false,
+        "incentive_vol": false,
+        "international_fx_sensitivity": true,
+        "international_yield_drift": false,
+        "opex_growth": false,
+        "opex_seasonal_q1": false,
+        "opex_seasonal_q2": false,
+        "opex_seasonal_q3": false,
+        "opex_seasonal_q4": false,
+        "other_revenue_growth": false,
+        "payments_volume_growth": false,
+        "pricing_vol": false,
+        "service_yield_drift": false,
+        "transactions_growth_premium": false,
+        "travel_vol": false
+      },
+      "n_obs": {
+        "cross_border_growth_premium": 7,
+        "data_processing_yield_drift": 7,
+        "incentive_intensity_drift": 7,
+        "international_yield_drift": 5,
+        "opex_growth": 7,
+        "other_revenue_growth": 7,
+        "payments_volume_growth": 7,
+        "service_yield_drift": 5,
+        "transactions_growth_premium": 7
+      },
+      "name": "last_8q",
+      "ranges": {
+        "activity_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "corr_demand_fx": [
+          -0.6158542698,
+          0.7289837218
+        ],
+        "corr_demand_travel": [
+          -0.4409775167,
+          0.8247236492
+        ],
+        "corr_travel_fx": [
+          -0.9602616177,
+          -0.2953378861
+        ],
+        "cost_vol": [
+          0.00849610254,
+          0.02357492172
+        ],
+        "cross_border_growth_premium": [
+          0.02895252763,
+          0.2821958334
+        ],
+        "cross_border_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "cross_border_share_at_origin": [
+          0.05,
+          0.35
+        ],
+        "data_processing_yield_drift": [
+          -0.05248939882,
+          0.06814131826
+        ],
+        "demand_vol": [
+          0.003543583528,
+          0.009832709043
+        ],
+        "fx_vol": [
+          0.009038096807,
+          0.02507884335
+        ],
+        "incentive_intensity_drift": [
+          -0.002501251333,
+          0.1225413272
+        ],
+        "incentive_vol": [
+          0.01216329251,
+          0.03375061298
+        ],
+        "international_fx_sensitivity": [
+          -1.0,
+          1.0
+        ],
+        "international_yield_drift": [
+          0.01794668698,
+          0.1730988362
+        ],
+        "opex_growth": [
+          0.0465574327,
+          0.1797981309
+        ],
+        "opex_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "other_revenue_growth": [
+          0.1834379221,
+          0.334105322
+        ],
+        "payments_volume_growth": [
+          0.01800537656,
+          0.147611021
+        ],
+        "pricing_vol": [
+          0.009809486003,
+          0.02034316229
+        ],
+        "service_yield_drift": [
+          -0.02581717937,
+          0.1226646225
+        ],
+        "transactions_growth_premium": [
+          -0.06885240149,
+          0.1065415994
+        ],
+        "travel_vol": [
+          0.02593580212,
+          0.07196646955
+        ]
+      },
+      "values": {
+        "activity_seasonal_q1": 1.0171107,
+        "activity_seasonal_q2": 0.9503754083,
+        "activity_seasonal_q3": 1.048892525,
+        "activity_seasonal_q4": 0.9862921952,
+        "corr_demand_fx": 0.1037535602,
+        "corr_demand_travel": 0.3354734529,
+        "corr_travel_fx": -0.8099318993,
+        "cost_vol": 0.01230791135,
+        "cross_border_growth_premium": 0.1555741805,
+        "cross_border_seasonal_q1": 1.0,
+        "cross_border_seasonal_q2": 1.0,
+        "cross_border_seasonal_q3": 1.0,
+        "cross_border_seasonal_q4": 1.0,
+        "cross_border_share_at_origin": 0.2,
+        "data_processing_yield_drift": 0.007825959721,
+        "demand_vol": 0.005133425794,
+        "fx_vol": 0.01309307341,
+        "incentive_intensity_drift": 0.06002003795,
+        "incentive_vol": 0.01762040008,
+        "international_fx_sensitivity": 0.0,
+        "international_yield_drift": 0.09552276158,
+        "opex_growth": 0.1131777818,
+        "opex_seasonal_q1": 0.8910743053,
+        "opex_seasonal_q2": 1.047406904,
+        "opex_seasonal_q3": 0.9863981945,
+        "opex_seasonal_q4": 1.08622146,
+        "other_revenue_growth": 0.258771622,
+        "payments_volume_growth": 0.08280819876,
+        "pricing_vol": 0.01311924366,
+        "service_yield_drift": 0.04842372158,
+        "transactions_growth_premium": 0.01884459894,
+        "travel_vol": 0.03757199867
+      },
+      "window_end": "FY2024Q3",
+      "window_start": "FY2022Q4"
+    },
+    {
+      "assumption_flags": {
+        "activity_seasonal_q1": false,
+        "activity_seasonal_q2": false,
+        "activity_seasonal_q3": false,
+        "activity_seasonal_q4": false,
+        "corr_demand_fx": false,
+        "corr_demand_travel": false,
+        "corr_travel_fx": false,
+        "cost_vol": false,
+        "cross_border_growth_premium": false,
+        "cross_border_seasonal_q1": true,
+        "cross_border_seasonal_q2": true,
+        "cross_border_seasonal_q3": true,
+        "cross_border_seasonal_q4": true,
+        "cross_border_share_at_origin": true,
+        "data_processing_yield_drift": false,
+        "demand_vol": false,
+        "fx_vol": false,
+        "incentive_intensity_drift": false,
+        "incentive_vol": false,
+        "international_fx_sensitivity": true,
+        "international_yield_drift": false,
+        "opex_growth": false,
+        "opex_seasonal_q1": false,
+        "opex_seasonal_q2": false,
+        "opex_seasonal_q3": false,
+        "opex_seasonal_q4": false,
+        "other_revenue_growth": false,
+        "payments_volume_growth": false,
+        "pricing_vol": false,
+        "service_yield_drift": false,
+        "transactions_growth_premium": false,
+        "travel_vol": false
+      },
+      "n_obs": {
+        "cross_border_growth_premium": 7,
+        "data_processing_yield_drift": 11,
+        "incentive_intensity_drift": 15,
+        "international_yield_drift": 10,
+        "opex_growth": 7,
+        "other_revenue_growth": 14,
+        "payments_volume_growth": 15,
+        "service_yield_drift": 8,
+        "transactions_growth_premium": 15
+      },
+      "name": "full_history",
+      "ranges": {
+        "activity_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "activity_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "corr_demand_fx": [
+          -0.2477531301,
+          0.8835741814
+        ],
+        "corr_demand_travel": [
+          0.08560459801,
+          0.9391348545
+        ],
+        "corr_travel_fx": [
+          0.4989603649,
+          0.9753943953
+        ],
+        "cost_vol": [
+          0.00849610254,
+          0.02357492172
+        ],
+        "cross_border_growth_premium": [
+          0.02985261888,
+          0.2602774848
+        ],
+        "cross_border_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "cross_border_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "cross_border_share_at_origin": [
+          0.05,
+          0.35
+        ],
+        "data_processing_yield_drift": [
+          -0.03563222684,
+          0.06786179146
+        ],
+        "demand_vol": [
+          0.005061670309,
+          0.009610037522
+        ],
+        "fx_vol": [
+          0.01127323257,
+          0.0214032486
+        ],
+        "incentive_intensity_drift": [
+          0.02283369124,
+          0.114509853
+        ],
+        "incentive_vol": [
+          0.01422781963,
+          0.02701279858
+        ],
+        "international_fx_sensitivity": [
+          -1.0,
+          1.0
+        ],
+        "international_yield_drift": [
+          -0.004035671003,
+          0.1083605183
+        ],
+        "opex_growth": [
+          0.04211301972,
+          0.1842425442
+        ],
+        "opex_seasonal_q1": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q2": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q3": [
+          0.5,
+          1.5
+        ],
+        "opex_seasonal_q4": [
+          0.5,
+          1.5
+        ],
+        "other_revenue_growth": [
+          0.2002964892,
+          0.3137856216
+        ],
+        "payments_volume_growth": [
+          0.0430174667,
+          0.1381392642
+        ],
+        "pricing_vol": [
+          0.01063019024,
+          0.01863870951
+        ],
+        "service_yield_drift": [
+          -0.02979465737,
+          0.0934387993
+        ],
+        "transactions_growth_premium": [
+          -0.04641862111,
+          0.08147527418
+        ],
+        "travel_vol": [
+          0.02593580212,
+          0.07196646955
+        ]
+      },
+      "values": {
+        "activity_seasonal_q1": 1.0171107,
+        "activity_seasonal_q2": 0.9503754083,
+        "activity_seasonal_q3": 1.048892525,
+        "activity_seasonal_q4": 0.9862921952,
+        "corr_demand_fx": 0.5149252833,
+        "corr_demand_travel": 0.7202871319,
+        "corr_travel_fx": 0.8787714184,
+        "cost_vol": 0.01230791135,
+        "cross_border_growth_premium": 0.1450650518,
+        "cross_border_seasonal_q1": 1.0,
+        "cross_border_seasonal_q2": 1.0,
+        "cross_border_seasonal_q3": 1.0,
+        "cross_border_seasonal_q4": 1.0,
+        "cross_border_share_at_origin": 0.2,
+        "data_processing_yield_drift": 0.01611478231,
+        "demand_vol": 0.0065836179,
+        "fx_vol": 0.0146628783,
+        "incentive_intensity_drift": 0.0686717721,
+        "incentive_vol": 0.01850585326,
+        "international_fx_sensitivity": 0.0,
+        "international_yield_drift": 0.05216242363,
+        "opex_growth": 0.113177782,
+        "opex_seasonal_q1": 0.8910743053,
+        "opex_seasonal_q2": 1.047406904,
+        "opex_seasonal_q3": 0.9863981945,
+        "opex_seasonal_q4": 1.08622146,
+        "other_revenue_growth": 0.2570410554,
+        "payments_volume_growth": 0.09057836544,
+        "pricing_vol": 0.01346241291,
+        "service_yield_drift": 0.03182207096,
+        "transactions_growth_premium": 0.01752832654,
+        "travel_vol": 0.03757199867
+      },
+      "window_end": "FY2024Q3",
+      "window_start": "FY2018Q2"
+    }
+  ],
+  "origin_date": "2024-07-23",
+  "origin_label": "FY2024Q3",
+  "pandemic_included": {
+    "treatment": "excluded_in_primary",
+    "values": {
+      "activity_seasonal_q1": 1.018955299,
+      "activity_seasonal_q2": 0.9372799849,
+      "activity_seasonal_q3": 1.060800812,
+      "activity_seasonal_q4": 0.9870557465,
+      "corr_demand_fx": 0.1973496276,
+      "corr_demand_travel": 0.2757610352,
+      "corr_travel_fx": -0.3496959507,
+      "cost_vol": 0.01428581215,
+      "cross_border_growth_premium": 0.1881247032,
+      "cross_border_seasonal_q1": 1.0,
+      "cross_border_seasonal_q2": 1.0,
+      "cross_border_seasonal_q3": 1.0,
+      "cross_border_seasonal_q4": 1.0,
+      "cross_border_share_at_origin": 0.2,
+      "data_processing_yield_drift": 0.009262594336,
+      "demand_vol": 0.01174106,
+      "fx_vol": 0.01204239875,
+      "incentive_intensity_drift": 0.07632608975,
+      "incentive_vol": 0.03210261457,
+      "international_fx_sensitivity": 0.0,
+      "international_yield_drift": 0.1148565787,
+      "opex_growth": 0.1168536558,
+      "opex_seasonal_q1": 0.9014427758,
+      "opex_seasonal_q2": 1.046852512,
+      "opex_seasonal_q3": 0.9858760949,
+      "opex_seasonal_q4": 1.074865198,
+      "other_revenue_growth": 0.2486245955,
+      "payments_volume_growth": 0.09061140618,
+      "pricing_vol": 0.01255139366,
+      "service_yield_drift": 0.03035580926,
+      "transactions_growth_premium": 0.01773468701,
+      "travel_vol": 0.04631223736
+    }
+  },
+  "pandemic_treatment": "exclude",
+  "pooled": {
+    "assumption_flags": {
+      "activity_seasonal_q1": false,
+      "activity_seasonal_q2": false,
+      "activity_seasonal_q3": false,
+      "activity_seasonal_q4": false,
+      "corr_demand_fx": true,
+      "corr_demand_travel": true,
+      "corr_travel_fx": true,
+      "cost_vol": false,
+      "cross_border_growth_premium": false,
+      "cross_border_seasonal_q1": true,
+      "cross_border_seasonal_q2": true,
+      "cross_border_seasonal_q3": true,
+      "cross_border_seasonal_q4": true,
+      "cross_border_share_at_origin": true,
+      "data_processing_yield_drift": false,
+      "demand_vol": false,
+      "fx_vol": false,
+      "incentive_intensity_drift": false,
+      "incentive_vol": false,
+      "international_fx_sensitivity": true,
+      "international_yield_drift": false,
+      "opex_growth": false,
+      "opex_seasonal_q1": false,
+      "opex_seasonal_q2": false,
+      "opex_seasonal_q3": false,
+      "opex_seasonal_q4": false,
+      "other_revenue_growth": false,
+      "payments_volume_growth": false,
+      "pricing_vol": false,
+      "service_yield_drift": false,
+      "transactions_growth_premium": false,
+      "travel_vol": false
+    },
+    "company": "visa",
+    "content_hash": "9561a948b7d8f86cd735ad0733fa40e2cadc33a979df9f80d67c892838e77ac3",
+    "cutoff_ts": "2024-07-23T20:05:38Z",
+    "evidence_links": {
+      "activity_seasonal_q1": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "5858ebae-08c0-5d54-9a40-52d948bdfa27",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "c40a7067-cc06-5b9d-8936-a0b9a4d4cfed",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "e205618c-7436-52b6-b122-42161ea9635d",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "e0c7a0fa-b089-520f-89e4-a741082aef86",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "b26db3d3-a265-5d68-9413-7116602c1518",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "5bea8930-1d18-5254-8029-90b22083323f",
+          "63dfef28-35fe-5a3e-af4c-c9fca79af453",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "298c0ab3-b8ab-5a8f-9d9d-f013295aca3b",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "43ddc045-919b-5b4a-93ac-a22327c38460",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "60bdd34a-7323-52c1-ac14-3c1bcd8e27ce",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "68a7d2ea-db7f-505b-82a2-d20bc6108170",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "822cae48-022f-519b-9f90-251b88178cab",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "1811c274-ac0a-5c4e-b5de-6718c2542162",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "1b628df2-ca29-56bd-9819-36592bd9b6a2",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "49bb9def-da64-5446-be95-fe034fd4b626",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "93413ba9-7f31-5671-9dbc-e90e169086ef",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "10e22407-f2da-5322-9fe4-d42d87d30b33",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "2d630691-4e2c-513f-81a0-5d5d8c1394ae",
+          "9a1ecd7e-f07e-5daf-9872-977ec4b8360d",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "c4fdb5ac-fc03-529b-8a99-81ecbe1bf19d",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "00ad1832-7f0f-58eb-8679-5cf31f327ec6",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "6879aa7d-f13b-5c8a-863c-33d6443a33c3",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb",
+          "5713f085-b840-59ea-a059-5fb6a08f7381",
+          "a80d5e9f-d759-5c29-b432-4891b6d679c0"
+        ],
+        "rationale": null
+      },
+      "activity_seasonal_q2": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "5858ebae-08c0-5d54-9a40-52d948bdfa27",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "c40a7067-cc06-5b9d-8936-a0b9a4d4cfed",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "e205618c-7436-52b6-b122-42161ea9635d",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "e0c7a0fa-b089-520f-89e4-a741082aef86",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "b26db3d3-a265-5d68-9413-7116602c1518",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "5bea8930-1d18-5254-8029-90b22083323f",
+          "63dfef28-35fe-5a3e-af4c-c9fca79af453",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "298c0ab3-b8ab-5a8f-9d9d-f013295aca3b",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "43ddc045-919b-5b4a-93ac-a22327c38460",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "60bdd34a-7323-52c1-ac14-3c1bcd8e27ce",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "68a7d2ea-db7f-505b-82a2-d20bc6108170",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "822cae48-022f-519b-9f90-251b88178cab",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "1811c274-ac0a-5c4e-b5de-6718c2542162",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "1b628df2-ca29-56bd-9819-36592bd9b6a2",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "49bb9def-da64-5446-be95-fe034fd4b626",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "93413ba9-7f31-5671-9dbc-e90e169086ef",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "10e22407-f2da-5322-9fe4-d42d87d30b33",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "2d630691-4e2c-513f-81a0-5d5d8c1394ae",
+          "9a1ecd7e-f07e-5daf-9872-977ec4b8360d",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "c4fdb5ac-fc03-529b-8a99-81ecbe1bf19d",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "00ad1832-7f0f-58eb-8679-5cf31f327ec6",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "6879aa7d-f13b-5c8a-863c-33d6443a33c3",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb",
+          "5713f085-b840-59ea-a059-5fb6a08f7381",
+          "a80d5e9f-d759-5c29-b432-4891b6d679c0"
+        ],
+        "rationale": null
+      },
+      "activity_seasonal_q3": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "5858ebae-08c0-5d54-9a40-52d948bdfa27",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "c40a7067-cc06-5b9d-8936-a0b9a4d4cfed",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "e205618c-7436-52b6-b122-42161ea9635d",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "e0c7a0fa-b089-520f-89e4-a741082aef86",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "b26db3d3-a265-5d68-9413-7116602c1518",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "5bea8930-1d18-5254-8029-90b22083323f",
+          "63dfef28-35fe-5a3e-af4c-c9fca79af453",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "298c0ab3-b8ab-5a8f-9d9d-f013295aca3b",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "43ddc045-919b-5b4a-93ac-a22327c38460",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "60bdd34a-7323-52c1-ac14-3c1bcd8e27ce",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "68a7d2ea-db7f-505b-82a2-d20bc6108170",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "822cae48-022f-519b-9f90-251b88178cab",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "1811c274-ac0a-5c4e-b5de-6718c2542162",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "1b628df2-ca29-56bd-9819-36592bd9b6a2",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "49bb9def-da64-5446-be95-fe034fd4b626",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "93413ba9-7f31-5671-9dbc-e90e169086ef",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "10e22407-f2da-5322-9fe4-d42d87d30b33",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "2d630691-4e2c-513f-81a0-5d5d8c1394ae",
+          "9a1ecd7e-f07e-5daf-9872-977ec4b8360d",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "c4fdb5ac-fc03-529b-8a99-81ecbe1bf19d",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "00ad1832-7f0f-58eb-8679-5cf31f327ec6",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "6879aa7d-f13b-5c8a-863c-33d6443a33c3",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb",
+          "5713f085-b840-59ea-a059-5fb6a08f7381",
+          "a80d5e9f-d759-5c29-b432-4891b6d679c0"
+        ],
+        "rationale": null
+      },
+      "activity_seasonal_q4": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "5858ebae-08c0-5d54-9a40-52d948bdfa27",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "c40a7067-cc06-5b9d-8936-a0b9a4d4cfed",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "e205618c-7436-52b6-b122-42161ea9635d",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "e0c7a0fa-b089-520f-89e4-a741082aef86",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "b26db3d3-a265-5d68-9413-7116602c1518",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "5bea8930-1d18-5254-8029-90b22083323f",
+          "63dfef28-35fe-5a3e-af4c-c9fca79af453",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "298c0ab3-b8ab-5a8f-9d9d-f013295aca3b",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "43ddc045-919b-5b4a-93ac-a22327c38460",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "60bdd34a-7323-52c1-ac14-3c1bcd8e27ce",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "68a7d2ea-db7f-505b-82a2-d20bc6108170",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "822cae48-022f-519b-9f90-251b88178cab",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "1811c274-ac0a-5c4e-b5de-6718c2542162",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "1b628df2-ca29-56bd-9819-36592bd9b6a2",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "49bb9def-da64-5446-be95-fe034fd4b626",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "93413ba9-7f31-5671-9dbc-e90e169086ef",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "10e22407-f2da-5322-9fe4-d42d87d30b33",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "2d630691-4e2c-513f-81a0-5d5d8c1394ae",
+          "9a1ecd7e-f07e-5daf-9872-977ec4b8360d",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "c4fdb5ac-fc03-529b-8a99-81ecbe1bf19d",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "00ad1832-7f0f-58eb-8679-5cf31f327ec6",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "6879aa7d-f13b-5c8a-863c-33d6443a33c3",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb",
+          "5713f085-b840-59ea-a059-5fb6a08f7381",
+          "a80d5e9f-d759-5c29-b432-4891b6d679c0"
+        ],
+        "rationale": null
+      },
+      "corr_demand_fx": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "No eligible observations; assumption/default."
+      },
+      "corr_demand_travel": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "No eligible observations; assumption/default."
+      },
+      "corr_travel_fx": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "No eligible observations; assumption/default."
+      },
+      "cost_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "cross_border_growth_premium": {
+        "assumption": false,
+        "observation_ids": [
+          "cbd7d8d2-8dbd-5cf1-b9ea-040f6fbed48a",
+          "99f89976-7897-5031-9caf-88f318242488",
+          "da6fb63f-63a4-5086-9e15-d51d3c85ff18",
+          "58a76d79-616c-55e4-9f44-22d07d629dca",
+          "584a40a2-3d99-5fe5-b798-344507e43954",
+          "7cb6eeb1-1418-5095-9969-a62ebe29b981",
+          "edeeeb7d-3016-5348-95e5-c13feeb39535",
+          "d2369817-2213-5c20-9188-f2691368b364",
+          "078f5c2c-aa87-5808-a900-5c7b8c102ce5",
+          "b9cc300c-269f-5e2b-87a7-1c4b3fcb8143",
+          "d50c4df0-89c7-5386-b378-96fbdc0c71e1",
+          "e3b2274e-df07-5fcd-83fb-d341411863af",
+          "1a890411-cbc3-52c2-b20e-742da1c26183"
+        ],
+        "rationale": null
+      },
+      "cross_border_seasonal_q1": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed (not identifiable).; Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed."
+      },
+      "cross_border_seasonal_q2": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed (not identifiable).; Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed."
+      },
+      "cross_border_seasonal_q3": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed (not identifiable).; Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed."
+      },
+      "cross_border_seasonal_q4": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed (not identifiable).; Cross-border seasonal ratios assumed 1.0; only YoY growth is disclosed."
+      },
+      "cross_border_share_at_origin": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Analyst-assumption share of payments volume that is cross-border ex-intra-Europe at the origin quarter. Midpoint of the allowed range; not an estimate (LON-3: no disclosed CB level).; Analyst-assumption share of payments volume that is cross-border ex-intra-Europe at the origin quarter. Midpoint of the allowed range; not an estimate (LON-3: no disclosed CB level)."
+      },
+      "data_processing_yield_drift": {
+        "assumption": false,
+        "observation_ids": [
+          "b37d77f2-ab06-509f-9c5f-e647d5a5b0e9",
+          "b0c570bd-ae61-5bf1-8336-63831bdccecd",
+          "082eadcd-e295-5254-9825-f6a67f4e24a2",
+          "75c99ab0-0d55-5735-ab18-ae4b3a4a45bb",
+          "2e652e28-5d91-51a0-9a07-fbaa00e8ffd0",
+          "0fed9e77-06b2-54ef-8cc3-0a0ca6fa30d8",
+          "edcad966-5162-5133-9fcc-f374d733cafe",
+          "8af55a90-46cd-505b-bb7c-8307fb28502f",
+          "f6d5255c-9860-59df-a4f4-a99e6ec322a8",
+          "37978c10-a729-5ca6-bca1-527e4be2ad4c",
+          "a07fd4fe-facf-5690-a9de-e840e9e8667f",
+          "2bba3be3-4b44-5505-89e4-51a948104bd9",
+          "cd87e97d-de3b-55c6-9469-28fa3fba87ba",
+          "21408b49-a305-5ab8-a65b-9fe552c29a80",
+          "985ae187-31b9-5034-81e3-a484d9ed0e47",
+          "0632a885-4ac5-5c4c-81d4-b60cdbd7ad85",
+          "22c11236-0b16-50d0-b98e-de8701a6f467",
+          "1ea2c98e-2b29-5631-a062-13d971196cd8",
+          "af1e638f-1d59-5f52-b905-f2376081bea4",
+          "759fc85b-2d29-5e04-b4dd-2d146af5a183",
+          "12cfa7af-65e5-5dc7-a9f2-84569b74f586",
+          "99847412-1c0d-5f1d-9f8c-e74b60f56226",
+          "8fc119bd-7d56-527e-9d19-5cd0c96d2927",
+          "8fc8485d-7ac7-596d-a5bc-6d471aaf0802",
+          "7cdaa7d5-3c35-51dd-ab48-b5c7ddb3884f",
+          "d252a6d8-88f7-5b01-bbb1-178914d7cafc"
+        ],
+        "rationale": null
+      },
+      "demand_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb"
+        ],
+        "rationale": null
+      },
+      "fx_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "57aff212-df48-5dc0-83e5-4884eee9d96a",
+          "7c5c4088-a985-5f02-844e-8c34d14b21d7",
+          "de388a86-4d68-5fc1-b7bc-ba449610bcb1",
+          "2f45faab-dd69-5e2e-95e5-e832617db278",
+          "0c85b64f-60af-5135-af7b-4d3db0476d81",
+          "8c6ba8a3-93e6-5317-83ca-a1d0bc3d8373",
+          "39c17834-676f-5275-875e-6fe5f82e6093",
+          "4df053c7-a515-5f58-88eb-2a774b01ecdf",
+          "cefb81a1-6513-51b7-82c6-44af667162d9",
+          "1b08196b-8c5b-5926-8bf2-1e0de8eab796",
+          "16416178-7cad-56e7-8c47-8150fe395159",
+          "a11f26b3-fc5e-59f4-bba4-7e5679a7f1f5",
+          "d8ba590e-5d18-52b1-a475-e8735ae8d250",
+          "acd323d7-149a-5c6c-b94d-e82f361c271e",
+          "392f862a-64cb-5861-9996-f278189b31d1",
+          "3083eaa8-61f7-53cd-a695-f59c56314ccc",
+          "d573a26d-667f-5fc5-b867-50c26e7c3382",
+          "48bc8ef6-b5b7-5e3f-a227-0eb4417ec1aa",
+          "7736fc2f-de86-59fa-8e41-fe5c004de736",
+          "186222a5-adc3-55e2-9491-c322649f79f1",
+          "47e710be-0b87-581e-9744-73e2f9299e0b",
+          "789f8c36-0388-5631-83a8-f1d5d9fc1b7d",
+          "2628d2cb-dfd9-5154-b0ff-a7f3cb200fa8",
+          "165c49f2-bbb1-5263-a40a-c92693637b32",
+          "0b31ff5b-b1c5-531f-99f8-8b19b4276941"
+        ],
+        "rationale": null
+      },
+      "incentive_intensity_drift": {
+        "assumption": false,
+        "observation_ids": [
+          "7b756262-5a2b-5dc3-88f3-b4aae744ba9d",
+          "d03d0097-1cd1-5c5d-9584-de633e3f979b",
+          "ca3ba9b7-7a40-5858-80a4-5938da5079ee",
+          "bb7e797d-3045-52ef-ac8a-1d6ec552de3f",
+          "a2f9415d-eeec-5916-b06a-70539201eec0",
+          "07482eb9-2a9c-55e1-8b62-6dd4f3fe4749",
+          "2b509bfb-7cc3-5cab-8888-d65139fa6921",
+          "124bf7d1-ae29-53db-ad2f-e3b59d33f799",
+          "44dde51b-8006-5f9b-97e5-8c1d0782d666",
+          "99f132cf-4411-58bf-a556-6add92fc7121",
+          "3d7698fc-f725-58d2-bd15-7b1848d4549c",
+          "bc719280-35a6-5049-9c10-6da17ac45613",
+          "22e66802-4151-5923-bfef-5fd236792048",
+          "7fb723d7-68dc-5448-a778-066cfe515a61",
+          "d716a417-ed24-5465-8138-0424a4f7db5a",
+          "1a022a93-7754-51b2-8c0d-e32178d1ed05",
+          "94d7fac4-9f5e-5982-9ee3-0ca95b2ce102",
+          "c680737a-6512-5704-8a04-5ad363d71821",
+          "cdad975f-7f42-58f0-8ad9-10c9794ca528",
+          "825ace66-0b4f-5de9-a78c-0ff489096e9a",
+          "609389be-b76f-5db9-bf34-bd65f9a03ff0",
+          "efdc1bd9-8a69-55e9-88f7-58b9eea2768f",
+          "5ced81d3-f397-5fee-ae1d-ebf532df5aad",
+          "ef660ea0-c3ba-5944-ad9e-528dde72d29c",
+          "574af173-f274-51e6-9235-db3923990f12",
+          "79742185-d690-5700-a16b-7286283b08f3"
+        ],
+        "rationale": null
+      },
+      "incentive_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "7b756262-5a2b-5dc3-88f3-b4aae744ba9d",
+          "d03d0097-1cd1-5c5d-9584-de633e3f979b",
+          "ca3ba9b7-7a40-5858-80a4-5938da5079ee",
+          "bb7e797d-3045-52ef-ac8a-1d6ec552de3f",
+          "a2f9415d-eeec-5916-b06a-70539201eec0",
+          "07482eb9-2a9c-55e1-8b62-6dd4f3fe4749",
+          "2b509bfb-7cc3-5cab-8888-d65139fa6921",
+          "124bf7d1-ae29-53db-ad2f-e3b59d33f799",
+          "44dde51b-8006-5f9b-97e5-8c1d0782d666",
+          "99f132cf-4411-58bf-a556-6add92fc7121",
+          "3d7698fc-f725-58d2-bd15-7b1848d4549c",
+          "bc719280-35a6-5049-9c10-6da17ac45613",
+          "22e66802-4151-5923-bfef-5fd236792048",
+          "7fb723d7-68dc-5448-a778-066cfe515a61",
+          "d716a417-ed24-5465-8138-0424a4f7db5a",
+          "1a022a93-7754-51b2-8c0d-e32178d1ed05",
+          "94d7fac4-9f5e-5982-9ee3-0ca95b2ce102",
+          "c680737a-6512-5704-8a04-5ad363d71821",
+          "cdad975f-7f42-58f0-8ad9-10c9794ca528",
+          "825ace66-0b4f-5de9-a78c-0ff489096e9a",
+          "609389be-b76f-5db9-bf34-bd65f9a03ff0",
+          "efdc1bd9-8a69-55e9-88f7-58b9eea2768f",
+          "5ced81d3-f397-5fee-ae1d-ebf532df5aad",
+          "ef660ea0-c3ba-5944-ad9e-528dde72d29c",
+          "574af173-f274-51e6-9235-db3923990f12",
+          "79742185-d690-5700-a16b-7286283b08f3"
+        ],
+        "rationale": null
+      },
+      "international_fx_sensitivity": {
+        "assumption": true,
+        "observation_ids": [],
+        "rationale": "Additional FX sensitivity on the international yield (0 = pricing shock only).; Additional FX sensitivity on the international yield (0 = pricing shock only)."
+      },
+      "international_yield_drift": {
+        "assumption": false,
+        "observation_ids": [
+          "40eb0a37-2fa1-58f9-aab7-9da377668821",
+          "bfac5063-edf6-53e9-8c78-7c1d998cad65",
+          "8b3f2c99-2fee-514f-9dda-59483a36b721",
+          "13ec57b4-5a68-52b6-8071-b29a5d875f8f",
+          "7fba40d4-4073-5394-8924-fd94e86aab3e",
+          "e9473425-204c-5089-b42c-48fd99af8133",
+          "0df0e0f9-14fa-568d-84fc-9134a5a4217a",
+          "7191807f-b54b-583e-b117-519782e52a71",
+          "94d773f9-95b0-5cc2-86c0-3d0978208efb",
+          "94ab4eb1-37d8-5c44-85a8-7cab9fd1f4b5",
+          "6cf2e4e2-858f-5b80-a27d-1749ef68c1ed",
+          "e3a72873-7552-5649-910f-f2e96682cd3e",
+          "08281e96-9a18-5a32-a0d3-235f616b214c",
+          "45e38948-bc1c-53e7-9397-19d7e99c2baf",
+          "ef1d970f-2b5c-5da2-8fd6-c6d9968623df",
+          "7d1578b1-e9af-51d9-9e14-8847927b781b",
+          "2d6e9c49-963c-5ee4-9440-4caf1b4f5b03",
+          "5b1518d9-bf36-58ac-b90b-7c2938ccaa4e",
+          "8c7fcd18-299b-559e-9679-8824371fd616",
+          "2f1245a2-9438-5dab-944a-38b5ee7adee0",
+          "b6743e1f-2c1d-5828-a70e-9583fc176aad",
+          "bdf3f2c7-39dc-5b6c-9d47-2da9c6b6d59d"
+        ],
+        "rationale": null
+      },
+      "opex_growth": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "opex_seasonal_q1": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "opex_seasonal_q2": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "opex_seasonal_q3": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "opex_seasonal_q4": {
+        "assumption": false,
+        "observation_ids": [
+          "292ae6b3-a985-5442-894c-2cd4a673fba1",
+          "35b7c1c7-e655-5e25-be59-241098b1a060",
+          "65957590-eb6a-50fc-ac84-39b19bb2e462",
+          "c9c7c54c-a50e-599f-88ab-b8f53ebddf80",
+          "034195b8-f6bb-55f3-989e-4d5b41c1b305",
+          "adb57b68-0680-5812-a2d3-041bf19e266f",
+          "0496e056-26b6-5c23-9ba0-3fa74d06625b",
+          "feab286c-82ac-582e-8870-6f61e6ace096",
+          "2c777c2c-af2c-59bc-a8b3-db97a3343032",
+          "0855fe13-3b59-5b8f-8d60-86c06928073d",
+          "ab9d2126-2bdb-5672-a752-677e2c1542a1",
+          "ee5c61ed-5d47-578d-9e6f-817cb0fddc42",
+          "80d99330-6978-5bf1-8474-0a0f130838e8",
+          "fd0f8fb2-3739-5af1-90b0-85e67ede0c4d",
+          "01ac9b89-0776-5281-9087-095a9b77be92",
+          "2465c4e4-b263-536e-916a-f3461aeddd47",
+          "ee3df0f7-50e2-54b3-aac8-7c277d0f370e",
+          "ca4c0f66-e772-5f46-8b09-18374affc383",
+          "79392aff-aaac-5913-9f85-22daca469832",
+          "30570e28-e9fc-5cab-aa5f-daf6d8b1aa12",
+          "84f9ce45-9a9b-568d-ac72-e5c076883b83",
+          "657a811d-ca28-5e0a-9459-3852e562fff7",
+          "1e68fe05-a774-5d4d-b6e5-72ca45ffa87e",
+          "a789000b-e180-5c7c-82d5-de6077679b08",
+          "ad083c0d-5c45-555b-95c6-17f6823a2714",
+          "085bba12-c268-5af1-8641-6dd6afb2cf20"
+        ],
+        "rationale": null
+      },
+      "other_revenue_growth": {
+        "assumption": false,
+        "observation_ids": [
+          "b95cb830-95df-59bc-b0eb-774b0a805f30",
+          "7366a011-1a63-5c65-b2ca-742687362b8c",
+          "73167937-b3fe-5da6-9313-eb523901de09",
+          "cc5bec9f-c5f5-5842-8842-1a1e7ce0de36",
+          "96d4dd10-b2ba-5875-ab94-a9d794fd45c9",
+          "77a743dd-ac81-5527-aefb-1bdade6166e3",
+          "a5bbd615-cdf4-5290-8c63-0124af0db275",
+          "4f57ed9d-d7a8-52ed-9b49-5dedb969fced",
+          "dd54cb9a-b399-56fd-8a92-fe6012058fd3",
+          "a7f74c2f-ab16-5444-a0cc-58c4ce9f3efa",
+          "5cd627db-1687-5b61-9cd8-0fdd5cc47583",
+          "b8fac425-0225-50a1-8ace-a37a033303b8",
+          "a3d2dde9-72c8-5e0d-a5d6-9997653fd7c5",
+          "4fe9399a-28ed-5950-aae8-3fd04f382daa",
+          "86db09c7-a0fe-52b1-95cf-1c66e2125598",
+          "47801700-59b7-528a-bc0e-9640af5baff3",
+          "5c23256b-4737-5ffa-846a-55940e29619a",
+          "62c86b9a-e2f3-52f8-ba58-83ce14547f2e",
+          "1cc15bda-f599-5517-bfbf-135c5a885688",
+          "21b7257d-70f1-560a-b135-40a66759dd1b",
+          "c3682cd7-0c45-563e-a5c6-386e11c9196c",
+          "5a24ca7d-0e4a-5d59-83ba-f6d5b7f999bf",
+          "19d63fff-6e2a-5dfc-b4b0-e1d13863a3c4",
+          "aa20f5e5-7aac-5b42-a7f7-833b2cc385ad",
+          "36f06a8d-d397-59c6-8d19-0714d687e18e",
+          "5f7d7104-ba19-5f4e-af01-db6da4c66b65"
+        ],
+        "rationale": null
+      },
+      "payments_volume_growth": {
+        "assumption": false,
+        "observation_ids": [
+          "37a0f182-b566-5387-bc2c-86baccf0154d",
+          "66c27d34-bfb9-54a1-9101-13158bbd97c0",
+          "112062d2-97d5-59e7-95cf-adc3cb04249d",
+          "ec8c5553-3ea2-527c-8cf1-3870768b9675",
+          "752bb835-cc53-56b7-85d3-eca0de946542",
+          "dc14523d-8765-50c5-af74-ed863c8411d9",
+          "664616a6-4f52-5478-940b-3c277a14a00b",
+          "c7f5eced-1e2b-566b-ac1a-2d529c80f2eb",
+          "a1ea622f-71ab-510a-890d-58a2882d2818",
+          "83925960-028d-5e90-bec8-97ce79d5aec8",
+          "b5c40416-5827-5509-b157-44903c94dda6",
+          "e43ba299-b1a6-5e62-8118-58460906509e",
+          "180de1ab-1c1b-5095-a17c-8a45fe7b19dc",
+          "cdb8d23e-b618-5b4a-928f-f7808e6d74c4",
+          "44d51808-4f93-5d6a-b6d4-2856153dda09",
+          "59ad0a87-239e-509e-b155-a65c55051420",
+          "4c98939d-ef4f-5d67-928c-b3248235cab8",
+          "40b7e454-2c73-59ae-8b4c-5a62e433ed33",
+          "7862cc78-b2fa-5107-9a48-c7d5f1af38c2",
+          "25545227-6daa-5821-a061-93ddbadb8baf",
+          "46946514-d112-5016-94fa-c0de9a8709c1",
+          "ce12ef66-ed07-5d04-b9a7-5297da39b8f9",
+          "eddebfb3-34a1-5cad-8f69-b9d27284235d",
+          "e1d43439-1005-5906-847b-de76f2294a4f",
+          "8384a2ed-e12f-5421-a73c-efe737b62bbb"
+        ],
+        "rationale": null
+      },
+      "pricing_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "b37d77f2-ab06-509f-9c5f-e647d5a5b0e9",
+          "994a5782-7ce2-59f8-9f46-4be8808a810d",
+          "b0c570bd-ae61-5bf1-8336-63831bdccecd",
+          "9227d741-ab52-511b-a867-bb94314d93ce",
+          "082eadcd-e295-5254-9825-f6a67f4e24a2",
+          "5cc0a1c7-ae9c-53e0-a751-67ac06c5f610",
+          "75c99ab0-0d55-5735-ab18-ae4b3a4a45bb",
+          "7d05d297-b0d4-5cec-b4c9-e8068946398d",
+          "2e652e28-5d91-51a0-9a07-fbaa00e8ffd0",
+          "871efdac-ce07-50d8-b2cd-ef5dfe38db66",
+          "0fed9e77-06b2-54ef-8cc3-0a0ca6fa30d8",
+          "dd58cb1e-466f-5397-8ff2-3d0105254dde",
+          "edcad966-5162-5133-9fcc-f374d733cafe",
+          "48df370d-9b26-559f-b40c-dab9cce77ea1",
+          "8af55a90-46cd-505b-bb7c-8307fb28502f",
+          "a4cf9643-231c-5e63-8788-e7ab07d3e0c9",
+          "f6d5255c-9860-59df-a4f4-a99e6ec322a8",
+          "70e3fa72-2b8c-51fb-a6ed-54719fd6674e",
+          "37978c10-a729-5ca6-bca1-527e4be2ad4c",
+          "29514021-c941-5b9e-bcb3-4a63c3b2469b",
+          "a07fd4fe-facf-5690-a9de-e840e9e8667f",
+          "10cf9d80-50e3-5a4e-a9f6-ce904a7a2c63",
+          "2bba3be3-4b44-5505-89e4-51a948104bd9",
+          "b09fff1e-34c3-554f-af91-6e5dd2652432",
+          "cd87e97d-de3b-55c6-9469-28fa3fba87ba",
+          "1745e4b4-ef89-5f3f-bdfb-4fbd723610e4",
+          "21408b49-a305-5ab8-a65b-9fe552c29a80",
+          "d66a2576-b0f0-580e-8f16-3fbb12bfaf0b",
+          "985ae187-31b9-5034-81e3-a484d9ed0e47",
+          "b93a161f-7bd7-5a3b-b4a9-2df53c79d942",
+          "0632a885-4ac5-5c4c-81d4-b60cdbd7ad85",
+          "7e3e6a72-9091-578e-a66c-f9b9f4f9fc68",
+          "22c11236-0b16-50d0-b98e-de8701a6f467",
+          "ab93b7d9-1368-525e-a08d-bc4806c0de27",
+          "1ea2c98e-2b29-5631-a062-13d971196cd8",
+          "42a0e154-c6f3-5f10-b783-298cdd8461d8",
+          "af1e638f-1d59-5f52-b905-f2376081bea4",
+          "cb7ce1ec-c4d6-5c02-8501-95433b086c8d",
+          "759fc85b-2d29-5e04-b4dd-2d146af5a183",
+          "9dca9481-2fab-56d2-a08b-c5ce83254e7b",
+          "12cfa7af-65e5-5dc7-a9f2-84569b74f586",
+          "421b1709-1eb3-5457-939a-86915d228efb",
+          "99847412-1c0d-5f1d-9f8c-e74b60f56226",
+          "941279b4-11da-5ef2-adb3-0143ab10fdc0",
+          "8fc119bd-7d56-527e-9d19-5cd0c96d2927",
+          "853adf32-133a-5017-8e19-233de933cdbf",
+          "8fc8485d-7ac7-596d-a5bc-6d471aaf0802",
+          "063c1a3d-56a0-5cf5-a27e-c88fd040c423",
+          "7cdaa7d5-3c35-51dd-ab48-b5c7ddb3884f",
+          "1227a592-7f86-5b3f-b61e-74c1591c6dfc",
+          "d252a6d8-88f7-5b01-bbb1-178914d7cafc",
+          "8ea65250-0ae7-523d-8edc-0d2daa98cbbe"
+        ],
+        "rationale": null
+      },
+      "service_yield_drift": {
+        "assumption": false,
+        "observation_ids": [
+          "994a5782-7ce2-59f8-9f46-4be8808a810d",
+          "9227d741-ab52-511b-a867-bb94314d93ce",
+          "5cc0a1c7-ae9c-53e0-a751-67ac06c5f610",
+          "7d05d297-b0d4-5cec-b4c9-e8068946398d",
+          "871efdac-ce07-50d8-b2cd-ef5dfe38db66",
+          "dd58cb1e-466f-5397-8ff2-3d0105254dde",
+          "48df370d-9b26-559f-b40c-dab9cce77ea1",
+          "a4cf9643-231c-5e63-8788-e7ab07d3e0c9",
+          "70e3fa72-2b8c-51fb-a6ed-54719fd6674e",
+          "29514021-c941-5b9e-bcb3-4a63c3b2469b",
+          "10cf9d80-50e3-5a4e-a9f6-ce904a7a2c63",
+          "b09fff1e-34c3-554f-af91-6e5dd2652432",
+          "1745e4b4-ef89-5f3f-bdfb-4fbd723610e4",
+          "d66a2576-b0f0-580e-8f16-3fbb12bfaf0b",
+          "b93a161f-7bd7-5a3b-b4a9-2df53c79d942",
+          "7e3e6a72-9091-578e-a66c-f9b9f4f9fc68",
+          "ab93b7d9-1368-525e-a08d-bc4806c0de27",
+          "42a0e154-c6f3-5f10-b783-298cdd8461d8",
+          "cb7ce1ec-c4d6-5c02-8501-95433b086c8d",
+          "9dca9481-2fab-56d2-a08b-c5ce83254e7b",
+          "421b1709-1eb3-5457-939a-86915d228efb",
+          "941279b4-11da-5ef2-adb3-0143ab10fdc0",
+          "853adf32-133a-5017-8e19-233de933cdbf",
+          "063c1a3d-56a0-5cf5-a27e-c88fd040c423",
+          "1227a592-7f86-5b3f-b61e-74c1591c6dfc",
+          "8ea65250-0ae7-523d-8edc-0d2daa98cbbe"
+        ],
+        "rationale": null
+      },
+      "transactions_growth_premium": {
+        "assumption": false,
+        "observation_ids": [
+          "769bd0f7-21ee-5b04-a1f3-897c2264fbba",
+          "b73017d9-a428-54d0-90f3-281e04943fd0",
+          "34d6cf78-3eac-5cd5-a833-f183c7b4ea0d",
+          "a01a3723-3142-5415-aac9-4aaaef425447",
+          "03ff9503-7ecf-5255-a215-db85f78c73bb",
+          "8b8b8f74-7d96-56ec-b25b-f50337d13be5",
+          "c7054e30-40e9-548c-93d8-ece28d6c473e",
+          "75a888da-054d-5cd7-9b0c-8a532cf262b1",
+          "f364d9f1-6d47-5b9d-9d15-c71832048328",
+          "06473618-79cb-5bc7-a9f5-8fe1942337aa",
+          "a617df37-692b-5a84-a775-8f039f8bf835",
+          "d4e49d66-3c93-5065-a986-d32982f300c5",
+          "a59c9e1f-0e53-558b-847d-94f15ff6b2a8",
+          "8be9b2fc-4e6e-5273-936f-d5885f3bee3a",
+          "1d0b3566-9a8e-5358-ae5d-09a54d5a484f",
+          "dd9f12cb-683d-58af-b3b2-a62a616fb104",
+          "2115f31c-c17b-56c0-a93c-06478b49579c",
+          "fdd4a1ef-c092-59d1-8c33-e7f96a5ac267",
+          "29af7716-d0be-5d71-82b8-b9d530c22a1a",
+          "a5e4fffe-1d13-536a-a505-02ec2ed22d68",
+          "94562c3b-750f-53cb-82b8-4cbfa79c368a",
+          "653c5b09-ea22-5838-93e4-bcb3f72f683f",
+          "58e7d54d-a1d4-5141-86b9-90a42449350c",
+          "bb665589-833e-5f7f-8ee3-0a4412d002bb",
+          "e13cb6f2-92ee-5f26-b933-0d26c06f335a"
+        ],
+        "rationale": null
+      },
+      "travel_vol": {
+        "assumption": false,
+        "observation_ids": [
+          "cbd7d8d2-8dbd-5cf1-b9ea-040f6fbed48a",
+          "99f89976-7897-5031-9caf-88f318242488",
+          "da6fb63f-63a4-5086-9e15-d51d3c85ff18",
+          "58a76d79-616c-55e4-9f44-22d07d629dca",
+          "584a40a2-3d99-5fe5-b798-344507e43954",
+          "7cb6eeb1-1418-5095-9969-a62ebe29b981",
+          "edeeeb7d-3016-5348-95e5-c13feeb39535",
+          "d2369817-2213-5c20-9188-f2691368b364",
+          "078f5c2c-aa87-5808-a900-5c7b8c102ce5",
+          "b9cc300c-269f-5e2b-87a7-1c4b3fcb8143",
+          "d50c4df0-89c7-5386-b378-96fbdc0c71e1",
+          "e3b2274e-df07-5fcd-83fb-d341411863af",
+          "1a890411-cbc3-52c2-b20e-742da1c26183"
+        ],
+        "rationale": null
+      }
+    },
+    "ranges": {
+      "activity_seasonal_q1": [
+        0.5,
+        1.5
+      ],
+      "activity_seasonal_q2": [
+        0.5,
+        1.5
+      ],
+      "activity_seasonal_q3": [
+        0.5,
+        1.5
+      ],
+      "activity_seasonal_q4": [
+        0.5,
+        1.5
+      ],
+      "corr_demand_fx": [
+        -1.0,
+        1.0
+      ],
+      "corr_demand_travel": [
+        -1.0,
+        1.0
+      ],
+      "corr_travel_fx": [
+        -1.0,
+        1.0
+      ],
+      "cost_vol": [
+        0.007316177206,
+        0.03447979233
+      ],
+      "cross_border_growth_premium": [
+        -0.008729333821,
+        0.2821958334
+      ],
+      "cross_border_seasonal_q1": [
+        0.5,
+        1.5
+      ],
+      "cross_border_seasonal_q2": [
+        0.5,
+        1.5
+      ],
+      "cross_border_seasonal_q3": [
+        0.5,
+        1.5
+      ],
+      "cross_border_seasonal_q4": [
+        0.5,
+        1.5
+      ],
+      "cross_border_share_at_origin": [
+        0.05,
+        0.35
+      ],
+      "data_processing_yield_drift": [
+        -0.05248939882,
+        0.07066708167
+      ],
+      "demand_vol": [
+        0.002342173457,
+        0.01103823105
+      ],
+      "fx_vol": [
+        0.003794192233,
+        0.02507884335
+      ],
+      "incentive_intensity_drift": [
+        -0.002501251333,
+        0.1225413272
+      ],
+      "incentive_vol": [
+        0.01216329251,
+        0.06235631283
+      ],
+      "international_fx_sensitivity": [
+        -1.0,
+        1.0
+      ],
+      "international_yield_drift": [
+        -0.004035671003,
+        0.1730988362
+      ],
+      "opex_growth": [
+        0.04211301972,
+        0.1842425442
+      ],
+      "opex_seasonal_q1": [
+        0.5,
+        1.5
+      ],
+      "opex_seasonal_q2": [
+        0.5,
+        1.5
+      ],
+      "opex_seasonal_q3": [
+        0.5,
+        1.5
+      ],
+      "opex_seasonal_q4": [
+        0.5,
+        1.5
+      ],
+      "other_revenue_growth": [
+        0.1834379221,
+        0.368069077
+      ],
+      "payments_volume_growth": [
+        0.01800537656,
+        0.147611021
+      ],
+      "pricing_vol": [
+        0.005489208268,
+        0.02034316229
+      ],
+      "service_yield_drift": [
+        -0.02979465737,
+        0.1226646225
+      ],
+      "transactions_growth_premium": [
+        -0.06885240149,
+        0.1065415994
+      ],
+      "travel_vol": [
+        0.005452067193,
+        0.07196646955
+      ]
+    },
+    "values": {
+      "activity_seasonal_q1": 1.0171107,
+      "activity_seasonal_q2": 0.9503754083,
+      "activity_seasonal_q3": 1.048892525,
+      "activity_seasonal_q4": 0.9862921952,
+      "corr_demand_fx": 0.2080789427,
+      "corr_demand_travel": 0.4203599396,
+      "corr_travel_fx": -0.09966839261,
+      "cost_vol": 0.01205847944,
+      "cross_border_growth_premium": 0.1244514524,
+      "cross_border_seasonal_q1": 1.0,
+      "cross_border_seasonal_q2": 1.0,
+      "cross_border_seasonal_q3": 1.0,
+      "cross_border_seasonal_q4": 1.0,
+      "cross_border_share_at_origin": 0.2,
+      "data_processing_yield_drift": 0.0136215079,
+      "demand_vol": 0.004656620646,
+      "fx_vol": 0.009829827588,
+      "incentive_intensity_drift": 0.05935591346,
+      "incentive_vol": 0.01960535449,
+      "international_fx_sensitivity": 0.0,
+      "international_yield_drift": 0.06794679494,
+      "opex_growth": 0.1085946627,
+      "opex_seasonal_q1": 0.8910743053,
+      "opex_seasonal_q2": 1.047406904,
+      "opex_seasonal_q3": 0.9863981945,
+      "opex_seasonal_q4": 1.08622146,
+      "other_revenue_growth": 0.2789633757,
+      "payments_volume_growth": 0.08245895723,
+      "pricing_vol": 0.01069516046,
+      "service_yield_drift": 0.03786553442,
+      "transactions_growth_premium": 0.01867648803,
+      "travel_vol": 0.02321262937
+    }
+  },
+  "result_hash": "5b5bf2da7b791c0b133df05d54cf2a16cfb6b2103c992c429d92e7b094236fae",
+  "sensitivity": [
+    {
+      "four_quarter_mean_net_revenue": 38679.67784,
+      "label": "baseline_pooled",
+      "next_quarter_mean_net_revenue": 9222.48687,
+      "next_quarter_mean_operating_profit_ex_special_items": 5960.015797
+    },
+    {
+      "four_quarter_mean_net_revenue": 38172.04746,
+      "label": "service_yield_drift_low",
+      "next_quarter_mean_net_revenue": 9172.348952,
+      "next_quarter_mean_operating_profit_ex_special_items": 5909.877879
+    },
+    {
+      "four_quarter_mean_net_revenue": 39304.48223,
+      "label": "service_yield_drift_high",
+      "next_quarter_mean_net_revenue": 9281.974521,
+      "next_quarter_mean_operating_profit_ex_special_items": 6019.503449
+    },
+    {
+      "four_quarter_mean_net_revenue": 38120.58171,
+      "label": "data_processing_yield_drift_low",
+      "next_quarter_mean_net_revenue": 9168.20119,
+      "next_quarter_mean_operating_profit_ex_special_items": 5905.730117
+    },
+    {
+      "four_quarter_mean_net_revenue": 39154.98873,
+      "label": "data_processing_yield_drift_high",
+      "next_quarter_mean_net_revenue": 9267.233367,
+      "next_quarter_mean_operating_profit_ex_special_items": 6004.762295
+    },
+    {
+      "four_quarter_mean_net_revenue": 38227.44399,
+      "label": "international_yield_drift_low",
+      "next_quarter_mean_net_revenue": 9181.253007,
+      "next_quarter_mean_operating_profit_ex_special_items": 5918.781934
+    },
+    {
+      "four_quarter_mean_net_revenue": 39327.65638,
+      "label": "international_yield_drift_high",
+      "next_quarter_mean_net_revenue": 9279.12631,
+      "next_quarter_mean_operating_profit_ex_special_items": 6016.655238
+    },
+    {
+      "four_quarter_mean_net_revenue": 39110.93056,
+      "label": "incentive_intensity_drift_low",
+      "next_quarter_mean_net_revenue": 9262.436591,
+      "next_quarter_mean_operating_profit_ex_special_items": 5999.965518
+    },
+    {
+      "four_quarter_mean_net_revenue": 38250.26479,
+      "label": "incentive_intensity_drift_high",
+      "next_quarter_mean_net_revenue": 9183.196895,
+      "next_quarter_mean_operating_profit_ex_special_items": 5920.725823
+    },
+    {
+      "four_quarter_mean_net_revenue": 40955.61403,
+      "label": "international_fx_sensitivity_low",
+      "next_quarter_mean_net_revenue": 9383.222386,
+      "next_quarter_mean_operating_profit_ex_special_items": 6120.751313
+    },
+    {
+      "four_quarter_mean_net_revenue": 41677.83278,
+      "label": "international_fx_sensitivity_high",
+      "next_quarter_mean_net_revenue": 9478.751573,
+      "next_quarter_mean_operating_profit_ex_special_items": 6216.280501
+    },
+    {
+      "four_quarter_mean_net_revenue": 38801.32373,
+      "label": "cross_border_share_at_origin_low",
+      "next_quarter_mean_net_revenue": 9233.124068,
+      "next_quarter_mean_operating_profit_ex_special_items": 5970.652996
+    },
+    {
+      "four_quarter_mean_net_revenue": 38562.00683,
+      "label": "cross_border_share_at_origin_high",
+      "next_quarter_mean_net_revenue": 9212.000097,
+      "next_quarter_mean_operating_profit_ex_special_items": 5949.529025
+    },
+    {
+      "four_quarter_mean_net_revenue": 39081.69828,
+      "label": "pandemic_included",
+      "next_quarter_mean_net_revenue": 9264.822468,
+      "next_quarter_mean_operating_profit_ex_special_items": 6030.446887
+    }
+  ],
+  "weights": {
+    "full_history": 0.1369065333,
+    "last_4q": 0.4990656003,
+    "last_8q": 0.3640278663
+  }
+}

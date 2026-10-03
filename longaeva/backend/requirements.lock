@@ -60,13 +60,27 @@ mypy==1.20.2
 mypy-extensions==1.1.0
     # via mypy
 numpy==2.5.3
-    # via -r requirements.txt
+    # via
+    #   -r requirements.txt
+    #   numpy-typing-compat
+    #   optype
+    #   pandas
+    #   pandas-stubs
+    #   scipy
+numpy-typing-compat==20260602.2.5
+    # via optype
 openpyxl==3.1.5
     # via -r requirements.txt
 opentelemetry-api==1.45.0
     # via fastapi
+optype==0.19.0
+    # via scipy-stubs
 packaging==26.3
     # via pytest
+pandas==3.0.6
+    # via -r requirements.txt
+pandas-stubs==3.0.5.260914
+    # via -r requirements-dev.txt
 pathspec==1.1.1
     # via
     #   -r requirements.txt
@@ -102,6 +116,8 @@ pypdfium2==5.13.0
     # via pdfplumber
 pytest==8.4.2
     # via -r requirements-dev.txt
+python-dateutil==2.9.0.post0
+    # via pandas
 python-dotenv==1.2.4
     # via
     #   pydantic-settings
@@ -112,6 +128,12 @@ pyyaml==6.0.3
     #   uvicorn
 ruff==0.16.10
     # via -r requirements-dev.txt
+scipy==1.18.1
+    # via -r requirements.txt
+scipy-stubs==1.18.1.1
+    # via -r requirements-dev.txt
+six==1.17.0
+    # via python-dateutil
 sqlalchemy==2.0.54
     # via
     #   -r requirements.txt
@@ -131,6 +153,7 @@ typing-extensions==4.16.0
     #   fastapi
     #   mypy
     #   opentelemetry-api
+    #   optype
     #   psycopg
     #   pydantic
     #   pydantic-core

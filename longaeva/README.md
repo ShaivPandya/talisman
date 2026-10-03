@@ -242,7 +242,7 @@ PY
 
 Model specification: [`docs/model-spec.md`](docs/model-spec.md). Ablation switches:
 `service_lag` (default on) and `pool_mix` (default off). Defaults are uncalibrated;
-calibration arrives in LON-20.
+use LON-20 calibration for forecasts.
 
 Register the built-in company without import-time side effects:
 
@@ -250,6 +250,26 @@ Register the built-in company without import-time side effects:
 from longaeva_app.companies import register_default_companies
 register_default_companies()  # idempotent; registers "visa"
 ```
+
+## Calibration (LON-20)
+
+Chronological fit of free parameters, seasonal ratios, shock scales and correlations
+as-of an origin cutoff. Ensemble members (last 4q / last 8q / full history) get
+inverse-MSE weights that sum to 1; the pooled set is what runs use today. Pandemic
+quarters FY2020Q2–FY2021Q4 are excluded from estimation. Details:
+[`docs/model-spec.md`](docs/model-spec.md) §6.1.
+
+```bash
+# Host venv (Compose mounts data/ read-only; --write needs the host)
+make calibrate ARGS='--write'
+make calibrate ARGS='--origin 2024-07-23 --persist --json'
+
+# Then submit against the calibrated scenario UUID printed by --persist
+make submit-run ARGS='--origin 2024-07-23 --scenario <uuid> --n-paths 2000 --inline'
+```
+
+Committed artifacts: `data/calibration/visa_2024-07-23.json` and
+`data/calibration/visa_2025-10-28.json`.
 
 ## Runs and replay (LON-23)
 

@@ -161,6 +161,54 @@ def cmd_parse_visa(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_calibrate(args: argparse.Namespace) -> int:
+    """Chronological Visa calibration (LON-20). Prefer the host venv for --write."""
+    from longaeva_app.companies.visa.calibration import (
+        calibrate,
+        default_origin_dates,
+        persist_calibrated,
+        write_artifact,
+    )
+
+    origins = list(args.origin) if args.origin else default_origin_dates()
+    summaries: list[dict[str, object]] = []
+    for origin_date in origins:
+        result = calibrate(origin_date, run_sensitivity=not bool(args.skip_sensitivity))
+        summary: dict[str, object] = {
+            "origin_date": result.origin_date,
+            "origin_label": result.origin_label,
+            "cutoff_ts": result.cutoff_ts.isoformat().replace("+00:00", "Z"),
+            "weights": result.weights,
+            "content_hash": result.pooled.computed_content_hash(),
+            "result_hash": result.result_hash,
+            "payments_volume_growth": result.pooled.values["payments_volume_growth"],
+        }
+        if args.write:
+            path = write_artifact(result)
+            summary["artifact"] = str(path)
+            print(f"Wrote {path}")
+        if args.persist:
+            from longaeva_app.db.session import get_session_factory
+
+            factory = get_session_factory()
+            with factory() as session:
+                param_set, scenario = persist_calibrated(result, session)
+                session.commit()
+                summary["parameter_set_id"] = str(param_set.id)
+                summary["scenario_id"] = str(scenario.id)
+                print(f"Persisted parameter_set={param_set.id} scenario={scenario.id}")
+        summaries.append(summary)
+        if not args.json:
+            print(
+                f"{result.origin_date} {result.origin_label}: "
+                f"pv_growth={result.pooled.values['payments_volume_growth']:.4f} "
+                f"weights={{{', '.join(f'{k}={v:.3f}' for k, v in result.weights.items())}}}"
+            )
+    if args.json:
+        print(json.dumps(summaries if len(summaries) > 1 else summaries[0], indent=2, sort_keys=True))
+    return 0
+
+
 def _parse_switch(raw: str) -> tuple[str, bool]:
     if "=" not in raw:
         raise argparse.ArgumentTypeError("switch must be name=true|false")
@@ -403,6 +451,34 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate data/fixtures/visa_releases/observations.csv and parse_status.csv",
     )
     parse_visa.set_defaults(func=cmd_parse_visa)
+
+    calibrate_p = sub.add_parser(
+        "calibrate",
+        help="Fit Visa parameters as-of an origin cutoff (LON-20)",
+    )
+    calibrate_p.add_argument(
+        "--origin",
+        action="append",
+        default=[],
+        help="Origin date YYYY-MM-DD (repeatable; default: both LON-3 fixture origins)",
+    )
+    calibrate_p.add_argument(
+        "--write",
+        action="store_true",
+        help="Write data/calibration/visa_<origin>.json (run from the host venv; Compose mounts data/ read-only)",
+    )
+    calibrate_p.add_argument(
+        "--persist",
+        action="store_true",
+        help="Save the pooled parameter set and a calibrated scenario to the database",
+    )
+    calibrate_p.add_argument("--json", action="store_true", help="Print a JSON summary")
+    calibrate_p.add_argument(
+        "--skip-sensitivity",
+        action="store_true",
+        help="Skip the Monte Carlo sensitivity table (faster local iteration)",
+    )
+    calibrate_p.set_defaults(func=cmd_calibrate)
 
     submit = sub.add_parser("submit-run", help="Submit a Visa simulation run (LON-23)")
     submit.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD (LON-3 fixture)")

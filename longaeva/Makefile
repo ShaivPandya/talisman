@@ -13,10 +13,10 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark submit-run replay export verify-export
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run replay export verify-export
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark submit-run replay export verify-export"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run replay export verify-export"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -60,7 +60,7 @@ check-local:
 	  .venv/bin/pip install -q -r requirements-dev.txt -c requirements.lock && \
 	  LONGAEVA_REQUIRE_DB=1 DATABASE_URL=$${DATABASE_URL:-postgresql://longaeva:longaeva@127.0.0.1:55432/longaeva} \
 	    LONGAEVA_GUARD_ROOT="$(CURDIR)" \
-	    .venv/bin/bash scripts/check.sh
+	    PATH="$(CURDIR)/backend/.venv/bin:$$PATH" bash scripts/check.sh
 
 seed:
 	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli seed-demo
@@ -77,6 +77,14 @@ collect:
 # Time Visa Monte Carlo paths (LON-19 / NR-01). Uses the API image's Python + NumPy.
 engine-benchmark: build
 	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli engine-benchmark $(ARGS)
+
+# Chronological calibration (LON-20). Prefer the host venv so --write can update data/.
+# Example: make calibrate ARGS='--origin 2024-07-23 --write'
+calibrate:
+	cd backend && \
+	  if [[ ! -d .venv ]]; then python3.12 -m venv .venv; fi && \
+	  .venv/bin/pip install -q -r requirements-dev.txt -c requirements.lock && \
+	  .venv/bin/python -m longaeva_app.cli calibrate $(ARGS)
 
 # Submit a run (LON-23). Example: make submit-run ARGS='--origin 2024-07-23 --n-paths 64 --inline'
 submit-run:
