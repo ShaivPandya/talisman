@@ -49,6 +49,23 @@ Complete before building the submission ZIP (LON-24 / LON-38):
    `docs/hackathon/planning/validation/` directory and are **not** bundled in the
    package export.
 
+## Engine caveats (LON-19)
+
+- **Uncalibrated defaults.** Parameter defaults in `companies/visa/parameters.py` are
+  placeholders. A run on defaults is not a forecast. LON-20 fits free parameters and
+  residual scales chronologically.
+- **Cross-border share is an assumption.** Visa does not disclose a cross-border volume
+  level at the earnings cutoff (LON-3). `cross_border_share_at_origin` is an
+  analyst-assumption parameter (range midpoint 0.20). International yield is scaled by
+  that share so next-quarter international revenue is nearly share-insensitive when the
+  growth premium and travel shock are zero.
+- **Ex-special-items operating profit only.** Path metrics use
+  `operating_profit_ex_special_items` / `operating_expenses_ex_special_items`. GAAP
+  operating profit remains on fixtures for reporting, not as a simulated path.
+- **One shared pricing shock.** The three category yields share a single pricing factor.
+  Category-specific yield uncertainty is only through separate drift parameters until
+  LON-20 revisits residual structure.
+
 ## Collector caveats (LON-13)
 
 - **IR publication timestamps** come from the CDN `Last-Modified` header, not an

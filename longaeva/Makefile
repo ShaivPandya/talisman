@@ -9,10 +9,10 @@ export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 # .exportignore, frontend/, data/, and docs/ (the API image only contains backend/).
 GUARD_MOUNT := -v "$(CURDIR):/srv/longaeva-src:ro" -e LONGAEVA_GUARD_ROOT=/srv/longaeva-src
 
-.PHONY: help up down logs check check-local seed lock build openapi guard collect
+.PHONY: help up down logs check check-local seed lock build openapi guard collect engine-benchmark
 
 help:
-	@echo "Targets: up down logs check check-local guard seed lock build openapi collect"
+	@echo "Targets: up down logs check check-local guard seed lock build openapi collect engine-benchmark"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -61,6 +61,10 @@ collect:
 	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli collect $(ARGS)'
+
+# Time Visa Monte Carlo paths (LON-19 / NR-01). Uses the API image's Python + NumPy.
+engine-benchmark: build
+	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli engine-benchmark $(ARGS)
 
 openapi:
 	$(COMPOSE) run --rm --no-deps \

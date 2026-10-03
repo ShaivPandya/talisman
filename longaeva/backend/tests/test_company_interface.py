@@ -1,4 +1,4 @@
-"""CompanyModel interface conformance (stub second company + registry)."""
+"""CompanyModel interface conformance (stub second company + Visa + registry)."""
 
 from __future__ import annotations
 
@@ -11,9 +11,17 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 from stub_company import StubCompany
 
-from longaeva_app.companies import clear_registry, list_companies, register_company
+from longaeva_app.companies import (
+    clear_registry,
+    list_companies,
+    register_company,
+    register_default_companies,
+)
 from longaeva_app.companies.base import CompanyModel, FiscalPeriod
+from longaeva_app.companies.visa.model import VisaModel
+from longaeva_app.companies.visa.state import synthetic_starting_state
 from longaeva_app.db.models import Observation, ParameterSet, Source
+from longaeva_app.engine.sampler import factor_root
 
 
 @pytest.fixture()
@@ -22,26 +30,32 @@ def stub() -> StubCompany:
     return StubCompany()
 
 
+def _starting_state_for(model: CompanyModel) -> dict[str, float]:
+    if isinstance(model, VisaModel):
+        return synthetic_starting_state()
+    return {spec.name: 100.0 if "activity" in spec.name else 10.0 for spec in model.state_variables}
+
+
 def _seeded_shocks(model: CompanyModel, n_paths: int, seed: int) -> list[dict[str, np.ndarray]]:
     rng = np.random.default_rng(seed)
     corr = model.factor_correlation(model.default_parameters())
-    chol = np.linalg.cholesky(corr)
+    root = factor_root(corr)
     quarters: list[dict[str, np.ndarray]] = []
     for _ in range(4):
         z = rng.standard_normal((n_paths, len(model.factors)))
-        correlated = z @ chol.T
+        correlated = z @ root.T
         quarters.append({name: correlated[:, i] for i, name in enumerate(model.factors)})
     return quarters
 
 
-@pytest.mark.parametrize("factory", [StubCompany])
+@pytest.mark.parametrize("factory", [StubCompany, VisaModel])
 def test_declarations_well_formed(factory: type[CompanyModel]) -> None:
     model = factory()
     assert model.validate_declarations() == []
     assert model.validate_parameters(model.default_parameters()) == []
 
 
-@pytest.mark.parametrize("factory", [StubCompany])
+@pytest.mark.parametrize("factory", [StubCompany, VisaModel])
 def test_fiscal_calendar_round_trip(factory: type[CompanyModel]) -> None:
     model = factory()
     for year in (2023, 2024):
@@ -55,7 +69,7 @@ def test_fiscal_calendar_round_trip(factory: type[CompanyModel]) -> None:
             assert model.calendar.label(period) == period.label()
 
 
-@pytest.mark.parametrize("factory", [StubCompany])
+@pytest.mark.parametrize("factory", [StubCompany, VisaModel])
 def test_factor_correlation_valid(factory: type[CompanyModel]) -> None:
     model = factory()
     corr = model.factor_correlation(model.default_parameters())
@@ -67,13 +81,13 @@ def test_factor_correlation_valid(factory: type[CompanyModel]) -> None:
     assert np.all(eig >= -1e-10)
 
 
-@pytest.mark.parametrize("factory", [StubCompany])
+@pytest.mark.parametrize("factory", [StubCompany, VisaModel])
 def test_four_quarter_seeded_paths_deterministic_and_finite(factory: type[CompanyModel]) -> None:
     model = factory()
     params = model.default_parameters()
     switches = model.default_switches()
     n_paths = 64
-    start = {spec.name: 100.0 if "activity" in spec.name else 10.0 for spec in model.state_variables}
+    start = _starting_state_for(model)
     shocks = _seeded_shocks(model, n_paths, seed=42)
 
     def run_once() -> list[dict[str, np.ndarray]]:
@@ -166,4 +180,14 @@ def test_register_stub_in_registry(stub: StubCompany) -> None:
     clear_registry()
     register_company(stub)
     assert list_companies() == ["stubco"]
+    clear_registry()
+
+
+def test_register_default_companies_idempotent() -> None:
+    clear_registry()
+    first = register_default_companies()
+    second = register_default_companies()
+    assert first == ["visa"]
+    assert second == []
+    assert list_companies() == ["visa"]
     clear_registry()

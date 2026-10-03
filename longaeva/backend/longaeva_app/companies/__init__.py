@@ -1,4 +1,4 @@
-"""Company model registry (Visa registers in LON-19)."""
+"""Company model registry (Visa registers via ``register_default_companies``)."""
 
 from __future__ import annotations
 
@@ -32,3 +32,28 @@ def list_companies() -> list[str]:
 def clear_registry() -> None:
     """Test helper: remove all registered companies."""
     _REGISTRY.clear()
+
+
+def register_default_companies() -> list[str]:
+    """Idempotently register built-in company models (Visa).
+
+    Safe to call multiple times: already-registered keys are skipped.
+    No side effects at import time.
+    """
+    from longaeva_app.companies.visa.model import VisaModel
+
+    registered: list[str] = []
+    if "visa" not in _REGISTRY:
+        register_company(VisaModel())
+        registered.append("visa")
+    return registered
+
+
+__all__ = [
+    "CompanyModel",
+    "clear_registry",
+    "get_company",
+    "list_companies",
+    "register_company",
+    "register_default_companies",
+]

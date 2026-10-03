@@ -68,6 +68,62 @@ def cmd_collect(args: argparse.Namespace) -> int:
     return 1 if report.failed_count else 0
 
 
+def cmd_engine_benchmark(args: argparse.Namespace) -> int:
+    """Time a Visa 5,000-path × 4-quarter run (LON-19 / NR-01)."""
+    import platform
+    import time
+    from datetime import UTC, datetime
+
+    import numpy as np
+
+    from longaeva_app.companies.base import FiscalPeriod
+    from longaeva_app.companies.visa.model import VisaModel
+    from longaeva_app.companies.visa.starting_state import load_fixture, required_fixture_paths, to_starting_state
+    from longaeva_app.engine.runner import simulate
+
+    model = VisaModel()
+    fixture_path = required_fixture_paths()[0] if args.fixture is None else Path(args.fixture)
+    fixture = load_fixture(fixture_path)
+    start = to_starting_state(fixture)
+    params = model.default_parameters()
+    origin = FiscalPeriod(fixture.fiscal_year, fixture.fiscal_quarter)
+    n_paths = int(args.n_paths)
+    n_quarters = int(args.n_quarters)
+    repeats = int(args.repeats)
+
+    # Warm-up (excluded from timing).
+    simulate(model, start, params, origin=origin, seed=0, n_paths=min(64, n_paths), n_quarters=n_quarters)
+
+    timings: list[float] = []
+    for i in range(repeats):
+        t0 = time.perf_counter()
+        simulate(model, start, params, origin=origin, seed=i + 1, n_paths=n_paths, n_quarters=n_quarters)
+        timings.append(time.perf_counter() - t0)
+
+    payload = {
+        "measured_at_utc": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
+        "fixture": str(fixture_path.relative_to(PACKAGE_ROOT))
+        if fixture_path.is_relative_to(PACKAGE_ROOT)
+        else str(fixture_path),
+        "origin": origin.label(),
+        "n_paths": n_paths,
+        "n_quarters": n_quarters,
+        "repeats": repeats,
+        "timings_s": timings,
+        "min_s": min(timings),
+        "median_s": float(np.median(timings)),
+        "max_s": max(timings),
+        "nr01_limit_s": 60.0,
+        "nr01_pass": max(timings) <= 60.0,
+        "numpy": np.__version__,
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "processor": platform.processor() or platform.machine(),
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0 if payload["nr01_pass"] else 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -142,6 +198,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Resolve the selection and print actions without fetching or writing",
     )
     collect_p.set_defaults(func=cmd_collect)
+
+    bench = sub.add_parser(
+        "engine-benchmark",
+        help="Time Visa Monte Carlo paths for NR-01 (LON-19)",
+    )
+    bench.add_argument(
+        "--fixture",
+        default=None,
+        help="Starting-state fixture path (default: data/fixtures/states/visa_2024-07-23.json)",
+    )
+    bench.add_argument("--n-paths", type=int, default=5000, help="Number of Monte Carlo paths")
+    bench.add_argument("--n-quarters", type=int, default=4, help="Horizon in fiscal quarters")
+    bench.add_argument("--repeats", type=int, default=3, help="Timed repeats after a warm-up")
+    bench.set_defaults(func=cmd_engine_benchmark)
 
     return parser
 

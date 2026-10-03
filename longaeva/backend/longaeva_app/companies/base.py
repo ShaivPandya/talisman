@@ -96,6 +96,9 @@ class MetricSpec:
     basis: str = "nominal"
 
 
+PARAMETER_ROLES: frozenset[str] = frozenset({"free", "estimated", "assumption"})
+
+
 @dataclass(frozen=True, slots=True)
 class ParameterSpec:
     name: str
@@ -103,12 +106,16 @@ class ParameterSpec:
     lower: float
     upper: float
     default: float
+    role: str = "free"
+    description: str = ""
 
     def __post_init__(self) -> None:
         if self.lower > self.upper:
             raise ValueError(f"parameter {self.name}: lower > upper")
         if not (self.lower <= self.default <= self.upper):
             raise ValueError(f"parameter {self.name}: default outside [{self.lower}, {self.upper}]")
+        if self.role not in PARAMETER_ROLES:
+            raise ValueError(f"parameter {self.name}: role must be one of {sorted(PARAMETER_ROLES)}, got {self.role!r}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +214,9 @@ class CompanyModel(ABC):
             for term in identity.terms:
                 if term.metric not in known_metrics:
                     errors.append(f"identity term unknown metric: {term.metric}")
+        for spec in self.parameters:
+            if spec.role not in PARAMETER_ROLES:
+                errors.append(f"parameter {spec.name}: invalid role {spec.role!r}")
         return errors
 
     @abstractmethod

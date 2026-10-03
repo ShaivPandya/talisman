@@ -358,8 +358,10 @@ Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
   `cross_border_ex_intra_europe_*` or `payments_volume_*` drivers under these definitions.
 - **LON-14:** Parser field names = `FIELDS` above; unit/basis tokens = §9; reproduce the
   two LON-3 fixtures exactly once they exist.
-- **LON-19:** Implement Visa against `CompanyModel` using these state/metric names; no
-  teaching-fee constants; service lag on `payments_volume` t−1; pool_mix / service_lag
-  switches as planned.
+- **LON-19:** Done — see [`docs/model-spec.md`](model-spec.md). `VisaModel` implements
+  `CompanyModel` with these field names; six factors (demand/travel/FX correlated;
+  pricing/incentives/costs independent); cross-border as a share of payments volume
+  (`cross_border_share_at_origin` assumption); service lag on PV(t−1);
+  `service_lag` / `pool_mix` switches; no teaching-fee constants.
 - **LON-25:** Valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`
   and `operating_profit_*` on the bases in §6.

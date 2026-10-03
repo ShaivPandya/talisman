@@ -147,6 +147,49 @@ python -m longaeva_app.cli export-check --strict    # also fail if excluded path
 (where a gitignored `.env` for `SEC_USER_AGENT` is expected). Personal-data checklist:
 [`docs/limitations.md`](docs/limitations.md).
 
+## Visa engine (LON-19)
+
+Pure NumPy quarterly Monte Carlo for Visa operating metrics. Company code never
+generates random numbers; the engine samples correlated factors and checks
+accounting identities on every path.
+
+```bash
+cd backend
+.venv/bin/python - <<'PY'
+from longaeva_app.companies.base import FiscalPeriod
+from longaeva_app.companies.visa.model import VisaModel
+from longaeva_app.companies.visa.starting_state import load_fixture, required_fixture_paths, to_starting_state
+from longaeva_app.engine import simulate, summarize_paths
+
+model = VisaModel()
+fixture = load_fixture(required_fixture_paths()[0])
+result = simulate(
+    model,
+    to_starting_state(fixture),
+    model.default_parameters(),
+    origin=FiscalPeriod(fixture.fiscal_year, fixture.fiscal_quarter),
+    seed=42,
+    n_paths=5000,
+    n_quarters=4,
+)
+print(summarize_paths(result, metrics=("net_revenue", "operating_profit_ex_special_items"))[0])
+PY
+
+# NR-01 timing (JSON to stdout)
+.venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
+```
+
+Model specification: [`docs/model-spec.md`](docs/model-spec.md). Ablation switches:
+`service_lag` (default on) and `pool_mix` (default off). Defaults are uncalibrated;
+calibration arrives in LON-20.
+
+Register the built-in company without import-time side effects:
+
+```python
+from longaeva_app.companies import register_default_companies
+register_default_companies()  # idempotent; registers "visa"
+```
+
 ## Collector (LON-13)
 
 Curated manifests under [`data/manifest/`](data/manifest/) drive polite fetches of
