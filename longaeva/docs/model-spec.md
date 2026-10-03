@@ -206,7 +206,7 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
 - **LON-22:** interventions (`mix_shift_conserving_total`, `total_spend_reduction`) and
   attribution; reuse shared draws from the sampler; share-based CB state is already
   conservation-ready.
-- **LON-23:** persist runs with seed, `n_paths`, parameter-set hash, switches and output
-  hash; summary keys match the API contract.
+- **LON-23:** persist runs with seed, `n_paths`, parameter-set hash, switches and
+  output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
 - **LON-25:** valuation bridge consumes `operating_profit_ex_special_items` paths plus
   fixture `tax_rate` / `net_interest_other` / `diluted_shares`.

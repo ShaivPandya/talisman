@@ -4,7 +4,17 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime
 from typing import Any
+
+
+def utc_isoformat(value: datetime) -> str:
+    """Serialize an aware datetime as UTC ISO-8601 with a ``Z`` suffix."""
+    if value.tzinfo is None:
+        aware = value.replace(tzinfo=UTC)
+    else:
+        aware = value.astimezone(UTC)
+    return aware.isoformat().replace("+00:00", "Z")
 
 
 def canonical_json(value: Any) -> str:

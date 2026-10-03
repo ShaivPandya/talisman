@@ -16,7 +16,7 @@ from longaeva_app.db import models as _models  # noqa: F401 — register models
 from longaeva_app.db.base import Base
 
 BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-HEAD_REVISION = "0003_passage_hash"
+HEAD_REVISION = "0004_run_replay"
 PREV_REVISION = "0001_job_queue"
 
 CORE_TABLES = {

@@ -413,6 +413,11 @@ class Run(Base):
         ),
         CheckConstraint("n_paths >= 1", name="n_paths_positive"),
         CheckConstraint("seed >= 0", name="seed_nonneg"),
+        CheckConstraint("n_quarters >= 1 AND n_quarters <= 8", name="n_quarters_range"),
+        CheckConstraint(
+            "status <> 'succeeded' OR (outputs_hash IS NOT NULL AND outputs_path IS NOT NULL AND summary IS NOT NULL)",
+            name="succeeded_has_outputs",
+        ),
         Index("ix_run_scenario_id", "scenario_id"),
         Index("ix_run_status_created_at", "status", "created_at"),
     )
@@ -439,11 +444,16 @@ class Run(Base):
     code_version: Mapped[str] = mapped_column(Text, nullable=False)
     seed: Mapped[int] = mapped_column(Integer, nullable=False)
     n_paths: Mapped[int] = mapped_column(Integer, nullable=False)
+    n_quarters: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("4"))
+    origin_label: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
+    starting_state: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    starting_state_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     switches: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     lib_versions: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'queued'"))
     outputs_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     outputs_hash: Mapped[str | None] = mapped_column(Text, nullable=True)
+    summary: Mapped[list[Any] | dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -458,6 +468,7 @@ class Forecast(Base):
     __tablename__ = "forecast"
     __table_args__ = (
         CheckConstraint("kind IN ('retrospective', 'prospective')", name="kind"),
+        UniqueConstraint("run_id", "metric", "target_period_start", name="uq_forecast_run_metric_period"),
         Index("ix_forecast_kind_origin_ts", "kind", "origin_ts"),
         Index("ix_forecast_run_id", "run_id"),
     )

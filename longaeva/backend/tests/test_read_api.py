@@ -68,12 +68,18 @@ def _seed_graph(session: Session) -> dict[str, Any]:
         source_manifest=[{"source_id": str(source.id), "content_hash": source.content_hash}],
         source_manifest_hash=f"sm-{uuid4().hex}",
         parameter_set_hash=param_set.content_hash,
+        starting_state_hash=f"st-{uuid4().hex}",
+        origin_label="FY2024Q3",
+        n_quarters=4,
         code_version="0.1.0",
         seed=7,
         n_paths=100,
         switches={"service_lag": True},
         lib_versions={"numpy": "2.0"},
         status="succeeded",
+        outputs_path="runs/fixture/paths.npz",
+        outputs_hash="b" * 64,
+        summary=[{"metric": "net_revenue", "quarter_index": 0, "period_label": "FY2024Q4", "mean": 100.0}],
     )
     session.add(run)
     session.flush()

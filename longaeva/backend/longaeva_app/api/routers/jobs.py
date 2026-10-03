@@ -11,17 +11,17 @@ from sqlalchemy.orm import Session
 from longaeva_app.api.schemas import JobCreate, JobRead
 from longaeva_app.db.models import Job
 from longaeva_app.db.session import get_db
-from longaeva_app.worker.handlers import known_job_types
+from longaeva_app.worker.handlers import public_job_types
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 @router.post("", response_model=JobRead, status_code=status.HTTP_201_CREATED)
 def create_job(body: JobCreate, session: Session = Depends(get_db)) -> Job:
-    if body.type not in known_job_types():
+    if body.type not in public_job_types():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Unknown job type {body.type!r}. Known: {sorted(known_job_types())}",
+            detail=f"Unknown job type {body.type!r}. Known: {sorted(public_job_types())}",
         )
     job = Job(type=body.type, payload=body.payload, status="queued")
     session.add(job)

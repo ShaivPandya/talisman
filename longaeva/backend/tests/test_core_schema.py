@@ -141,6 +141,9 @@ def test_forecast_update_and_delete_rejected(db_session: Session) -> None:
         switches={},
         lib_versions={},
         status="succeeded",
+        outputs_path="runs/fixture/paths.npz",
+        outputs_hash="a" * 64,
+        summary=[{"metric": "net_revenue", "quarter_index": 0, "period_label": "FY2024Q4", "mean": 1.0}],
     )
     db_session.add(run)
     db_session.flush()

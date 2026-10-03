@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Generator
+from pathlib import Path
 from urllib.parse import urlparse, urlunparse
 
 import pytest
@@ -16,6 +17,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from longaeva_app.config import normalize_database_url
 from longaeva_app.db.session import reset_engine
+from longaeva_app.storage.local import LocalArtifactStore
 
 REQUIRE_DB = os.environ.get("LONGAEVA_REQUIRE_DB", "").strip() in {"1", "true", "yes"}
 TEST_DB_NAME = os.environ.get("LONGAEVA_TEST_DB", "longaeva_test")
@@ -114,6 +116,11 @@ def test_engine(db_available: bool) -> Generator[Engine, None, None]:
 
 
 @pytest.fixture()
+def artifact_store(tmp_path: Path) -> LocalArtifactStore:
+    return LocalArtifactStore(tmp_path / "artifacts")
+
+
+@pytest.fixture()
 def db_session(test_engine: Engine) -> Generator[Session, None, None]:
     factory = sessionmaker(bind=test_engine, autoflush=False, autocommit=False, expire_on_commit=False)
     session = factory()
@@ -126,12 +133,19 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
 
 
 @pytest.fixture()
-def client(test_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Generator[TestClient, None, None]:
+def client(
+    test_engine: Engine,
+    monkeypatch: pytest.MonkeyPatch,
+    artifact_store: LocalArtifactStore,
+) -> Generator[TestClient, None, None]:
     url = test_engine.url.render_as_string(hide_password=False)
     monkeypatch.setenv("DATABASE_URL", url.replace("postgresql+psycopg://", "postgresql://", 1))
+    monkeypatch.setenv("ARTIFACT_DIR", str(artifact_store.root))
+    monkeypatch.setenv("LLM_PROVIDER", "")
     _clear_settings_cache()
 
     # Import after env is set so settings/engine pick up the test DB.
+    from longaeva_app.api.deps import get_artifact_store
     from longaeva_app.api.main import app
     from longaeva_app.db.session import get_db
 
@@ -145,6 +159,7 @@ def client(test_engine: Engine, monkeypatch: pytest.MonkeyPatch) -> Generator[Te
             session.close()
 
     app.dependency_overrides[get_db] = _override_db
+    app.dependency_overrides[get_artifact_store] = lambda: artifact_store
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()

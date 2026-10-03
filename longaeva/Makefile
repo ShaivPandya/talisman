@@ -9,10 +9,10 @@ export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 # .exportignore, frontend/, data/, and docs/ (the API image only contains backend/).
 GUARD_MOUNT := -v "$(CURDIR):/srv/longaeva-src:ro" -e LONGAEVA_GUARD_ROOT=/srv/longaeva-src
 
-.PHONY: help up down logs check check-local seed lock build openapi guard collect engine-benchmark
+.PHONY: help up down logs check check-local seed lock build openapi guard collect engine-benchmark submit-run replay
 
 help:
-	@echo "Targets: up down logs check check-local guard seed lock build openapi collect engine-benchmark"
+	@echo "Targets: up down logs check check-local guard seed lock build openapi collect engine-benchmark submit-run replay"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -65,6 +65,20 @@ collect:
 # Time Visa Monte Carlo paths (LON-19 / NR-01). Uses the API image's Python + NumPy.
 engine-benchmark: build
 	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli engine-benchmark $(ARGS)
+
+# Submit a run (LON-23). Example: make submit-run ARGS='--origin 2024-07-23 --n-paths 64 --inline'
+submit-run:
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		api sh -c 'alembic upgrade head && python -m longaeva_app.cli submit-run $(ARGS)'
+
+# Replay a saved run. Example: make replay RUN=<uuid>
+replay:
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		-e LLM_PROVIDER= \
+		api python -m longaeva_app.cli replay $(RUN)
 
 openapi:
 	$(COMPOSE) run --rm --no-deps \

@@ -11,8 +11,11 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from longaeva_app.config import get_settings
 from longaeva_app.db.models import Job
-from longaeva_app.worker.handlers import get_handler
+from longaeva_app.runs.service import fail_orphaned_running_runs
+from longaeva_app.storage.local import LocalArtifactStore
+from longaeva_app.worker.handlers import HandlerContext, get_handler
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +38,10 @@ def fail_orphaned_running_jobs(session_factory: sessionmaker[Session], worker_id
         count = int(getattr(result, "rowcount", 0) or 0)
         if count:
             logger.warning("Marked %s orphaned running job(s) as failed", count)
-        return count
+    run_count = fail_orphaned_running_runs(session_factory)
+    if run_count:
+        logger.warning("Marked %s orphaned running run(s) as failed", run_count)
+    return count
 
 
 def claim_next_job(session_factory: sessionmaker[Session], worker_id: str) -> uuid.UUID | None:
@@ -60,9 +66,16 @@ def claim_next_job(session_factory: sessionmaker[Session], worker_id: str) -> uu
         return job.id
 
 
-def execute_job(session_factory: sessionmaker[Session], job_id: uuid.UUID, worker_id: str) -> None:
+def execute_job(
+    session_factory: sessionmaker[Session],
+    job_id: uuid.UUID,
+    worker_id: str,
+    *,
+    artifact_store: LocalArtifactStore | None = None,
+) -> None:
     """Run the handler for a claimed job outside the claim transaction and persist the outcome."""
     started = datetime.now(UTC)
+    store = artifact_store or LocalArtifactStore(get_settings().artifact_dir)
 
     with session_factory() as session:
         job = session.get(Job, job_id)
@@ -86,11 +99,16 @@ def execute_job(session_factory: sessionmaker[Session], job_id: uuid.UUID, worke
         logger.error("Job %s failed: unknown type %s", job_id, job_type)
         return
 
-    # Rebuild a detached Job-like object for the handler (handlers only need id/type/payload).
     detached = Job(id=job_id, type=job_type, payload=payload, status="running")
+    ctx = HandlerContext(
+        job=detached,
+        session_factory=session_factory,
+        artifact_store=store,
+        worker_id=worker_id,
+    )
 
     try:
-        result: dict[str, Any] = handler(detached)
+        result: dict[str, Any] = handler(ctx)
     except Exception as exc:  # noqa: BLE001 — job failures must be persisted
         finished = datetime.now(UTC)
         duration_sec = (finished - started).total_seconds()

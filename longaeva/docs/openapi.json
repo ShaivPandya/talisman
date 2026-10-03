@@ -186,6 +186,24 @@
         "title": "EvaluationResultRead",
         "type": "object"
       },
+      "ForecastArchiveRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": [
+              "retrospective",
+              "prospective"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "ForecastArchiveRequest",
+        "type": "object"
+      },
       "ForecastCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1291,6 +1309,104 @@
         "title": "ParameterUpdateRead",
         "type": "object"
       },
+      "ReplayReport": {
+        "properties": {
+          "differences": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Differences",
+            "type": "array"
+          },
+          "llm_provider": {
+            "default": "",
+            "title": "Llm Provider",
+            "type": "string"
+          },
+          "max_relative_difference": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Relative Difference"
+          },
+          "recomputed_code_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recomputed Code Version"
+          },
+          "recomputed_lib_versions": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recomputed Lib Versions"
+          },
+          "recomputed_outputs_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recomputed Outputs Hash"
+          },
+          "recorded_code_version": {
+            "title": "Recorded Code Version",
+            "type": "string"
+          },
+          "recorded_lib_versions": {
+            "additionalProperties": true,
+            "title": "Recorded Lib Versions",
+            "type": "object"
+          },
+          "recorded_outputs_hash": {
+            "title": "Recorded Outputs Hash",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "exact_match",
+              "numerically_equivalent",
+              "mismatch",
+              "inputs_changed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "status",
+          "recorded_outputs_hash",
+          "recorded_code_version",
+          "recorded_lib_versions"
+        ],
+        "title": "ReplayReport",
+        "type": "object"
+      },
       "ReviewDecisionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1411,45 +1527,24 @@
       "RunCreate": {
         "additionalProperties": false,
         "properties": {
-          "code_version": {
-            "minLength": 1,
-            "title": "Code Version",
-            "type": "string"
-          },
           "cutoff_ts": {
             "format": "date-time",
             "title": "Cutoff Ts",
             "type": "string"
           },
-          "job_id": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "title": "Job Id"
-          },
-          "lib_versions": {
-            "additionalProperties": {
-              "type": "string"
-            },
-            "title": "Lib Versions",
-            "type": "object"
-          },
           "n_paths": {
-            "minimum": 1,
+            "default": 5000,
+            "maximum": 50000.0,
+            "minimum": 1.0,
             "title": "N Paths",
             "type": "integer"
           },
-          "parameter_set_hash": {
-            "minLength": 1,
-            "title": "Parameter Set Hash",
-            "type": "string"
+          "n_quarters": {
+            "default": 4,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "N Quarters",
+            "type": "integer"
           },
           "scenario_id": {
             "format": "uuid",
@@ -1457,16 +1552,10 @@
             "type": "string"
           },
           "seed": {
-            "minimum": 0,
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
             "title": "Seed",
             "type": "integer"
-          },
-          "source_manifest": {
-            "items": {
-              "$ref": "#/components/schemas/SourceManifestEntry"
-            },
-            "title": "Source Manifest",
-            "type": "array"
           },
           "switches": {
             "additionalProperties": {
@@ -1479,10 +1568,7 @@
         "required": [
           "scenario_id",
           "cutoff_ts",
-          "parameter_set_hash",
-          "code_version",
-          "seed",
-          "n_paths"
+          "seed"
         ],
         "title": "RunCreate",
         "type": "object"
@@ -1552,6 +1638,14 @@
             "title": "N Paths",
             "type": "integer"
           },
+          "n_quarters": {
+            "title": "N Quarters",
+            "type": "integer"
+          },
+          "origin_label": {
+            "title": "Origin Label",
+            "type": "string"
+          },
           "outputs_hash": {
             "anyOf": [
               {
@@ -1608,6 +1702,10 @@
             ],
             "title": "Started At"
           },
+          "starting_state_hash": {
+            "title": "Starting State Hash",
+            "type": "string"
+          },
           "status": {
             "title": "Status",
             "type": "string"
@@ -1622,9 +1720,12 @@
           "id",
           "scenario_id",
           "cutoff_ts",
+          "origin_label",
+          "n_quarters",
           "source_manifest",
           "source_manifest_hash",
           "parameter_set_hash",
+          "starting_state_hash",
           "code_version",
           "seed",
           "n_paths",
@@ -1647,12 +1748,31 @@
             "title": "Metric",
             "type": "string"
           },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "quantile_std_errors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantile Std Errors",
+            "type": "object"
+          },
           "quantiles": {
             "additionalProperties": {
               "type": "number"
             },
             "title": "Quantiles",
             "type": "object"
+          },
+          "quarter_index": {
+            "title": "Quarter Index",
+            "type": "integer"
+          },
+          "std": {
+            "title": "Std",
+            "type": "number"
           },
           "std_error": {
             "anyOf": [
@@ -1663,13 +1783,15 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Std Error"
           }
         },
         "required": [
           "metric",
-          "mean"
+          "quarter_index",
+          "period_label",
+          "mean",
+          "std"
         ],
         "title": "RunResultSummary",
         "type": "object"
@@ -1887,27 +2009,6 @@
           "original_path"
         ],
         "title": "SourceCreate",
-        "type": "object"
-      },
-      "SourceManifestEntry": {
-        "additionalProperties": false,
-        "properties": {
-          "content_hash": {
-            "minLength": 1,
-            "title": "Content Hash",
-            "type": "string"
-          },
-          "source_id": {
-            "format": "uuid",
-            "title": "Source Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "source_id",
-          "content_hash"
-        ],
-        "title": "SourceManifestEntry",
         "type": "object"
       },
       "SourceRead": {
@@ -2840,6 +2941,45 @@
         "tags": [
           "runs"
         ]
+      },
+      "post": {
+        "operationId": "create_run_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Run",
+        "tags": [
+          "runs"
+        ]
       }
     },
     "/runs/{run_id}": {
@@ -2880,6 +3020,153 @@
           }
         },
         "summary": "Get Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/forecasts": {
+      "post": {
+        "operationId": "archive_run_forecasts_runs__run_id__forecasts_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForecastArchiveRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ForecastRead"
+                  },
+                  "title": "Response Archive Run Forecasts Runs  Run Id  Forecasts Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Archive Run Forecasts",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/replay": {
+      "post": {
+        "operationId": "replay_saved_run_runs__run_id__replay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReplayReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Replay Saved Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/runs/{run_id}/results": {
+      "get": {
+        "operationId": "get_run_results_runs__run_id__results_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunResultSummary"
+                  },
+                  "title": "Response Get Run Results Runs  Run Id  Results Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Run Results",
         "tags": [
           "runs"
         ]

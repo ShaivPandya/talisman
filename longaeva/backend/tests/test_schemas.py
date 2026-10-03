@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta, timezone
 from uuid import uuid4
 
 import pytest
@@ -144,5 +144,22 @@ def test_parameter_set_hash_independent_of_dict_order() -> None:
             "a": ParameterEvidence(observation_ids=[obs_id]),
             "b": ParameterEvidence(assumption=True, rationale="b"),
         },
+    )
+    assert left.computed_content_hash() == right.computed_content_hash()
+
+
+def test_parameter_set_hash_normalizes_cutoff_to_utc() -> None:
+    eastern = timezone(timedelta(hours=-4))
+    left = ParameterSetCreate(
+        company="visa",
+        cutoff_ts=datetime(2024, 7, 23, 16, 5, 38, tzinfo=eastern),
+        values={"yield": 0.01},
+        evidence_links={"yield": ParameterEvidence(assumption=True, rationale="x")},
+    )
+    right = ParameterSetCreate(
+        company="visa",
+        cutoff_ts=datetime(2024, 7, 23, 20, 5, 38, tzinfo=UTC),
+        values={"yield": 0.01},
+        evidence_links={"yield": ParameterEvidence(assumption=True, rationale="x")},
     )
     assert left.computed_content_hash() == right.computed_content_hash()

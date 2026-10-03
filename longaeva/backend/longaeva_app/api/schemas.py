@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 from longaeva_app.hashing import content_hash as hash_payload
+from longaeva_app.hashing import utc_isoformat
 
 StatementType = Literal["measured", "guidance", "qualitative", "analyst_assumption", "intervention"]
 ReviewStatus = Literal["pending", "accepted", "rejected", "corrected"]
@@ -279,7 +280,7 @@ class ParameterSetCreate(StrictModel):
     def computed_content_hash(self) -> str:
         payload = {
             "company": self.company,
-            "cutoff_ts": self.cutoff_ts.isoformat(),
+            "cutoff_ts": utc_isoformat(self.cutoff_ts),
             "values": self.values,
             "ranges": self.ranges,
             "evidence_links": {key: link.model_dump(mode="json") for key, link in sorted(self.evidence_links.items())},
@@ -364,32 +365,30 @@ class ScenarioRead(BaseModel):
 
 
 class SourceManifestEntry(StrictModel):
-    source_id: uuid.UUID
+    document_key: str = Field(min_length=1)
     content_hash: str = Field(min_length=1)
+    publication_ts: str = Field(min_length=1)
+    source_id: uuid.UUID | None = None
 
 
 class RunCreate(StrictModel):
     scenario_id: uuid.UUID
     cutoff_ts: AwareDatetime
-    source_manifest: list[SourceManifestEntry] = Field(default_factory=list)
-    parameter_set_hash: str = Field(min_length=1)
-    code_version: str = Field(min_length=1)
-    seed: int = Field(ge=0)
-    n_paths: int = Field(ge=1)
+    seed: int = Field(ge=0, le=2**31 - 1)
+    n_paths: int = Field(default=5000, ge=1, le=50_000)
+    n_quarters: int = Field(default=4, ge=1, le=8)
     switches: dict[str, bool] = Field(default_factory=dict)
-    lib_versions: dict[str, str] = Field(default_factory=dict)
-    job_id: uuid.UUID | None = None
-
-    def source_manifest_hash(self) -> str:
-        payload = [entry.model_dump(mode="json") for entry in self.source_manifest]
-        return hash_payload(payload)
 
 
 class RunResultSummary(StrictModel):
     metric: str
+    quarter_index: int
+    period_label: str
     mean: float
+    std: float
     std_error: float | None = None
     quantiles: dict[str, float] = Field(default_factory=dict)
+    quantile_std_errors: dict[str, float] = Field(default_factory=dict)
 
 
 class RunRead(BaseModel):
@@ -397,9 +396,12 @@ class RunRead(BaseModel):
     scenario_id: uuid.UUID
     job_id: uuid.UUID | None = None
     cutoff_ts: datetime
+    origin_label: str
+    n_quarters: int
     source_manifest: list[Any]
     source_manifest_hash: str
     parameter_set_hash: str
+    starting_state_hash: str
     code_version: str
     seed: int
     n_paths: int
@@ -414,6 +416,24 @@ class RunRead(BaseModel):
     finished_at: datetime | None = None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ReplayReport(BaseModel):
+    run_id: uuid.UUID
+    status: Literal["exact_match", "numerically_equivalent", "mismatch", "inputs_changed"]
+    recorded_outputs_hash: str
+    recomputed_outputs_hash: str | None = None
+    max_relative_difference: float | None = None
+    recorded_code_version: str
+    recomputed_code_version: str | None = None
+    recorded_lib_versions: dict[str, Any]
+    recomputed_lib_versions: dict[str, Any] | None = None
+    differences: list[str] = Field(default_factory=list)
+    llm_provider: str = ""
+
+
+class ForecastArchiveRequest(StrictModel):
+    kind: ForecastKind
 
 
 class ForecastCreate(StrictModel):
@@ -488,8 +508,10 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     RunCreate,
     RunRead,
     RunResultSummary,
+    ReplayReport,
     ForecastCreate,
     ForecastRead,
+    ForecastArchiveRequest,
     EvaluationResultCreate,
     EvaluationResultRead,
 )

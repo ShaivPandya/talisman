@@ -84,3 +84,18 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   text layer is incomplete for some Key Business Drivers tables; those quarters stay
   `partial` rather than fabricating growth rates. Operational Performance Data volume
   *levels* in older releases are out of scope (LON-20 / LON-16).
+
+## Runs and replay (LON-23)
+
+- **Bit-exact replay** holds only in the same numerical environment (same NumPy /
+  BLAS). Across macOS Accelerate and the container OpenBLAS, replay may return
+  `numerically_equivalent` (max relative difference ≤ 1e-9) instead of `exact_match`.
+- **Runs on uncalibrated defaults are not forecasts.** `POST /runs/{id}/forecasts`
+  refuses all-assumption parameter sets.
+- **Two origins only.** Reconciled starting states exist for 2024-07-23 and
+  2025-10-28. Other cutoffs return 422 until LON-20 / LON-27.
+- **Progress is status only.** There is no per-path progress stream; poll
+  `GET /runs/{id}` (`queued` / `running` / `succeeded` / `failed`).
+- **Prospective vs retrospective** archive checks use the static
+  `data/fixtures/origins.csv` target-release timestamps, not a live EDGAR fetch.
+

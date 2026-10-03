@@ -196,6 +196,31 @@ from longaeva_app.companies import register_default_companies
 register_default_companies()  # idempotent; registers "visa"
 ```
 
+## Runs and replay (LON-23)
+
+Submit a Visa run, execute it on the worker, fetch summaries, and replay without
+an LLM. Details: [`docs/runs-and-replay.md`](docs/runs-and-replay.md).
+
+```bash
+# Inline (no worker): creates an uncalibrated baseline if --scenario is omitted
+make submit-run ARGS='--origin 2024-07-23 --n-paths 64 --inline'
+
+# Replay a saved run (LLM_PROVIDER unset)
+make replay RUN=<run-uuid>
+```
+
+API:
+
+| Method | Path |
+| --- | --- |
+| POST | `/runs` (202 queued) |
+| GET | `/runs`, `/runs/{id}`, `/runs/{id}/results` |
+| POST | `/runs/{id}/replay` |
+| POST | `/runs/{id}/forecasts` `{ "kind": "retrospective" \| "prospective" }` |
+
+Only the LON-3 origins `2024-07-23` and `2025-10-28` are runnable. Forecast archive
+is explicit and refuses uncalibrated defaults.
+
 ## Collector (LON-13)
 
 Curated manifests under [`data/manifest/`](data/manifest/) drive polite fetches of

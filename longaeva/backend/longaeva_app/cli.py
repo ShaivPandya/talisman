@@ -143,6 +143,128 @@ def cmd_parse_visa(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_switch(raw: str) -> tuple[str, bool]:
+    if "=" not in raw:
+        raise argparse.ArgumentTypeError("switch must be name=true|false")
+    name, value = raw.split("=", 1)
+    name = name.strip()
+    lowered = value.strip().lower()
+    if lowered in {"1", "true", "yes", "on"}:
+        return name, True
+    if lowered in {"0", "false", "no", "off"}:
+        return name, False
+    raise argparse.ArgumentTypeError(f"invalid switch value {value!r}")
+
+
+def cmd_submit_run(args: argparse.Namespace) -> int:
+    """Submit a Visa run; optionally execute inline or wait for the worker (LON-23)."""
+    import json
+    import time
+    import uuid
+
+    from longaeva_app.db.models import Run
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.runs.inputs import (
+        ensure_default_baseline,
+        parse_aware_utc,
+        resolve_fixture_by_origin_date,
+    )
+    from longaeva_app.runs.service import submit_run
+    from longaeva_app.worker.queue import claim_next_job, execute_job
+
+    fixture = resolve_fixture_by_origin_date(args.origin)
+    cutoff = parse_aware_utc(fixture.cutoff_utc)
+    switches = dict(args.switch or [])
+    factory = get_session_factory()
+    with factory() as session:
+        if args.scenario:
+            scenario_id = uuid.UUID(args.scenario)
+        else:
+            scenario = ensure_default_baseline(session, cutoff_ts=cutoff, company="visa")
+            session.commit()
+            scenario_id = scenario.id
+        run = submit_run(
+            session,
+            scenario_id=scenario_id,
+            cutoff_ts=cutoff,
+            seed=int(args.seed),
+            n_paths=int(args.n_paths),
+            n_quarters=int(args.n_quarters),
+            switches=switches,
+        )
+        session.commit()
+        run_id = run.id
+        job_id = run.job_id
+    if args.inline:
+        if job_id is None:
+            print("submitted run has no job_id", flush=True)
+            return 2
+        claimed = claim_next_job(factory, "inline")
+        if claimed != job_id:
+            print(f"expected to claim {job_id}, got {claimed}", flush=True)
+            return 2
+        execute_job(factory, job_id, "inline")
+    elif args.wait is not None:
+        deadline = time.monotonic() + float(args.wait)
+        while time.monotonic() < deadline:
+            with factory() as session:
+                row = session.get(Run, run_id)
+                if row is not None and row.status in {"succeeded", "failed"}:
+                    break
+            time.sleep(0.25)
+    with factory() as session:
+        row = session.get(Run, run_id)
+        payload = {
+            "run_id": str(run_id),
+            "job_id": str(job_id) if job_id else None,
+            "status": None if row is None else row.status,
+            "outputs_hash": None if row is None else row.outputs_hash,
+            "error": None if row is None else row.error,
+            "origin_label": fixture.origin_date.isoformat(),
+        }
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        if row is None:
+            return 2
+        if args.inline or args.wait is not None:
+            return 0 if row.status == "succeeded" else 1
+    return 0
+
+
+def cmd_replay(args: argparse.Namespace) -> int:
+    """Replay a saved run and compare output hashes (LON-23 / UF-06)."""
+    import json
+    import uuid
+
+    from longaeva_app.api.deps import get_artifact_store
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.runs.errors import RunError
+    from longaeva_app.runs.service import replay_run
+
+    run_id = uuid.UUID(args.run_id)
+    factory = get_session_factory()
+    store = get_artifact_store()
+    with factory() as session:
+        try:
+            report = replay_run(session, run_id, artifact_store=store)
+        except RunError as exc:
+            print(exc.message, flush=True)
+            return 2
+    if args.json:
+        payload = dict(report)
+        payload["run_id"] = str(payload["run_id"])
+        print(json.dumps(payload, indent=2, sort_keys=True, default=str))
+    else:
+        print(f"status={report['status']} recorded={report['recorded_outputs_hash']}")
+        print(f"recomputed={report['recomputed_outputs_hash']}")
+        print(f"llm_provider={report['llm_provider']!r} differences={report['differences']}")
+    status = report["status"]
+    if status in {"exact_match", "numerically_equivalent"}:
+        return 0
+    if status in {"mismatch", "inputs_changed"}:
+        return 1
+    return 2
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -242,6 +364,28 @@ def build_parser() -> argparse.ArgumentParser:
         help="Regenerate data/fixtures/visa_releases/observations.csv and parse_status.csv",
     )
     parse_visa.set_defaults(func=cmd_parse_visa)
+
+    submit = sub.add_parser("submit-run", help="Submit a Visa simulation run (LON-23)")
+    submit.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD (LON-3 fixture)")
+    submit.add_argument("--scenario", default=None, help="Scenario UUID; default: uncalibrated baseline")
+    submit.add_argument("--seed", type=int, default=0, help="RNG seed")
+    submit.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths")
+    submit.add_argument("--n-quarters", type=int, default=4, help="Horizon in fiscal quarters")
+    submit.add_argument(
+        "--switch",
+        action="append",
+        default=[],
+        type=_parse_switch,
+        help="Ablation switch name=true|false (repeatable)",
+    )
+    submit.add_argument("--inline", action="store_true", help="Execute in this process instead of the worker")
+    submit.add_argument("--wait", type=float, default=None, help="Seconds to wait for the worker")
+    submit.set_defaults(func=cmd_submit_run)
+
+    replay = sub.add_parser("replay", help="Replay a saved run and compare hashes (LON-23)")
+    replay.add_argument("run_id", help="Run UUID")
+    replay.add_argument("--json", action="store_true", help="Print the full replay report as JSON")
+    replay.set_defaults(func=cmd_replay)
 
     return parser
 
