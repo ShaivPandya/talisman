@@ -9,10 +9,14 @@ export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 # .exportignore, frontend/, data/, and docs/ (the API image only contains backend/).
 GUARD_MOUNT := -v "$(CURDIR):/srv/longaeva-src:ro" -e LONGAEVA_GUARD_ROOT=/srv/longaeva-src
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark submit-run replay
+COMPOSE_BUILD_ARGS ?=
+WEB_CHECK_BUILD_ARGS ?=
+GUARD_ARGS ?=
+
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark submit-run replay export verify-export
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark submit-run replay"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark submit-run replay export verify-export"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -24,7 +28,7 @@ logs:
 	$(COMPOSE) logs -f --tail=200
 
 build:
-	$(COMPOSE) build
+	$(COMPOSE) build $(COMPOSE_BUILD_ARGS)
 
 # Build images, ensure db is up, run lint/type/tests inside the api image against longaeva_test.
 # Frontend lint + unit tests run in the Node check stage (NR-03).
@@ -40,14 +44,15 @@ check: build
 
 # Frontend lint + Vitest inside the Node image (no host Node required).
 check-web:
-	docker build --target check -t $(PROJECT)-web-check ./frontend
+	docker build $(WEB_CHECK_BUILD_ARGS) --target check -t $(PROJECT)-web-check ./frontend
 	docker run --rm $(PROJECT)-web-check sh -c 'npm run lint && npm test'
 
 # Isolation guard only (LON-12). Uses the same root mount as ``check``.
+# GUARD_ARGS=--strict is for an unpacked export copy (LON-24).
 guard: build
 	$(COMPOSE) run --rm --no-deps \
 		$(GUARD_MOUNT) \
-		api python -m longaeva_app.cli export-check
+		api python -m longaeva_app.cli export-check $(GUARD_ARGS)
 
 check-local:
 	cd backend && \
@@ -86,6 +91,15 @@ replay:
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		-e LLM_PROVIDER= \
 		api python -m longaeva_app.cli replay $(RUN)
+
+# Submission ZIP (LON-24). Optional: make export ARGS='--output /tmp/longaeva.zip'
+export:
+	./scripts/export_submission.sh $(ARGS)
+
+# Verify a ZIP in /tmp. Example: make verify-export ZIP=dist/foo.zip LOG=/tmp/early-export.md ARGS='--keep'
+verify-export:
+	@test -n "$(ZIP)" || (echo "ZIP=path is required" >&2; exit 2)
+	./scripts/verify_export.sh --zip "$(ZIP)" $(if $(LOG),--log "$(LOG)",) $(ARGS)
 
 openapi:
 	$(COMPOSE) run --rm --no-deps \

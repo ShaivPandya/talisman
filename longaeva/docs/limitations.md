@@ -110,3 +110,20 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Playwright is not in this package yet.** Frontend checks are ESLint, Vitest, and
   `tsc` via `npm run build`.
 
+## Export rehearsal (LON-24)
+
+- **Log lives outside the package.** Validation logs belong in Talisman's
+  `docs/hackathon/planning/validation/` and are attached to the Linear issue; they are
+  not bundled in the ZIP.
+- **UF-01 / UF-03 browser flows are not automated.** This rehearsal smokes HTTP and
+  charts via the existing Run page; Playwright and the full scenario workspace land in
+  LON-34 / LON-36.
+- **Cold image builds need the network.** `--no-cache` pulls from PyPI and npm.
+- **Docker Desktop must share `/tmp`.** The verifier unpacks under `/tmp/longaeva-verify.*`
+  and bind-mounts that tree into Compose. If file sharing excludes `/tmp`, `make up`
+  from the unpacked copy will fail.
+- **Ports.** The verifier defaults to API 18000, web 13000, Postgres 15432 so it does
+  not collide with a developer stack on 8000 / 3000 / 55432.
+- **Replay after restart** keeps named volumes (`make down` without `-v`) so artifacts
+  and Postgres survive. Final teardown uses `down -v --rmi local`.
+

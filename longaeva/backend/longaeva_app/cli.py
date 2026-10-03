@@ -41,6 +41,24 @@ def cmd_export_check(args: argparse.Namespace) -> int:
     return 1 if findings else 0
 
 
+def cmd_export_zip(args: argparse.Namespace) -> int:
+    """Build the submission ZIP (LON-24). Guard findings abort with no ZIP written."""
+    from longaeva_app.export_bundle import ExportBundleError, build_export_zip, load_forbid_file, summary_payload
+    from longaeva_app.isolation_guard import format_findings, resolve_root
+
+    root = Path(args.root).resolve() if args.root else resolve_root()
+    forbid: tuple[str, ...] = ()
+    if args.forbid_file:
+        forbid = load_forbid_file(Path(args.forbid_file))
+    try:
+        summary = build_export_zip(root, Path(args.output), forbid=forbid)
+    except ExportBundleError as exc:
+        print(format_findings(exc.findings), flush=True)
+        return 1
+    print(json.dumps(summary_payload(summary), indent=2, sort_keys=True))
+    return 0
+
+
 def cmd_build_manifests(args: argparse.Namespace) -> int:
     """Regenerate visa/booking/census YAML manifests from committed fixtures."""
     from longaeva_app.collect.manifest import MANIFEST_DIR, build_manifests
@@ -300,6 +318,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print the export file set (relative paths) and exit 0",
     )
     guard.set_defaults(func=cmd_export_check)
+
+    export_zip = sub.add_parser(
+        "export-zip",
+        help="Build the submission ZIP from the isolation-guard export set (LON-24)",
+    )
+    export_zip.add_argument(
+        "--root",
+        default=None,
+        help="Package root containing .exportignore (default: LONGAEVA_GUARD_ROOT or PACKAGE_ROOT)",
+    )
+    export_zip.add_argument(
+        "--output",
+        required=True,
+        help="Destination ZIP path",
+    )
+    export_zip.add_argument(
+        "--forbid-file",
+        default=None,
+        help="New-line separated identity strings that must not appear in any member",
+    )
+    export_zip.set_defaults(func=cmd_export_zip)
 
     manifests = sub.add_parser(
         "build-manifests",

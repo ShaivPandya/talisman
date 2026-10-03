@@ -33,6 +33,7 @@ build/
 coverage/
 .vite/
 *.tsbuildinfo
+*.zip
 
 # Runtime artifact store (created under the package when unset)
 var/

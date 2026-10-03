@@ -132,7 +132,39 @@ make guard
 ```
 
 Runs only the isolation guard (`python -m longaeva_app.cli export-check`) against the
-export file set.
+export file set. On an unpacked ZIP copy, use `make guard GUARD_ARGS=--strict`.
+
+## Export and verification (LON-24)
+
+Build a deterministic submission ZIP from the `.exportignore` file set (top-level
+`longaeva/` folder). The builder runs the isolation guard first and refuses to write
+a ZIP if it finds anything. Identity strings from `git config user.name` / `user.email`
+are treated as forbidden and never printed.
+
+```bash
+make export
+# -> dist/longaeva-export-<UTC>-<sha7>[-dirty].zip and a sibling .sha256
+```
+
+Verify in a temporary directory under `/tmp` (outside this checkout). The verifier
+uses its own Compose project and ports **18000 / 13000 / 15432** so a developer stack
+on 8000 / 3000 / 55432 is left alone.
+
+```bash
+make verify-export ZIP=dist/longaeva-export-<file>.zip \
+  LOG=/absolute/path/outside/the/package/early-export.md \
+  ARGS='--no-cache --keep'
+```
+
+Steps: checksum, unpack, listing checks (no `.git` / `.env` / `node_modules`, no
+developer home paths), `make guard GUARD_ARGS=--strict`, fresh `git init` whose
+tracked-file count equals the unpacked count, `make check`, `make up`, API and web
+smoke, worker-executed runs plus replay (including after a restart). `--keep` leaves
+the stack and temp dir; default teardown is `docker compose down -v --rmi local`.
+
+The validation log is **not** part of the package. Write it outside `longaeva/`
+(Talisman: `docs/hackathon/planning/validation/`). Flags: `--skip-tests` (iteration
+only), `--keep`, `--no-cache`.
 
 ## Frontend (LON-11)
 
@@ -156,7 +188,7 @@ See [`docs/reuse-notes.md`](docs/reuse-notes.md) for chart provenance.
 
 ## Isolation guard (LON-12)
 
-[`.exportignore`](.exportignore) is the exclusion manifest for the future submission
+[`.exportignore`](.exportignore) is the exclusion manifest for the submission
 ZIP (LON-24). The guard scans every path that would ship and fails on:
 
 - out-of-package Python/JS imports, path escapes, and absolute developer paths
@@ -173,7 +205,8 @@ python -m longaeva_app.cli export-check --strict    # also fail if excluded path
 
 `--strict` is for the unpacked export copy (LON-24), not the developer working tree
 (where a gitignored `.env` for `SEC_USER_AGENT` is expected). Personal-data checklist:
-[`docs/limitations.md`](docs/limitations.md).
+[`docs/limitations.md`](docs/limitations.md). `make export` / `make verify-export`
+are documented above.
 
 ## Visa engine (LON-19)
 
