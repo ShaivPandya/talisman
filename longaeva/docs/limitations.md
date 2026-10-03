@@ -99,3 +99,14 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Prospective vs retrospective** archive checks use the static
   `data/fixtures/origins.csv` target-release timestamps, not a live EDGAR fetch.
 
+## Frontend (LON-11)
+
+- **No authentication.** The web app is local-review only; `/api` is proxied without
+  credentials. Do not expose Compose ports beyond `127.0.0.1`.
+- **PairedDiffChart is not mounted.** Path-wise difference summaries do not exist until
+  paired scenarios land. Subtracting two runs' quantiles is not the same statistic.
+- **Metric labels are a frontend catalog** aligned with `VisaModel.metrics`. The results
+  API does not send units; unknown metric keys fall back to raw numbers.
+- **Playwright is not in this package yet.** Frontend checks are ESLint, Vitest, and
+  `tsc` via `npm run build`.
+

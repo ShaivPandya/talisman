@@ -9,10 +9,10 @@ export COMPOSE_PROJECT_NAME ?= $(PROJECT)
 # .exportignore, frontend/, data/, and docs/ (the API image only contains backend/).
 GUARD_MOUNT := -v "$(CURDIR):/srv/longaeva-src:ro" -e LONGAEVA_GUARD_ROOT=/srv/longaeva-src
 
-.PHONY: help up down logs check check-local seed lock build openapi guard collect engine-benchmark submit-run replay
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark submit-run replay
 
 help:
-	@echo "Targets: up down logs check check-local guard seed lock build openapi collect engine-benchmark submit-run replay"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark submit-run replay"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -27,6 +27,7 @@ build:
 	$(COMPOSE) build
 
 # Build images, ensure db is up, run lint/type/tests inside the api image against longaeva_test.
+# Frontend lint + unit tests run in the Node check stage (NR-03).
 check: build
 	$(COMPOSE) up -d --wait db
 	$(COMPOSE) run --rm --no-deps \
@@ -35,6 +36,12 @@ check: build
 		-e LONGAEVA_REQUIRE_DB=1 \
 		-e LONGAEVA_TEST_DB=longaeva_test \
 		api sh -c 'scripts/check.sh'
+	$(MAKE) check-web
+
+# Frontend lint + Vitest inside the Node image (no host Node required).
+check-web:
+	docker build --target check -t $(PROJECT)-web-check ./frontend
+	docker run --rm $(PROJECT)-web-check sh -c 'npm run lint && npm test'
 
 # Isolation guard only (LON-12). Uses the same root mount as ``check``.
 guard: build

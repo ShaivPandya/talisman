@@ -12,6 +12,13 @@ this package imports Talisman at runtime.
 | Source publication vs retrieval timestamps | `ontology/temporal_repository.py` (`SourceRecordWrite`) | Pattern only | Valid-time / transaction-time split maps to required `publication_ts` / `retrieval_ts` on `source` (CHECK `publication_ts < retrieval_ts`); no ontology versioning tables. |
 | Content-addressed originals + SHA-256 | `ontology/source_ingestion.py` | Pattern only | `LocalArtifactStore.put_original` stores under `originals/<ab>/<sha256>`; collector dedups on `source.content_hash`. No Talisman ontology imports. |
 | PDF/HTML text extraction | `ontology/extractors/deterministic.py::_extract_text` | Pattern only | pdfminer.six `extract_pages` with no page/character caps; HTML via stdlib `HTMLParser` with CSS page-break splits. Adapted without Talisman's 25-page limit. |
+| `frontend/src/styles/theme.css` | `frontend/src/index.css` | Copy + adapt | Light/dark CSS variables, `theme-*` layout/button/badge classes, and text utilities. Dropped Talisman gray-remap shims, portfolio editor, slider, Sentry/theme localStorage. |
+| `frontend/src/components/shared/SurfaceCard.tsx` | `frontend/src/components/shared/SurfaceCard.tsx` | Copy + adapt | Same surface classes; local `cx` join instead of `clsx` / `tailwind-merge`. |
+| `frontend/src/components/shared/ChartTile.tsx` | `frontend/src/components/shared/ChartTile.tsx` | Copy + adapt | Title/subtitle/meta card; `Link` from this package's `react-router-dom`, not Talisman's router. |
+| `frontend/src/components/charts/TimeSeriesChart.tsx` | `frontend/src/components/shared/TimeSeriesChart.tsx` | Copy + adapt | Multi-series lines, legend toggles, Recharts styling via CSS variables. Added `xKey` + `category` mode for fiscal-period labels (no `Date` parse). Dropped `calcReturn`. |
+| `frontend/vite.config.ts`, `tsconfig*.json`, `eslint.config.js` | `frontend/` counterparts | Pattern only | Vite 8 + React plugin + Tailwind 4 plugin; `@` → `src`; `/api` proxy strips the prefix to match nginx. No Sentry, axios, or TanStack Query. |
+| `frontend/src/lib/api.ts` | — | New | Plain `fetch` client. No auth, CSRF, or Sentry. |
+| `frontend/src/components/charts/FanChart.tsx` | — | New | Nested quantile bands (5–95 / 10–90 / 25–75) plus median and mean. |
+| `frontend/src/components/charts/PairedDiffChart.tsx` | — | New | Path-wise difference quantiles around a zero line. Not mounted until difference summaries exist. |
 
-Later issues will extend this file when chart components, evidence UI, and action-cost
-arithmetic are copied (LON-11, LON-26, LON-35).
+Later issues will extend this file when evidence UI and action-cost arithmetic are copied.

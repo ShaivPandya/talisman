@@ -16,12 +16,12 @@ make up
 ```
 
 That starts Postgres, runs Alembic migrations, brings up the API and worker, and serves
-a placeholder web page.
+the Vite-built web app.
 
 - API health: http://127.0.0.1:8000/health
 - OpenAPI UI: http://127.0.0.1:8000/docs
 - OpenAPI JSON: http://127.0.0.1:8000/openapi.json (snapshot also at `docs/openapi.json`)
-- Web placeholder: http://127.0.0.1:3000/
+- Web app: http://127.0.0.1:3000/ (run list at `/runs`)
 - Postgres (host): `127.0.0.1:55432` user/pass/db `longaeva`
 
 Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR fetches
@@ -123,7 +123,9 @@ make check
 ```
 
 Runs ruff, mypy, and pytest inside the API image against a disposable `longaeva_test`
-database. The isolation guard (LON-12) runs as part of pytest.
+database, then frontend lint + Vitest in a Node image. The isolation guard (LON-12)
+runs as part of pytest. Frontend type-check is `tsc -b` inside `npm run build` (Compose
+web image).
 
 ```bash
 make guard
@@ -131,6 +133,26 @@ make guard
 
 Runs only the isolation guard (`python -m longaeva_app.cli export-check`) against the
 export file set.
+
+## Frontend (LON-11)
+
+Compose `web` serves the production Vite build through nginx on port 3000 and proxies
+`/api/` to the API (prefix stripped).
+
+Local Vite (API already running on 8000):
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Open http://127.0.0.1:5173/ — `/api` is proxied to the API. There is no authentication.
+
+The Runs page lists saved runs and charts quantiles from `GET /runs/{id}/results`.
+Submit runs with `make submit-run`; the Scenarios page will add in-app submit later.
+
+See [`docs/reuse-notes.md`](docs/reuse-notes.md) for chart provenance.
 
 ## Isolation guard (LON-12)
 
@@ -279,4 +301,4 @@ python3.12 -m venv .venv
 
 See `docs/reuse-notes.md` for Talisman pattern provenance (copied/adapted, never imported).
 
-Vite frontend and demo data arrive in later issues (LON-11, LON-37).
+Demo data arrives in LON-37.

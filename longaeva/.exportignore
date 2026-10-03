@@ -30,6 +30,9 @@ htmlcov/
 node_modules/
 dist/
 build/
+coverage/
+.vite/
+*.tsbuildinfo
 
 # Runtime artifact store (created under the package when unset)
 var/

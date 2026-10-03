@@ -12,5 +12,8 @@ dist/
 build/
 var/
 node_modules/
+coverage/
+.vite/
+*.tsbuildinfo
 .DS_Store
 *.log
