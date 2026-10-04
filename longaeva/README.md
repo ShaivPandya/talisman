@@ -403,6 +403,25 @@ make apply-rules ARGS='--origin 2024-07-23 --load-gate-fixtures --dry-run'
 | GET | `/parameter-sets/{id}/context` |
 | GET | `/parameter-sets/{id}/lineage` |
 
+## Valuation bridge (LON-25)
+
+Maps a saved run's operating-profit paths to forward earnings and a value grid.
+The multiple is a trailing P/E from Visa's quarterly average repurchase price
+(SEC 10-Q/10-K) and diluted EPS excluding special items, not a market close.
+Details: [`docs/valuation.md`](docs/valuation.md).
+
+```bash
+make valuation-multiples   # host venv; rewrites data/fixtures/valuation/visa_pe_history.csv
+```
+
+| Method | Path |
+| --- | --- |
+| POST | `/valuation/bridge` `{run_id, tax_rate?, net_interest_other?, diluted_shares?, multiple_range?}` |
+| GET | `/valuation/multiples?cutoff_ts=` |
+
+Non-positive forward EPS returns `status: "unsupported"` and no value. Earnings
+uncertainty and multiple uncertainty are separate spreads.
+
 ## Seed
 
 ```bash

@@ -276,8 +276,15 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   comparison endpoint and must not re-simulate to draw it.
 - **LON-23:** persist runs with seed, `n_paths`, parameter-set hash, switches and
   output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
-- **LON-25:** valuation bridge consumes `operating_profit_ex_special_items` paths plus
-  fixture `tax_rate` / `net_interest_other` / `diluted_shares`.
+- **LON-25 (done):** the earnings/multiple bridge maps
+  `operating_profit_ex_special_items` paths, plus fixture `tax_rate` /
+  `net_interest_other` / `diluted_shares`, to forward EPS and a value grid.
+  The multiple band is the min/median/max trailing P/E from SEC repurchase
+  prices and EPS excluding special items, filtered by the run cutoff. See
+  [`docs/valuation.md`](valuation.md).
+- **LON-26:** illustrative actions consume this per-share value. An unsupported
+  bridge (non-positive forward EPS, or fewer than four published P/E quarters)
+  stays a reason, not a number. The outer envelope is not a probability.
 - **LON-27 (done):** evaluation harness calibrates at each origin, runs the full model,
   scores levels and history-anchored YoY drivers, and records ensemble members/weights
   per row. See [`docs/evaluation.md`](evaluation.md). Engine metric
@@ -297,7 +304,9 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   and exclusions. Do not read an external-evidence effect off the
   full-model / financial-only pair; those aggregates are equal.
 - **LON-36:** `GET /evaluation-results` needs `model_variant` / `config_hash` filters
-  and a higher limit (~800 rows per variant).
+  and a higher limit (~800 rows per variant). The Valuation page should call
+  `POST /valuation/bridge` and `GET /valuation/multiples` (LON-25) and draw the
+  earnings-driven and multiple-driven spreads separately.
 - **LON-37:** load observations under the deterministic UUIDs so evidence links resolve.
 - **Parser follow-up:** extract FY2020/FY2021 10-K 12-month PV tables to recover
   FY2022Q3 and FY2022Q4.

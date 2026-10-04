@@ -18,6 +18,7 @@ from longaeva_app.api.routers import (
     runs,
     scenarios,
     sources,
+    valuation,
 )
 from longaeva_app.api.schemas import OPENAPI_CONTRACT_SCHEMAS
 
@@ -36,6 +37,7 @@ app.include_router(parameters.router)
 app.include_router(parameters.rules_router)
 app.include_router(scenarios.router)
 app.include_router(runs.router)
+app.include_router(valuation.router)
 app.include_router(forecasts.router)
 app.include_router(evaluation.router)
 

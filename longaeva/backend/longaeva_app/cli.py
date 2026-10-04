@@ -791,6 +791,35 @@ def cmd_apply_rules(args: argparse.Namespace) -> int:
         return 1
 
 
+def cmd_valuation_multiples(args: argparse.Namespace) -> int:
+    """Rebuild the trailing P/E history from bundled SEC originals (LON-25)."""
+    from datetime import UTC, datetime
+
+    from longaeva_app.valuation.multiples import FIXTURE_PATH, PeHistoryError, build_history, pe_band, write_history
+
+    try:
+        rows = build_history()
+    except PeHistoryError as exc:
+        print(str(exc))
+        return 1
+    if args.write:
+        path = write_history(rows)
+        shown = path.relative_to(PACKAGE_ROOT) if path.is_relative_to(PACKAGE_ROOT) else path
+        print(f"Wrote {shown} ({len(rows)} quarters)")
+    else:
+        shown = FIXTURE_PATH.relative_to(PACKAGE_ROOT)
+        print(f"{len(rows)} quarters (pass --write to update {shown})")
+    for row in rows:
+        print(
+            f"{row.period_label} price={row.price_quote} ttm_eps={row.ttm_eps_text} "
+            f"pe={row.trailing_pe_text} accepted={row.price_acceptance_utc.strftime('%Y-%m-%d')}"
+        )
+    band = pe_band(datetime(9999, 1, 1, tzinfo=UTC), rows=rows)
+    if band is not None:
+        print(f"full-sample low/mid/high = {band.low:.6f} / {band.mid:.6f} / {band.high:.6f}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1047,6 +1076,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Reviewer rationale recorded on parameter updates",
     )
     apply_p.set_defaults(func=cmd_apply_rules)
+
+    multiples = sub.add_parser(
+        "valuation-multiples",
+        help="Rebuild the SEC trailing P/E history used by the valuation bridge (LON-25)",
+    )
+    multiples.add_argument(
+        "--write",
+        action="store_true",
+        help="Write data/fixtures/valuation/visa_pe_history.csv",
+    )
+    multiples.set_defaults(func=cmd_valuation_multiples)
 
     return parser
 

@@ -696,6 +696,133 @@ class EvaluationResultCreate(StrictModel):
     details: dict[str, Any] = Field(default_factory=dict)
 
 
+class MultipleRangeInput(StrictModel):
+    """Caller-supplied earnings multiple. Order is checked by the bridge, not here."""
+
+    low: float
+    mid: float
+    high: float
+
+
+class ValuationBridgeRequest(StrictModel):
+    run_id: uuid.UUID
+    tax_rate: float | None = None
+    net_interest_other: float | None = None
+    diluted_shares: float | None = None
+    multiple_range: MultipleRangeInput | None = None
+
+
+class AssumptionRead(StrictModel):
+    name: str
+    value: float | None
+    unit: str
+    source: str
+
+
+class ForwardEpsRead(StrictModel):
+    mean: float
+    p10: float
+    p50: float
+    p90: float
+    n_paths: int
+
+
+class MultipleBandRead(StrictModel):
+    low: float
+    mid: float
+    high: float
+    n_quarters: int
+    window_start: str
+    window_end: str
+    source: str
+    source_label: str
+    method_label: str
+    periods: list[str]
+
+
+class ValueCellRead(StrictModel):
+    eps_quantile: str
+    multiple_role: str
+    multiple: float
+    value_per_share: float
+    equity_usd_millions: float
+
+
+class EarningsDrivenRead(StrictModel):
+    multiple: float
+    value_per_share: dict[str, float]
+    equity_usd_millions: dict[str, float]
+    spread_per_share: float
+    spread_equity_usd_millions: float
+
+
+class MultipleDrivenRead(StrictModel):
+    forward_eps: float
+    value_per_share: dict[str, float]
+    equity_usd_millions: dict[str, float]
+    spread_per_share: float
+    spread_equity_usd_millions: float
+
+
+class OuterEnvelopeRead(StrictModel):
+    low_per_share: float
+    high_per_share: float
+    low_equity_usd_millions: float
+    high_equity_usd_millions: float
+    label: str
+
+
+class ValuationBridgeRead(StrictModel):
+    status: Literal["ok", "unsupported"]
+    reason: str | None
+    run_id: uuid.UUID
+    cutoff_ts: datetime
+    metric: str
+    n_paths: int
+    n_quarters: int
+    assumptions: list[AssumptionRead]
+    forward_eps: ForwardEpsRead | None = None
+    multiple_band: MultipleBandRead | None = None
+    grid: list[ValueCellRead] | None = None
+    earnings_driven: EarningsDrivenRead | None = None
+    multiple_driven: MultipleDrivenRead | None = None
+    outer_envelope: OuterEnvelopeRead | None = None
+
+
+class EpsComponentRead(StrictModel):
+    period_label: str
+    value: float
+    source_id: str
+    acceptance_utc: datetime
+
+
+class PeHistoryRowRead(StrictModel):
+    period_label: str
+    period_end: date
+    avg_purchase_price: float
+    price_source_id: str
+    price_form: str
+    price_acceptance_utc: datetime
+    price_url: str
+    price_quote: str
+    price_char_start: int
+    price_char_end: int
+    price_anchor: str
+    ttm_eps: float
+    trailing_pe: float
+    eps_components: list[EpsComponentRead]
+
+
+class ValuationMultiplesRead(StrictModel):
+    status: Literal["ok", "unsupported"]
+    reason: str | None
+    cutoff_ts: datetime | None
+    source_basis: str
+    method_label: str
+    rows: list[PeHistoryRowRead]
+    band: MultipleBandRead | None = None
+
+
 class EvaluationResultRead(BaseModel):
     id: uuid.UUID
     suite_version: str
@@ -750,4 +877,17 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     ForecastArchiveRequest,
     EvaluationResultCreate,
     EvaluationResultRead,
+    MultipleRangeInput,
+    ValuationBridgeRequest,
+    AssumptionRead,
+    ForwardEpsRead,
+    MultipleBandRead,
+    ValueCellRead,
+    EarningsDrivenRead,
+    MultipleDrivenRead,
+    OuterEnvelopeRead,
+    ValuationBridgeRead,
+    EpsComponentRead,
+    PeHistoryRowRead,
+    ValuationMultiplesRead,
 )

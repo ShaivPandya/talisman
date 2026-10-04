@@ -1,6 +1,42 @@
 {
   "components": {
     "schemas": {
+      "AssumptionRead": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "value",
+          "unit",
+          "source"
+        ],
+        "title": "AssumptionRead",
+        "type": "object"
+      },
       "AttributionRead": {
         "properties": {
           "baseline_run_id": {
@@ -403,6 +439,76 @@
           "text"
         ],
         "title": "DocumentTextRead",
+        "type": "object"
+      },
+      "EarningsDrivenRead": {
+        "additionalProperties": false,
+        "properties": {
+          "equity_usd_millions": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Equity Usd Millions",
+            "type": "object"
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "number"
+          },
+          "spread_equity_usd_millions": {
+            "title": "Spread Equity Usd Millions",
+            "type": "number"
+          },
+          "spread_per_share": {
+            "title": "Spread Per Share",
+            "type": "number"
+          },
+          "value_per_share": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Value Per Share",
+            "type": "object"
+          }
+        },
+        "required": [
+          "multiple",
+          "value_per_share",
+          "equity_usd_millions",
+          "spread_per_share",
+          "spread_equity_usd_millions"
+        ],
+        "title": "EarningsDrivenRead",
+        "type": "object"
+      },
+      "EpsComponentRead": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_utc": {
+            "format": "date-time",
+            "title": "Acceptance Utc",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period_label",
+          "value",
+          "source_id",
+          "acceptance_utc"
+        ],
+        "title": "EpsComponentRead",
         "type": "object"
       },
       "EvaluationResultCreate": {
@@ -901,6 +1007,40 @@
         "title": "ForecastRead",
         "type": "object"
       },
+      "ForwardEpsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "mean": {
+            "title": "Mean",
+            "type": "number"
+          },
+          "n_paths": {
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "p10": {
+            "title": "P10",
+            "type": "number"
+          },
+          "p50": {
+            "title": "P50",
+            "type": "number"
+          },
+          "p90": {
+            "title": "P90",
+            "type": "number"
+          }
+        },
+        "required": [
+          "mean",
+          "p10",
+          "p50",
+          "p90",
+          "n_paths"
+        ],
+        "title": "ForwardEpsRead",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -1294,6 +1434,133 @@
           "cross_border_change"
         ],
         "title": "MixShiftIntervention",
+        "type": "object"
+      },
+      "MultipleBandRead": {
+        "additionalProperties": false,
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "method_label": {
+            "title": "Method Label",
+            "type": "string"
+          },
+          "mid": {
+            "title": "Mid",
+            "type": "number"
+          },
+          "n_quarters": {
+            "title": "N Quarters",
+            "type": "integer"
+          },
+          "periods": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Periods",
+            "type": "array"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          },
+          "window_end": {
+            "title": "Window End",
+            "type": "string"
+          },
+          "window_start": {
+            "title": "Window Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "low",
+          "mid",
+          "high",
+          "n_quarters",
+          "window_start",
+          "window_end",
+          "source",
+          "source_label",
+          "method_label",
+          "periods"
+        ],
+        "title": "MultipleBandRead",
+        "type": "object"
+      },
+      "MultipleDrivenRead": {
+        "additionalProperties": false,
+        "properties": {
+          "equity_usd_millions": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Equity Usd Millions",
+            "type": "object"
+          },
+          "forward_eps": {
+            "title": "Forward Eps",
+            "type": "number"
+          },
+          "spread_equity_usd_millions": {
+            "title": "Spread Equity Usd Millions",
+            "type": "number"
+          },
+          "spread_per_share": {
+            "title": "Spread Per Share",
+            "type": "number"
+          },
+          "value_per_share": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Value Per Share",
+            "type": "object"
+          }
+        },
+        "required": [
+          "forward_eps",
+          "value_per_share",
+          "equity_usd_millions",
+          "spread_per_share",
+          "spread_equity_usd_millions"
+        ],
+        "title": "MultipleDrivenRead",
+        "type": "object"
+      },
+      "MultipleRangeInput": {
+        "additionalProperties": false,
+        "description": "Caller-supplied earnings multiple. Order is checked by the bridge, not here.",
+        "properties": {
+          "high": {
+            "title": "High",
+            "type": "number"
+          },
+          "low": {
+            "title": "Low",
+            "type": "number"
+          },
+          "mid": {
+            "title": "Mid",
+            "type": "number"
+          }
+        },
+        "required": [
+          "low",
+          "mid",
+          "high"
+        ],
+        "title": "MultipleRangeInput",
         "type": "object"
       },
       "ObservationCreate": {
@@ -1773,6 +2040,40 @@
         "title": "ObservationReviewRead",
         "type": "object"
       },
+      "OuterEnvelopeRead": {
+        "additionalProperties": false,
+        "properties": {
+          "high_equity_usd_millions": {
+            "title": "High Equity Usd Millions",
+            "type": "number"
+          },
+          "high_per_share": {
+            "title": "High Per Share",
+            "type": "number"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "low_equity_usd_millions": {
+            "title": "Low Equity Usd Millions",
+            "type": "number"
+          },
+          "low_per_share": {
+            "title": "Low Per Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "low_per_share",
+          "high_per_share",
+          "low_equity_usd_millions",
+          "high_equity_usd_millions",
+          "label"
+        ],
+        "title": "OuterEnvelopeRead",
+        "type": "object"
+      },
       "PairRunsCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2231,6 +2532,90 @@
           "created_at"
         ],
         "title": "ParameterUpdateRead",
+        "type": "object"
+      },
+      "PeHistoryRowRead": {
+        "additionalProperties": false,
+        "properties": {
+          "avg_purchase_price": {
+            "title": "Avg Purchase Price",
+            "type": "number"
+          },
+          "eps_components": {
+            "items": {
+              "$ref": "#/components/schemas/EpsComponentRead"
+            },
+            "title": "Eps Components",
+            "type": "array"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "price_acceptance_utc": {
+            "format": "date-time",
+            "title": "Price Acceptance Utc",
+            "type": "string"
+          },
+          "price_anchor": {
+            "title": "Price Anchor",
+            "type": "string"
+          },
+          "price_char_end": {
+            "title": "Price Char End",
+            "type": "integer"
+          },
+          "price_char_start": {
+            "title": "Price Char Start",
+            "type": "integer"
+          },
+          "price_form": {
+            "title": "Price Form",
+            "type": "string"
+          },
+          "price_quote": {
+            "title": "Price Quote",
+            "type": "string"
+          },
+          "price_source_id": {
+            "title": "Price Source Id",
+            "type": "string"
+          },
+          "price_url": {
+            "title": "Price Url",
+            "type": "string"
+          },
+          "trailing_pe": {
+            "title": "Trailing Pe",
+            "type": "number"
+          },
+          "ttm_eps": {
+            "title": "Ttm Eps",
+            "type": "number"
+          }
+        },
+        "required": [
+          "period_label",
+          "period_end",
+          "avg_purchase_price",
+          "price_source_id",
+          "price_form",
+          "price_acceptance_utc",
+          "price_url",
+          "price_quote",
+          "price_char_start",
+          "price_char_end",
+          "price_anchor",
+          "ttm_eps",
+          "trailing_pe",
+          "eps_components"
+        ],
+        "title": "PeHistoryRowRead",
         "type": "object"
       },
       "ProposedUpdateRead": {
@@ -3565,6 +3950,298 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "ValuationBridgeRead": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "$ref": "#/components/schemas/AssumptionRead"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "earnings_driven": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EarningsDrivenRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "forward_eps": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForwardEpsRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grid": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ValueCellRead"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Grid"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "multiple_band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultipleBandRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "multiple_driven": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultipleDrivenRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "n_paths": {
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "n_quarters": {
+            "title": "N Quarters",
+            "type": "integer"
+          },
+          "outer_envelope": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OuterEnvelopeRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "run_id",
+          "cutoff_ts",
+          "metric",
+          "n_paths",
+          "n_quarters",
+          "assumptions"
+        ],
+        "title": "ValuationBridgeRead",
+        "type": "object"
+      },
+      "ValuationBridgeRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "diluted_shares": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diluted Shares"
+          },
+          "multiple_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultipleRangeInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "net_interest_other": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Interest Other"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "tax_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Rate"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "ValuationBridgeRequest",
+        "type": "object"
+      },
+      "ValuationMultiplesRead": {
+        "additionalProperties": false,
+        "properties": {
+          "band": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultipleBandRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "cutoff_ts": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutoff Ts"
+          },
+          "method_label": {
+            "title": "Method Label",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "rows": {
+            "items": {
+              "$ref": "#/components/schemas/PeHistoryRowRead"
+            },
+            "title": "Rows",
+            "type": "array"
+          },
+          "source_basis": {
+            "title": "Source Basis",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "cutoff_ts",
+          "source_basis",
+          "method_label",
+          "rows"
+        ],
+        "title": "ValuationMultiplesRead",
+        "type": "object"
+      },
+      "ValueCellRead": {
+        "additionalProperties": false,
+        "properties": {
+          "eps_quantile": {
+            "title": "Eps Quantile",
+            "type": "string"
+          },
+          "equity_usd_millions": {
+            "title": "Equity Usd Millions",
+            "type": "number"
+          },
+          "multiple": {
+            "title": "Multiple",
+            "type": "number"
+          },
+          "multiple_role": {
+            "title": "Multiple Role",
+            "type": "string"
+          },
+          "value_per_share": {
+            "title": "Value Per Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "eps_quantile",
+          "multiple_role",
+          "multiple",
+          "value_per_share",
+          "equity_usd_millions"
+        ],
+        "title": "ValueCellRead",
         "type": "object"
       }
     }
@@ -5547,6 +6224,97 @@
         "summary": "List Passages",
         "tags": [
           "sources"
+        ]
+      }
+    },
+    "/valuation/bridge": {
+      "post": {
+        "operationId": "post_bridge_valuation_bridge_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationBridgeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationBridgeRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Bridge",
+        "tags": [
+          "valuation"
+        ]
+      }
+    },
+    "/valuation/multiples": {
+      "get": {
+        "operationId": "get_multiples_valuation_multiples_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cutoff_ts",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cutoff Ts"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationMultiplesRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Multiples",
+        "tags": [
+          "valuation"
         ]
       }
     }

@@ -213,6 +213,29 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Context is not a coefficient.** Airline, retailer, and processor observations, plus
   Booking gross bookings and qualitative statements, do not change the parameter set.
 
+## Valuation (LON-25)
+
+- **Buyback average, not a close.** The multiple uses the quarterly average
+  price Visa paid to repurchase shares (Issuer Purchases of Equity Securities),
+  not a market close. Visa daily prices remain blocked (LON-6). The notes'
+  "average repurchase cost" can differ by about a dollar from that Item 2
+  average; the bridge uses Item 2.
+- **GAAP tax rate on an ex-special-items profit.** `tax_rate` is the GAAP
+  effective rate from the release. It is applied to operating profit excluding
+  identified special items. Those bases do not match.
+- **Flat shares and net interest/other.** Both stay at the origin value for all
+  four quarters. Buybacks and a changing share count are not simulated.
+- **Trailing multiple on forward earnings.** The P/E is trailing four-quarter
+  EPS excluding special items. It is applied to the model's forward EPS, which
+  is a different earnings construct.
+- **Short window.** History runs FY2023Q1–FY2026Q2 (14 quarters). A cutoff keeps
+  only filings accepted by then, and fewer than four quarters is unsupported.
+  The 2024-07-23 origin therefore excludes the FY2024Q3 10-Q, accepted about
+  two hours after the earnings release.
+- **The outer envelope is not a probability.** It multiplies the EPS p10 by the
+  low multiple and the EPS p90 by the high multiple. Earnings-driven and
+  multiple-driven spreads are the separated pieces.
+
 ## Frontend (LON-11)
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without

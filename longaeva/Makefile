@@ -13,10 +13,10 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate valuation-multiples
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate valuation-multiples"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -102,6 +102,10 @@ evaluate:
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		-v "$(CURDIR)/data/evaluation:/out" \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli evaluate $(ARGS)'
+
+# Trailing P/E history (LON-25). Compose mounts data/ read-only, so this uses the host venv.
+valuation-multiples:
+	cd backend && .venv/bin/python -m longaeva_app.cli valuation-multiples --write
 
 # Passage extraction (LON-16). Example:
 # make extract ARGS='--source-key booking:release:0001075531-25-000050 --contains "Room nights grew"'
