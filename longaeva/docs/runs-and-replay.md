@@ -38,9 +38,10 @@ Only the two LON-3 fixtures are runnable:
 | 2024-07-23 | 2024-07-23T20:05:38Z | FY2024Q3 |
 | 2025-10-28 | 2025-10-28T20:06:03Z | FY2025Q4 |
 
-`cutoff_ts` may match the exact cutoff or that UTC date. Any other cutoff returns
-422 until LON-20 / LON-27 add a state builder. Interventions return 422 until
-LON-22.
+`cutoff_ts` may match the exact cutoff or that UTC date. Committed fixtures take
+precedence; other `origins.csv` candidate/prospective cutoffs are built by
+`companies/visa/state_builder.py` (LON-27). Unknown cutoffs still return 422.
+Interventions return 422 until LON-22.
 
 The run stores a copy of the numeric starting state and `starting_state_hash`.
 The source manifest lists fixture **input** documents as
@@ -110,7 +111,8 @@ archive of the same run returns 409. Forecast rows cannot be updated or deleted.
 - **LON-22:** intervention scenarios currently 422 on submit.
 - **LON-24:** `make submit-run` / `make replay` work from an empty database with
   the two bundled fixtures (no collector required).
-- **LON-27:** extend `resolve_fixture` / `resolve_run_inputs`; reuse `submit_run`
-  and `execute_run`.
-- **LON-32:** needs a starting state at 2026-07-28 (not in LON-3).
+- **LON-27 (done):** state builder + evaluation harness reuse `submit_run` /
+  `execute_run`; see [`docs/evaluation.md`](evaluation.md).
+- **LON-32:** the builder produces the FY2026Q3 prospective starting state at
+  2026-07-28.
 - **LON-37:** bundle run rows plus `paths.npz`.

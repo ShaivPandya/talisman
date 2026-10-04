@@ -75,8 +75,8 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   shock scales inherit that quantization.
 - **Cross-border seasonals assumed.** Only YoY cross-border growth is disclosed, so
   `cross_border_seasonal_q*` stay at 1.0 with `assumption=true`.
-- **Pooled set in runs.** Ensemble members and weights are in the calibration artifact;
-  submitted runs use the pooled parameter set until LON-27 records weights with each run.
+- **Pooled set in runs.** Submitted runs use the pooled parameter set. Evaluation
+  rows (LON-27) also record ensemble members and weights in `details`.
 
 ## Collector caveats (LON-13)
 
@@ -104,12 +104,27 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   `numerically_equivalent` (max relative difference ≤ 1e-9) instead of `exact_match`.
 - **Runs on uncalibrated defaults are not forecasts.** `POST /runs/{id}/forecasts`
   refuses all-assumption parameter sets.
-- **Two origins only.** Reconciled starting states exist for 2024-07-23 and
-  2025-10-28. Other cutoffs return 422 until LON-27 wires calibrated starts.
+- **Buildable origins.** Committed LON-3 fixtures cover 2024-07-23 and 2025-10-28;
+  other candidate/prospective cutoffs are built from as-of observations. FY2022Q3
+  and FY2022Q4 cannot be built (missing FY2021Q3 payments-volume level in the
+  parsed 10-K tables).
 - **Progress is status only.** There is no per-path progress stream; poll
   `GET /runs/{id}` (`queued` / `running` / `succeeded` / `failed`).
 - **Prospective vs retrospective** archive checks use the static
   `data/fixtures/origins.csv` target-release timestamps, not a live EDGAR fetch.
+
+## Evaluation (LON-27)
+
+- **Small n.** Sixteen scored origins (10 primary + 6 extension); report `n` with
+  every aggregate. Two extension origins are excluded for the FY2021Q3 volume gap.
+- **Driver approximations.** Payments-volume YoY uses a labeled one-quarter FX
+  adjustment on 10-Q levels; cross-border YoY has no disclosed level and uses a
+  persistence / model QoQ for the year-ago step.
+- **Whole-percent growth.** Reported driver growth rates are integers, so driver
+  error distributions inherit that quantization.
+- **Engine growth metrics are annualized QoQ.** Scoring recovers quarterly rates
+  before the history-anchored YoY transform; do not treat path
+  `payments_volume_growth_constant` as true YoY.
 
 ## Frontend (LON-11)
 

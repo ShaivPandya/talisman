@@ -296,6 +296,38 @@ def cmd_submit_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    """Run the Visa evaluation harness across origins (LON-27)."""
+    import json
+    from pathlib import Path
+
+    from longaeva_app.api.deps import get_artifact_store
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.harness import format_tables, report_to_dict, run_evaluation, write_report
+
+    factory = get_session_factory()
+    store = get_artifact_store()
+    report = run_evaluation(
+        factory,
+        window=str(args.window),
+        origin_dates=list(args.origin) or None,
+        n_paths=int(args.n_paths),
+        base_seed=int(args.seed),
+        use_cache=not bool(args.no_cache),
+        artifact_store=store,
+    )
+    if args.output:
+        write_report(report, Path(args.output))
+        print(f"wrote {args.output}", flush=True)
+    if args.json:
+        print(json.dumps(report_to_dict(report), indent=2, sort_keys=True))
+    else:
+        print(format_tables(report))
+    if any(item.error for item in report.origins):
+        return 1
+    return 0
+
+
 def cmd_replay(args: argparse.Namespace) -> int:
     """Replay a saved run and compare output hashes (LON-23 / UF-06)."""
     import json
@@ -481,7 +513,11 @@ def build_parser() -> argparse.ArgumentParser:
     calibrate_p.set_defaults(func=cmd_calibrate)
 
     submit = sub.add_parser("submit-run", help="Submit a Visa simulation run (LON-23)")
-    submit.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD (LON-3 fixture)")
+    submit.add_argument(
+        "--origin",
+        required=True,
+        help="Origin date YYYY-MM-DD (committed fixture or buildable origins.csv row)",
+    )
     submit.add_argument("--scenario", default=None, help="Scenario UUID; default: uncalibrated baseline")
     submit.add_argument("--seed", type=int, default=0, help="RNG seed")
     submit.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths")
@@ -496,6 +532,33 @@ def build_parser() -> argparse.ArgumentParser:
     submit.add_argument("--inline", action="store_true", help="Execute in this process instead of the worker")
     submit.add_argument("--wait", type=float, default=None, help="Seconds to wait for the worker")
     submit.set_defaults(func=cmd_submit_run)
+
+    evaluate_p = sub.add_parser(
+        "evaluate",
+        help="Score the full Visa model across eligible origins (LON-27)",
+    )
+    evaluate_p.add_argument(
+        "--origin",
+        action="append",
+        default=[],
+        help="Origin date YYYY-MM-DD (repeatable; default: all scored candidates)",
+    )
+    evaluate_p.add_argument(
+        "--window",
+        choices=("all", "primary", "extension"),
+        default="all",
+        help="Origin window filter",
+    )
+    evaluate_p.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths per origin")
+    evaluate_p.add_argument("--seed", type=int, default=27000, help="Base seed (paired per origin)")
+    evaluate_p.add_argument("--output", default=None, help="Write results JSON to this path")
+    evaluate_p.add_argument("--json", action="store_true", help="Print the full report as JSON")
+    evaluate_p.add_argument(
+        "--no-cache",
+        action="store_true",
+        help="Ignore the calibration cache under ARTIFACT_DIR/evaluation/calibration/",
+    )
+    evaluate_p.set_defaults(func=cmd_evaluate)
 
     replay = sub.add_parser("replay", help="Replay a saved run and compare hashes (LON-23)")
     replay.add_argument("run_id", help="Run UUID")

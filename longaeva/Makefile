@@ -93,6 +93,16 @@ submit-run:
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli submit-run $(ARGS)'
 
+# Evaluation harness (LON-27). Writes under data/evaluation via /out mount.
+# Example: make evaluate ARGS='--output /out/visa_full_model.json'
+evaluate:
+	mkdir -p data/evaluation
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		-v "$(CURDIR)/data/evaluation:/out" \
+		api sh -c 'alembic upgrade head && python -m longaeva_app.cli evaluate $(ARGS)'
+
 # Replay a saved run. Example: make replay RUN=<uuid>
 replay:
 	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \

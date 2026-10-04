@@ -44,7 +44,7 @@ def load_origin_fixtures() -> list[StartingStateFixture]:
 
 
 def resolve_fixture(cutoff_ts: datetime) -> StartingStateFixture:
-    """Pick a LON-3 fixture by exact cutoff timestamp, then by UTC date."""
+    """Pick a LON-3 fixture by exact cutoff, then UTC date, else build (LON-27)."""
     cutoff = cutoff_ts.astimezone(UTC) if cutoff_ts.tzinfo else cutoff_ts.replace(tzinfo=UTC)
     fixtures = load_origin_fixtures()
     for fixture in fixtures:
@@ -53,23 +53,39 @@ def resolve_fixture(cutoff_ts: datetime) -> StartingStateFixture:
     date_matches = [fixture for fixture in fixtures if fixture.origin_date == cutoff.date()]
     if len(date_matches) == 1:
         return date_matches[0]
-    known = ", ".join(f"{fx.origin_date.isoformat()} ({fx.cutoff_utc})" for fx in fixtures)
-    raise RunError(
-        f"No reconciled starting state for cutoff {utc_isoformat(cutoff)}. "
-        f"Known origins: {known}. Other origins wait on LON-20 / LON-27.",
-        status_code=422,
-    )
+    from longaeva_app.companies.visa.state_builder import StateBuildError, build_fixture, buildable_origin_dates
+
+    try:
+        return build_fixture(cutoff)
+    except StateBuildError as exc:
+        known = ", ".join(f"{fx.origin_date.isoformat()} ({fx.cutoff_utc})" for fx in fixtures)
+        buildable = ", ".join(buildable_origin_dates())
+        raise RunError(
+            f"No reconciled starting state for cutoff {utc_isoformat(cutoff)}. "
+            f"Committed fixtures: {known}. Buildable origins: {buildable}. ({exc})",
+            status_code=422,
+        ) from exc
 
 
 def resolve_fixture_by_origin_date(origin_date: str) -> StartingStateFixture:
     for fixture in load_origin_fixtures():
         if fixture.origin_date.isoformat() == origin_date:
             return fixture
-    raise RunError(
-        f"Unknown origin date {origin_date!r}. Use one of "
-        f"{[fx.origin_date.isoformat() for fx in load_origin_fixtures()]}.",
-        status_code=422,
+    from longaeva_app.companies.visa.state_builder import (
+        StateBuildError,
+        build_fixture_for_origin_date,
+        buildable_origin_dates,
     )
+
+    try:
+        return build_fixture_for_origin_date(origin_date)
+    except StateBuildError as exc:
+        known = [fx.origin_date.isoformat() for fx in load_origin_fixtures()]
+        raise RunError(
+            f"Unknown origin date {origin_date!r}. Committed fixtures: {known}. "
+            f"Buildable origins: {buildable_origin_dates()}. ({exc})",
+            status_code=422,
+        ) from exc
 
 
 def starting_state_values(fixture: StartingStateFixture) -> dict[str, float]:

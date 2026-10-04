@@ -196,8 +196,8 @@ intervals clipped to `ParameterSpec` bounds.
 **Ensemble.** Members end at the origin: last 4 quarters, last 8 quarters, and full
 history from FY2018Q2. Weights are inverse MSE of one-step pseudo-OOS errors over the
 last four eligible quarters (Bates–Granger), normalized to sum to 1. The pooled set is
-a weight-average (geo-mean for seasonals; PSD projection for correlations). Runs today
-use the pooled set; recording members/weights with each evaluation run is LON-27.
+a weight-average (geo-mean for seasonals; PSD projection for correlations). Runs use
+the pooled set; each evaluation row (LON-27) also records ensemble members and weights.
 
 **Evidence.** Each parameter links to deterministic observation UUIDs
 (`observation_uuid_for` in `extract/visa_tables.py`) or `assumption=true` with a
@@ -264,8 +264,18 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
 - **LON-25:** valuation bridge consumes `operating_profit_ex_special_items` paths plus
   fixture `tax_rate` / `net_interest_other` / `diluted_shares`.
-- **LON-27:** record ensemble members and weights with each evaluation run; calibrate at
-  each origin; note that `payments_volume_growth_constant` is annualized QoQ growth, not
-  true YoY growth, for scoring.
-- **LON-32:** reuse the sensitivity harness for ablations.
+- **LON-27 (done):** evaluation harness calibrates at each origin, runs the full model,
+  scores levels and history-anchored YoY drivers, and records ensemble members/weights
+  per row. See [`docs/evaluation.md`](evaluation.md). Engine metric
+  `payments_volume_growth_constant` remains annualized QoQ; scoring recovers quarterly
+  rates before the YoY transform.
+- **LON-29 / LON-31:** reuse the harness with a different `model_variant` (baselines;
+  ablation switches); keep the same origins, actuals, seeds and metrics.
+- **LON-32:** the state builder produces the FY2026Q3 prospective start; reuse the
+  sensitivity harness for ablations.
+- **LON-33:** cite `data/evaluation/visa_full_model.json` with its `n` and exclusions.
+- **LON-36:** `GET /evaluation-results` needs `model_variant` / `config_hash` filters
+  and a higher limit (~800 rows per variant).
 - **LON-37:** load observations under the deterministic UUIDs so evidence links resolve.
+- **Parser follow-up:** extract FY2020/FY2021 10-K 12-month PV tables to recover
+  FY2022Q3 and FY2022Q4.

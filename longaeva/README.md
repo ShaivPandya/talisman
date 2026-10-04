@@ -280,6 +280,9 @@ an LLM. Details: [`docs/runs-and-replay.md`](docs/runs-and-replay.md).
 # Inline (no worker): creates an uncalibrated baseline if --scenario is omitted
 make submit-run ARGS='--origin 2024-07-23 --n-paths 64 --inline'
 
+# Any buildable origins.csv candidate also works (LON-27 state builder)
+make submit-run ARGS='--origin 2024-01-25 --n-paths 64 --inline'
+
 # Replay a saved run (LLM_PROVIDER unset)
 make replay RUN=<run-uuid>
 ```
@@ -293,8 +296,21 @@ API:
 | POST | `/runs/{id}/replay` |
 | POST | `/runs/{id}/forecasts` `{ "kind": "retrospective" \| "prospective" }` |
 
-Only the LON-3 origins `2024-07-23` and `2025-10-28` are runnable. Forecast archive
-is explicit and refuses uncalibrated defaults.
+Committed LON-3 fixtures and other buildable candidate/prospective origins are
+runnable. Forecast archive is explicit and refuses uncalibrated defaults.
+
+## Evaluation (LON-27)
+
+Score the full model across eligible origins: next-quarter levels and drivers,
+80% coverage, CRPS/WIS, plus a separate four-quarter table. Details:
+[`docs/evaluation.md`](docs/evaluation.md).
+
+```bash
+make evaluate ARGS='--output /out/visa_full_model.json'
+make evaluate ARGS='--origin 2024-07-23 --origin 2025-10-28 --n-paths 256 --json'
+```
+
+Committed results: `data/evaluation/visa_full_model.json` (16 scored, 2 excluded).
 
 ## Collector (LON-13)
 
