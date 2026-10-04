@@ -677,6 +677,84 @@ def cmd_pair_run(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_rules_list(_args: argparse.Namespace) -> int:
+    """Print the code-defined mapping-rule registry. Does not touch the database."""
+    from longaeva_app.review.rules import REGISTRY
+
+    for spec in REGISTRY:
+        target = spec.target_parameter or "-"
+        print(f"{spec.rule_key}\tv{spec.version}\t{spec.kind}\t{spec.source_family}\t{spec.input_type}\t{target}")
+    return 0
+
+
+def cmd_apply_rules(args: argparse.Namespace) -> int:
+    """Preview or apply mapping rules for one Visa origin (LON-21)."""
+    from sqlalchemy import select
+
+    from longaeva_app.db.models import ParameterSet, Scenario
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.review.apply import ApplyError, apply_rules, preview_rules
+    from longaeva_app.review.gate_fixtures import load_gate_fixtures
+    from longaeva_app.review.rules import RuleRegistryError
+    from longaeva_app.review.service import ReviewError
+    from longaeva_app.runs.inputs import ensure_default_baseline, parse_aware_utc, resolve_fixture_by_origin_date
+
+    fixture = resolve_fixture_by_origin_date(args.origin)
+    cutoff = parse_aware_utc(fixture.cutoff_utc)
+    families = list(args.families) if args.families else None
+    factory = get_session_factory()
+    try:
+        with factory() as session:
+            if args.load_gate_fixtures:
+                load_gate_fixtures(session, accept=True, families=set(families) if families else None)
+                session.commit()
+            if args.parameter_set_id:
+                parameter_set = session.get(ParameterSet, uuid.UUID(args.parameter_set_id))
+                if parameter_set is None:
+                    print(f"Parameter set {args.parameter_set_id} not found")
+                    return 1
+            else:
+                parameter_set = session.scalars(
+                    select(ParameterSet)
+                    .join(Scenario, Scenario.parameter_set_id == ParameterSet.id)
+                    .where(Scenario.name == "calibrated")
+                    .where(Scenario.company == "visa")
+                    .where(ParameterSet.cutoff_ts == cutoff)
+                    .order_by(ParameterSet.created_at.desc())
+                ).first()
+                if parameter_set is None:
+                    scenario = ensure_default_baseline(session, cutoff_ts=cutoff)
+                    session.flush()
+                    parameter_set = session.get(ParameterSet, scenario.parameter_set_id)
+            if parameter_set is None:
+                print("No parameter set for that origin")
+                return 1
+            if args.dry_run:
+                result = preview_rules(
+                    session,
+                    parameter_set.id,
+                    None,
+                    families,
+                    decided_by=args.decided_by,
+                    rationale=args.rationale,
+                )
+            else:
+                result = apply_rules(
+                    session,
+                    parameter_set.id,
+                    None,
+                    families,
+                    decided_by=args.decided_by,
+                    rationale=args.rationale,
+                )
+                session.commit()
+            print(json.dumps(result.as_dict(), indent=2, sort_keys=True))
+            return 0
+    except (ApplyError, ReviewError, RuleRegistryError) as exc:
+        print(exc.message if hasattr(exc, "message") else str(exc))
+        return 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -899,6 +977,29 @@ def build_parser() -> argparse.ArgumentParser:
     replay.add_argument("run_id", help="Run UUID")
     replay.add_argument("--json", action="store_true", help="Print the full replay report as JSON")
     replay.set_defaults(func=cmd_replay)
+
+    rules_list = sub.add_parser("rules-list", help="Print the mapping-rule registry (LON-21)")
+    rules_list.set_defaults(func=cmd_rules_list)
+
+    apply_p = sub.add_parser("apply-rules", help="Apply mapping rules to a Visa parameter set (LON-21)")
+    apply_p.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD")
+    apply_p.add_argument(
+        "--parameter-set-id", default=None, help="Parameter set UUID (default: calibrated or baseline)"
+    )
+    apply_p.add_argument(
+        "--load-gate-fixtures",
+        action="store_true",
+        help="Load and accept LON-4/LON-5/LON-8 fixtures before applying",
+    )
+    apply_p.add_argument("--families", action="append", default=[], help="Source family filter (repeatable)")
+    apply_p.add_argument("--dry-run", action="store_true", help="Preview only; do not write a child set")
+    apply_p.add_argument("--decided-by", default="cli", help="Name recorded on parameter updates")
+    apply_p.add_argument(
+        "--rationale",
+        default="Applied the mapping-rule registry to reviewed observations published by the cutoff.",
+        help="Reviewer rationale recorded on parameter updates",
+    )
+    apply_p.set_defaults(func=cmd_apply_rules)
 
     return parser
 

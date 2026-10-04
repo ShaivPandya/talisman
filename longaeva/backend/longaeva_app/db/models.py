@@ -341,7 +341,13 @@ class ExtractionCall(Base):
 
 class MappingRule(Base):
     __tablename__ = "mapping_rule"
-    __table_args__ = (UniqueConstraint("rule_key", "version", name="uq_mapping_rule_key_version"),)
+    __table_args__ = (
+        UniqueConstraint("rule_key", "version", name="uq_mapping_rule_key_version"),
+        CheckConstraint(
+            "kind IN ('estimated', 'analyst_range', 'context')",
+            name="kind",
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
@@ -351,9 +357,18 @@ class MappingRule(Base):
     rule_key: Mapped[str] = mapped_column(Text, nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     input_type: Mapped[str] = mapped_column(Text, nullable=False)
-    target_parameter: Mapped[str] = mapped_column(Text, nullable=False)
+    target_parameter: Mapped[str | None] = mapped_column(Text, nullable=True)
     transform: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    kind: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="analyst_range",
+        server_default=text("'analyst_range'"),
+    )
+    source_family: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default=text("''"))
+    value_test: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default=text("''"))
+    definition_hash: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default=text("''"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -413,6 +428,59 @@ class ParameterUpdate(Base):
     after_value: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     size: Mapped[float | None] = mapped_column(Float, nullable=True)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
+class ParameterSetContext(Base):
+    """An observation that was considered and did not change the parameter set (LON-21)."""
+
+    __tablename__ = "parameter_set_context"
+    __table_args__ = (
+        UniqueConstraint(
+            "parameter_set_id",
+            "observation_id",
+            name="uq_parameter_set_context_set_observation",
+        ),
+        Index("ix_parameter_set_context_parameter_set_id", "parameter_set_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    parameter_set_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "parameter_set.id",
+            ondelete="CASCADE",
+            name="fk_parameter_set_context_parameter_set_id_parameter_set",
+        ),
+        nullable=False,
+    )
+    observation_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "observation.id",
+            ondelete="CASCADE",
+            name="fk_parameter_set_context_observation_id_observation",
+        ),
+        nullable=False,
+    )
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    rule_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "mapping_rule.id",
+            ondelete="SET NULL",
+            name="fk_parameter_set_context_rule_id_mapping_rule",
+        ),
+        nullable=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

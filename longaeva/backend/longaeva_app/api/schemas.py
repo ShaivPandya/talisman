@@ -365,9 +365,13 @@ class MappingRuleRead(BaseModel):
     rule_key: str
     version: int
     input_type: str
-    target_parameter: str
+    target_parameter: str | None = None
     transform: dict[str, Any]
     rationale: str
+    kind: str
+    source_family: str
+    value_test: str
+    definition_hash: str
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -382,6 +386,59 @@ class ParameterUpdateRead(BaseModel):
     after_value: dict[str, Any] | None = None
     size: float | None = None
     rationale: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ProposedUpdateRead(StrictModel):
+    target_parameter: str
+    rule_key: str
+    rule_version: int
+    rule_id: uuid.UUID | None = None
+    observation_id: uuid.UUID
+    before_value: dict[str, Any]
+    after_value: dict[str, Any]
+    size: float
+    rationale: str
+    assumption: bool
+
+
+class ContextItemRead(StrictModel):
+    observation_id: uuid.UUID
+    reason: str
+    rule_key: str | None = None
+    rule_id: uuid.UUID | None = None
+
+
+class RuleApplicationRequest(StrictModel):
+    observation_ids: list[uuid.UUID] | None = None
+    families: list[str] | None = None
+    decided_by: str = Field(min_length=1)
+    rationale: str = Field(min_length=1)
+
+
+class RuleApplicationRead(StrictModel):
+    parameter_set_id: uuid.UUID
+    result_parameter_set_id: uuid.UUID | None = None
+    changed: bool
+    created: bool
+    updates: list[ProposedUpdateRead]
+    context: list[ContextItemRead]
+
+
+class ParameterUpdateDetailRead(BaseModel):
+    id: uuid.UUID
+    rule_id: uuid.UUID | None = None
+    rule_key: str | None = None
+    rule_version: int | None = None
+    parameter_set_id: uuid.UUID
+    target_parameter: str
+    before_value: dict[str, Any] | None = None
+    after_value: dict[str, Any] | None = None
+    size: float | None = None
+    rationale: str
+    observation_ids: list[uuid.UUID]
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -674,6 +731,11 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     MappingRuleCreate,
     MappingRuleRead,
     ParameterUpdateRead,
+    ParameterUpdateDetailRead,
+    RuleApplicationRequest,
+    RuleApplicationRead,
+    ProposedUpdateRead,
+    ContextItemRead,
     ScenarioCreate,
     ScenarioRead,
     PairRunsCreate,

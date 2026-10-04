@@ -31,6 +31,7 @@ TRUNCATE TABLE
     scenario,
     parameter_update_observation,
     parameter_update,
+    parameter_set_context,
     parameter_set,
     mapping_rule,
     review_decision,

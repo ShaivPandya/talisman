@@ -16,7 +16,7 @@ from longaeva_app.db import models as _models  # noqa: F401 — register models
 from longaeva_app.db.base import Base
 
 BACKEND_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-HEAD_REVISION = "0006_scenario_pairs"
+HEAD_REVISION = "0007_mapping_rules"
 PREV_REVISION = "0001_job_queue"
 
 CORE_TABLES = {
@@ -28,6 +28,7 @@ CORE_TABLES = {
     "extraction_call",
     "mapping_rule",
     "parameter_set",
+    "parameter_set_context",
     "parameter_update",
     "parameter_update_observation",
     "scenario",

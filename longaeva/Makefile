@@ -13,10 +13,10 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -110,6 +110,14 @@ extract:
 	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli extract $(ARGS)'
+
+# Apply mapping rules (LON-21). Example:
+# make apply-rules ARGS='--origin 2024-07-23 --load-gate-fixtures --dry-run'
+apply-rules:
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		api sh -c 'alembic upgrade head && python -m longaeva_app.cli apply-rules $(ARGS)'
 
 # Paired mix-shift and spend-reduction runs (LON-22).
 # Example: make pair-run ARGS='--origin 2024-07-23 --n-paths 5000 --inline'

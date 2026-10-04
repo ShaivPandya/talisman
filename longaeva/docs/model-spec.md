@@ -266,8 +266,10 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
 - **LON-14:** parsers must reproduce LON-3 fixtures; engine consumes the same field names.
 - **LON-20 (done):** chronological fit, ensemble weights, evidence UUIDs, sensitivity
   table, and pandemic exclusion are implemented; see §6.1.
-- **LON-21:** mapping rules update parameter sets (including the share assumption) with
-  provenance; assumption flags already declared on the two assumption parameters.
+- **LON-21 (done):** mapping rules turn reviewed Booking and Census observations into
+  a child parameter set with `parameter_update` provenance. Estimated rules fall back
+  to an analyst range until 12 aligned quarters exist. Qualitative observations and
+  the second-wave families stay context. See [`docs/mapping-rules.md`](mapping-rules.md).
 - **LON-22 (done):** `mix_shift_conserving_total` and `total_spend_reduction`, paired
   runs on one seed, path-wise comparison from saved `paths.npz`, and model-conditional
   attribution. See [`docs/scenarios.md`](scenarios.md). LON-34 should chart the

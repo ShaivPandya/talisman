@@ -168,6 +168,26 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   `paths.npz`. Attribution re-simulates and returns 409 if the recomputed hash does
   not match the saved run.
 
+## Mapping rules (LON-21)
+
+- **Anchors and betas are analyst assumptions.** Booking uses an 8% room-nights anchor
+  and betas 0.2–0.4, which discount Booking's global mix. Census uses a 3% retail
+  anchor and betas 0.25–0.75. Neither pair is a fitted coefficient on the retained
+  history.
+- **US share is assumed.** Census is scaled by 0.45, an explicit assumption for the
+  US share of Visa volume. No observation parses that share. `payments_volume_nominal_us`
+  is US dollars, not the United States.
+- **Estimated rules are on the fallback.** Booking and Census each have fewer than 12
+  aligned quarters in the retained fixtures, so the OLS fitter records
+  `after_value.fallback=true` and flags the update as an assumption. The fitter runs
+  once 12 quarters are published at or before the cutoff, with no rule-code change.
+- **Guidance widens the range.** A low–high outlook uses the midpoint as the point
+  update and the half-width in the recorded range. That width is not a probability.
+- **The first apply wins the update text.** Re-applying the same child hash does not
+  rewrite `parameter_update.rationale`.
+- **Context is not a coefficient.** Airline, retailer, and processor observations, plus
+  Booking gross bookings and qualitative statements, do not change the parameter set.
+
 ## Frontend (LON-11)
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without

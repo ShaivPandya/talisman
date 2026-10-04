@@ -177,6 +177,49 @@
         "title": "ComparisonRow",
         "type": "object"
       },
+      "ContextItemRead": {
+        "additionalProperties": false,
+        "properties": {
+          "observation_id": {
+            "format": "uuid",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "rule_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Key"
+          }
+        },
+        "required": [
+          "observation_id",
+          "reason"
+        ],
+        "title": "ContextItemRead",
+        "type": "object"
+      },
       "ContributionRead": {
         "properties": {
           "after": {
@@ -1081,6 +1124,10 @@
             "title": "Created At",
             "type": "string"
           },
+          "definition_hash": {
+            "title": "Definition Hash",
+            "type": "string"
+          },
           "id": {
             "format": "uuid",
             "title": "Id",
@@ -1088,6 +1135,10 @@
           },
           "input_type": {
             "title": "Input Type",
+            "type": "string"
+          },
+          "kind": {
+            "title": "Kind",
             "type": "string"
           },
           "rationale": {
@@ -1098,14 +1149,29 @@
             "title": "Rule Key",
             "type": "string"
           },
-          "target_parameter": {
-            "title": "Target Parameter",
+          "source_family": {
+            "title": "Source Family",
             "type": "string"
+          },
+          "target_parameter": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Parameter"
           },
           "transform": {
             "additionalProperties": true,
             "title": "Transform",
             "type": "object"
+          },
+          "value_test": {
+            "title": "Value Test",
+            "type": "string"
           },
           "version": {
             "title": "Version",
@@ -1117,9 +1183,12 @@
           "rule_key",
           "version",
           "input_type",
-          "target_parameter",
           "transform",
           "rationale",
+          "kind",
+          "source_family",
+          "value_test",
+          "definition_hash",
           "created_at"
         ],
         "title": "MappingRuleRead",
@@ -1963,6 +2032,120 @@
         "title": "ParameterSetRead",
         "type": "object"
       },
+      "ParameterUpdateDetailRead": {
+        "properties": {
+          "after_value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Value"
+          },
+          "before_value": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Value"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "observation_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "parameter_set_id": {
+            "format": "uuid",
+            "title": "Parameter Set Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "rule_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Key"
+          },
+          "rule_version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Version"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "target_parameter": {
+            "title": "Target Parameter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "parameter_set_id",
+          "target_parameter",
+          "rationale",
+          "observation_ids",
+          "created_at"
+        ],
+        "title": "ParameterUpdateDetailRead",
+        "type": "object"
+      },
       "ParameterUpdateRead": {
         "properties": {
           "after_value": {
@@ -2048,6 +2231,75 @@
           "created_at"
         ],
         "title": "ParameterUpdateRead",
+        "type": "object"
+      },
+      "ProposedUpdateRead": {
+        "additionalProperties": false,
+        "properties": {
+          "after_value": {
+            "additionalProperties": true,
+            "title": "After Value",
+            "type": "object"
+          },
+          "assumption": {
+            "title": "Assumption",
+            "type": "boolean"
+          },
+          "before_value": {
+            "additionalProperties": true,
+            "title": "Before Value",
+            "type": "object"
+          },
+          "observation_id": {
+            "format": "uuid",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "rule_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rule Id"
+          },
+          "rule_key": {
+            "title": "Rule Key",
+            "type": "string"
+          },
+          "rule_version": {
+            "title": "Rule Version",
+            "type": "integer"
+          },
+          "size": {
+            "title": "Size",
+            "type": "number"
+          },
+          "target_parameter": {
+            "title": "Target Parameter",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_parameter",
+          "rule_key",
+          "rule_version",
+          "observation_id",
+          "before_value",
+          "after_value",
+          "size",
+          "rationale",
+          "assumption"
+        ],
+        "title": "ProposedUpdateRead",
         "type": "object"
       },
       "QuarterEffectRead": {
@@ -2288,6 +2540,109 @@
           "decided_by"
         ],
         "title": "ReviewDecisionRead",
+        "type": "object"
+      },
+      "RuleApplicationRead": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "context": {
+            "items": {
+              "$ref": "#/components/schemas/ContextItemRead"
+            },
+            "title": "Context",
+            "type": "array"
+          },
+          "created": {
+            "title": "Created",
+            "type": "boolean"
+          },
+          "parameter_set_id": {
+            "format": "uuid",
+            "title": "Parameter Set Id",
+            "type": "string"
+          },
+          "result_parameter_set_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Result Parameter Set Id"
+          },
+          "updates": {
+            "items": {
+              "$ref": "#/components/schemas/ProposedUpdateRead"
+            },
+            "title": "Updates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parameter_set_id",
+          "changed",
+          "created",
+          "updates",
+          "context"
+        ],
+        "title": "RuleApplicationRead",
+        "type": "object"
+      },
+      "RuleApplicationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "decided_by": {
+            "minLength": 1,
+            "title": "Decided By",
+            "type": "string"
+          },
+          "families": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Families"
+          },
+          "observation_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Ids"
+          },
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decided_by",
+          "rationale"
+        ],
+        "title": "RuleApplicationRequest",
         "type": "object"
       },
       "RunCreate": {
@@ -3562,6 +3917,74 @@
         ]
       }
     },
+    "/mapping-rules": {
+      "get": {
+        "operationId": "list_mapping_rules_mapping_rules_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MappingRuleRead"
+                  },
+                  "title": "Response List Mapping Rules Mapping Rules Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Mapping Rules",
+        "tags": [
+          "mapping-rules"
+        ]
+      }
+    },
+    "/mapping-rules/{rule_id}": {
+      "get": {
+        "operationId": "get_mapping_rule_mapping_rules__rule_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rule_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rule Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MappingRuleRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Mapping Rule",
+        "tags": [
+          "mapping-rules"
+        ]
+      }
+    },
     "/observations": {
       "get": {
         "operationId": "list_observations_observations_get",
@@ -3993,6 +4416,253 @@
           }
         },
         "summary": "Get Parameter Set",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/apply-rules": {
+      "post": {
+        "operationId": "apply_parameter_rules_parameter_sets__parameter_set_id__apply_rules_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleApplicationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apply Parameter Rules",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/context": {
+      "get": {
+        "operationId": "list_parameter_context_parameter_sets__parameter_set_id__context_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ContextItemRead"
+                  },
+                  "title": "Response List Parameter Context Parameter Sets  Parameter Set Id  Context Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Parameter Context",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/lineage": {
+      "get": {
+        "operationId": "get_parameter_lineage_parameter_sets__parameter_set_id__lineage_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ParameterSetRead"
+                  },
+                  "title": "Response Get Parameter Lineage Parameter Sets  Parameter Set Id  Lineage Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parameter Lineage",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/rule-preview": {
+      "post": {
+        "operationId": "preview_parameter_rules_parameter_sets__parameter_set_id__rule_preview_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuleApplicationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuleApplicationRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview Parameter Rules",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/updates": {
+      "get": {
+        "operationId": "list_parameter_updates_parameter_sets__parameter_set_id__updates_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ParameterUpdateDetailRead"
+                  },
+                  "title": "Response List Parameter Updates Parameter Sets  Parameter Set Id  Updates Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Parameter Updates",
         "tags": [
           "parameter-sets"
         ]

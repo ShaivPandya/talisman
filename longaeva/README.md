@@ -379,6 +379,27 @@ make pair-run ARGS='--origin 2024-07-23 --n-paths 5000 --inline'
 A mix shift leaves total payments volume equal to the baseline on every path.
 The forecast archive still refuses intervention runs. Charts are LON-34.
 
+## Mapping rules (LON-21)
+
+Reviewed Booking and Census observations can create a child parameter set.
+Estimated rules fall back to an analyst range until 12 aligned quarters exist.
+Airline, retailer, processor, qualitative, and gross-bookings observations are
+listed as context and do not change the set. Details:
+[`docs/mapping-rules.md`](docs/mapping-rules.md).
+
+```bash
+make apply-rules ARGS='--origin 2024-07-23 --load-gate-fixtures --dry-run'
+```
+
+| Method | Path |
+| --- | --- |
+| GET | `/mapping-rules` and `/mapping-rules/{id}` |
+| POST | `/parameter-sets/{id}/rule-preview` (writes nothing) |
+| POST | `/parameter-sets/{id}/apply-rules` (201 new child, 200 unchanged or reused) |
+| GET | `/parameter-sets/{id}/updates` |
+| GET | `/parameter-sets/{id}/context` |
+| GET | `/parameter-sets/{id}/lineage` |
+
 ## Seed
 
 ```bash

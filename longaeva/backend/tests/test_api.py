@@ -20,7 +20,7 @@ def test_health_ok(client: TestClient) -> None:
     body = response.json()
     assert body["status"] == "ok"
     assert body["database"] == "ok"
-    assert body["alembic_revision"] == "0006_scenario_pairs"
+    assert body["alembic_revision"] == "0007_mapping_rules"
 
 
 @pytest.mark.db
