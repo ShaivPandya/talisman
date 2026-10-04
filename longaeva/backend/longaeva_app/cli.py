@@ -300,33 +300,69 @@ def cmd_submit_run(args: argparse.Namespace) -> int:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    """Run the Visa evaluation harness across origins (LON-27)."""
+    """Run the Visa evaluation harness, or a LON-29 baseline, across origins."""
     import json
     from pathlib import Path
 
     from longaeva_app.api.deps import get_artifact_store
     from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.baselines import BASELINE_VARIANTS, format_comparison, run_baseline
     from longaeva_app.evaluation.harness import format_tables, report_to_dict, run_evaluation, write_report
 
+    variant = str(args.variant)
+    if args.output and variant == "all":
+        print("--output writes one variant; use --output-dir with --variant all", flush=True)
+        return 2
+    variants = ["full_model", *BASELINE_VARIANTS] if variant == "all" else [variant]
     factory = get_session_factory()
     store = get_artifact_store()
-    report = run_evaluation(
-        factory,
-        window=str(args.window),
-        origin_dates=list(args.origin) or None,
-        n_paths=int(args.n_paths),
-        base_seed=int(args.seed),
-        use_cache=not bool(args.no_cache),
-        artifact_store=store,
-    )
-    if args.output:
-        write_report(report, Path(args.output))
-        print(f"wrote {args.output}", flush=True)
+    reports = []
+    window = str(args.window)
+    origin_dates = list(args.origin) or None
+    n_paths = int(args.n_paths)
+    base_seed = int(args.seed)
+    use_cache = not bool(args.no_cache)
+    for name in variants:
+        if name == "full_model":
+            report = run_evaluation(
+                factory,
+                window=window,
+                origin_dates=origin_dates,
+                n_paths=n_paths,
+                base_seed=base_seed,
+                use_cache=use_cache,
+                artifact_store=store,
+            )
+        else:
+            report = run_baseline(
+                name,
+                factory,
+                window=window,
+                origin_dates=origin_dates,
+                n_paths=n_paths,
+                base_seed=base_seed,
+                use_cache=use_cache,
+                artifact_store=store,
+            )
+        reports.append(report)
+        if args.output:
+            write_report(report, Path(args.output))
+            print(f"wrote {args.output}", flush=True)
+        if args.output_dir:
+            path = Path(args.output_dir) / f"visa_{name}.json"
+            write_report(report, path)
+            print(f"wrote {path}", flush=True)
     if args.json:
-        print(json.dumps(report_to_dict(report), indent=2, sort_keys=True))
+        payload = report_to_dict(reports[0]) if len(reports) == 1 else [report_to_dict(item) for item in reports]
+        print(json.dumps(payload, indent=2, sort_keys=True))
+    elif len(reports) == 1:
+        print(format_tables(reports[0]))
     else:
-        print(format_tables(report))
-    if any(item.error for item in report.origins):
+        for item in reports:
+            print(format_tables(item))
+            print()
+        print(format_comparison(reports))
+    if any(origin.error for item in reports for origin in item.origins):
         return 1
     return 0
 
@@ -937,7 +973,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     evaluate_p = sub.add_parser(
         "evaluate",
-        help="Score the full Visa model across eligible origins (LON-27)",
+        help="Score the full Visa model or a baseline across eligible origins (LON-27, LON-29)",
     )
     evaluate_p.add_argument(
         "--origin",
@@ -953,7 +989,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_p.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths per origin")
     evaluate_p.add_argument("--seed", type=int, default=27000, help="Base seed (paired per origin)")
-    evaluate_p.add_argument("--output", default=None, help="Write results JSON to this path")
+    evaluate_p.add_argument(
+        "--variant",
+        choices=("full_model", "seasonal_trend", "financial_only", "guidance", "all"),
+        default="full_model",
+        help="full_model, one baseline, or all (full model plus the three baselines)",
+    )
+    evaluate_p.add_argument("--output", default=None, help="Write one variant's results JSON to this path")
+    evaluate_p.add_argument(
+        "--output-dir",
+        default=None,
+        help="Write visa_<variant>.json for each variant that ran",
+    )
     evaluate_p.add_argument("--json", action="store_true", help="Print the full report as JSON")
     evaluate_p.add_argument(
         "--no-cache",

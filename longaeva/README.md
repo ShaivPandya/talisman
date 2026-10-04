@@ -299,18 +299,21 @@ API:
 Committed LON-3 fixtures and other buildable candidate/prospective origins are
 runnable. Forecast archive is explicit and refuses uncalibrated defaults.
 
-## Evaluation (LON-27)
+## Evaluation (LON-27, LON-29)
 
-Score the full model across eligible origins: next-quarter levels and drivers,
-80% coverage, CRPS/WIS, plus a separate four-quarter table. Details:
-[`docs/evaluation.md`](docs/evaluation.md).
+Score the full model, or a baseline, across eligible origins: next-quarter levels
+and drivers, 80% coverage, CRPS/WIS, plus a separate four-quarter table. Baselines
+are seasonal/trend, financial-only (no external updates) and company guidance.
+Details: [`docs/evaluation.md`](docs/evaluation.md).
 
 ```bash
-make evaluate ARGS='--output /out/visa_full_model.json'
+make evaluate ARGS='--variant all --output-dir /out'
+make evaluate ARGS='--variant full_model --output /out/visa_full_model.json'
 make evaluate ARGS='--origin 2024-07-23 --origin 2025-10-28 --n-paths 256 --json'
 ```
 
-Committed results: `data/evaluation/visa_full_model.json` (16 scored, 2 excluded).
+Committed results, 16 scored and 2 excluded: `data/evaluation/visa_full_model.json`,
+`visa_seasonal_trend.json`, `visa_financial_only.json`, `visa_guidance.json`.
 
 ## Collector (LON-13)
 

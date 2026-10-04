@@ -1,0 +1,695 @@
+{
+  "aggregates": {
+    "extension": {
+      "cross_border_ex_intra_europe_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "net_revenue": {
+        "bias": -134.315,
+        "coverage": "0 of 2",
+        "covered_k": 0,
+        "covered_n": 2,
+        "mae": 134.315,
+        "mape": 0.01677011803,
+        "mean_crps": 134.315,
+        "mean_wis": 134.315,
+        "n": 2
+      },
+      "operating_profit_ex_special_items": {
+        "bias": -143.2317068,
+        "coverage": "0 of 2",
+        "covered_k": 0,
+        "covered_n": 2,
+        "mae": 143.2317068,
+        "mape": 0.02634851338,
+        "mean_crps": 143.2317068,
+        "mean_wis": 143.2317068,
+        "n": 2
+      },
+      "payments_volume_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "processed_transactions_growth": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      }
+    },
+    "overall": {
+      "cross_border_ex_intra_europe_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "net_revenue": {
+        "bias": -193.2959368,
+        "coverage": "5 of 12",
+        "covered_k": 5,
+        "covered_n": 12,
+        "mae": 216.3011053,
+        "mape": 0.0214023348,
+        "mean_crps": 161.9616278,
+        "mean_wis": 145.4891465,
+        "n": 12
+      },
+      "operating_profit_ex_special_items": {
+        "bias": -144.5367603,
+        "coverage": "6 of 12",
+        "covered_k": 6,
+        "covered_n": 12,
+        "mae": 168.4156205,
+        "mape": 0.02514593547,
+        "mean_crps": 130.5276889,
+        "mean_wis": 120.2927624,
+        "n": 12
+      },
+      "payments_volume_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "processed_transactions_growth": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      }
+    },
+    "primary": {
+      "cross_border_ex_intra_europe_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "net_revenue": {
+        "bias": -205.0921241,
+        "coverage": "5 of 10",
+        "covered_k": 5,
+        "covered_n": 10,
+        "mae": 232.6983264,
+        "mape": 0.02232877816,
+        "mean_crps": 167.4909533,
+        "mean_wis": 147.7239758,
+        "n": 10
+      },
+      "operating_profit_ex_special_items": {
+        "bias": -144.797771,
+        "coverage": "6 of 10",
+        "covered_k": 6,
+        "covered_n": 10,
+        "mae": 173.4524032,
+        "mape": 0.02490541989,
+        "mean_crps": 127.9868853,
+        "mean_wis": 115.7049735,
+        "n": 10
+      },
+      "payments_volume_growth_constant": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      },
+      "processed_transactions_growth": {
+        "bias": null,
+        "coverage": "0 of 0",
+        "covered_k": 0,
+        "covered_n": 0,
+        "mae": null,
+        "mape": null,
+        "mean_crps": null,
+        "mean_wis": null,
+        "n": 0
+      }
+    }
+  },
+  "config": {
+    "base_seed": 27000,
+    "baseline": {
+      "estimates": "consensus unavailable (no licensed free historical source)",
+      "label": "company guidance",
+      "method": "guidance_midpoint_v1",
+      "residual_rule": "guidance_errors_if_n_ge_4_else_seasonal_trend"
+    },
+    "code_version": "0.1.0+cf93263a1d638ffa",
+    "coverage_level": 0.8,
+    "crps": "empirical_sample_sorted",
+    "driver_method": "guidance_midpoint_v1",
+    "include_pandemic": false,
+    "manifest_hash": "f8bb867fb01eddd95c85571a04026cd5ac76e40301772214a26386bacb7699b8",
+    "metrics": [
+      "signed_error",
+      "abs_error",
+      "pct_error",
+      "covered_80",
+      "crps",
+      "wis"
+    ],
+    "model_variant": "guidance",
+    "n_paths": 5000,
+    "n_quarters": 4,
+    "observations_hash": "2e343e3ed87b5b75039c53a303b0aea6c113b9249f74381f5a853d3407624be8",
+    "origin_dates": [
+      "2022-01-27",
+      "2022-04-26",
+      "2023-01-26",
+      "2023-04-25",
+      "2023-07-25",
+      "2023-10-24",
+      "2024-01-25",
+      "2024-04-23",
+      "2024-07-23",
+      "2024-10-29",
+      "2025-01-30",
+      "2025-04-29",
+      "2025-07-29",
+      "2025-10-28",
+      "2026-01-29",
+      "2026-04-28"
+    ],
+    "origins_hash": "0397f08bf6471a0baef91b3586dbceb66a97dc3a1832e50a0968760fa1adc09d",
+    "quantiles": [
+      0.05,
+      0.1,
+      0.25,
+      0.5,
+      0.75,
+      0.9,
+      0.95
+    ],
+    "scoring_bases": {
+      "cross_border_ex_intra_europe_growth_constant": "constant_dollar",
+      "net_revenue": "gaap",
+      "operating_profit_ex_special_items": "ex_special_items",
+      "payments_volume_growth_constant": "constant_dollar",
+      "processed_transactions_growth": "count"
+    },
+    "seed_policy": "base_seed + stable hash of origin_date",
+    "suite_version": "lon29-v1",
+    "switches": {},
+    "wis": "median_plus_50_80_90_intervals_div_k_plus_1"
+  },
+  "config_hash": "18146b2865659e92d333cf9298cfddbb70bb173586a647d44921862c2815c3bd",
+  "exclusions": [
+    {
+      "label": "FY2022Q3",
+      "origin_date": "2022-07-26",
+      "reason": "FY2021Q3 payments-volume level is not in the parsed observations (FY2020/FY2021 10-K 12-month tables not extracted); starting state cannot be built"
+    },
+    {
+      "label": "FY2022Q4",
+      "origin_date": "2022-10-25",
+      "reason": "FY2021Q3 payments-volume level is not in the parsed observations (FY2020/FY2021 10-K 12-month tables not extracted); starting state cannot be built"
+    }
+  ],
+  "four_quarter": {
+    "cross_border_ex_intra_europe_growth_constant": {
+      "bias": null,
+      "coverage": "0 of 0",
+      "covered_k": 0,
+      "covered_n": 0,
+      "mae": null,
+      "mape": null,
+      "mean_crps": null,
+      "mean_wis": null,
+      "n": 0
+    },
+    "net_revenue_sum": {
+      "bias": null,
+      "coverage": "0 of 0",
+      "covered_k": 0,
+      "covered_n": 0,
+      "mae": null,
+      "mape": null,
+      "mean_crps": null,
+      "mean_wis": null,
+      "n": 0
+    },
+    "operating_profit_ex_special_items_sum": {
+      "bias": null,
+      "coverage": "0 of 0",
+      "covered_k": 0,
+      "covered_n": 0,
+      "mae": null,
+      "mape": null,
+      "mean_crps": null,
+      "mean_wis": null,
+      "n": 0
+    },
+    "payments_volume_growth_constant": {
+      "bias": null,
+      "coverage": "0 of 0",
+      "covered_k": 0,
+      "covered_n": 0,
+      "mae": null,
+      "mape": null,
+      "mean_crps": null,
+      "mean_wis": null,
+      "n": 0
+    },
+    "processed_transactions_growth": {
+      "bias": null,
+      "coverage": "0 of 0",
+      "covered_k": 0,
+      "covered_n": 0,
+      "mae": null,
+      "mape": null,
+      "mean_crps": null,
+      "mean_wis": null,
+      "n": 0
+    }
+  },
+  "n_excluded": 2,
+  "n_scored": 16,
+  "origins": [
+    {
+      "error": null,
+      "label": "FY2022Q1",
+      "n_rows": 10,
+      "origin_date": "2022-01-27",
+      "run_id": null,
+      "scores": {},
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2022Q2",
+      "n_rows": 10,
+      "origin_date": "2022-04-26",
+      "run_id": null,
+      "scores": {},
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2023Q1",
+      "n_rows": 24,
+      "origin_date": "2023-01-26",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 220.88,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 220.88,
+        "q1.net_revenue.median": 7764.12,
+        "q1.net_revenue.pct_error": 0.027661866,
+        "q1.net_revenue.wis": 220.88,
+        "q1.operating_profit_ex_special_items.abs_error": 220.0539362,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 220.0539362,
+        "q1.operating_profit_ex_special_items.median": 5183.946064,
+        "q1.operating_profit_ex_special_items.pct_error": 0.04072056554,
+        "q1.operating_profit_ex_special_items.wis": 220.0539362
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2023Q2",
+      "n_rows": 24,
+      "origin_date": "2023-04-25",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 47.75,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 47.75,
+        "q1.net_revenue.median": 8075.25,
+        "q1.net_revenue.pct_error": 0.00587837006,
+        "q1.net_revenue.wis": 47.75,
+        "q1.operating_profit_ex_special_items.abs_error": 66.40947748,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 66.40947748,
+        "q1.operating_profit_ex_special_items.median": 5478.590523,
+        "q1.operating_profit_ex_special_items.pct_error": 0.01197646122,
+        "q1.operating_profit_ex_special_items.wis": 66.40947748
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2023Q3",
+      "n_rows": 10,
+      "origin_date": "2023-07-25",
+      "run_id": null,
+      "scores": {},
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2023Q4",
+      "n_rows": 10,
+      "origin_date": "2023-10-24",
+      "run_id": null,
+      "scores": {},
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "extension"
+    },
+    {
+      "error": null,
+      "label": "FY2024Q1",
+      "n_rows": 24,
+      "origin_date": "2024-01-25",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 231.365304,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 153.2303361,
+        "q1.net_revenue.median": 8543.634696,
+        "q1.net_revenue.pct_error": 0.02636641641,
+        "q1.net_revenue.wis": 127.399106,
+        "q1.operating_profit_ex_special_items.abs_error": 223.6224113,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 177.571842,
+        "q1.operating_profit_ex_special_items.median": 5680.377589,
+        "q1.operating_profit_ex_special_items.pct_error": 0.03787642468,
+        "q1.operating_profit_ex_special_items.wis": 165.7305909
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2024Q2",
+      "n_rows": 24,
+      "origin_date": "2024-04-23",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 119.2805364,
+        "q1.net_revenue.covered_80": 1.0,
+        "q1.net_revenue.crps": 69.8212484,
+        "q1.net_revenue.median": 9019.280536,
+        "q1.net_revenue.pct_error": 0.01340230746,
+        "q1.net_revenue.wis": 61.96404093,
+        "q1.operating_profit_ex_special_items.abs_error": 128.5415707,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 82.91545667,
+        "q1.operating_profit_ex_special_items.median": 6101.541571,
+        "q1.operating_profit_ex_special_items.pct_error": 0.02152043708,
+        "q1.operating_profit_ex_special_items.wis": 68.31499472
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2024Q3",
+      "n_rows": 24,
+      "origin_date": "2024-07-23",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 60.5287014,
+        "q1.net_revenue.covered_80": 1.0,
+        "q1.net_revenue.crps": 51.73662657,
+        "q1.net_revenue.median": 9556.471299,
+        "q1.net_revenue.pct_error": 0.006293927566,
+        "q1.net_revenue.wis": 50.88282643,
+        "q1.operating_profit_ex_special_items.abs_error": 14.73159051,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 45.00580889,
+        "q1.operating_profit_ex_special_items.median": 6439.731591,
+        "q1.operating_profit_ex_special_items.pct_error": 0.002292854553,
+        "q1.operating_profit_ex_special_items.wis": 39.23881186
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2024Q4",
+      "n_rows": 24,
+      "origin_date": "2024-10-29",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 189.1409305,
+        "q1.net_revenue.covered_80": 1.0,
+        "q1.net_revenue.crps": 112.8152451,
+        "q1.net_revenue.median": 9320.859069,
+        "q1.net_revenue.pct_error": 0.01988863623,
+        "q1.net_revenue.wis": 97.07921328,
+        "q1.operating_profit_ex_special_items.abs_error": 138.372865,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 83.99402355,
+        "q1.operating_profit_ex_special_items.median": 6454.627135,
+        "q1.operating_profit_ex_special_items.pct_error": 0.02098784545,
+        "q1.operating_profit_ex_special_items.wis": 73.87240005
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2025Q1",
+      "n_rows": 24,
+      "origin_date": "2025-01-30",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 18.75047498,
+        "q1.net_revenue.covered_80": 1.0,
+        "q1.net_revenue.crps": 39.37103668,
+        "q1.net_revenue.median": 9612.750475,
+        "q1.net_revenue.pct_error": 0.001954395975,
+        "q1.net_revenue.wis": 35.81889271,
+        "q1.operating_profit_ex_special_items.abs_error": 55.41121297,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 46.89187521,
+        "q1.operating_profit_ex_special_items.median": 6467.588787,
+        "q1.operating_profit_ex_special_items.pct_error": 0.008494743672,
+        "q1.operating_profit_ex_special_items.wis": 46.3213627
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2025Q2",
+      "n_rows": 24,
+      "origin_date": "2025-04-29",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 293.2625044,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 204.5726068,
+        "q1.net_revenue.median": 9878.737496,
+        "q1.net_revenue.pct_error": 0.02883036811,
+        "q1.net_revenue.wis": 175.1733909,
+        "q1.operating_profit_ex_special_items.abs_error": 233.3943209,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 151.2201929,
+        "q1.operating_profit_ex_special_items.median": 6631.605679,
+        "q1.operating_profit_ex_special_items.pct_error": 0.03399771609,
+        "q1.operating_profit_ex_special_items.wis": 124.9668725
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2025Q3",
+      "n_rows": 24,
+      "origin_date": "2025-07-29",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 201.2104728,
+        "q1.net_revenue.covered_80": 1.0,
+        "q1.net_revenue.crps": 122.3241658,
+        "q1.net_revenue.median": 10522.78953,
+        "q1.net_revenue.pct_error": 0.01876263267,
+        "q1.net_revenue.wis": 103.5827511,
+        "q1.operating_profit_ex_special_items.abs_error": 79.68807324,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 52.72125595,
+        "q1.operating_profit_ex_special_items.median": 7033.311927,
+        "q1.operating_profit_ex_special_items.pct_error": 0.01120315946,
+        "q1.operating_profit_ex_special_items.wis": 50.48616016
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2025Q4",
+      "n_rows": 24,
+      "origin_date": "2025-10-28",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 293.8103021,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 204.2759358,
+        "q1.net_revenue.median": 10607.1897,
+        "q1.net_revenue.pct_error": 0.02695260088,
+        "q1.net_revenue.wis": 172.6409226,
+        "q1.operating_profit_ex_special_items.abs_error": 145.2445686,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 87.11997384,
+        "q1.operating_profit_ex_special_items.median": 7364.755431,
+        "q1.operating_profit_ex_special_items.pct_error": 0.01934015561,
+        "q1.operating_profit_ex_special_items.wis": 75.99388569
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2026Q1",
+      "n_rows": 24,
+      "origin_date": "2026-01-29",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 577.8552342,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 483.5033844,
+        "q1.net_revenue.median": 10652.14477,
+        "q1.net_revenue.pct_error": 0.05145638773,
+        "q1.net_revenue.wis": 458.6273632,
+        "q1.operating_profit_ex_special_items.abs_error": 513.3058747,
+        "q1.operating_profit_ex_special_items.covered_80": 0.0,
+        "q1.operating_profit_ex_special_items.crps": 429.3899413,
+        "q1.operating_profit_ex_special_items.median": 7117.694125,
+        "q1.operating_profit_ex_special_items.pct_error": 0.06726587272,
+        "q1.operating_profit_ex_special_items.wis": 407.2906364
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    },
+    {
+      "error": null,
+      "label": "FY2026Q2",
+      "n_rows": 24,
+      "origin_date": "2026-04-28",
+      "run_id": null,
+      "scores": {
+        "q1.net_revenue.abs_error": 341.778803,
+        "q1.net_revenue.covered_80": 0.0,
+        "q1.net_revenue.crps": 233.2589478,
+        "q1.net_revenue.median": 11291.2212,
+        "q1.net_revenue.pct_error": 0.02938010857,
+        "q1.net_revenue.wis": 194.0712512,
+        "q1.operating_profit_ex_special_items.abs_error": 202.2115439,
+        "q1.operating_profit_ex_special_items.covered_80": 1.0,
+        "q1.operating_profit_ex_special_items.crps": 123.0384829,
+        "q1.operating_profit_ex_special_items.median": 7552.788456,
+        "q1.operating_profit_ex_special_items.pct_error": 0.02607498955,
+        "q1.operating_profit_ex_special_items.wis": 104.8340199
+      },
+      "skipped_drivers": {
+        "cross_border_ex_intra_europe_growth_constant": "no numeric driver guidance",
+        "payments_volume_growth_constant": "no numeric driver guidance",
+        "processed_transactions_growth": "no numeric driver guidance"
+      },
+      "window": "primary"
+    }
+  ]
+}

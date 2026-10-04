@@ -94,7 +94,7 @@ submit-run:
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli submit-run $(ARGS)'
 
 # Evaluation harness (LON-27). Writes under data/evaluation via /out mount.
-# Example: make evaluate ARGS='--output /out/visa_full_model.json'
+# Example: make evaluate ARGS='--variant all --output-dir /out'
 evaluate:
 	mkdir -p data/evaluation
 	$(COMPOSE) up -d --wait db

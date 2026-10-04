@@ -97,9 +97,12 @@ class EvaluationConfig:
             "processed_transactions_growth": "count",
         }
     )
+    # Empty for the full model so the committed visa_full_model.json hash stays valid.
+    # Baselines (LON-29) put their method here and it enters the config hash.
+    baseline: dict[str, Any] = field(default_factory=dict)
 
     def to_hashable(self) -> dict[str, Any]:
-        return {
+        payload = {
             "suite_version": self.suite_version,
             "model_variant": self.model_variant,
             "n_paths": self.n_paths,
@@ -121,6 +124,9 @@ class EvaluationConfig:
             "crps": "empirical_sample_sorted",
             "wis": "median_plus_50_80_90_intervals_div_k_plus_1",
         }
+        if self.baseline:
+            payload["baseline"] = self.baseline
+        return payload
 
 
 @dataclass
@@ -156,8 +162,16 @@ def build_config(
     base_seed: int = DEFAULT_BASE_SEED,
     switches: Mapping[str, bool] | None = None,
     include_pandemic: bool = False,
+    model_variant: str = MODEL_VARIANT,
+    suite_version: str = SUITE_VERSION,
+    driver_method: str = "history_anchored_v1",
+    baseline: Mapping[str, Any] | None = None,
 ) -> EvaluationConfig:
     return EvaluationConfig(
+        suite_version=suite_version,
+        model_variant=model_variant,
+        driver_method=driver_method,
+        baseline=dict(baseline or {}),
         n_paths=n_paths,
         n_quarters=n_quarters,
         base_seed=base_seed,
@@ -386,7 +400,7 @@ def _submit_and_execute(
         return row
 
 
-def _score_point(
+def score_point(
     *,
     horizon: str,
     target: str,
@@ -442,6 +456,7 @@ def evaluate_origin(
     *,
     use_cache: bool = True,
     calibrate_fn: CalibrateFn | None = None,
+    details_extra: Mapping[str, Any] | None = None,
 ) -> OriginEvaluation:
     fixture = resolve_fixture(origin.cutoff_ts)
     calib = _calibrate_cached(
@@ -544,6 +559,8 @@ def evaluate_origin(
         ],
         "ensemble_weights": dict(calib.weights),
     }
+    if details_extra:
+        details_base.update(dict(details_extra))
 
     rows: list[dict[str, Any]] = []
     for name in LEVEL_TARGETS:
@@ -551,7 +568,7 @@ def evaluate_origin(
             continue
         samples = metrics[name][:, 0]
         rows.extend(
-            _score_point(
+            score_point(
                 horizon="q1",
                 target=name,
                 samples=samples,
@@ -577,7 +594,7 @@ def evaluate_origin(
             "approximate": name == "cross_border_ex_intra_europe_growth_constant",
         }
         rows.extend(
-            _score_point(
+            score_point(
                 horizon="q1",
                 target=name,
                 samples=np.asarray(driver_samples, dtype=np.float64),
@@ -598,7 +615,7 @@ def evaluate_origin(
         for name in LEVEL_TARGETS:
             samples = four_quarter_sum(metrics[name])
             rows.extend(
-                _score_point(
+                score_point(
                     horizon="4q",
                     target=f"{name}_sum",
                     samples=samples,
@@ -614,7 +631,7 @@ def evaluate_origin(
             )
             if "processed_transactions_growth" in totals:
                 rows.extend(
-                    _score_point(
+                    score_point(
                         horizon="4q",
                         target="processed_transactions_growth",
                         samples=txn_yoy,
@@ -627,7 +644,7 @@ def evaluate_origin(
             pv_yoy = q4_level_yoy(states["payments_volume_index_constant"][:, 3], 100.0)
             if "payments_volume_growth_constant" in totals:
                 rows.extend(
-                    _score_point(
+                    score_point(
                         horizon="4q",
                         target="payments_volume_growth_constant",
                         samples=pv_yoy,
@@ -647,7 +664,7 @@ def evaluate_origin(
             g_q = annualized_to_quarterly(eng)
             compound = np.prod(1.0 + g_q, axis=1) - 1.0
             rows.extend(
-                _score_point(
+                score_point(
                     horizon="4q",
                     target="cross_border_ex_intra_europe_growth_constant",
                     samples=compound,
@@ -675,7 +692,7 @@ def evaluate_origin(
     )
 
 
-def _persist_rows(session: Session, rows: Sequence[dict[str, Any]], config_digest: str, model_variant: str) -> None:
+def persist_rows(session: Session, rows: Sequence[dict[str, Any]], config_digest: str, model_variant: str) -> None:
     if not rows:
         return
     session.execute(
@@ -698,7 +715,7 @@ def _persist_rows(session: Session, rows: Sequence[dict[str, Any]], config_diges
         )
 
 
-def _collect_aggregates(origin_evals: Sequence[OriginEvaluation]) -> dict[str, Any]:
+def collect_aggregates(origin_evals: Sequence[OriginEvaluation]) -> dict[str, Any]:
     def gather(window: str | None, metric_suffix: str, horizon: str) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
         for item in origin_evals:
@@ -738,7 +755,7 @@ def _collect_aggregates(origin_evals: Sequence[OriginEvaluation]) -> dict[str, A
     return tables
 
 
-def _collect_four_quarter(origin_evals: Sequence[OriginEvaluation]) -> dict[str, Any]:
+def collect_four_quarter(origin_evals: Sequence[OriginEvaluation]) -> dict[str, Any]:
     targets = [f"{n}_sum" for n in LEVEL_TARGETS] + list(DRIVER_TARGETS)
     out: dict[str, Any] = {}
     for target in targets:
@@ -781,6 +798,11 @@ def run_evaluation(
     use_cache: bool = True,
     calibrate_fn: CalibrateFn | None = None,
     artifact_store: LocalArtifactStore | None = None,
+    model_variant: str = MODEL_VARIANT,
+    suite_version: str = SUITE_VERSION,
+    driver_method: str = "history_anchored_v1",
+    baseline: Mapping[str, Any] | None = None,
+    details_extra: Mapping[str, Any] | None = None,
 ) -> EvaluationReport:
     origins = load_evaluation_origins(window=window, origin_dates=origin_dates)
     scored = [o for o in origins if o.scored]
@@ -791,6 +813,10 @@ def run_evaluation(
         n_quarters=n_quarters,
         base_seed=base_seed,
         switches=switches,
+        model_variant=model_variant,
+        suite_version=suite_version,
+        driver_method=driver_method,
+        baseline=baseline,
     )
     digest = config_hash(config)
     store = artifact_store or LocalArtifactStore(get_settings().artifact_dir)
@@ -807,6 +833,7 @@ def run_evaluation(
                 store,
                 use_cache=use_cache,
                 calibrate_fn=calibrate_fn,
+                details_extra=details_extra,
             )
         except (LeakageError, Exception) as exc:  # noqa: BLE001 — record per-origin failures
             origin_evals.append(
@@ -823,7 +850,7 @@ def run_evaluation(
         all_rows.extend(result.rows)
 
     with factory() as session:
-        _persist_rows(session, all_rows, digest, config.model_variant)
+        persist_rows(session, all_rows, digest, config.model_variant)
         session.commit()
 
     return EvaluationReport(
@@ -833,8 +860,8 @@ def run_evaluation(
         exclusions=[
             {"origin_date": o.origin_date, "label": o.label, "reason": o.exclusion_reason or ""} for o in excluded
         ],
-        aggregates=_collect_aggregates(origin_evals),
-        four_quarter=_collect_four_quarter(origin_evals),
+        aggregates=collect_aggregates(origin_evals),
+        four_quarter=collect_four_quarter(origin_evals),
         n_scored=sum(1 for o in origin_evals if o.error is None and o.rows),
         n_excluded=len(excluded),
     )
@@ -935,12 +962,16 @@ __all__ = [
     "MODEL_VARIANT",
     "SUITE_VERSION",
     "build_config",
+    "collect_aggregates",
+    "collect_four_quarter",
     "config_hash",
     "evaluate_origin",
     "format_tables",
     "load_calibration_artifact",
     "origin_seed",
+    "persist_rows",
     "report_to_dict",
     "run_evaluation",
+    "score_point",
     "write_report",
 ]

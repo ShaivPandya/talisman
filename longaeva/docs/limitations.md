@@ -126,6 +126,31 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   before the history-anchored YoY transform; do not treat path
   `payments_volume_growth_constant` as true YoY.
 
+## Baselines (LON-29)
+
+- **Financial-only currently equals the full model.** The harness applies no
+  external mapping rules, so `visa_financial_only.json` and `visa_full_model.json`
+  have the same aggregates. That is not a finding about Booking, Census or the
+  second-wave families. The comparison becomes informative when LON-31 ablation
+  (a) and LON-15 Census vintages wire those updates into `full_model` only.
+- **Deck guidance is a different basis from the actual.** Outlook slides state
+  adjusted constant-dollar growth. Scoring uses GAAP nominal actuals. Rows carry
+  `basis_note`. The residual distribution absorbs the systematic gap; it is not
+  removed.
+- **Guidance residuals fall back.** Prior guidance errors are used once four have
+  actuals published at or before the cutoff. Otherwise the seasonal/trend
+  residual spread is used and the row is flagged
+  `residual_source=seasonal_trend_fallback`.
+- **Image-era levels are unusable.** The same quality gate as calibration drops
+  image-text and FY2017 net revenue and operating profit. FY2022Q1 and FY2022Q2
+  therefore have no seasonal level point, and the FY2022Q1 revenue outlook cannot
+  be applied, because the year-ago quarter is image-era.
+- **Guidance does not cover drivers or four quarters.** Those rows are marked
+  unavailable. No row is labeled consensus. The only estimates string is the
+  config note `consensus unavailable (no licensed free historical source)`.
+- **Guided operating profit is derived**, not a company outlook for profit.
+  FY2023Q1 and FY2023Q2 resolve a relative opex phrase against reported growth.
+
 ## Extraction (LON-16)
 
 - **Passage-only prompts do not remove hindsight.** The model still has pretrained

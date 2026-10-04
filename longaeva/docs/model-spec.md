@@ -283,11 +283,19 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   per row. See [`docs/evaluation.md`](evaluation.md). Engine metric
   `payments_volume_growth_constant` remains annualized QoQ; scoring recovers quarterly
   rates before the YoY transform.
-- **LON-29 / LON-31:** reuse the harness with a different `model_variant` (baselines;
-  ablation switches); keep the same origins, actuals, seeds and metrics.
+- **LON-29 (done):** seasonal/trend, financial-only and company guidance run through
+  the harness on the same origins, actuals and seeds. See [`docs/evaluation.md`](evaluation.md).
+  Financial-only matches `full_model` until external updates are applied.
+- **LON-30:** same-document LLM forecast baseline. Do not label it consensus, and
+  do not reuse the company-guidance rows.
+- **LON-31:** ablation (a) is what makes `full_model` differ from `financial_only`.
+  Keep the same origins, actuals, seeds and metrics.
 - **LON-32:** the state builder produces the FY2026Q3 prospective start; reuse the
   sensitivity harness for ablations.
-- **LON-33:** cite `data/evaluation/visa_full_model.json` with its `n` and exclusions.
+- **LON-33:** cite `data/evaluation/visa_full_model.json` and the three
+  `visa_{seasonal_trend,financial_only,guidance}.json` files, each with its `n`
+  and exclusions. Do not read an external-evidence effect off the
+  full-model / financial-only pair; those aggregates are equal.
 - **LON-36:** `GET /evaluation-results` needs `model_variant` / `config_hash` filters
   and a higher limit (~800 rows per variant).
 - **LON-37:** load observations under the deterministic UUIDs so evidence links resolve.
