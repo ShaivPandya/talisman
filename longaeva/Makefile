@@ -13,10 +13,10 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run replay export verify-export
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run replay extract export verify-export
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run replay export verify-export"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run replay extract export verify-export"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -102,6 +102,14 @@ evaluate:
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		-v "$(CURDIR)/data/evaluation:/out" \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli evaluate $(ARGS)'
+
+# Passage extraction (LON-16). Example:
+# make extract ARGS='--source-key booking:release:0001075531-25-000050 --contains "Room nights grew"'
+extract:
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		api sh -c 'alembic upgrade head && python -m longaeva_app.cli extract $(ARGS)'
 
 # Replay a saved run. Example: make replay RUN=<uuid>
 replay:

@@ -344,6 +344,21 @@ Rules:
 - **Passages:** HTML/PDF text is stored in `document_text` with page-local spans
   and a generated normalized `text_hash` for DR-08 dedup.
 
+## Extraction and review (LON-16)
+
+Passage-only LLM extraction into pending observations, plus a versioned accept /
+reject / correct workflow. With `LLM_PROVIDER` unset, `POST /observations/extract`
+returns 503 and no provider client is created. Setup, cache, and the manual
+check: [`docs/extraction.md`](docs/extraction.md).
+
+```bash
+make extract ARGS='--status'
+make extract ARGS='--source-key booking:release:0001075531-25-000050 --contains "Room nights grew"'
+```
+
+Pending or rejected observation rows cannot back `POST /runs`. Replay is unchanged.
+Extraction does not write parameter sets.
+
 ## Seed
 
 ```bash

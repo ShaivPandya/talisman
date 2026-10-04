@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from longaeva_app.db.models import Job
 from longaeva_app.storage.local import LocalArtifactStore
 
-INTERNAL_JOB_TYPES: frozenset[str] = frozenset({"run"})
+INTERNAL_JOB_TYPES: frozenset[str] = frozenset({"run", "extract"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +54,7 @@ def handle_ping(ctx: HandlerContext) -> dict[str, Any]:
 
 
 def load_handlers() -> None:
+    from longaeva_app.worker.handlers import extract as _extract  # noqa: F401
     from longaeva_app.worker.handlers import run as _run  # noqa: F401
 
 

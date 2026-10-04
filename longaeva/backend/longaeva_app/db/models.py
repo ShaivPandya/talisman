@@ -31,6 +31,7 @@ REVIEW_STATUSES = ("pending", "accepted", "rejected", "corrected")
 REVIEW_DECISIONS = ("accept", "reject", "correct")
 RUN_STATUSES = ("queued", "running", "succeeded", "failed")
 FORECAST_KINDS = ("retrospective", "prospective")
+EXTRACTION_CALL_STATUSES = ("succeeded", "invalid_response", "provider_error")
 
 
 class Job(Base):
@@ -249,6 +250,7 @@ class ReviewDecision(Base):
             "(decision <> 'correct') OR (corrected_payload IS NOT NULL)",
             name="corrected_payload_required",
         ),
+        UniqueConstraint("observation_id", "version", name="uq_review_decision_observation_version"),
         Index("ix_review_decision_observation_id", "observation_id"),
     )
 
@@ -263,6 +265,7 @@ class ReviewDecision(Base):
         nullable=False,
     )
     decision: Mapped[str] = mapped_column(Text, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
     corrected_payload: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
     rationale: Mapped[str] = mapped_column(Text, nullable=False)
     decided_at: Mapped[datetime] = mapped_column(
@@ -273,6 +276,67 @@ class ReviewDecision(Base):
     decided_by: Mapped[str] = mapped_column(Text, nullable=False)
 
     observation: Mapped[Observation] = relationship(back_populates="review_decisions")
+
+
+class ExtractionCall(Base):
+    """One provider call. Succeeded rows are the (provider, model, prompt hash) cache."""
+
+    __tablename__ = "extraction_call"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('succeeded', 'invalid_response', 'provider_error')",
+            name="status",
+        ),
+        Index(
+            "uq_extraction_call_succeeded",
+            "provider",
+            "model",
+            "prompt_hash",
+            unique=True,
+            postgresql_where=text("status = 'succeeded'"),
+        ),
+        Index("ix_extraction_call_document_text_id", "document_text_id"),
+        Index("ix_extraction_call_job_id", "job_id"),
+        Index("ix_extraction_call_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        primary_key=True,
+        server_default=text("gen_random_uuid()"),
+    )
+    provider: Mapped[str] = mapped_column(Text, nullable=False)
+    model: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_version: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    document_text_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            "document_text.id",
+            ondelete="SET NULL",
+            name="fk_extraction_call_document_text_id_document_text",
+        ),
+        nullable=True,
+    )
+    job_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("job.id", ondelete="SET NULL", name="fk_extraction_call_job_id_job"),
+        nullable=True,
+    )
+    status: Mapped[str] = mapped_column(Text, nullable=False)
+    response_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parsed: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    item_errors: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default=text("1"))
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
 
 
 class MappingRule(Base):

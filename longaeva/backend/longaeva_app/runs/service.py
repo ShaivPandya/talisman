@@ -22,6 +22,7 @@ from longaeva_app.engine.outputs import (
 from longaeva_app.engine.provenance import code_version, lib_versions
 from longaeva_app.engine.replay import ReplayComparison, compare_simulation
 from longaeva_app.engine.runner import simulate
+from longaeva_app.review.service import ReviewError, assert_evidence_reviewed
 from longaeva_app.runs.errors import RunError
 from longaeva_app.runs.inputs import (
     ResolvedRunInputs,
@@ -49,6 +50,10 @@ def submit_run(
     if scenario is None:
         raise RunError("Scenario not found", status_code=404)
     resolved = resolve_run_inputs(session, scenario=scenario, cutoff_ts=cutoff_ts, switches=switches)
+    try:
+        assert_evidence_reviewed(session, resolved.parameter_set)
+    except ReviewError as exc:
+        raise RunError(exc.message, status_code=exc.status_code) from exc
     job = Job(type="run", payload={}, status="queued")
     session.add(job)
     session.flush()

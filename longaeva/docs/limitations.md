@@ -126,6 +126,25 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   before the history-anchored YoY transform; do not treat path
   `payments_volume_growth_constant` as true YoY.
 
+## Extraction (LON-16)
+
+- **Passage-only prompts do not remove hindsight.** The model still has pretrained
+  knowledge. The prompt forbids outside knowledge and requires a verbatim quote,
+  and a quote that is not in the passage is dropped. That is a check, not a
+  proof the model ignored anything else it knows.
+- **Outputs vary by provider.** Anthropic, OpenAI, and Gemini can disagree on the
+  same passage. The cache is per provider and model; a hit replays that call's
+  parsed items, not a consensus.
+- **Raw responses are kept.** `extraction_call.response_text` stores the provider
+  body for audit, including invalid payloads (`parsed` stays null so a confidence
+  field is not stored as structured data). Do not point extraction at text you
+  would not retain.
+- **Review is required.** Extracted observations stay `pending` until an accept
+  or correct decision. `POST /runs` rejects a parameter set that cites a pending
+  or rejected observation row. Extraction never writes a parameter set.
+- **Disabled by default.** With `LLM_PROVIDER` unset, fresh extraction returns
+  503. Keys belong in `.env` only.
+
 ## Frontend (LON-11)
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without

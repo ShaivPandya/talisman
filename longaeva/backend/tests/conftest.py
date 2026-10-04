@@ -35,6 +35,7 @@ TRUNCATE TABLE
     mapping_rule,
     review_decision,
     observation,
+    extraction_call,
     document_text,
     source_retrieval,
     source,

@@ -25,6 +25,11 @@ services:
       ARTIFACT_DIR: /srv/longaeva/var/artifacts
       SEC_USER_AGENT: ${SEC_USER_AGENT:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       WORKER_ID: api
     ports:
       - "127.0.0.1:${API_PORT:-8000}:8000"
@@ -63,6 +68,11 @@ services:
       ARTIFACT_DIR: /srv/longaeva/var/artifacts
       SEC_USER_AGENT: ${SEC_USER_AGENT:-}
       LLM_PROVIDER: ${LLM_PROVIDER:-}
+      LLM_MODEL: ${LLM_MODEL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       WORKER_ID: worker-1
       WORKER_POLL_INTERVAL_SEC: "1.0"
       WORKER_HEARTBEAT_PATH: /tmp/longaeva-worker-heartbeat

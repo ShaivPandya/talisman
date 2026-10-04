@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
@@ -32,6 +32,15 @@ class Settings(BaseSettings):
     artifact_dir: Path = PACKAGE_ROOT / "var" / "artifacts"
     sec_user_agent: str = ""
     llm_provider: str = ""
+    llm_model: str = ""
+    llm_base_url: str = ""
+    anthropic_api_key: SecretStr = SecretStr("")
+    openai_api_key: SecretStr = SecretStr("")
+    gemini_api_key: SecretStr = SecretStr("")
+    llm_timeout_sec: float = 60.0
+    llm_max_output_tokens: int = 4096
+    extraction_max_passages: int = 25
+    extraction_max_passage_chars: int = 12_000
     worker_id: str = "worker-1"
     worker_poll_interval_sec: float = 1.0
     worker_heartbeat_path: Path = Path("/tmp/longaeva-worker-heartbeat")

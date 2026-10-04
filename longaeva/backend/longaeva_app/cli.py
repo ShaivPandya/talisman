@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import uuid
 from pathlib import Path
+
+from sqlalchemy.orm import Session
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_OPENAPI_PATH = PACKAGE_ROOT / "docs" / "openapi.json"
@@ -328,6 +331,138 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_extract(args: argparse.Namespace) -> int:
+    """Extract observations from selected passages (LON-16)."""
+    import time
+    from typing import Any
+
+    from longaeva_app.api.deps import get_artifact_store
+    from longaeva_app.config import get_settings
+    from longaeva_app.db.models import Job
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.extract.llm import ExtractionError, load_passages, run_extraction
+    from longaeva_app.extract.providers import build_provider, describe_extraction
+
+    settings = get_settings()
+    described = describe_extraction(settings, provider=args.provider, model=args.model)
+    if args.status:
+        print(
+            json.dumps(
+                {
+                    "enabled": described.enabled,
+                    "provider": described.provider,
+                    "model": described.model,
+                    "configured_providers": described.configured_providers,
+                    "disabled_reason": described.disabled_reason,
+                    "max_passages": described.max_passages,
+                    "max_passage_chars": described.max_passage_chars,
+                    "prompt_version": described.prompt_version,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0 if described.enabled else 2
+    if not described.enabled:
+        print(described.disabled_reason or "Extraction is disabled.", flush=True)
+        print("Set LLM_PROVIDER and the matching API key. See docs/extraction.md.", flush=True)
+        return 2
+
+    factory = get_session_factory()
+    with factory() as session:
+        try:
+            passage_ids = _select_passages(session, args)
+        except ExtractionError as exc:
+            print(exc.message, flush=True)
+            return 2
+        if args.inline:
+            provider = build_provider(settings, provider=args.provider, model=args.model)
+            if provider is None:
+                print(described.disabled_reason or "Extraction is disabled.", flush=True)
+                return 2
+            try:
+                passages = load_passages(session, passage_ids, settings=settings)
+                report = run_extraction(
+                    session,
+                    passages,
+                    provider=provider,
+                    settings=settings,
+                    store=get_artifact_store(),
+                )
+                session.commit()
+            except ExtractionError as exc:
+                print(exc.message, flush=True)
+                return 2
+            finally:
+                provider.close()
+            print(json.dumps(report.to_dict(), indent=2, sort_keys=True))
+            return 0
+
+        payload: dict[str, Any] = {"document_text_ids": [str(item) for item in passage_ids]}
+        if args.provider:
+            payload["provider"] = args.provider
+        if args.model:
+            payload["model"] = args.model
+        job = Job(type="extract", payload=payload, status="queued")
+        session.add(job)
+        session.commit()
+        job_id = job.id
+
+    wait_sec = 180.0 if args.wait is None else float(args.wait)
+    deadline = time.monotonic() + wait_sec
+    outcome: dict[str, Any] | None = None
+    while time.monotonic() < deadline:
+        with factory() as session:
+            row = session.get(Job, job_id)
+            if row is not None and row.status in {"succeeded", "failed"}:
+                outcome = {
+                    "job_id": str(job_id),
+                    "status": row.status,
+                    "error": row.error,
+                    "result": row.result,
+                }
+                break
+        time.sleep(0.5)
+    if outcome is None:
+        print(f"extract job {job_id} did not finish within {wait_sec:.0f}s", flush=True)
+        return 2
+    print(json.dumps(outcome, indent=2, sort_keys=True, default=str))
+    if outcome["status"] != "succeeded":
+        return 1
+    return 0
+
+
+def _select_passages(session: Session, args: argparse.Namespace) -> list[uuid.UUID]:
+    from sqlalchemy import select
+
+    from longaeva_app.db.models import DocumentText, Source
+    from longaeva_app.extract.llm import ExtractionError
+
+    if args.passage:
+        return [uuid.UUID(item) for item in args.passage]
+    if not args.source_key or not args.contains:
+        raise ExtractionError("Pass --passage, or both --source-key and --contains.")
+    source = session.execute(
+        select(Source)
+        .where(Source.attributes.contains({"manifest_key": args.source_key}))
+        .order_by(Source.retrieval_ts.desc())
+        .limit(1)
+    ).scalar_one_or_none()
+    if source is None:
+        raise ExtractionError(f"No collected source for manifest key {args.source_key!r}.")
+    rows = list(
+        session.scalars(
+            select(DocumentText)
+            .where(DocumentText.source_id == source.id)
+            .where(DocumentText.text.contains(args.contains))
+            .order_by(DocumentText.page, DocumentText.char_start)
+        ).all()
+    )
+    if not rows:
+        raise ExtractionError(f"No passage under {args.source_key!r} contains {args.contains!r}.")
+    return [row.id for row in rows]
+
+
 def cmd_replay(args: argparse.Namespace) -> int:
     """Replay a saved run and compare output hashes (LON-23 / UF-06)."""
     import json
@@ -559,6 +694,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Ignore the calibration cache under ARTIFACT_DIR/evaluation/calibration/",
     )
     evaluate_p.set_defaults(func=cmd_evaluate)
+
+    extract_p = sub.add_parser("extract", help="Extract observations from selected passages (LON-16)")
+    extract_p.add_argument("--passage", action="append", default=[], help="document_text UUID (repeatable)")
+    extract_p.add_argument("--source-key", default=None, help="Collected manifest key")
+    extract_p.add_argument("--contains", default=None, help="Substring that selects passages of --source-key")
+    extract_p.add_argument("--provider", default=None, help="anthropic, openai, gemini, or stub")
+    extract_p.add_argument("--model", default=None, help="Model id; default is the provider's configured model")
+    extract_p.add_argument("--inline", action="store_true", help="Run in this process instead of the worker")
+    extract_p.add_argument("--wait", type=float, default=None, help="Seconds to wait for the worker (default 180)")
+    extract_p.add_argument("--status", action="store_true", help="Print whether extraction is configured and exit")
+    extract_p.set_defaults(func=cmd_extract)
 
     replay = sub.add_parser("replay", help="Replay a saved run and compare hashes (LON-23)")
     replay.add_argument("run_id", help="Run UUID")

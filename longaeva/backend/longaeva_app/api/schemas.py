@@ -234,12 +234,58 @@ class ReviewDecisionRead(BaseModel):
     id: uuid.UUID
     observation_id: uuid.UUID
     decision: str
+    version: int
     corrected_payload: dict[str, Any] | None = None
     rationale: str
     decided_at: datetime
     decided_by: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ExtractionRequest(StrictModel):
+    document_text_ids: list[uuid.UUID] = Field(min_length=1)
+    provider: str | None = None
+    model: str | None = None
+
+
+class ExtractionStatusRead(BaseModel):
+    enabled: bool
+    provider: str
+    model: str
+    configured_providers: list[str]
+    disabled_reason: str | None = None
+    max_passages: int
+    max_passage_chars: int
+    prompt_version: str
+
+
+class ExtractionCallRead(BaseModel):
+    id: uuid.UUID
+    provider: str
+    model: str
+    prompt_version: str
+    prompt_hash: str
+    document_text_id: uuid.UUID | None = None
+    job_id: uuid.UUID | None = None
+    status: str
+    response_text: str | None = None
+    parsed: dict[str, Any] | None = None
+    item_errors: list[Any]
+    error: str | None = None
+    attempts: int
+    latency_ms: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ObservationReviewRead(BaseModel):
+    observation: ObservationRead
+    decisions: list[ReviewDecisionRead]
+    effective: dict[str, Any] | None = None
 
 
 # --- Parameters / mapping ---
@@ -498,6 +544,10 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     ObservationRead,
     ReviewDecisionCreate,
     ReviewDecisionRead,
+    ExtractionRequest,
+    ExtractionStatusRead,
+    ExtractionCallRead,
+    ObservationReviewRead,
     ParameterSetCreate,
     ParameterSetRead,
     MappingRuleCreate,

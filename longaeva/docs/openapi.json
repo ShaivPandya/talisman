@@ -186,6 +186,251 @@
         "title": "EvaluationResultRead",
         "type": "object"
       },
+      "ExtractionCallRead": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "document_text_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Text Id"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "item_errors": {
+            "items": {},
+            "title": "Item Errors",
+            "type": "array"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "parsed": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parsed"
+          },
+          "prompt_hash": {
+            "title": "Prompt Hash",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "response_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Text"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "model",
+          "prompt_version",
+          "prompt_hash",
+          "status",
+          "item_errors",
+          "attempts",
+          "created_at"
+        ],
+        "title": "ExtractionCallRead",
+        "type": "object"
+      },
+      "ExtractionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "document_text_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Document Text Ids",
+            "type": "array"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "provider": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider"
+          }
+        },
+        "required": [
+          "document_text_ids"
+        ],
+        "title": "ExtractionRequest",
+        "type": "object"
+      },
+      "ExtractionStatusRead": {
+        "properties": {
+          "configured_providers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Configured Providers",
+            "type": "array"
+          },
+          "disabled_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disabled Reason"
+          },
+          "enabled": {
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "max_passage_chars": {
+            "title": "Max Passage Chars",
+            "type": "integer"
+          },
+          "max_passages": {
+            "title": "Max Passages",
+            "type": "integer"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "provider",
+          "model",
+          "configured_providers",
+          "max_passages",
+          "max_passage_chars",
+          "prompt_version"
+        ],
+        "title": "ExtractionStatusRead",
+        "type": "object"
+      },
       "ForecastArchiveRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1043,6 +1288,38 @@
         "title": "ObservationRead",
         "type": "object"
       },
+      "ObservationReviewRead": {
+        "properties": {
+          "decisions": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewDecisionRead"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "effective": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Effective"
+          },
+          "observation": {
+            "$ref": "#/components/schemas/ObservationRead"
+          }
+        },
+        "required": [
+          "observation",
+          "decisions"
+        ],
+        "title": "ObservationReviewRead",
+        "type": "object"
+      },
       "ParameterEvidence": {
         "additionalProperties": false,
         "properties": {
@@ -1420,7 +1697,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Corrected Payload"
           },
           "decided_at": {
@@ -1433,7 +1709,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Decided At"
           },
           "decided_by": {
@@ -1482,7 +1757,6 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Corrected Payload"
           },
           "decided_at": {
@@ -1511,12 +1785,17 @@
           "rationale": {
             "title": "Rationale",
             "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
           }
         },
         "required": [
           "id",
           "observation_id",
           "decision",
+          "version",
           "rationale",
           "decided_at",
           "decided_by"
@@ -2727,6 +3006,167 @@
         ]
       }
     },
+    "/observations/extract": {
+      "post": {
+        "operationId": "enqueue_extraction_observations_extract_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExtractionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Enqueue Extraction",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
+    "/observations/extraction-calls": {
+      "get": {
+        "operationId": "list_extraction_calls_observations_extraction_calls_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "document_text_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Document Text Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "job_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Job Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ExtractionCallRead"
+                  },
+                  "title": "Response List Extraction Calls Observations Extraction Calls Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Extraction Calls",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
+    "/observations/extraction-status": {
+      "get": {
+        "operationId": "extraction_status_observations_extraction_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExtractionStatusRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Extraction Status",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
     "/observations/{observation_id}": {
       "get": {
         "operationId": "get_observation_observations__observation_id__get",
@@ -2765,6 +3205,49 @@
           }
         },
         "summary": "Get Observation",
+        "tags": [
+          "observations"
+        ]
+      }
+    },
+    "/observations/{observation_id}/review": {
+      "get": {
+        "operationId": "get_observation_review_observations__observation_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "observation_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Observation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ObservationReviewRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Observation Review",
         "tags": [
           "observations"
         ]
@@ -2875,6 +3358,111 @@
         "summary": "Get Parameter Set",
         "tags": [
           "parameter-sets"
+        ]
+      }
+    },
+    "/review-decisions": {
+      "get": {
+        "operationId": "list_review_decisions_review_decisions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "observation_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Observation Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReviewDecisionRead"
+                  },
+                  "title": "Response List Review Decisions Review Decisions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Review Decisions",
+        "tags": [
+          "review"
+        ]
+      },
+      "post": {
+        "operationId": "create_review_decision_review_decisions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewDecisionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewDecisionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Review Decision",
+        "tags": [
+          "review"
         ]
       }
     },
