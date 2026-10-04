@@ -359,6 +359,26 @@ make extract ARGS='--source-key booking:release:0001075531-25-000050 --contains 
 Pending or rejected observation rows cannot back `POST /runs`. Replay is unchanged.
 Extraction does not write parameter sets.
 
+## Paired scenarios (LON-22)
+
+Two interventions, paired runs on one seed, path-wise comparison from saved
+`paths.npz`, and model-conditional attribution. Details:
+[`docs/scenarios.md`](docs/scenarios.md).
+
+```bash
+make pair-run ARGS='--origin 2024-07-23 --n-paths 5000 --inline'
+```
+
+| Method | Path |
+| --- | --- |
+| POST | `/scenarios` (interventions and optional parameter overrides) |
+| POST | `/scenarios/pair-runs` (202; shared seed, variants store `baseline_run_id`) |
+| GET | `/scenarios/comparison?run_id=&baseline_run_id=` |
+| GET | `/scenarios/attribution?run_id=&baseline_run_id=&metric=` |
+
+A mix shift leaves total payments volume equal to the baseline on every path.
+The forecast archive still refuses intervention runs. Charts are LON-34.
+
 ## Seed
 
 ```bash

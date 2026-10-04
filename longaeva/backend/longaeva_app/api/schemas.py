@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import date, datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     AwareDatetime,
@@ -390,12 +390,36 @@ class ParameterUpdateRead(BaseModel):
 # --- Scenarios / runs / forecasts / evaluation ---
 
 
+class MixShiftIntervention(StrictModel):
+    type: Literal["mix_shift_conserving_total"]
+    cross_border_change: float = Field(gt=-1.0, le=3.0)
+    start_quarter: int = Field(default=1, ge=1, le=8)
+
+
+class SpendReductionIntervention(StrictModel):
+    type: Literal["total_spend_reduction"]
+    reduction: float = Field(gt=0.0, lt=1.0)
+    start_quarter: int = Field(default=1, ge=1, le=8)
+
+
+InterventionSpec = Annotated[
+    MixShiftIntervention | SpendReductionIntervention,
+    Field(discriminator="type"),
+]
+
+
+class ParameterOverride(StrictModel):
+    value: float
+    rationale: str = Field(min_length=1)
+
+
 class ScenarioCreate(StrictModel):
     company: str = Field(min_length=1)
     name: str = Field(min_length=1)
     parameter_set_id: uuid.UUID
-    interventions: list[dict[str, Any]] = Field(default_factory=list)
+    interventions: list[InterventionSpec] = Field(default_factory=list)
     pair_group_id: uuid.UUID | None = None
+    parameter_overrides: dict[str, ParameterOverride] = Field(default_factory=dict)
 
 
 class ScenarioRead(BaseModel):
@@ -415,6 +439,100 @@ class SourceManifestEntry(StrictModel):
     content_hash: str = Field(min_length=1)
     publication_ts: str = Field(min_length=1)
     source_id: uuid.UUID | None = None
+
+
+class PairRunsCreate(StrictModel):
+    scenario_ids: list[uuid.UUID] = Field(min_length=2, max_length=8)
+    baseline_scenario_id: uuid.UUID
+    cutoff_ts: AwareDatetime
+    seed: int = Field(ge=0, le=2**31 - 1)
+    n_paths: int = Field(default=5000, ge=1, le=50_000)
+    n_quarters: int = Field(default=4, ge=1, le=8)
+    switches: dict[str, bool] = Field(default_factory=dict)
+
+
+class QuarterEffectRead(BaseModel):
+    quarter_index: int
+    period_label: str
+    mean_difference: float
+
+
+class ComparisonRow(BaseModel):
+    metric: str
+    quarter_index: int
+    period_label: str
+    baseline_mean: float
+    variant_mean: float
+    difference_mean: float
+    difference_std: float
+    difference_std_error: float | None = None
+    quantiles: dict[str, float] = Field(default_factory=dict)
+    quantile_std_errors: dict[str, float] = Field(default_factory=dict)
+
+
+class ComparisonRead(BaseModel):
+    run_id: uuid.UUID
+    baseline_run_id: uuid.UUID
+    seed: int
+    items: list[ComparisonRow]
+
+
+class MetricContributionRead(BaseModel):
+    one_at_a_time: list[QuarterEffectRead]
+    sequential: list[QuarterEffectRead]
+    one_at_a_time_horizon: float
+    sequential_horizon: float
+
+
+class ContributionRead(BaseModel):
+    kind: Literal["parameter", "intervention"]
+    name: str
+    key: str
+    label: str
+    before: float | None = None
+    after: float | None = None
+    size: float | None = None
+    intervention: dict[str, Any] | None = None
+    by_metric: dict[str, MetricContributionRead]
+    rule_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    observation_ids: list[str] = Field(default_factory=list)
+
+
+class MetricAttributionRead(BaseModel):
+    metric: str
+    total: list[QuarterEffectRead]
+    horizon_total: float
+    joint_residual: list[QuarterEffectRead]
+    joint_residual_horizon: float
+
+
+class SensitivityRead(BaseModel):
+    parameter: str
+    range_low: float
+    range_high: float
+    low_mean: float
+    high_mean: float
+    swing: float
+    normalized_sensitivity: float
+    support_score: float
+    flag: str | None = None
+    rule_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
+    observation_ids: list[str] = Field(default_factory=list)
+
+
+class AttributionRead(BaseModel):
+    run_id: uuid.UUID
+    baseline_run_id: uuid.UUID
+    conditional_on_model: bool
+    order_note: str
+    sequential_order: list[str]
+    metrics: list[MetricAttributionRead]
+    contributions: list[ContributionRead]
+    sensitivity: list[SensitivityRead]
+    sensitivity_metric: str
+    verification: list[str]
 
 
 class RunCreate(StrictModel):
@@ -452,6 +570,9 @@ class RunRead(BaseModel):
     seed: int
     n_paths: int
     switches: dict[str, Any]
+    interventions: list[Any] = Field(default_factory=list)
+    interventions_hash: str
+    baseline_run_id: uuid.UUID | None = None
     lib_versions: dict[str, Any]
     status: str
     outputs_path: str | None = None
@@ -555,6 +676,9 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     ParameterUpdateRead,
     ScenarioCreate,
     ScenarioRead,
+    PairRunsCreate,
+    ComparisonRead,
+    AttributionRead,
     RunCreate,
     RunRead,
     RunResultSummary,

@@ -83,7 +83,7 @@ def archive_forecasts(
     scenario = session.get(Scenario, run.scenario_id)
     if scenario is None:
         raise RunError("Scenario not found", status_code=422)
-    if scenario.interventions:
+    if scenario.interventions or run.interventions:
         raise RunError("Intervention scenarios cannot be archived", status_code=422)
     param_row = session.get(ParameterSet, scenario.parameter_set_id)
     if param_row is None:

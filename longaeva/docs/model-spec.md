@@ -6,7 +6,8 @@ settled October 3, 2026.
 This document describes the Visa quarterly operating model implemented in
 `backend/longaeva_app/companies/visa/` and the company-agnostic Monte Carlo engine in
 `backend/longaeva_app/engine/`. Field names follow [`docs/definitions.md`](definitions.md).
-Interventions (LON-22) remain out of scope here.
+Interventions are specified in [`docs/scenarios.md`](scenarios.md) and applied after
+the activity step below; with none active, this arithmetic is unchanged.
 
 ## 1. Overview
 
@@ -119,8 +120,18 @@ remains a reporting field on fixtures, not a path metric.
 
 | Switch | Default | Effect |
 | --- | --- | --- |
-| `service_lag` | `true` | When `false`, service revenue uses current-basis yield × same-quarter PV. |
+| `service_lag` | `true` | When `false`, service revenue uses current-basis yield × same-quarter PV. A spend reduction then moves service revenue in the start quarter instead of one quarter later. |
 | `pool_mix` | `false` | When `true`, freeze the cross-border share so domestic and cross-border share one growth driver. Travel draws are still consumed so paired runs stay aligned. |
+
+### Interventions (FR-10, MR-11)
+
+Applied only when the quarter's list is non-empty, after the activity update and
+before pricing. See [`docs/scenarios.md`](scenarios.md).
+
+| Type | Effect |
+| --- | --- |
+| `mix_shift_conserving_total` | Multiply cross-border share by `1 + cross_border_change`. Payments volume is unchanged, so the payments-volume identity still holds and the mix-shift total equals the baseline on every path. |
+| `total_spend_reduction` | Scale nominal payments volume and the constant-dollar index by `1 − reduction`. Transactions are unchanged. Service revenue (prior-quarter volume) reacts one quarter later; international revenue reacts in the start quarter. |
 
 ## 6. Parameters
 
@@ -257,9 +268,10 @@ cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
   table, and pandemic exclusion are implemented; see §6.1.
 - **LON-21:** mapping rules update parameter sets (including the share assumption) with
   provenance; assumption flags already declared on the two assumption parameters.
-- **LON-22:** interventions (`mix_shift_conserving_total`, `total_spend_reduction`) and
-  attribution; reuse shared draws from the sampler; share-based CB state is already
-  conservation-ready.
+- **LON-22 (done):** `mix_shift_conserving_total` and `total_spend_reduction`, paired
+  runs on one seed, path-wise comparison from saved `paths.npz`, and model-conditional
+  attribution. See [`docs/scenarios.md`](scenarios.md). LON-34 should chart the
+  comparison endpoint and must not re-simulate to draw it.
 - **LON-23:** persist runs with seed, `n_paths`, parameter-set hash, switches and
   output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
 - **LON-25:** valuation bridge consumes `operating_profit_ex_special_items` paths plus

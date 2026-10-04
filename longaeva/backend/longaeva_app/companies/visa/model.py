@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 
@@ -19,6 +20,7 @@ from longaeva_app.companies.base import (
     SwitchSpec,
 )
 from longaeva_app.companies.visa.definitions import VISA_FISCAL_CALENDAR
+from longaeva_app.companies.visa.interventions import INTERVENTION_TYPES, parse_visa_interventions
 from longaeva_app.companies.visa.parameters import VISA_PARAMETERS
 from longaeva_app.companies.visa.state import STATE_VARIABLES, build_initial_state
 from longaeva_app.companies.visa.transitions import FACTORS, transition_quarter
@@ -68,6 +70,7 @@ class VisaModel(CompanyModel):
             ),
         ),
     )
+    intervention_types = INTERVENTION_TYPES
     identities = (
         IdentitySpec(
             result="net_revenue",
@@ -139,6 +142,9 @@ class VisaModel(CompanyModel):
             )
         return errors
 
+    def parse_interventions(self, raw: Sequence[Mapping[str, Any]]) -> tuple[Any, ...]:
+        return parse_visa_interventions(raw)
+
     def initial_state(
         self,
         start: StartingState,
@@ -154,8 +160,9 @@ class VisaModel(CompanyModel):
         params: Mapping[str, float],
         switches: Mapping[str, bool],
         period: FiscalPeriod,
+        interventions: tuple[Any, ...] = (),
     ) -> StepResult:
-        return transition_quarter(state, shocks, params, switches, period)
+        return transition_quarter(state, shocks, params, switches, period, interventions=interventions)
 
 
 __all__ = ["VisaModel"]

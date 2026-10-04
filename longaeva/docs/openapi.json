@@ -1,6 +1,288 @@
 {
   "components": {
     "schemas": {
+      "AttributionRead": {
+        "properties": {
+          "baseline_run_id": {
+            "format": "uuid",
+            "title": "Baseline Run Id",
+            "type": "string"
+          },
+          "conditional_on_model": {
+            "title": "Conditional On Model",
+            "type": "boolean"
+          },
+          "contributions": {
+            "items": {
+              "$ref": "#/components/schemas/ContributionRead"
+            },
+            "title": "Contributions",
+            "type": "array"
+          },
+          "metrics": {
+            "items": {
+              "$ref": "#/components/schemas/MetricAttributionRead"
+            },
+            "title": "Metrics",
+            "type": "array"
+          },
+          "order_note": {
+            "title": "Order Note",
+            "type": "string"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "sensitivity": {
+            "items": {
+              "$ref": "#/components/schemas/SensitivityRead"
+            },
+            "title": "Sensitivity",
+            "type": "array"
+          },
+          "sensitivity_metric": {
+            "title": "Sensitivity Metric",
+            "type": "string"
+          },
+          "sequential_order": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Sequential Order",
+            "type": "array"
+          },
+          "verification": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Verification",
+            "type": "array"
+          }
+        },
+        "required": [
+          "run_id",
+          "baseline_run_id",
+          "conditional_on_model",
+          "order_note",
+          "sequential_order",
+          "metrics",
+          "contributions",
+          "sensitivity",
+          "sensitivity_metric",
+          "verification"
+        ],
+        "title": "AttributionRead",
+        "type": "object"
+      },
+      "ComparisonRead": {
+        "properties": {
+          "baseline_run_id": {
+            "format": "uuid",
+            "title": "Baseline Run Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ComparisonRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "run_id",
+          "baseline_run_id",
+          "seed",
+          "items"
+        ],
+        "title": "ComparisonRead",
+        "type": "object"
+      },
+      "ComparisonRow": {
+        "properties": {
+          "baseline_mean": {
+            "title": "Baseline Mean",
+            "type": "number"
+          },
+          "difference_mean": {
+            "title": "Difference Mean",
+            "type": "number"
+          },
+          "difference_std": {
+            "title": "Difference Std",
+            "type": "number"
+          },
+          "difference_std_error": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Difference Std Error"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "quantile_std_errors": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantile Std Errors",
+            "type": "object"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "quarter_index": {
+            "title": "Quarter Index",
+            "type": "integer"
+          },
+          "variant_mean": {
+            "title": "Variant Mean",
+            "type": "number"
+          }
+        },
+        "required": [
+          "metric",
+          "quarter_index",
+          "period_label",
+          "baseline_mean",
+          "variant_mean",
+          "difference_mean",
+          "difference_std"
+        ],
+        "title": "ComparisonRow",
+        "type": "object"
+      },
+      "ContributionRead": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before"
+          },
+          "by_metric": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/MetricContributionRead"
+            },
+            "title": "By Metric",
+            "type": "object"
+          },
+          "intervention": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intervention"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "parameter",
+              "intervention"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "rule_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rule Ids",
+            "type": "array"
+          },
+          "size": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "key",
+          "label",
+          "by_metric"
+        ],
+        "title": "ContributionRead",
+        "type": "object"
+      },
       "DocumentTextCreate": {
         "additionalProperties": false,
         "properties": {
@@ -843,6 +1125,108 @@
         "title": "MappingRuleRead",
         "type": "object"
       },
+      "MetricAttributionRead": {
+        "properties": {
+          "horizon_total": {
+            "title": "Horizon Total",
+            "type": "number"
+          },
+          "joint_residual": {
+            "items": {
+              "$ref": "#/components/schemas/QuarterEffectRead"
+            },
+            "title": "Joint Residual",
+            "type": "array"
+          },
+          "joint_residual_horizon": {
+            "title": "Joint Residual Horizon",
+            "type": "number"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "total": {
+            "items": {
+              "$ref": "#/components/schemas/QuarterEffectRead"
+            },
+            "title": "Total",
+            "type": "array"
+          }
+        },
+        "required": [
+          "metric",
+          "total",
+          "horizon_total",
+          "joint_residual",
+          "joint_residual_horizon"
+        ],
+        "title": "MetricAttributionRead",
+        "type": "object"
+      },
+      "MetricContributionRead": {
+        "properties": {
+          "one_at_a_time": {
+            "items": {
+              "$ref": "#/components/schemas/QuarterEffectRead"
+            },
+            "title": "One At A Time",
+            "type": "array"
+          },
+          "one_at_a_time_horizon": {
+            "title": "One At A Time Horizon",
+            "type": "number"
+          },
+          "sequential": {
+            "items": {
+              "$ref": "#/components/schemas/QuarterEffectRead"
+            },
+            "title": "Sequential",
+            "type": "array"
+          },
+          "sequential_horizon": {
+            "title": "Sequential Horizon",
+            "type": "number"
+          }
+        },
+        "required": [
+          "one_at_a_time",
+          "sequential",
+          "one_at_a_time_horizon",
+          "sequential_horizon"
+        ],
+        "title": "MetricContributionRead",
+        "type": "object"
+      },
+      "MixShiftIntervention": {
+        "additionalProperties": false,
+        "properties": {
+          "cross_border_change": {
+            "exclusiveMinimum": -1.0,
+            "maximum": 3.0,
+            "title": "Cross Border Change",
+            "type": "number"
+          },
+          "start_quarter": {
+            "default": 1,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Start Quarter",
+            "type": "integer"
+          },
+          "type": {
+            "const": "mix_shift_conserving_total",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "cross_border_change"
+        ],
+        "title": "MixShiftIntervention",
+        "type": "object"
+      },
       "ObservationCreate": {
         "additionalProperties": false,
         "properties": {
@@ -1320,6 +1704,66 @@
         "title": "ObservationReviewRead",
         "type": "object"
       },
+      "PairRunsCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "baseline_scenario_id": {
+            "format": "uuid",
+            "title": "Baseline Scenario Id",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "format": "date-time",
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "n_paths": {
+            "default": 5000,
+            "maximum": 50000.0,
+            "minimum": 1.0,
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "n_quarters": {
+            "default": 4,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "N Quarters",
+            "type": "integer"
+          },
+          "scenario_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Scenario Ids",
+            "type": "array"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "switches": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "title": "Switches",
+            "type": "object"
+          }
+        },
+        "required": [
+          "scenario_ids",
+          "baseline_scenario_id",
+          "cutoff_ts",
+          "seed"
+        ],
+        "title": "PairRunsCreate",
+        "type": "object"
+      },
       "ParameterEvidence": {
         "additionalProperties": false,
         "properties": {
@@ -1350,6 +1794,26 @@
           }
         },
         "title": "ParameterEvidence",
+        "type": "object"
+      },
+      "ParameterOverride": {
+        "additionalProperties": false,
+        "properties": {
+          "rationale": {
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "value",
+          "rationale"
+        ],
+        "title": "ParameterOverride",
         "type": "object"
       },
       "ParameterSetCreate": {
@@ -1584,6 +2048,29 @@
           "created_at"
         ],
         "title": "ParameterUpdateRead",
+        "type": "object"
+      },
+      "QuarterEffectRead": {
+        "properties": {
+          "mean_difference": {
+            "title": "Mean Difference",
+            "type": "number"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "quarter_index": {
+            "title": "Quarter Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "quarter_index",
+          "period_label",
+          "mean_difference"
+        ],
+        "title": "QuarterEffectRead",
         "type": "object"
       },
       "ReplayReport": {
@@ -1854,6 +2341,18 @@
       },
       "RunRead": {
         "properties": {
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
           "code_version": {
             "title": "Code Version",
             "type": "string"
@@ -1894,6 +2393,15 @@
           "id": {
             "format": "uuid",
             "title": "Id",
+            "type": "string"
+          },
+          "interventions": {
+            "items": {},
+            "title": "Interventions",
+            "type": "array"
+          },
+          "interventions_hash": {
+            "title": "Interventions Hash",
             "type": "string"
           },
           "job_id": {
@@ -2009,6 +2517,7 @@
           "seed",
           "n_paths",
           "switches",
+          "interventions_hash",
           "lib_versions",
           "status",
           "created_at"
@@ -2085,8 +2594,21 @@
           },
           "interventions": {
             "items": {
-              "additionalProperties": true,
-              "type": "object"
+              "discriminator": {
+                "mapping": {
+                  "mix_shift_conserving_total": "#/components/schemas/MixShiftIntervention",
+                  "total_spend_reduction": "#/components/schemas/SpendReductionIntervention"
+                },
+                "propertyName": "type"
+              },
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/MixShiftIntervention"
+                },
+                {
+                  "$ref": "#/components/schemas/SpendReductionIntervention"
+                }
+              ]
             },
             "title": "Interventions",
             "type": "array"
@@ -2106,8 +2628,14 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Pair Group Id"
+          },
+          "parameter_overrides": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ParameterOverride"
+            },
+            "title": "Parameter Overrides",
+            "type": "object"
           },
           "parameter_set_id": {
             "format": "uuid",
@@ -2175,6 +2703,86 @@
           "created_at"
         ],
         "title": "ScenarioRead",
+        "type": "object"
+      },
+      "SensitivityRead": {
+        "properties": {
+          "flag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Flag"
+          },
+          "high_mean": {
+            "title": "High Mean",
+            "type": "number"
+          },
+          "low_mean": {
+            "title": "Low Mean",
+            "type": "number"
+          },
+          "normalized_sensitivity": {
+            "title": "Normalized Sensitivity",
+            "type": "number"
+          },
+          "observation_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Observation Ids",
+            "type": "array"
+          },
+          "parameter": {
+            "title": "Parameter",
+            "type": "string"
+          },
+          "range_high": {
+            "title": "Range High",
+            "type": "number"
+          },
+          "range_low": {
+            "title": "Range Low",
+            "type": "number"
+          },
+          "rule_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Rule Ids",
+            "type": "array"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Ids",
+            "type": "array"
+          },
+          "support_score": {
+            "title": "Support Score",
+            "type": "number"
+          },
+          "swing": {
+            "title": "Swing",
+            "type": "number"
+          }
+        },
+        "required": [
+          "parameter",
+          "range_low",
+          "range_high",
+          "low_mean",
+          "high_mean",
+          "swing",
+          "normalized_sensitivity",
+          "support_score"
+        ],
+        "title": "SensitivityRead",
         "type": "object"
       },
       "SourceCreate": {
@@ -2533,6 +3141,35 @@
           "url"
         ],
         "title": "SourceRetrievalRead",
+        "type": "object"
+      },
+      "SpendReductionIntervention": {
+        "additionalProperties": false,
+        "properties": {
+          "reduction": {
+            "exclusiveMaximum": 1.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Reduction",
+            "type": "number"
+          },
+          "start_quarter": {
+            "default": 1,
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Start Quarter",
+            "type": "integer"
+          },
+          "type": {
+            "const": "total_spend_reduction",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "reduction"
+        ],
+        "title": "SpendReductionIntervention",
         "type": "object"
       },
       "ValidationError": {
@@ -3820,6 +4457,226 @@
           }
         },
         "summary": "List Scenarios",
+        "tags": [
+          "scenarios"
+        ]
+      },
+      "post": {
+        "operationId": "post_scenario_scenarios_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScenarioCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScenarioRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Scenario",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/scenarios/attribution": {
+      "get": {
+        "operationId": "get_attribution_scenarios_attribution_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "baseline_run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Baseline Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "metric",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Metric"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AttributionRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Attribution",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/scenarios/comparison": {
+      "get": {
+        "operationId": "get_comparison_scenarios_comparison_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "baseline_run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Baseline Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComparisonRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Comparison",
+        "tags": [
+          "scenarios"
+        ]
+      }
+    },
+    "/scenarios/pair-runs": {
+      "post": {
+        "operationId": "post_pair_runs_scenarios_pair_runs_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PairRunsCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RunRead"
+                  },
+                  "title": "Response Post Pair Runs Scenarios Pair Runs Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Pair Runs",
         "tags": [
           "scenarios"
         ]

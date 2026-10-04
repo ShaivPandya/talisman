@@ -13,12 +13,19 @@ Numbered rule list (mirrored in ``docs/model-spec.md``):
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 
 from longaeva_app.companies.base import FiscalPeriod, PathArrays, StepResult
+from longaeva_app.companies.visa.interventions import (
+    InterventionError,
+    MixShiftConservingTotal,
+    TotalSpendReduction,
+    apply_level_shifts,
+)
 from longaeva_app.companies.visa.revenue import category_revenues, client_incentives, net_from_categories
 
 FloatArray = npt.NDArray[np.floating]
@@ -81,8 +88,13 @@ def transition_quarter(
     params: Mapping[str, float],
     switches: Mapping[str, bool],
     period: FiscalPeriod,
+    interventions: Sequence[Any] | None = None,
 ) -> StepResult:
-    """Advance one fiscal quarter. Does not mutate ``state`` or ``shocks``."""
+    """Advance one fiscal quarter. Does not mutate ``state`` or ``shocks``.
+
+    ``interventions`` are applied once, after the activity step, and only when
+    non-empty. The empty path is the unshifted transition.
+    """
     # 1. Factor draws
     n_paths = int(_arr(state, "payments_volume_nominal_us").shape[0])
     demand = _shock(shocks, "demand", n_paths)
@@ -94,6 +106,7 @@ def transition_quarter(
 
     service_lag = bool(switches.get("service_lag", True))
     pool_mix = bool(switches.get("pool_mix", False))
+    active = tuple(interventions or ())
 
     pv_prior = _arr(state, "payments_volume_nominal_us")
     index_cd = _arr(state, "payments_volume_index_constant")
@@ -140,6 +153,21 @@ def transition_quarter(
         # share' = share * (1+g_cb)/(1+g_total) with g_total = g_cd (constant-dollar basis).
         ratio = (1.0 + g_cb) / np.maximum(1.0 + g_cd, _EPS)
         share_new = _sigmoid(_logit(share) + np.log(np.maximum(ratio, _EPS)))
+
+    # Level shifts (LON-22). Skipped entirely when this quarter has no intervention,
+    # so the unshifted arithmetic below is unchanged.
+    if active:
+        typed: list[MixShiftConservingTotal | TotalSpendReduction] = []
+        for item in active:
+            if not isinstance(item, (MixShiftConservingTotal, TotalSpendReduction)):
+                raise InterventionError(f"transition received an unparsed intervention: {type(item).__name__}")
+            typed.append(item)
+        pv_current, index_cd_new, share_new = apply_level_shifts(
+            payments_volume=pv_current,
+            index_constant=index_cd_new,
+            cross_border_share=share_new,
+            interventions=typed,
+        )
 
     # 3. Update pricing, incentives and costs
     svc_drift_q = annual_to_quarterly(float(params["service_yield_drift"]))
@@ -196,11 +224,20 @@ def transition_quarter(
     cross_border_vol = share_new * pv_current
     domestic_vol = pv_current - cross_border_vol
 
-    # YoY constant-dollar growth implied this quarter (for scoring later).
-    # With seasonal ratios this is not a clean YoY; report the quarterly CD growth annualized.
-    growth_cd_yoy = (1.0 + g_cd) ** 4 - 1.0
+    # Annualized quarterly growth. With no intervention this is the modeled rate.
+    # A level shift replaces the activity rates with the realized change versus
+    # the incoming state so the start quarter shows the shift. Transactions are
+    # not shifted, so their rate is always the modeled one.
+    if active:
+        g_cd_realized = index_cd_new / np.maximum(index_cd, _EPS) - 1.0
+        prior_cb = share * pv_prior
+        g_cb_realized = cross_border_vol / np.maximum(prior_cb, _EPS) - 1.0
+        growth_cd_yoy = (1.0 + g_cd_realized) ** 4 - 1.0
+        growth_cb_yoy = (1.0 + g_cb_realized) ** 4 - 1.0
+    else:
+        growth_cd_yoy = (1.0 + g_cd) ** 4 - 1.0
+        growth_cb_yoy = (1.0 + g_cb) ** 4 - 1.0
     growth_txn_yoy = (1.0 + g_txn) ** 4 - 1.0
-    growth_cb_yoy = (1.0 + g_cb) ** 4 - 1.0
 
     new_state: PathArrays = {
         "payments_volume_nominal_us": pv_current,

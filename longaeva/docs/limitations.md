@@ -145,12 +145,36 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Disabled by default.** With `LLM_PROVIDER` unset, fresh extraction returns
   503. Keys belong in `.env` only.
 
+## Scenarios and attribution (LON-22)
+
+- **Persistent shifts only.** A mix shift or spend reduction is applied once and then
+  carried by state. There is no pulse, ramp, or path-dependent rule.
+- **Transactions are unchanged** by `total_spend_reduction`. Data-processing revenue
+  does not move because volume moved.
+- **Overrides keep the base ranges.** A child parameter set changes the value and
+  marks it as an assumption. Sensitivity still sweeps the base low and high.
+- **The flag threshold is a heuristic.** `high_sensitivity_weak_support` fires when
+  normalized sensitivity times `(1 − support)` is at least 0.25. On default ranges,
+  seasonal parameters dominate that ranking. `cross_border_share_at_origin` has
+  support 0 and a very small normalized sensitivity, so it is not flagged. On the
+  calibrated 2024-07-23 set the wide seasonal ranges are observation-backed, so the
+  flag list can be empty.
+- **Labels are model-conditional.** Sequential order is fixed (parameters by name,
+  then interventions as listed). One-at-a-time terms need not sum to the total; the
+  joint residual is that gap. The API does not treat these effects as identified
+  effects outside the model.
+- **Comparison reads saved paths.** Subtracting two runs' published quantiles is not
+  the comparison. `GET /scenarios/comparison` differences the path arrays in
+  `paths.npz`. Attribution re-simulates and returns 409 if the recomputed hash does
+  not match the saved run.
+
 ## Frontend (LON-11)
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without
   credentials. Do not expose Compose ports beyond `127.0.0.1`.
-- **PairedDiffChart is not mounted.** Path-wise difference summaries do not exist until
-  paired scenarios land. Subtracting two runs' quantiles is not the same statistic.
+- **PairedDiffChart is not mounted.** Path-wise differences are available from
+  `GET /scenarios/comparison` (LON-22). The chart component and the scenario
+  workspace land in LON-34. Subtracting two runs' quantiles is not that statistic.
 - **Metric labels are a frontend catalog** aligned with `VisaModel.metrics`. The results
   API does not send units; unknown metric keys fall back to raw numbers.
 - **Playwright is not in this package yet.** Frontend checks are ESLint, Vitest, and

@@ -13,6 +13,12 @@ from sqlalchemy.orm import Session
 from longaeva_app.api.schemas import ParameterEvidence, ParameterSetCreate
 from longaeva_app.companies import register_default_companies
 from longaeva_app.companies.base import FiscalPeriod, StartingState
+from longaeva_app.companies.visa.interventions import (
+    VisaIntervention,
+    canonical_interventions,
+    interventions_content_hash,
+    parse_visa_interventions,
+)
 from longaeva_app.companies.visa.model import VisaModel
 from longaeva_app.companies.visa.parameters import VISA_PARAMETERS
 from longaeva_app.companies.visa.starting_state import (
@@ -270,6 +276,9 @@ class ResolvedRunInputs:
     parameter_set_hash: str
     scenario: Scenario
     switches: dict[str, bool]
+    interventions: tuple[VisaIntervention, ...]
+    interventions_payload: list[dict[str, Any]]
+    interventions_hash: str
 
 
 def resolve_run_inputs(
@@ -279,8 +288,11 @@ def resolve_run_inputs(
     cutoff_ts: datetime,
     switches: dict[str, bool],
 ) -> ResolvedRunInputs:
-    if scenario.interventions:
-        raise RunError("Scenarios with interventions are not runnable until LON-22", status_code=422)
+    try:
+        parsed_interventions = parse_visa_interventions(list(scenario.interventions or []))
+    except ValueError as exc:
+        raise RunError(str(exc), status_code=422) from exc
+    intervention_payload = canonical_interventions(parsed_interventions)
     fixture = resolve_fixture(cutoff_ts)
     origin = FiscalPeriod(fixture.fiscal_year, fixture.fiscal_quarter)
     values = starting_state_values(fixture)
@@ -308,4 +320,7 @@ def resolve_run_inputs(
         parameter_set_hash=create.computed_content_hash(),
         scenario=scenario,
         switches=switch_map,
+        interventions=parsed_interventions,
+        interventions_payload=intervention_payload,
+        interventions_hash=interventions_content_hash(parsed_interventions),
     )

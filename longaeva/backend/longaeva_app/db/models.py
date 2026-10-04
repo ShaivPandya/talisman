@@ -484,6 +484,7 @@ class Run(Base):
         ),
         Index("ix_run_scenario_id", "scenario_id"),
         Index("ix_run_status_created_at", "status", "created_at"),
+        Index("ix_run_baseline_run_id", "baseline_run_id"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -513,6 +514,17 @@ class Run(Base):
     starting_state: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     starting_state_hash: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("''"))
     switches: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
+    interventions: Mapped[list[Any]] = mapped_column(JSONB, nullable=False, server_default=text("'[]'::jsonb"))
+    interventions_hash: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        server_default=text("'4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945'"),
+    )
+    baseline_run_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("run.id", ondelete="SET NULL", name="fk_run_baseline_run_id_run"),
+        nullable=True,
+    )
     lib_versions: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, server_default=text("'{}'::jsonb"))
     status: Mapped[str] = mapped_column(Text, nullable=False, server_default=text("'queued'"))
     outputs_path: Mapped[str | None] = mapped_column(Text, nullable=True)

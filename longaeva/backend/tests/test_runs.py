@@ -215,7 +215,7 @@ def test_submit_rejects_interventions_incomplete_future_and_unknown_cutoff(
         },
     )
     assert blocked.status_code == 422
-    assert "interventions" in blocked.json()["detail"]
+    assert "invalid intervention" in blocked.json()["detail"]
 
     incomplete = ParameterSet(
         company="visa",

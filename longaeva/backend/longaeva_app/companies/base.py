@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from calendar import monthrange
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Any, ClassVar
@@ -165,6 +165,7 @@ class CompanyModel(ABC):
     factors: ClassVar[tuple[str, ...]]
     switches: ClassVar[tuple[SwitchSpec, ...]]
     identities: ClassVar[tuple[IdentitySpec, ...]]
+    intervention_types: ClassVar[tuple[str, ...]] = ()
 
     def default_parameters(self) -> dict[str, float]:
         return {spec.name: spec.default for spec in self.parameters}
@@ -199,11 +200,13 @@ class CompanyModel(ABC):
         metric_names = [m.name for m in self.metrics]
         param_names = [p.name for p in self.parameters]
         switch_names = [s.name for s in self.switches]
+        intervention_names = list(self.intervention_types)
         for label, names in (
             ("state_variables", state_names),
             ("metrics", metric_names),
             ("parameters", param_names),
             ("switches", switch_names),
+            ("intervention_types", intervention_names),
         ):
             if len(set(names)) != len(names):
                 errors.append(f"{label} names must be unique")
@@ -218,6 +221,13 @@ class CompanyModel(ABC):
             if spec.role not in PARAMETER_ROLES:
                 errors.append(f"parameter {spec.name}: invalid role {spec.role!r}")
         return errors
+
+    def parse_interventions(self, raw: Sequence[Mapping[str, Any]]) -> tuple[Any, ...]:
+        """Validate intervention payloads. The default company accepts none."""
+        if not raw:
+            return ()
+        declared = ", ".join(self.intervention_types) or "none"
+        raise ValueError(f"{self.key} does not accept interventions (declared: {declared})")
 
     @abstractmethod
     def factor_correlation(self, params: Mapping[str, float]) -> FloatArray:
@@ -240,5 +250,9 @@ class CompanyModel(ABC):
         params: Mapping[str, float],
         switches: Mapping[str, bool],
         period: FiscalPeriod,
+        interventions: tuple[Any, ...] = (),
     ) -> StepResult:
-        """Advance one fiscal quarter. Must not mutate ``state`` or ``shocks``."""
+        """Advance one fiscal quarter. Must not mutate ``state`` or ``shocks``.
+
+        ``interventions`` are the parsed specs whose ``start_quarter`` is this quarter.
+        """

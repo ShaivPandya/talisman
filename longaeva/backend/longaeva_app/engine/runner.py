@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
@@ -70,6 +71,7 @@ def simulate(
     n_quarters: int = 4,
     switches: Mapping[str, bool] | None = None,
     draws: FloatArray | None = None,
+    interventions: Sequence[Mapping[str, Any]] | None = None,
 ) -> SimulationResult:
     """Run ``n_quarters`` transitions from the quarter *after* ``origin``.
 
@@ -86,6 +88,11 @@ def simulate(
         raise ValueError(f"invalid parameters: {param_errors}")
     param_map = {name: float(params[name]) for name in (spec.name for spec in model.parameters)}
     switch_map = _validate_switches(model, switches or {})
+    parsed_interventions = model.parse_interventions(list(interventions or ()))
+    for item in parsed_interventions:
+        start_quarter = int(item.start_quarter)
+        if start_quarter > n_quarters:
+            raise ValueError(f"intervention start_quarter {start_quarter} is past the horizon of {n_quarters}")
 
     n_factors = len(model.factors)
     if draws is None:
@@ -108,7 +115,8 @@ def simulate(
         # Defensive copies so company code cannot mutate shared arrays unnoticed.
         state_in: PathArrays = {k: np.array(v, dtype=np.float64, copy=True) for k, v in state.items()}
         shock_in: PathArrays = {k: np.array(v, dtype=np.float64, copy=True) for k, v in shock.items()}
-        step = model.transition(state_in, shock_in, param_map, switch_map, period)
+        active = tuple(item for item in parsed_interventions if int(item.start_quarter) == q + 1)
+        step = model.transition(state_in, shock_in, param_map, switch_map, period, interventions=active)
 
         for key, arr in state_in.items():
             if not np.array_equal(arr, state[key]):

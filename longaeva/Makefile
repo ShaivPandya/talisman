@@ -13,10 +13,10 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run replay extract export verify-export
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run replay extract export verify-export"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export"
 
 up:
 	$(COMPOSE) up --build -d --wait
@@ -110,6 +110,14 @@ extract:
 	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
 		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
 		api sh -c 'alembic upgrade head && python -m longaeva_app.cli extract $(ARGS)'
+
+# Paired mix-shift and spend-reduction runs (LON-22).
+# Example: make pair-run ARGS='--origin 2024-07-23 --n-paths 5000 --inline'
+pair-run:
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) $(if $(wildcard .env),--env-file .env,) run --rm --no-deps \
+		-e DATABASE_URL=postgresql://longaeva:longaeva@db:5432/longaeva \
+		api sh -c 'alembic upgrade head && python -m longaeva_app.cli pair-run $(ARGS)'
 
 # Replay a saved run. Example: make replay RUN=<uuid>
 replay:

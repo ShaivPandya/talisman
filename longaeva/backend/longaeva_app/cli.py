@@ -498,6 +498,185 @@ def cmd_replay(args: argparse.Namespace) -> int:
     return 2
 
 
+def cmd_pair_run(args: argparse.Namespace) -> int:
+    """Run a calibrated baseline against mix-shift and spend-reduction variants (LON-22)."""
+    from typing import Any
+
+    from longaeva_app.api.deps import get_artifact_store
+    from longaeva_app.companies.visa.calibration import artifact_path, persist_calibrated
+    from longaeva_app.db.models import Run
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.harness import load_calibration_artifact
+    from longaeva_app.runs.inputs import parse_aware_utc, resolve_fixture_by_origin_date
+    from longaeva_app.scenarios.errors import ScenarioError
+    from longaeva_app.scenarios.service import (
+        attribute_saved_runs,
+        compare_saved_runs,
+        create_scenario,
+        submit_pair_runs,
+    )
+    from longaeva_app.worker.queue import claim_next_job, execute_job
+
+    path = artifact_path(args.origin)
+    if not path.is_file():
+        print(f"No calibration artifact at {path}", flush=True)
+        return 2
+    fixture = resolve_fixture_by_origin_date(args.origin)
+    cutoff = parse_aware_utc(fixture.cutoff_utc)
+    calibrated = load_calibration_artifact(path)
+    mix_change = float(args.mix_change)
+    reduction = float(args.reduction)
+    group = uuid.uuid4()
+    factory = get_session_factory()
+    with factory() as session:
+        _param_set, baseline = persist_calibrated(calibrated, session)
+        baseline.pair_group_id = group
+        mix = create_scenario(
+            session,
+            company="visa",
+            name=f"mix-shift-{mix_change:+.4f}",
+            parameter_set_id=baseline.parameter_set_id,
+            interventions=[
+                {
+                    "type": "mix_shift_conserving_total",
+                    "cross_border_change": mix_change,
+                    "start_quarter": 1,
+                }
+            ],
+            pair_group_id=group,
+            parameter_overrides={},
+        )
+        spend = create_scenario(
+            session,
+            company="visa",
+            name=f"spend-reduction-{reduction:.4f}",
+            parameter_set_id=baseline.parameter_set_id,
+            interventions=[{"type": "total_spend_reduction", "reduction": reduction, "start_quarter": 1}],
+            pair_group_id=group,
+            parameter_overrides={},
+        )
+        try:
+            runs = submit_pair_runs(
+                session,
+                scenario_ids=[baseline.id, mix.id, spend.id],
+                baseline_scenario_id=baseline.id,
+                cutoff_ts=cutoff,
+                seed=int(args.seed),
+                n_paths=int(args.n_paths),
+                n_quarters=int(args.n_quarters),
+                switches={},
+            )
+        except ScenarioError as exc:
+            print(exc.message, flush=True)
+            return 2
+        session.commit()
+        job_ids = [run.job_id for run in runs]
+        run_ids = {
+            "baseline": runs[0].id,
+            "mix_shift": runs[1].id,
+            "spend_reduction": runs[2].id,
+        }
+    if args.inline:
+        if any(job_id is None for job_id in job_ids):
+            print("submitted run has no job_id", flush=True)
+            return 2
+        # Jobs committed together share created_at, so the queue orders them by id,
+        # not by the baseline-then-variant list. Claim until each submitted job runs.
+        pending: set[uuid.UUID] = {job_id for job_id in job_ids if job_id is not None}
+        while pending:
+            claimed = claim_next_job(factory, "inline")
+            if claimed not in pending:
+                print(f"expected to claim one of {sorted(str(item) for item in pending)}, got {claimed}", flush=True)
+                return 2
+            execute_job(factory, claimed, "inline")
+            pending.remove(claimed)
+    store = get_artifact_store()
+    with factory() as session:
+        rows = {name: session.get(Run, run_id) for name, run_id in run_ids.items()}
+        if any(row is None or row.status != "succeeded" for row in rows.values()):
+            print(json.dumps({name: None if row is None else row.status for name, row in rows.items()}, indent=2))
+            return 1
+        mix_cmp = compare_saved_runs(session, store, run_id=run_ids["mix_shift"], baseline_run_id=run_ids["baseline"])
+        spend_cmp = compare_saved_runs(
+            session, store, run_id=run_ids["spend_reduction"], baseline_run_id=run_ids["baseline"]
+        )
+        mix_attr = attribute_saved_runs(
+            session,
+            store,
+            run_id=run_ids["mix_shift"],
+            baseline_run_id=run_ids["baseline"],
+            metric="net_revenue",
+        )
+        spend_attr = attribute_saved_runs(
+            session,
+            store,
+            run_id=run_ids["spend_reduction"],
+            baseline_run_id=run_ids["baseline"],
+            metric="net_revenue",
+        )
+
+    def _series(comparison: dict[str, Any], metric: str) -> list[dict[str, Any]]:
+        return [
+            {
+                "quarter_index": item["quarter_index"],
+                "period_label": item["period_label"],
+                "difference_mean": item["difference_mean"],
+                "p05": item["quantiles"].get("0.05"),
+                "p95": item["quantiles"].get("0.95"),
+            }
+            for item in comparison["items"]
+            if item["metric"] == metric
+        ]
+
+    def _flags(attribution: dict[str, Any]) -> list[dict[str, Any]]:
+        return [
+            {
+                "parameter": item["parameter"],
+                "normalized_sensitivity": item["normalized_sensitivity"],
+                "support_score": item["support_score"],
+                "flag": item["flag"],
+            }
+            for item in attribution["sensitivity"]
+            if item["flag"]
+        ]
+
+    payload = {
+        "origin": args.origin,
+        "seed": int(args.seed),
+        "n_paths": int(args.n_paths),
+        "run_ids": {name: str(value) for name, value in run_ids.items()},
+        "mix_shift": {
+            "cross_border_change": mix_change,
+            "payments_volume_difference": _series(mix_cmp, "payments_volume_nominal_us"),
+            "service_revenue_difference": _series(mix_cmp, "service_revenue"),
+            "international_revenue_difference": _series(mix_cmp, "international_transaction_revenue"),
+            "net_revenue_difference": _series(mix_cmp, "net_revenue"),
+            "verification": mix_attr["verification"],
+            "flags": _flags(mix_attr),
+            "top_sensitivity": [
+                {
+                    "parameter": item["parameter"],
+                    "normalized_sensitivity": item["normalized_sensitivity"],
+                    "support_score": item["support_score"],
+                    "flag": item["flag"],
+                }
+                for item in mix_attr["sensitivity"][:5]
+            ],
+        },
+        "spend_reduction": {
+            "reduction": reduction,
+            "payments_volume_difference": _series(spend_cmp, "payments_volume_nominal_us"),
+            "service_revenue_difference": _series(spend_cmp, "service_revenue"),
+            "international_revenue_difference": _series(spend_cmp, "international_transaction_revenue"),
+            "net_revenue_difference": _series(spend_cmp, "net_revenue"),
+            "verification": spend_attr["verification"],
+            "flags": _flags(spend_attr),
+        },
+    }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -667,6 +846,16 @@ def build_parser() -> argparse.ArgumentParser:
     submit.add_argument("--inline", action="store_true", help="Execute in this process instead of the worker")
     submit.add_argument("--wait", type=float, default=None, help="Seconds to wait for the worker")
     submit.set_defaults(func=cmd_submit_run)
+
+    pair = sub.add_parser("pair-run", help="Paired mix-shift and spend-reduction runs (LON-22)")
+    pair.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD with a calibration artifact")
+    pair.add_argument("--seed", type=int, default=22, help="Shared RNG seed")
+    pair.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths")
+    pair.add_argument("--n-quarters", type=int, default=4, help="Horizon in fiscal quarters")
+    pair.add_argument("--mix-change", type=float, default=-0.10, help="Cross-border share change, e.g. -0.10")
+    pair.add_argument("--reduction", type=float, default=0.05, help="Total payments-volume reduction, e.g. 0.05")
+    pair.add_argument("--inline", action="store_true", help="Execute in this process instead of the worker")
+    pair.set_defaults(func=cmd_pair_run)
 
     evaluate_p = sub.add_parser(
         "evaluate",

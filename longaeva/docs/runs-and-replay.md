@@ -41,7 +41,10 @@ Only the two LON-3 fixtures are runnable:
 `cutoff_ts` may match the exact cutoff or that UTC date. Committed fixtures take
 precedence; other `origins.csv` candidate/prospective cutoffs are built by
 `companies/visa/state_builder.py` (LON-27). Unknown cutoffs still return 422.
-Interventions return 422 until LON-22.
+A scenario may carry interventions (LON-22). Submit parses them, rejects an
+unknown type or a `start_quarter` past `n_quarters`, and pins `run.interventions`
+plus `run.interventions_hash`. Replay adds `interventions_hash` to the
+`inputs_changed` differences when the scenario list no longer matches that pin.
 
 The run stores a copy of the numeric starting state and `starting_state_hash`.
 The source manifest lists fixture **input** documents as
@@ -82,7 +85,7 @@ Replay never calls an LLM (`LLM_PROVIDER` may be unset). Statuses:
 | `exact_match` | Recomputed outputs hash equals the recorded hash |
 | `numerically_equivalent` | Hash differs, but max relative array (or summary) difference ≤ 1e-9. Code-version and library differences are listed. Covers macOS Accelerate vs container OpenBLAS. |
 | `mismatch` | Difference exceeds 1e-9 |
-| `inputs_changed` | Parameter-set, starting-state, or manifest hash no longer verifies |
+| `inputs_changed` | Parameter-set, starting-state, manifest, or interventions hash no longer verifies |
 
 CLI exit codes: 0 for exact or numerically equivalent, 1 for mismatch or
 inputs_changed, 2 on error.
@@ -96,7 +99,8 @@ run replayed from the host virtualenv was `numerically_equivalent`
 
 ## Forecast archive (decision 2a / FR-17)
 
-`POST /runs/{id}/forecasts` requires a succeeded run, no interventions, and a
+`POST /runs/{id}/forecasts` requires a succeeded run, an empty intervention list
+on both the scenario and the pinned run, and a
 parameter set with at least one evidence-backed parameter (uncalibrated defaults
 cannot be archived). Declared `kind` must match whether the next quarter's
 results are already published in `data/fixtures/origins.csv` at archive time:
@@ -108,7 +112,9 @@ archive of the same run returns 409. Forecast rows cannot be updated or deleted.
 ## Handoffs
 
 - **LON-11:** `GET /runs` and `GET /runs/{id}/results` are the minimal run-page contract.
-- **LON-22:** intervention scenarios currently 422 on submit.
+- **LON-22 (done):** interventions are runnable. Comparison and attribution live
+  under `/scenarios`; see [`docs/scenarios.md`](scenarios.md). The archive still
+  refuses them.
 - **LON-24:** `make submit-run` / `make replay` work from an empty database with
   the two bundled fixtures (no collector required).
 - **LON-27 (done):** state builder + evaluation harness reuse `submit_run` /

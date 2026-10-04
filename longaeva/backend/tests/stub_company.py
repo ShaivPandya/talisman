@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from typing import Any
 
 import numpy as np
 
@@ -91,8 +92,11 @@ class StubCompany(CompanyModel):
         params: Mapping[str, float],
         switches: Mapping[str, bool],
         period: FiscalPeriod,
+        interventions: tuple[Any, ...] = (),
     ) -> StepResult:
         del switches, period  # stub ignores ablation switches / calendar for dynamics
+        if interventions:
+            raise ValueError("stubco does not accept interventions")
         activity = np.array(state["activity"], dtype=np.float64, copy=True)
         opex = np.array(state["opex"], dtype=np.float64, copy=True)
         demand = np.asarray(shocks["demand"], dtype=np.float64)

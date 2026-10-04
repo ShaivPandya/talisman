@@ -45,6 +45,7 @@ def submit_run(
     n_paths: int,
     n_quarters: int,
     switches: dict[str, bool],
+    baseline_run_id: uuid.UUID | None = None,
 ) -> Run:
     scenario = session.get(Scenario, scenario_id)
     if scenario is None:
@@ -54,6 +55,14 @@ def submit_run(
         assert_evidence_reviewed(session, resolved.parameter_set)
     except ReviewError as exc:
         raise RunError(exc.message, status_code=exc.status_code) from exc
+    for item in resolved.interventions:
+        if int(item.start_quarter) > n_quarters:
+            raise RunError(
+                f"intervention start_quarter {item.start_quarter} is past the horizon of {n_quarters}",
+                status_code=422,
+            )
+    if baseline_run_id is not None and session.get(Run, baseline_run_id) is None:
+        raise RunError("Baseline run not found", status_code=422)
     job = Job(type="run", payload={}, status="queued")
     session.add(job)
     session.flush()
@@ -72,6 +81,9 @@ def submit_run(
         n_paths=n_paths,
         n_quarters=n_quarters,
         switches=resolved.switches,
+        interventions=resolved.interventions_payload,
+        interventions_hash=resolved.interventions_hash,
+        baseline_run_id=baseline_run_id,
         lib_versions={},
         status="queued",
     )
@@ -151,6 +163,7 @@ def _simulate_and_store(
             n_paths=run.n_paths,
             n_quarters=run.n_quarters,
             switches=resolved.switches,
+            interventions=resolved.interventions_payload,
         )
         outputs_key = f"runs/{run.id}/paths.npz"
         artifact_store.write_once(outputs_key, simulation_to_npz_bytes(simulation))
@@ -183,6 +196,8 @@ def _assert_pinned_inputs(run: Run, resolved: ResolvedRunInputs) -> None:
         raise RunError("Pinned starting-state hash does not match the fixture", status_code=409)
     if run.source_manifest_hash != resolved.source_manifest_hash:
         raise RunError("Pinned source-manifest hash does not match the fixture documents", status_code=409)
+    if run.interventions_hash != resolved.interventions_hash:
+        raise RunError("Pinned intervention hash does not match the scenario interventions", status_code=409)
 
 
 def replay_run(
@@ -217,6 +232,8 @@ def replay_run(
             input_errors.append("starting_state_hash")
         if resolved.source_manifest_hash != run.source_manifest_hash:
             input_errors.append("source_manifest_hash")
+        if resolved.interventions_hash != run.interventions_hash:
+            input_errors.append("interventions_hash")
         verify_parameter_set(param_row, run_cutoff=cutoff, company=scenario.company)
     except RunError as exc:
         input_errors.append(exc.message)
@@ -250,6 +267,7 @@ def replay_run(
         n_paths=run.n_paths,
         n_quarters=run.n_quarters,
         switches=resolved.switches,
+        interventions=resolved.interventions_payload,
     )
     recorded_metrics = None
     recorded_states = None
