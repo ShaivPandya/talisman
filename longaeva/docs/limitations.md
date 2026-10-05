@@ -286,3 +286,19 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Replay after restart** keeps named volumes (`make down` without `-v`) so artifacts
   and Postgres survive. Final teardown uses `down -v --rmi local`.
 
+## Search (LON-17)
+
+- **Lexical only.** Search is Postgres english `tsvector` / `websearch_to_tsquery`
+  over stored passage text. There is no embedding index and no semantic search.
+- **Superseded sources are not collapsed.** A passage in a document that a later
+  source supersedes still matches when its text and filters match.
+- **Undated sources drop out of a period filter.** A source with a null
+  `period_start` or `period_end` is excluded whenever `period_start` or
+  `period_end` is passed. The same source remains searchable when no period
+  filter is set.
+- **A date-only cutoff is midnight UTC.** `cutoff_ts=2024-07-23` means
+  `2024-07-23T00:00:00Z`, so a release later that calendar day is excluded.
+- **Latency check is a fixture, not the demo seed.** Tests time a filtered
+  search over 5,000 synthetic passages. The demo seed is LON-37. The corpus
+  collected in development is smaller than that fixture.
+

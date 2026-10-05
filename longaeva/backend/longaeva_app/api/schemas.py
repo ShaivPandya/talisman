@@ -127,6 +127,38 @@ class DocumentTextRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class PassageSearchHitRead(BaseModel):
+    """One document_text passage matching a full-text query (LON-17)."""
+
+    document_text_id: uuid.UUID
+    source_id: uuid.UUID
+    page: int
+    char_start: int
+    char_end: int
+    text: str
+    snippet: str
+    rank: float
+    company: str
+    doc_type: str
+    url: str
+    publication_ts: datetime
+    period_start: date | None = None
+    period_end: date | None = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class PassageSearchRead(BaseModel):
+    """Full-text passage search, echoing the filters that were applied."""
+
+    query: str
+    company: str | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    cutoff_ts: datetime | None = None
+    hits: list[PassageSearchHitRead]
+
+
 class SourceRetrievalCreate(StrictModel):
     source_id: uuid.UUID
     retrieved_at: AwareDatetime

@@ -101,6 +101,7 @@ Read-only list/detail endpoints (writes arrive in later issues):
 | Method | Path |
 | --- | --- |
 | GET | `/sources`, `/sources/{id}`, `/sources/{id}/passages` |
+| GET | `/search/passages?q=` |
 | GET | `/observations`, `/observations/{id}` |
 | GET | `/parameter-sets`, `/parameter-sets/{id}` |
 | GET | `/scenarios`, `/scenarios/{id}` |
@@ -115,6 +116,14 @@ Refresh the committed OpenAPI snapshot after schema changes:
 ```bash
 make openapi
 ```
+
+## Passage search (LON-17)
+
+`GET /search/passages` searches stored passages with Postgres full-text
+(`websearch_to_tsquery` on the `document_text.tsv` column). Optional filters are
+exact `company`, source-period overlap, and `publication_ts <= cutoff_ts`.
+Hits return the stored page and character span plus a short snippet. Details
+and examples: [`docs/search.md`](docs/search.md).
 
 ## Checks
 

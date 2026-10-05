@@ -2786,6 +2786,171 @@
         "title": "ParameterUpdateRead",
         "type": "object"
       },
+      "PassageSearchHitRead": {
+        "description": "One document_text passage matching a full-text query (LON-17).",
+        "properties": {
+          "char_end": {
+            "title": "Char End",
+            "type": "integer"
+          },
+          "char_start": {
+            "title": "Char Start",
+            "type": "integer"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "doc_type": {
+            "title": "Doc Type",
+            "type": "string"
+          },
+          "document_text_id": {
+            "format": "uuid",
+            "title": "Document Text Id",
+            "type": "string"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "publication_ts": {
+            "format": "date-time",
+            "title": "Publication Ts",
+            "type": "string"
+          },
+          "rank": {
+            "title": "Rank",
+            "type": "number"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "source_id": {
+            "format": "uuid",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "text": {
+            "title": "Text",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_text_id",
+          "source_id",
+          "page",
+          "char_start",
+          "char_end",
+          "text",
+          "snippet",
+          "rank",
+          "company",
+          "doc_type",
+          "url",
+          "publication_ts"
+        ],
+        "title": "PassageSearchHitRead",
+        "type": "object"
+      },
+      "PassageSearchRead": {
+        "description": "Full-text passage search, echoing the filters that were applied.",
+        "properties": {
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "cutoff_ts": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cutoff Ts"
+          },
+          "hits": {
+            "items": {
+              "$ref": "#/components/schemas/PassageSearchHitRead"
+            },
+            "title": "Hits",
+            "type": "array"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query",
+          "hits"
+        ],
+        "title": "PassageSearchRead",
+        "type": "object"
+      },
       "PeHistoryRowRead": {
         "additionalProperties": false,
         "properties": {
@@ -6646,6 +6811,138 @@
         "summary": "Get Scenario",
         "tags": [
           "scenarios"
+        ]
+      }
+    },
+    "/search/passages": {
+      "get": {
+        "operationId": "search_document_passages_search_passages_get",
+        "parameters": [
+          {
+            "description": "Web-style full-text query (quotes, OR, -term).",
+            "in": "query",
+            "name": "q",
+            "required": true,
+            "schema": {
+              "description": "Web-style full-text query (quotes, OR, -term).",
+              "minLength": 1,
+              "title": "Q",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Exact source.company match.",
+            "in": "query",
+            "name": "company",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Exact source.company match.",
+              "title": "Company"
+            }
+          },
+          {
+            "description": "Keep sources whose period overlaps this start (drops undated sources).",
+            "in": "query",
+            "name": "period_start",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep sources whose period overlaps this start (drops undated sources).",
+              "title": "Period Start"
+            }
+          },
+          {
+            "description": "Keep sources whose period overlaps this end (drops undated sources).",
+            "in": "query",
+            "name": "period_end",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep sources whose period overlaps this end (drops undated sources).",
+              "title": "Period End"
+            }
+          },
+          {
+            "description": "Keep sources with publication_ts <= this instant. A value without a timezone is UTC. A date alone is midnight UTC.",
+            "in": "query",
+            "name": "cutoff_ts",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Keep sources with publication_ts <= this instant. A value without a timezone is UTC. A date alone is midnight UTC.",
+              "title": "Cutoff Ts"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PassageSearchRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search Document Passages",
+        "tags": [
+          "search"
         ]
       }
     },

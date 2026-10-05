@@ -17,6 +17,7 @@ from longaeva_app.api.routers import (
     review,
     runs,
     scenarios,
+    search,
     sources,
     valuation,
 )
@@ -31,6 +32,7 @@ app = FastAPI(
 app.include_router(health.router)
 app.include_router(jobs.router)
 app.include_router(sources.router)
+app.include_router(search.router)
 app.include_router(observations.router)
 app.include_router(review.router)
 app.include_router(parameters.router)
