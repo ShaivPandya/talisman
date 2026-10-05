@@ -36,6 +36,7 @@ services:
     volumes:
       - ./data:/srv/longaeva/data:ro
       - ./docs:/srv/longaeva/docs:ro
+      - ./config:/srv/longaeva/config:ro
       - longaeva_artifacts:/srv/longaeva/var/artifacts
     depends_on:
       db:
@@ -78,6 +79,7 @@ services:
       WORKER_HEARTBEAT_PATH: /tmp/longaeva-worker-heartbeat
     volumes:
       - ./data:/srv/longaeva/data:ro
+      - ./config:/srv/longaeva/config:ro
       - longaeva_artifacts:/srv/longaeva/var/artifacts
     depends_on:
       api:

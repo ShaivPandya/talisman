@@ -9,7 +9,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /srv/longaeva/backend
 
 RUN useradd --create-home --uid 10001 appuser \
-    && mkdir -p /srv/longaeva/data /srv/longaeva/var/artifacts /tmp \
+    && mkdir -p /srv/longaeva/data /srv/longaeva/docs /srv/longaeva/config /srv/longaeva/var/artifacts /tmp \
     && chown -R appuser:appuser /srv/longaeva /tmp
 
 COPY requirements.txt requirements-dev.txt requirements.lock ./
@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir -r requirements-dev.txt -c requirements.lock
 COPY --chown=appuser:appuser . /srv/longaeva/backend
 # data/ is copied by compose build context from the package root via a separate stage step;
 # for image-only builds, create the expected layout so PACKAGE_ROOT resolves.
-RUN mkdir -p /srv/longaeva/data /srv/longaeva/docs \
+RUN mkdir -p /srv/longaeva/data /srv/longaeva/docs /srv/longaeva/config \
     && chown -R appuser:appuser /srv/longaeva
 
 USER appuser

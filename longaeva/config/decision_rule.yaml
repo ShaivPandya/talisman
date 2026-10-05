@@ -1,0 +1,36 @@
+# Illustrative decision rule (LON-26 / FR-13).
+# The hash covers the parsed values, not these comments or blank lines.
+# Frozen before scoring (LON-28). Changing a value changes rule_hash;
+# update EXPECTED_RULE_HASH and docs/actions.md in the same change.
+# rule_hash: d93e2e052b7dbc75f00c4691e8afa464ac54c8d5a9bde602037767ec9dbd3039
+
+version: 1
+label: "Illustrative. Not investment advice and not a probability."
+
+# Basis points of traded notional, per side. Funding is off.
+# When funding_bps_per_day is non-zero it applies only to added notional,
+# over holding_period_trading_days.
+costs:
+  transaction_cost_bps: 1
+  slippage_bps: 3
+  market_impact_bps: 5
+  funding_bps_per_day: 0
+
+# margin = value_p50 / reference_price - 1
+# value_p50 is p50 forward EPS times the mid multiple.
+# Boundaries are inclusive. Exit is checked before trim.
+thresholds:
+  exit_at_or_below: -0.25
+  trim_at_or_below: -0.10
+  add_at_or_above: 0.15
+
+sizing:
+  add_fraction: 0.25
+  trim_fraction: 0.25
+
+# One quarter, up to the next release origin. LON-28 uses this horizon.
+holding_period_trading_days: 63
+
+demo_position:
+  shares: 1000
+  direction: long

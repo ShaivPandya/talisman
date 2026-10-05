@@ -422,6 +422,22 @@ make valuation-multiples   # host venv; rewrites data/fixtures/valuation/visa_pe
 Non-positive forward EPS returns `status: "unsupported"` and no value. Earnings
 uncertainty and multiple uncertainty are separate spreads.
 
+## Illustrative actions (LON-26)
+
+Hold, add, trim, and exit for a labeled demo position of 1,000 shares. Costs
+are explicit basis points. The decision rule is
+[`config/decision_rule.yaml`](config/decision_rule.yaml); its hash is recorded
+in [`docs/actions.md`](docs/actions.md). The reference price is Visa's quarterly
+average repurchase price, not a market close. Hold is the no-action outcome.
+
+| Method | Path |
+| --- | --- |
+| POST | `/valuation/actions` `{run_id, shares?, reference_price?, tax_rate?, net_interest_other?, diluted_shares?, multiple_range?}` |
+| GET | `/valuation/decision-rule` |
+
+An unsupported bridge returns `decision: "hold"` and the reason. It does not
+invent a price or a value.
+
 ## Seed
 
 ```bash

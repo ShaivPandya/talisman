@@ -21,5 +21,6 @@ this package imports Talisman at runtime.
 | `frontend/src/lib/api.ts` | — | New | Plain `fetch` client. No auth, CSRF, or Sentry. |
 | `frontend/src/components/charts/FanChart.tsx` | — | New | Nested quantile bands (5–95 / 10–90 / 25–75) plus median and mean. |
 | `frontend/src/components/charts/PairedDiffChart.tsx` | — | New | Path-wise difference quantiles around a zero line. Not mounted until difference summaries exist. |
+| `backend/longaeva_app/valuation/actions.py` | `portfolio/scenario_simulator.py` `_apply_delta`, `_traded_notional`, `_execution_friction` (lines 357–518); tests `tests/test_scenario_simulator.py` | Copy + adapt | Percent-of-position sizing only (hold/add/trim/exit). Costs are transaction, slippage, impact, and funding. Funding applies only to added notional over the configured holding period. Dropped the ADV cap, policy gate, ontology writeback, and scenario P&L. The rule is `config/decision_rule.yaml`, hashed with `content_hash`. |
 
-Later issues will extend this file when evidence UI and action-cost arithmetic are copied.
+Later issues will extend this file when evidence UI is copied.

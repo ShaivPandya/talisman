@@ -236,6 +236,27 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   low multiple and the EPS p90 by the high multiple. Earnings-driven and
   multiple-driven spreads are the separated pieces.
 
+## Illustrative actions (LON-26)
+
+- **Buyback average, and circular with the multiple.** The reference price is
+  the latest quarterly average repurchase price accepted by the cutoff, the
+  same series as the trailing P/E numerator. Value per share is forward EPS
+  times the median of those trailing multiples. The margin compares that value
+  with the latest buyback average. It is not a discount to a market close.
+  Visa daily prices remain blocked (LON-6).
+- **Flat basis-point costs.** Transaction, slippage, and impact do not depend
+  on volume or volatility. Funding is off in the committed rule. If it is set,
+  it applies only to added notional over the 63-day holding period.
+- **Long only.** The demo position is 1,000 shares long. There is no short, no
+  leverage, and no book-level constraint. A trim fraction above 1 is clamped
+  at zero shares; the committed fractions are 0.25.
+- **Not advice.** Every action label says illustrative. The net value gap is
+  not a probability and is not a forecast of trading profit. The rule is fixed
+  configuration. Scoring is LON-28 and is not run here.
+- **Hold is the no-action outcome.** An unsupported bridge, or a cutoff with no
+  repurchase price and no request override, returns hold and the reason. No
+  price or value is filled in to make the rule fire.
+
 ## Frontend (LON-11)
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without

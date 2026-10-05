@@ -1,4 +1,4 @@
-"""Earnings/multiple valuation bridge over a saved run (LON-25)."""
+"""Earnings/multiple valuation bridge (LON-25) and illustrative actions (LON-26)."""
 
 from __future__ import annotations
 
@@ -10,23 +10,46 @@ from sqlalchemy.orm import Session
 
 from longaeva_app.api.deps import get_artifact_store
 from longaeva_app.api.schemas import (
+    ActionRowRead,
     AssumptionRead,
+    CostComponentsRead,
+    DecisionRuleCostsRead,
+    DecisionRuleRead,
+    DecisionRuleSizingRead,
+    DecisionRuleThresholdsRead,
+    DemoPositionRead,
     EarningsDrivenRead,
     EpsComponentRead,
     ForwardEpsRead,
     MultipleBandRead,
     MultipleDrivenRead,
+    MultipleRangeInput,
     OuterEnvelopeRead,
     PeHistoryRowRead,
+    PositionRead,
+    ReferencePriceRead,
+    ValuationActionsRead,
+    ValuationActionsRequest,
     ValuationBridgeRead,
     ValuationBridgeRequest,
     ValuationMultiplesRead,
     ValueCellRead,
+    ValueGapRead,
 )
 from longaeva_app.db.models import Run
 from longaeva_app.db.session import get_db
 from longaeva_app.engine.outputs import load_npz_arrays
 from longaeva_app.storage.local import LocalArtifactStore
+from longaeva_app.valuation.actions import (
+    ActionsResult,
+    DecisionRule,
+    DecisionRuleError,
+    ReferencePrice,
+    evaluate_actions,
+    load_decision_rule,
+    override_reference_price,
+    reference_price,
+)
 from longaeva_app.valuation.bridge import OPERATING_PROFIT_METRIC, ValuationResult, value_bridge
 from longaeva_app.valuation.multiples import (
     METHOD_LABEL,
@@ -191,13 +214,12 @@ def _load_fixture_history() -> tuple[PeQuarter, ...]:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
 
 
-@router.post("/bridge", response_model=ValuationBridgeRead)
-def post_bridge(
-    body: ValuationBridgeRequest,
-    session: Session = Depends(get_db),
-    store: LocalArtifactStore = Depends(get_artifact_store),
-) -> ValuationBridgeRead:
-    run = session.get(Run, body.run_id)
+def _load_run_paths(
+    session: Session,
+    store: LocalArtifactStore,
+    run_id: Any,
+) -> tuple[Run, Any]:
+    run = session.get(Run, run_id)
     if run is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
     if run.status != "succeeded":
@@ -211,20 +233,27 @@ def post_bridge(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Run paths are missing {OPERATING_PROFIT_METRIC}",
         )
+    return run, operating_profit
 
+
+def _result_for_run(
+    run: Run,
+    operating_profit: Any,
+    *,
+    tax_rate: float | None,
+    net_interest_other: float | None,
+    diluted_shares: float | None,
+    multiple_range: MultipleRangeInput | None,
+) -> ValuationResult:
     state = run.starting_state if isinstance(run.starting_state, dict) else {}
-    tax, tax_source = _resolve(body.tax_rate, _state_float(state, "tax_rate"))
-    other, other_source = _resolve(body.net_interest_other, _state_float(state, "net_interest_other"))
-    shares, shares_source = _resolve(body.diluted_shares, _state_float(state, "diluted_shares"))
-    if body.multiple_range is not None:
-        band: MultipleBand | None = override_band(
-            body.multiple_range.low,
-            body.multiple_range.mid,
-            body.multiple_range.high,
-        )
+    tax, tax_source = _resolve(tax_rate, _state_float(state, "tax_rate"))
+    other, other_source = _resolve(net_interest_other, _state_float(state, "net_interest_other"))
+    shares, shares_source = _resolve(diluted_shares, _state_float(state, "diluted_shares"))
+    if multiple_range is not None:
+        band: MultipleBand | None = override_band(multiple_range.low, multiple_range.mid, multiple_range.high)
     else:
         band = pe_band(as_utc(run.cutoff_ts), rows=_load_fixture_history())
-    result = value_bridge(
+    return value_bridge(
         operating_profit,
         tax_rate=tax,
         net_interest_other=other,
@@ -236,7 +265,172 @@ def post_bridge(
             "diluted_shares": shares_source,
         },
     )
+
+
+def _rule_read(rule: DecisionRule) -> DecisionRuleRead:
+    return DecisionRuleRead(
+        version=rule.version,
+        label=rule.label,
+        rule_hash=rule.rule_hash,
+        costs=DecisionRuleCostsRead(
+            transaction_cost_bps=rule.transaction_cost_bps,
+            slippage_bps=rule.slippage_bps,
+            market_impact_bps=rule.market_impact_bps,
+            funding_bps_per_day=rule.funding_bps_per_day,
+        ),
+        thresholds=DecisionRuleThresholdsRead(
+            exit_at_or_below=rule.exit_at_or_below,
+            trim_at_or_below=rule.trim_at_or_below,
+            add_at_or_above=rule.add_at_or_above,
+        ),
+        sizing=DecisionRuleSizingRead(
+            add_fraction=rule.add_fraction,
+            trim_fraction=rule.trim_fraction,
+        ),
+        holding_period_trading_days=rule.holding_period_trading_days,
+        demo_position=DemoPositionRead(shares=rule.demo_shares, direction=rule.direction),
+    )
+
+
+def _actions_read(
+    run: Run,
+    bridge: ValuationBridgeRead,
+    result: ActionsResult,
+    *,
+    position_source: Literal["decision_rule", "request_override"],
+    rule: DecisionRule,
+) -> ValuationActionsRead:
+    reference = None
+    if result.reference is not None:
+        reference = ReferencePriceRead(
+            price=result.reference.price,
+            period_label=result.reference.period_label,
+            acceptance_utc=result.reference.acceptance_utc,
+            source=result.reference.source,
+            source_label=result.reference.source_label,
+            price_source_id=result.reference.price_source_id,
+            price_quote=result.reference.price_quote,
+        )
+    rows: list[ActionRowRead] = []
+    for row in result.actions:
+        costs = None
+        if row.costs is not None:
+            costs = CostComponentsRead(
+                traded_notional=row.costs.traded_notional,
+                transaction_cost=row.costs.transaction_cost,
+                slippage_cost=row.costs.slippage_cost,
+                market_impact_cost=row.costs.market_impact_cost,
+                funding_cost=row.costs.funding_cost,
+                total_cost=row.costs.total_cost,
+                total_cost_bps=row.costs.total_cost_bps,
+            )
+        gaps = None
+        if row.gaps is not None:
+            gaps = [
+                ValueGapRead(
+                    name=gap.name,
+                    value_per_share=gap.value_per_share,
+                    net_gap=gap.net_gap,
+                    label=gap.label,
+                )
+                for gap in row.gaps
+            ]
+        rows.append(
+            ActionRowRead(
+                action=row.action,
+                label=row.label,
+                is_no_action=row.is_no_action,
+                selected=row.selected,
+                target_shares=row.target_shares,
+                costs=costs,
+                gaps=gaps,
+            )
+        )
+    return ValuationActionsRead(
+        status=result.status,
+        reason=result.reason,
+        label=result.label,
+        run_id=run.id,
+        bridge=bridge,
+        reference_price=reference,
+        position=PositionRead(shares=result.shares, direction=result.direction, source=position_source),
+        rule=_rule_read(rule),
+        decision=result.decision,
+        margin=result.margin,
+        value_per_share=result.value_per_share,
+        actions=rows,
+    )
+
+
+def _loaded_rule() -> DecisionRule:
+    try:
+        return load_decision_rule()
+    except DecisionRuleError as exc:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+
+
+@router.post("/bridge", response_model=ValuationBridgeRead)
+def post_bridge(
+    body: ValuationBridgeRequest,
+    session: Session = Depends(get_db),
+    store: LocalArtifactStore = Depends(get_artifact_store),
+) -> ValuationBridgeRead:
+    run, operating_profit = _load_run_paths(session, store, body.run_id)
+    result = _result_for_run(
+        run,
+        operating_profit,
+        tax_rate=body.tax_rate,
+        net_interest_other=body.net_interest_other,
+        diluted_shares=body.diluted_shares,
+        multiple_range=body.multiple_range,
+    )
     return _bridge_read(run, result)
+
+
+@router.post("/actions", response_model=ValuationActionsRead)
+def post_actions(
+    body: ValuationActionsRequest,
+    session: Session = Depends(get_db),
+    store: LocalArtifactStore = Depends(get_artifact_store),
+) -> ValuationActionsRead:
+    run, operating_profit = _load_run_paths(session, store, body.run_id)
+    valuation = _result_for_run(
+        run,
+        operating_profit,
+        tax_rate=body.tax_rate,
+        net_interest_other=body.net_interest_other,
+        diluted_shares=body.diluted_shares,
+        multiple_range=body.multiple_range,
+    )
+    rule = _loaded_rule()
+    price: ReferencePrice | None
+    if body.reference_price is not None:
+        try:
+            price = override_reference_price(body.reference_price)
+        except DecisionRuleError as exc:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    else:
+        try:
+            price = reference_price(as_utc(run.cutoff_ts))
+        except PeHistoryError as exc:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(exc)) from exc
+    position_source: Literal["decision_rule", "request_override"]
+    if body.shares is None:
+        position_shares = rule.demo_shares
+        position_source = "decision_rule"
+    else:
+        position_shares = body.shares
+        position_source = "request_override"
+    try:
+        actions = evaluate_actions(valuation, price, position_shares, rule)
+    except DecisionRuleError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+    return _actions_read(run, _bridge_read(run, valuation), actions, position_source=position_source, rule=rule)
+
+
+@router.get("/decision-rule", response_model=DecisionRuleRead)
+def get_decision_rule() -> DecisionRuleRead:
+    return _rule_read(_loaded_rule())
 
 
 @router.get("/multiples", response_model=ValuationMultiplesRead)

@@ -120,6 +120,8 @@ A run that has not succeeded is HTTP 409. An unknown run id is HTTP 404.
 | --- | --- |
 | POST | `/valuation/bridge` `{run_id, tax_rate?, net_interest_other?, diluted_shares?, multiple_range?}` |
 | GET | `/valuation/multiples?cutoff_ts=` |
+| POST | `/valuation/actions` (LON-26; see [`actions.md`](actions.md)) |
+| GET | `/valuation/decision-rule` |
 
 `GET /valuation/multiples` without a cutoff returns the full FY2023Q1–FY2026Q2
 history and the band over all 14 quarters. With `cutoff_ts`, both the rows and
@@ -127,9 +129,12 @@ the band are limited to filings accepted at or before that time.
 
 ## Handoffs
 
-- **LON-26.** Illustrative actions should consume this per-share value and the
-  separated spreads. If the bridge is unsupported, show the reason and do not
-  invent a price. Do not treat the outer envelope as a probability.
+- **LON-26 (done).** `POST /valuation/actions` consumes this per-share value and
+  the separated spreads. The reference price is the latest buyback average
+  accepted by the cutoff, not a market close. If the bridge is unsupported,
+  the decision is hold and the reason is the bridge reason. The outer envelope
+  is not a probability. See [`actions.md`](actions.md).
 - **LON-36.** The Valuation page calls `POST /valuation/bridge` once per saved
   run and `GET /valuation/multiples` for the window. Draw earnings-driven and
   multiple-driven spreads as separate bars. Keep the buyback-average label.
+  The actions table calls `POST /valuation/actions`.

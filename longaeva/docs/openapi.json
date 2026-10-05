@@ -1,6 +1,77 @@
 {
   "components": {
     "schemas": {
+      "ActionRowRead": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "hold",
+              "add",
+              "trim",
+              "exit"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "costs": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CostComponentsRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gaps": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ValueGapRead"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gaps"
+          },
+          "is_no_action": {
+            "title": "Is No Action",
+            "type": "boolean"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "selected": {
+            "title": "Selected",
+            "type": "boolean"
+          },
+          "target_shares": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Shares"
+          }
+        },
+        "required": [
+          "action",
+          "label",
+          "is_no_action",
+          "selected",
+          "target_shares"
+        ],
+        "title": "ActionRowRead",
+        "type": "object"
+      },
       "AssumptionRead": {
         "additionalProperties": false,
         "properties": {
@@ -360,6 +431,187 @@
           "by_metric"
         ],
         "title": "ContributionRead",
+        "type": "object"
+      },
+      "CostComponentsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "funding_cost": {
+            "title": "Funding Cost",
+            "type": "number"
+          },
+          "market_impact_cost": {
+            "title": "Market Impact Cost",
+            "type": "number"
+          },
+          "slippage_cost": {
+            "title": "Slippage Cost",
+            "type": "number"
+          },
+          "total_cost": {
+            "title": "Total Cost",
+            "type": "number"
+          },
+          "total_cost_bps": {
+            "title": "Total Cost Bps",
+            "type": "number"
+          },
+          "traded_notional": {
+            "title": "Traded Notional",
+            "type": "number"
+          },
+          "transaction_cost": {
+            "title": "Transaction Cost",
+            "type": "number"
+          }
+        },
+        "required": [
+          "traded_notional",
+          "transaction_cost",
+          "slippage_cost",
+          "market_impact_cost",
+          "funding_cost",
+          "total_cost",
+          "total_cost_bps"
+        ],
+        "title": "CostComponentsRead",
+        "type": "object"
+      },
+      "DecisionRuleCostsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "funding_bps_per_day": {
+            "title": "Funding Bps Per Day",
+            "type": "number"
+          },
+          "market_impact_bps": {
+            "title": "Market Impact Bps",
+            "type": "number"
+          },
+          "slippage_bps": {
+            "title": "Slippage Bps",
+            "type": "number"
+          },
+          "transaction_cost_bps": {
+            "title": "Transaction Cost Bps",
+            "type": "number"
+          }
+        },
+        "required": [
+          "transaction_cost_bps",
+          "slippage_bps",
+          "market_impact_bps",
+          "funding_bps_per_day"
+        ],
+        "title": "DecisionRuleCostsRead",
+        "type": "object"
+      },
+      "DecisionRuleRead": {
+        "additionalProperties": false,
+        "properties": {
+          "costs": {
+            "$ref": "#/components/schemas/DecisionRuleCostsRead"
+          },
+          "demo_position": {
+            "$ref": "#/components/schemas/DemoPositionRead"
+          },
+          "holding_period_trading_days": {
+            "title": "Holding Period Trading Days",
+            "type": "integer"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "rule_hash": {
+            "title": "Rule Hash",
+            "type": "string"
+          },
+          "sizing": {
+            "$ref": "#/components/schemas/DecisionRuleSizingRead"
+          },
+          "thresholds": {
+            "$ref": "#/components/schemas/DecisionRuleThresholdsRead"
+          },
+          "version": {
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "version",
+          "label",
+          "rule_hash",
+          "costs",
+          "thresholds",
+          "sizing",
+          "holding_period_trading_days",
+          "demo_position"
+        ],
+        "title": "DecisionRuleRead",
+        "type": "object"
+      },
+      "DecisionRuleSizingRead": {
+        "additionalProperties": false,
+        "properties": {
+          "add_fraction": {
+            "title": "Add Fraction",
+            "type": "number"
+          },
+          "trim_fraction": {
+            "title": "Trim Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "add_fraction",
+          "trim_fraction"
+        ],
+        "title": "DecisionRuleSizingRead",
+        "type": "object"
+      },
+      "DecisionRuleThresholdsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "add_at_or_above": {
+            "title": "Add At Or Above",
+            "type": "number"
+          },
+          "exit_at_or_below": {
+            "title": "Exit At Or Below",
+            "type": "number"
+          },
+          "trim_at_or_below": {
+            "title": "Trim At Or Below",
+            "type": "number"
+          }
+        },
+        "required": [
+          "exit_at_or_below",
+          "trim_at_or_below",
+          "add_at_or_above"
+        ],
+        "title": "DecisionRuleThresholdsRead",
+        "type": "object"
+      },
+      "DemoPositionRead": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "const": "long",
+            "title": "Direction",
+            "type": "string"
+          },
+          "shares": {
+            "title": "Shares",
+            "type": "number"
+          }
+        },
+        "required": [
+          "shares",
+          "direction"
+        ],
+        "title": "DemoPositionRead",
         "type": "object"
       },
       "DocumentTextCreate": {
@@ -2618,6 +2870,35 @@
         "title": "PeHistoryRowRead",
         "type": "object"
       },
+      "PositionRead": {
+        "additionalProperties": false,
+        "properties": {
+          "direction": {
+            "const": "long",
+            "title": "Direction",
+            "type": "string"
+          },
+          "shares": {
+            "title": "Shares",
+            "type": "number"
+          },
+          "source": {
+            "enum": [
+              "decision_rule",
+              "request_override"
+            ],
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "shares",
+          "direction",
+          "source"
+        ],
+        "title": "PositionRead",
+        "type": "object"
+      },
       "ProposedUpdateRead": {
         "additionalProperties": false,
         "properties": {
@@ -2708,6 +2989,83 @@
           "mean_difference"
         ],
         "title": "QuarterEffectRead",
+        "type": "object"
+      },
+      "ReferencePriceRead": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_utc": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance Utc"
+          },
+          "period_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Label"
+          },
+          "price": {
+            "title": "Price",
+            "type": "number"
+          },
+          "price_quote": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Quote"
+          },
+          "price_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price Source Id"
+          },
+          "source": {
+            "enum": [
+              "sec_buyback_average",
+              "request_override"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "source_label": {
+            "title": "Source Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "price",
+          "period_label",
+          "acceptance_utc",
+          "source",
+          "source_label",
+          "price_source_id",
+          "price_quote"
+        ],
+        "title": "ReferencePriceRead",
         "type": "object"
       },
       "ReplayReport": {
@@ -3952,6 +4310,196 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "ValuationActionsRead": {
+        "additionalProperties": false,
+        "properties": {
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/ActionRowRead"
+            },
+            "title": "Actions",
+            "type": "array"
+          },
+          "bridge": {
+            "$ref": "#/components/schemas/ValuationBridgeRead"
+          },
+          "decision": {
+            "enum": [
+              "hold",
+              "add",
+              "trim",
+              "exit"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "margin": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Margin"
+          },
+          "position": {
+            "$ref": "#/components/schemas/PositionRead"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "reference_price": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferencePriceRead"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rule": {
+            "$ref": "#/components/schemas/DecisionRuleRead"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "value_per_share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value Per Share"
+          }
+        },
+        "required": [
+          "status",
+          "reason",
+          "label",
+          "run_id",
+          "bridge",
+          "reference_price",
+          "position",
+          "rule",
+          "decision",
+          "margin",
+          "value_per_share",
+          "actions"
+        ],
+        "title": "ValuationActionsRead",
+        "type": "object"
+      },
+      "ValuationActionsRequest": {
+        "additionalProperties": false,
+        "description": "Illustrative actions for one saved run. The decision rule is not editable here.",
+        "properties": {
+          "diluted_shares": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Diluted Shares"
+          },
+          "multiple_range": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/MultipleRangeInput"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "net_interest_other": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Net Interest Other"
+          },
+          "reference_price": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Price"
+          },
+          "run_id": {
+            "format": "uuid",
+            "title": "Run Id",
+            "type": "string"
+          },
+          "shares": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Shares"
+          },
+          "tax_rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tax Rate"
+          }
+        },
+        "required": [
+          "run_id"
+        ],
+        "title": "ValuationActionsRequest",
+        "type": "object"
+      },
       "ValuationBridgeRead": {
         "additionalProperties": false,
         "properties": {
@@ -4242,6 +4790,35 @@
           "equity_usd_millions"
         ],
         "title": "ValueCellRead",
+        "type": "object"
+      },
+      "ValueGapRead": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "net_gap": {
+            "title": "Net Gap",
+            "type": "number"
+          },
+          "value_per_share": {
+            "title": "Value Per Share",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "value_per_share",
+          "net_gap",
+          "label"
+        ],
+        "title": "ValueGapRead",
         "type": "object"
       }
     }
@@ -6227,6 +6804,47 @@
         ]
       }
     },
+    "/valuation/actions": {
+      "post": {
+        "operationId": "post_actions_valuation_actions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ValuationActionsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ValuationActionsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Post Actions",
+        "tags": [
+          "valuation"
+        ]
+      }
+    },
     "/valuation/bridge": {
       "post": {
         "operationId": "post_bridge_valuation_bridge_post",
@@ -6263,6 +6881,27 @@
           }
         },
         "summary": "Post Bridge",
+        "tags": [
+          "valuation"
+        ]
+      }
+    },
+    "/valuation/decision-rule": {
+      "get": {
+        "operationId": "get_decision_rule_valuation_decision_rule_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecisionRuleRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Decision Rule",
         "tags": [
           "valuation"
         ]

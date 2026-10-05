@@ -823,6 +823,115 @@ class ValuationMultiplesRead(StrictModel):
     band: MultipleBandRead | None = None
 
 
+ActionName = Literal["hold", "add", "trim", "exit"]
+PriceSourceName = Literal["sec_buyback_average", "request_override"]
+PositionSourceName = Literal["decision_rule", "request_override"]
+
+
+class ValuationActionsRequest(StrictModel):
+    """Illustrative actions for one saved run. The decision rule is not editable here."""
+
+    run_id: uuid.UUID
+    shares: float | None = Field(default=None, gt=0)
+    reference_price: float | None = Field(default=None, gt=0)
+    tax_rate: float | None = None
+    net_interest_other: float | None = None
+    diluted_shares: float | None = None
+    multiple_range: MultipleRangeInput | None = None
+
+
+class DecisionRuleCostsRead(StrictModel):
+    transaction_cost_bps: float
+    slippage_bps: float
+    market_impact_bps: float
+    funding_bps_per_day: float
+
+
+class DecisionRuleThresholdsRead(StrictModel):
+    exit_at_or_below: float
+    trim_at_or_below: float
+    add_at_or_above: float
+
+
+class DecisionRuleSizingRead(StrictModel):
+    add_fraction: float
+    trim_fraction: float
+
+
+class DemoPositionRead(StrictModel):
+    shares: float
+    direction: Literal["long"]
+
+
+class DecisionRuleRead(StrictModel):
+    version: int
+    label: str
+    rule_hash: str
+    costs: DecisionRuleCostsRead
+    thresholds: DecisionRuleThresholdsRead
+    sizing: DecisionRuleSizingRead
+    holding_period_trading_days: int
+    demo_position: DemoPositionRead
+
+
+class CostComponentsRead(StrictModel):
+    traded_notional: float
+    transaction_cost: float
+    slippage_cost: float
+    market_impact_cost: float
+    funding_cost: float
+    total_cost: float
+    total_cost_bps: float
+
+
+class ValueGapRead(StrictModel):
+    name: str
+    value_per_share: float
+    net_gap: float
+    label: str
+
+
+class ActionRowRead(StrictModel):
+    action: ActionName
+    label: str
+    is_no_action: bool
+    selected: bool
+    target_shares: float | None
+    costs: CostComponentsRead | None = None
+    gaps: list[ValueGapRead] | None = None
+
+
+class ReferencePriceRead(StrictModel):
+    price: float
+    period_label: str | None
+    acceptance_utc: datetime | None
+    source: PriceSourceName
+    source_label: str
+    price_source_id: str | None
+    price_quote: str | None
+
+
+class PositionRead(StrictModel):
+    shares: float
+    direction: Literal["long"]
+    source: PositionSourceName
+
+
+class ValuationActionsRead(StrictModel):
+    status: Literal["ok", "unsupported"]
+    reason: str | None
+    label: str
+    run_id: uuid.UUID
+    bridge: ValuationBridgeRead
+    reference_price: ReferencePriceRead | None
+    position: PositionRead
+    rule: DecisionRuleRead
+    decision: ActionName
+    margin: float | None
+    value_per_share: float | None
+    actions: list[ActionRowRead]
+
+
 class EvaluationResultRead(BaseModel):
     id: uuid.UUID
     suite_version: str
@@ -890,4 +999,16 @@ OPENAPI_CONTRACT_SCHEMAS: tuple[type[BaseModel], ...] = (
     EpsComponentRead,
     PeHistoryRowRead,
     ValuationMultiplesRead,
+    ValuationActionsRequest,
+    DecisionRuleCostsRead,
+    DecisionRuleThresholdsRead,
+    DecisionRuleSizingRead,
+    DemoPositionRead,
+    DecisionRuleRead,
+    CostComponentsRead,
+    ValueGapRead,
+    ActionRowRead,
+    ReferencePriceRead,
+    PositionRead,
+    ValuationActionsRead,
 )
