@@ -36,7 +36,10 @@ ADAPTER_MANIFESTS = frozenset({"visa_ir.yaml", "second_wave.yaml"})
 GENERATED_MANIFESTS = ("visa.yaml", "booking.yaml", "census.yaml")
 
 SEC_LICENSE = "SEC EDGAR U.S. government work / public domain; redistribution allowed (bundled)."
-CENSUS_LICENSE = "U.S. Census Bureau public domain; redistribution allowed (bundled)."
+CENSUS_LICENSE = (
+    "U.S. Census Bureau public domain. The parsed vintage table is bundled; "
+    "original advance PDFs are fetched and hash-checked, with seven test PDFs bundled."
+)
 IR_LICENSE = (
     "Visa IR CDN: personal non-commercial download only; fetch-by-script, never bundled. "
     "Transcripts may carry FactSet CallStreet copyright — short fair-use quotes only."

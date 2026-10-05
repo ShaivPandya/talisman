@@ -386,17 +386,43 @@ def normalize_label(raw: str) -> str:
     return text
 
 
+def naics_era_from_rows(rows: list[ObservationRow]) -> str:
+    """Department-store NAICS printed in this release (4521 before the 2025 break, else 4522)."""
+    codes: set[str] = set()
+    for row in rows:
+        if row.naics_code not in {"4521", "4522"}:
+            continue
+        kind = row.kind_of_business.lower()
+        if row.series_key == "naics_452_dept" or kind.startswith("department store"):
+            codes.add(row.naics_code)
+    if codes == {"4521"}:
+        return "4521"
+    if codes == {"4522"}:
+        return "4522"
+    if not codes:
+        return "unspecified"
+    return "mixed"
+
+
+def _strip_label_debris(label: str) -> str:
+    """Remove year-to-date digits that dot leaders left stuck to a row label."""
+    text = re.sub(r"\s+", " ", label).strip(" .,&*")
+    return re.sub(r"(?:\s*[\d,.*]+)+\s*$", "", text).strip(" .,&*")
+
+
 def series_key_for(naics_code: str, kind_of_business: str) -> str:
     """Map NAICS + label to a stable series key."""
 
     def canon(text: str) -> str:
-        out = normalize_label(text).replace("excl.", "excl")
+        out = normalize_label(_strip_label_debris(text)).replace("excl.", "excl")
         return re.sub(r"\s+", " ", out).strip()
 
     label = canon(kind_of_business)
     for alias, key in _SERIES_ALIASES.items():
         if label == canon(alias):
             return key
+    if label.startswith("department stores"):
+        return "naics_452_dept"
     if naics_code:
         code = re.sub(r"[^0-9,]", "", naics_code.replace(" ", ""))
         return f"naics_{code}" if code else f"label_{re.sub(r'[^a-z0-9]+', '_', label).strip('_')}"
@@ -427,6 +453,17 @@ def parse_cell(raw: str) -> tuple[str, str]:
 
 
 _VALUE_TOKEN = re.compile(r"\(\*\)|\(NA\)|\(S\)|-?\d{1,3}(?:,\d{3})*(?:\.\d+)?|-?\d+(?:\.\d+)?")
+# Monthly levels and unavailable flags. Percents (no thousands comma) are not included.
+_CLEAN_CELL = re.compile(
+    r"\(\*\)|\(NA\)|\(S\)|(?<![\w.*])\*(?![\w.*])|(?<![\w.])NA(?![\w.])|(?<![\w.])S(?![\w.])|\d{1,3}(?:,\d{3})+"
+)
+_PERCENT_CELL = re.compile(r"-?\d+\.\d+")
+_MONTH_TOKEN_STRICT = re.compile(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\d*\b", re.I)
+_MONTH_TOKEN_LENIENT = re.compile(
+    r"\b(?:January|February|March|April|May|June|July|August|September|Sept|"
+    r"October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\d*\b",
+    re.I,
+)
 
 
 def split_label_and_values(line: str) -> tuple[str, list[str]]:
@@ -466,6 +503,103 @@ def split_label_and_values(line: str) -> tuple[str, list[str]]:
     return label, values
 
 
+def _prepare_table_line(line: str) -> str:
+    """Normalize flags that older PDFs print as ``*``, ``NA`` or ``( * )``.
+
+    Clean lines from the gate fixtures have no bare flags, so this is a no-op
+    for them and the rebuilt table text stays the same.
+    """
+    text = line.translate(_MINUS_CHARS)
+    text = re.sub(r"\(\s*\*\s*\)", "(*)", text)
+    text = re.sub(r"\(\s*N\s*A\s*\)", "(NA)", text)
+    text = re.sub(r"\(\s*S\s*\)", "(S)", text)
+    text = re.sub(r"\(\s*\.\s*\*\s*\.\s*\)", "(*)", text)
+    text = re.sub(r"(?<!\S)\*\.(?!\S)", "(*)", text)
+    text = re.sub(r"(?<!\S)\*(?!\S)", "(*)", text)
+    text = re.sub(r"(?<!\S)NA(?![\w)])", "(NA)", text)
+    text = re.sub(r"(?<!\S)S(?!\S)", "(S)", text)
+    return text
+
+
+def _normalize_leader_line(line: str) -> str:
+    """Drop dot leaders and close up flags that pdf text extraction splits."""
+    text = _prepare_table_line(line)
+    text = _DOT_LEADERS.sub(" ", text)
+    text = re.sub(r"\(\s*\*\s*\)", "(*)", text)
+    text = re.sub(r"\(\s*N\s*A\s*\)", "(NA)", text)
+    text = re.sub(r"\(\s*S\s*\)", "(S)", text)
+    text = re.sub(r"\(\s*\.\s*\*\s*\.\s*\)", "(*)", text)
+    text = re.sub(r"(?<=\d)\.,(?=\d)", ",", text)
+    text = re.sub(r"(?<=\d)\s*,\s*(?=\d{3}\b)", ",", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _clean_recovered_label(label: str) -> str:
+    label = _DOT_LEADERS.sub(" ", label)
+    label = re.sub(r"\s+", " ", label).strip(" .,&*")
+    # Footnote digits and year-to-date fragments the leaders left on the label.
+    label = re.sub(r"(?:\s*[\d,.*]+)+\s*$", "", label).strip(" .,&*")
+    return label
+
+
+def split_label_and_values_lenient(line: str) -> tuple[str, list[str]]:
+    """Recover 12 Table 1 cells when dot leaders have split the year-to-date figure.
+
+    The last 10 comma-grouped levels (or flags) are the monthly columns. The
+    year-to-date level is the comma-grouped number before them, or the digits
+    left in the leader soup. The percent change is the decimal, or a flag,
+    between that level and the monthly columns.
+    """
+    text = _normalize_leader_line(line)
+    matches = list(_CLEAN_CELL.finditer(text))
+    if len(matches) < 10:
+        return text, []
+    monthly = matches[-10:]
+    prefix = text[: monthly[0].start()]
+    prefix_cells = list(_CLEAN_CELL.finditer(prefix))
+    if len(prefix_cells) >= 2:
+        ytd = prefix_cells[-2].group(0)
+        pct = prefix_cells[-1].group(0)
+        label = prefix[: prefix_cells[-2].start()]
+    elif len(prefix_cells) == 1:
+        ytd = prefix_cells[0].group(0)
+        between = prefix[prefix_cells[0].end() :]
+        pct_match = list(_PERCENT_CELL.finditer(between))
+        flag_match = list(_CLEAN_CELL.finditer(between))
+        if pct_match:
+            pct = pct_match[-1].group(0)
+        elif flag_match:
+            pct = flag_match[-1].group(0)
+        else:
+            return text, []
+        label = prefix[: prefix_cells[0].start()]
+    else:
+        pct_match = list(_PERCENT_CELL.finditer(prefix))
+        if not pct_match:
+            return text, []
+        pct = pct_match[-1].group(0)
+        ytd_src = prefix[: pct_match[-1].start()]
+        digits = re.sub(r"\D", "", ytd_src)
+        if not digits:
+            return text, []
+        ytd = digits
+        label = re.sub(r"[\d,.\s]+$", "", ytd_src)
+    values = [ytd, pct, *[match.group(0) for match in monthly]]
+    if len(values) != 12:
+        return text, []
+    return _clean_recovered_label(label), values
+
+
+def split_percent_values_lenient(line: str) -> tuple[str, list[str]]:
+    """Recover the six Table 2 percent cells from a leader-joined line."""
+    text = _normalize_leader_line(line)
+    matches = list(re.finditer(r"\(\*\)|\(NA\)|\(S\)|(?<![\w.*])\*(?![\w.*])|-?\d+\.\d+", text))
+    if len(matches) < 6:
+        return text, []
+    chosen = matches[-6:]
+    return _clean_recovered_label(text[: chosen[0].start()]), [match.group(0) for match in chosen]
+
+
 _NAICS_PREFIX = re.compile(r"^([0-9]{2,6}(?:,\s*[0-9]{2,6})*)\s+(.*)$")
 
 
@@ -496,10 +630,24 @@ def validate_table1_header(header_text: str, reference_month: str) -> None:
         expected_nums.append(m)
     expected_nums = expected_nums + expected_nums
 
-    month_tokens = re.findall(r"\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\.?\d*\b", header_text, re.I)
-    if len(month_tokens) < 10:
-        raise ValueError(f"Table 1 header has fewer than 10 month tokens: {month_tokens}")
-    got = [_month_token_to_num(t) for t in month_tokens[:10]]
+    def months(pattern: re.Pattern[str], text: str) -> list[int] | None:
+        tokens = pattern.findall(text)
+        if len(tokens) < 10:
+            return None
+        return [_month_token_to_num(token) for token in tokens[:10]]
+
+    got = months(_MONTH_TOKEN_STRICT, header_text)
+    if got != expected_nums:
+        # Older releases print "Sept" and the strict pattern misses it.
+        header_only = header_text
+        lines = header_text.splitlines()
+        for index, line in enumerate(lines):
+            if "(a)" in line and "(p)" in line:
+                header_only = "\n".join(lines[: index + 1])
+                break
+        got = months(_MONTH_TOKEN_LENIENT, header_only)
+    if got is None:
+        raise ValueError(f"Table 1 header has fewer than 10 month tokens in: {header_text[:240]!r}")
     if got != expected_nums:
         raise ValueError(
             f"Table 1 header months {got} disagree with reference {reference_month} expected {expected_nums}"
@@ -507,21 +655,31 @@ def validate_table1_header(header_text: str, reference_month: str) -> None:
 
 
 def _join_continued_labels(lines: list[str]) -> list[str]:
-    """Join label-only wrap lines with the following data line."""
+    """Join label-only wrap lines with the following data line.
+
+    Lines the strict splitter already accepts (6 or 12 cells) are rebuilt, which
+    is what the committed gate CSVs were generated from. Other lines keep their
+    original text so a later lenient pass can recover digits the leaders split.
+    """
     out: list[str] = []
-    buf = ""
+    buf_label = ""
+    buf_raw = ""
     for line in lines:
-        stripped = line.strip()
+        stripped = _prepare_table_line(line.strip())
         if not stripped:
             continue
         label, values = split_label_and_values(stripped)
         if not values:
-            # Continuation / wrap of a label.
-            buf = f"{buf} {label}".strip() if buf else label
+            buf_label = f"{buf_label} {label}".strip() if buf_label else label
+            buf_raw = f"{buf_raw} {stripped}".strip() if buf_raw else stripped
             continue
-        full_label = f"{buf} {label}".strip() if buf else label
-        out.append(f"{full_label} {' '.join(values)}")
-        buf = ""
+        if len(values) in {6, 12}:
+            full_label = f"{buf_label} {label}".strip() if buf_label else label
+            out.append(f"{full_label} {' '.join(values)}")
+        else:
+            out.append(f"{buf_raw} {stripped}".strip() if buf_raw else stripped)
+        buf_label = ""
+        buf_raw = ""
     return out
 
 
@@ -569,11 +727,13 @@ def parse_table1_rows(
     for line in data_lines:
         label, raw_values = split_label_and_values(line)
         if len(raw_values) != 12:
-            # Some wrapped totals may still be short; skip non-data noise.
+            label, raw_values = split_label_and_values_lenient(line)
+        if len(raw_values) != 12:
             if len(raw_values) == 0:
                 continue
             raise ValueError(f"expected 12 Table 1 values, got {len(raw_values)} for {label!r}: {raw_values}")
         naics, kind = parse_naics_and_label(label)
+        kind = _strip_label_debris(kind)
         key = series_key_for(naics, kind)
         for raw, slot in zip(raw_values, _TABLE1_SLOTS, strict=True):
             measure, basis, month_off, year_off, status, unit = slot
@@ -649,10 +809,13 @@ def parse_table2_rows(
     for line in data_lines:
         label, raw_values = split_label_and_values(line)
         if len(raw_values) != 6:
+            label, raw_values = split_percent_values_lenient(line)
+        if len(raw_values) != 6:
             if len(raw_values) == 0:
                 continue
             raise ValueError(f"expected 6 Table 2 values, got {len(raw_values)} for {label!r}: {raw_values}")
         naics, kind = parse_naics_and_label(label)
+        kind = _strip_label_debris(kind)
         key = series_key_for(naics, kind)
         for raw, slot in zip(raw_values, _TABLE2_SLOTS, strict=True):
             measure, m_off, y_off, bm_off, by_off, status = slot
@@ -701,10 +864,18 @@ def parse_table2_rows(
 
 
 def find_table_page(texts: list[str], table_prefix: str) -> int:
-    """1-based page number whose text starts with ``Table N.``."""
+    """1-based page number whose text starts with ``Table N.``.
+
+    Some releases put a running header above the table title. Those match on a
+    line, and only when no page starts with the title.
+    """
     for i, text in enumerate(texts):
         if text.lstrip().startswith(table_prefix):
             return i + 1
+    for i, text in enumerate(texts):
+        for line in text.splitlines():
+            if line.lstrip().startswith(table_prefix):
+                return i + 1
     raise ValueError(f"{table_prefix} page not found")
 
 

@@ -50,7 +50,9 @@ Census MARTS vintage gate (LON-5): parsed advance releases
 `data/fixtures/census/release_calendar.csv`, retained PDFs/XLSX under
 `data/fixtures/census/sources/`, and the gate report in
 [`docs/gates/census.md`](docs/gates/census.md). Every Visa origin in
-`data/fixtures/origins.csv` now has Census timing columns.
+`data/fixtures/origins.csv` now has Census timing columns. The archived
+vintage table (LON-15) is `data/fixtures/census/vintages.csv.gz`; see
+[`docs/census-vintages.md`](docs/census-vintages.md).
 
 Booking Holdings family gate (LON-4): observation fixtures
 `data/fixtures/observations/booking_2024-05-02.json` and
@@ -337,6 +339,10 @@ python -m longaeva_app.cli build-manifests
 make collect ARGS='--only visa:release:FY2026Q3 --only visa:release:FY2017Q1'
 make collect ARGS='--manifest census.yaml --only census:marts:adv2406'
 make collect ARGS='--manifest visa_ir.yaml --only visa_ir:deck:FY2024Q3'
+
+# Census archive (LON-15). Originals land in gitignored var/cache/census/.
+python -m longaeva_app.collect.census_sources fetch-archive
+python -m longaeva_app.collect.census_sources vintages
 ```
 
 Rules:

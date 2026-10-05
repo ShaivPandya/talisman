@@ -17,6 +17,7 @@ from longaeva_app.collect.census_sources import (
     latest_release_at_or_before,
     load_calendar,
     load_manifest,
+    sample_release_ids,
 )
 from longaeva_app.collect.edgar_index import ORIGINS_CSV_PATH, PACKAGE_ROOT, SNAPSHOT_PATH, build_origins, load_snapshot
 from longaeva_app.extract.census_marts import (
@@ -33,6 +34,7 @@ from longaeva_app.extract.census_marts import (
     split_label_and_values,
     validate_table1_header,
 )
+from longaeva_app.extract.census_vintages import assert_release_consistent
 
 ADV2406_PDF = SOURCES_DIR / "adv2406.pdf"
 ADV2506_PDF = SOURCES_DIR / "adv2506.pdf"
@@ -65,7 +67,13 @@ def parsed_2506() -> ParsedRelease:
 def test_manifest_hashes_and_timestamp_order(manifest: dict[str, object]) -> None:
     sources = manifest["sources"]
     assert isinstance(sources, list)
-    assert len(sources) == 3
+    assert len(sources) == 8
+    pdfs = [entry for entry in sources if isinstance(entry, dict) and entry.get("kind") == "advance_pdf"]
+    assert len(pdfs) == 7
+    sample = manifest["sample"]
+    assert isinstance(sample, dict)
+    assert sample["seed"] == 15
+    assert sample["release_ids"] == sample_release_ids()
     for entry in sources:
         assert isinstance(entry, dict)
         path = PACKAGE_ROOT / str(entry["path"])
@@ -106,6 +114,12 @@ def test_committed_csvs_match_parser(parsed_2406: ParsedRelease, parsed_2506: Pa
         for row in rows:
             writer.writerow(asdict(row))
         assert buf.getvalue() == committed
+
+
+@pytest.mark.parametrize("release_id", sample_release_ids())
+def test_sample_pdf_matches_headline_and_table2(release_id: str) -> None:
+    meta, rows = parse_marts_pdf(SOURCES_DIR / f"{release_id}.pdf", release_id=release_id)
+    assert_release_consistent(meta, rows)
 
 
 def test_sa_totals_match_headlines(parsed_2406: ParsedRelease, parsed_2506: ParsedRelease) -> None:

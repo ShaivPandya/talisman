@@ -1,10 +1,13 @@
-"""Download and calendar Census MARTS advance releases (LON-5).
+"""Download and calendar Census MARTS advance releases (LON-5, LON-15).
 
 CLI:
 
-  fetch     — download retained PDFs + revised XLSX snapshot; write manifest.json
-  calendar  — scan adv1611…adv2606 page-1 release lines into release_calendar.csv
-  build     — regenerate adv2406.csv / adv2506.csv from retained PDFs
+  fetch         — download retained PDFs + revised XLSX snapshot; write manifest.json
+  calendar      — scan adv1611…adv2606 page-1 release lines into release_calendar.csv
+  build         — regenerate adv2406.csv / adv2506.csv from retained PDFs
+  fetch-archive — download every calendar PDF into var/cache/census, checking SHA-256
+  sample        — copy five seeded releases into the committed fixture set
+  vintages      — parse the window into vintages.csv.gz and parse_status.csv
 """
 
 from __future__ import annotations
@@ -14,6 +17,8 @@ import csv
 import email.utils
 import hashlib
 import json
+import random
+import shutil
 import time
 import urllib.error
 import urllib.parse
@@ -33,6 +38,12 @@ CENSUS_DIR = PACKAGE_ROOT / "data" / "fixtures" / "census"
 SOURCES_DIR = CENSUS_DIR / "sources"
 MANIFEST_PATH = SOURCES_DIR / "manifest.json"
 CALENDAR_PATH = CENSUS_DIR / "release_calendar.csv"
+CACHE_DIR = PACKAGE_ROOT / "var" / "cache" / "census"
+
+# Five committed parse fixtures besides the two LON-5 gate PDFs (LON-15).
+SAMPLE_SEED = 15
+SAMPLE_COUNT = 5
+SAMPLE_EXCLUDED = frozenset({"adv2406", "adv2506"})
 ADVANCE_BASE = "https://www2.census.gov/retail/releases/historical/marts"
 XLSX_URL = "https://www.census.gov/retail/mrts/www/mrtssales92-present.xlsx"
 
@@ -310,6 +321,220 @@ def load_calendar(path: Path = CALENDAR_PATH) -> list[dict[str, str]]:
         return list(csv.DictReader(fh))
 
 
+def sample_release_ids(release_ids: list[str] | None = None) -> list[str]:
+    """Five release ids chosen with ``SAMPLE_SEED``, excluding the two gate PDFs."""
+    if release_ids is None:
+        release_ids = [row["release_id"] for row in load_calendar() if row.get("release_id")]
+    pool = sorted({rid for rid in release_ids if rid not in SAMPLE_EXCLUDED})
+    if len(pool) < SAMPLE_COUNT:
+        raise ValueError(f"need at least {SAMPLE_COUNT} releases to sample, found {len(pool)}")
+    rng = random.Random(SAMPLE_SEED)
+    return sorted(rng.sample(pool, SAMPLE_COUNT))
+
+
+def census_archive_entries() -> list[Any]:
+    """MARTS advance documents from the generated census manifest."""
+    from longaeva_app.collect.manifest import load_manifests
+
+    docs = [doc for doc in load_manifests(names=["census.yaml"]) if doc.doc_type == "marts_advance"]
+    docs.sort(key=lambda doc: str(doc.period.release_id if doc.period else doc.key))
+    return docs
+
+
+def cached_pdf_path(release_id: str) -> Path:
+    return CACHE_DIR / f"{release_id}.pdf"
+
+
+def fixture_pdf_path(release_id: str) -> Path:
+    return SOURCES_DIR / f"{release_id}.pdf"
+
+
+def resolve_pdf(release_id: str) -> tuple[Path, str] | None:
+    """Prefer a committed fixture PDF, otherwise the hash-checked cache."""
+    fixture = fixture_pdf_path(release_id)
+    if fixture.is_file():
+        return fixture, "fixture"
+    cached = cached_pdf_path(release_id)
+    if cached.is_file():
+        return cached, "cache"
+    return None
+
+
+def _release_id_of(entry: Any) -> str:
+    period = entry.period
+    if period is not None and period.release_id:
+        return str(period.release_id)
+    key = str(entry.key)
+    return key.rsplit(":", 1)[-1]
+
+
+def cmd_fetch_archive(_args: argparse.Namespace) -> int:
+    """Download every manifest PDF into the gitignored cache. Hash mismatches fail."""
+    user_agent = _load_env_user_agent()
+    client = CensusClient(user_agent)
+    entries = census_archive_entries()
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    cached = 0
+    fetched = 0
+    failures: list[str] = []
+    print(f"fetch-archive: {len(entries)} releases → {CACHE_DIR.relative_to(PACKAGE_ROOT)}")
+    for entry in entries:
+        release_id = _release_id_of(entry)
+        expected = str(entry.expected_sha256 or "")
+        dest = cached_pdf_path(release_id)
+        if not expected:
+            failures.append(f"{release_id}: manifest has no expected_sha256")
+            print(f"  {release_id}: NO HASH")
+            continue
+        if dest.is_file():
+            digest = sha256_bytes(dest.read_bytes())
+            if digest != expected:
+                failures.append(f"{release_id}: cached sha256 {digest} != manifest {expected}")
+                print(f"  {release_id}: CACHE HASH MISMATCH")
+                continue
+            cached += 1
+            continue
+        if not entry.url:
+            failures.append(f"{release_id}: manifest has no url")
+            print(f"  {release_id}: NO URL")
+            continue
+        try:
+            raw, _headers = client.get(str(entry.url))
+        except Exception as exc:  # noqa: BLE001 — record and continue so one 404 does not hide the rest
+            failures.append(f"{release_id}: {exc}")
+            print(f"  {release_id}: FETCH FAILED {exc}")
+            continue
+        digest = sha256_bytes(raw)
+        if digest != expected:
+            failures.append(f"{release_id}: downloaded sha256 {digest} != manifest {expected}")
+            print(f"  {release_id}: DOWNLOAD HASH MISMATCH")
+            continue
+        dest.write_bytes(raw)
+        fetched += 1
+        print(f"  {release_id}: wrote {len(raw)} bytes")
+    print(f"cached={cached} fetched={fetched} failed={len(failures)} of {len(entries)}")
+    for line in failures:
+        print(f"  FAIL {line}")
+    failure_path = CACHE_DIR / "fetch_failures.json"
+    payload = [{"release_id": line.split(":", 1)[0], "error": line} for line in failures]
+    failure_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    return 0 if not failures else 1
+
+
+def _advance_pdf_manifest_entry(
+    *,
+    release_id: str,
+    url: str,
+    raw: bytes,
+    headers: dict[str, str],
+    retrieval_ts: str,
+) -> dict[str, Any]:
+    meta = parse_release_meta(raw, release_id=release_id)
+    return {
+        "kind": "advance_pdf",
+        "release_id": release_id,
+        "url": url,
+        "path": (SOURCES_DIR / f"{release_id}.pdf").relative_to(PACKAGE_ROOT).as_posix(),
+        "content_sha256": sha256_bytes(raw),
+        "bytes": len(raw),
+        "http_last_modified": headers.get("last-modified", ""),
+        "retrieval_ts": retrieval_ts,
+        "publication_ts": meta.publication_ts,
+        "release_number": meta.release_number,
+        "reference_month": meta.reference_month,
+        "headline_billions": meta.headline_billions,
+        "pdf_creation_date": meta.pdf_creation_date,
+        "pdf_mod_date": meta.pdf_mod_date,
+        "page_count": meta.page_count,
+        "sample_seed": SAMPLE_SEED,
+        "added_for": "LON-15",
+    }
+
+
+def cmd_sample(_args: argparse.Namespace) -> int:
+    """Copy the seeded sample PDFs into the committed fixture directory."""
+    chosen = sample_release_ids()
+    print(f"sample seed={SAMPLE_SEED}: {', '.join(chosen)}")
+    by_id = {_release_id_of(entry): entry for entry in census_archive_entries()}
+    missing = [rid for rid in chosen if resolve_pdf(rid) is None]
+    client: CensusClient | None = None
+    if missing:
+        client = CensusClient(_load_env_user_agent())
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    SOURCES_DIR.mkdir(parents=True, exist_ok=True)
+    retrieval_ts = datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    new_entries: list[dict[str, Any]] = []
+    for release_id in chosen:
+        entry = by_id.get(release_id)
+        if entry is None or not entry.url:
+            raise SystemExit(f"{release_id} is not in census.yaml")
+        expected = str(entry.expected_sha256 or "")
+        resolved = resolve_pdf(release_id)
+        headers: dict[str, str] = {}
+        if resolved is None:
+            assert client is not None
+            raw, headers = client.get(str(entry.url))
+            digest = sha256_bytes(raw)
+            if digest != expected:
+                raise SystemExit(f"{release_id}: downloaded sha256 {digest} != manifest {expected}")
+            cached_pdf_path(release_id).write_bytes(raw)
+        else:
+            raw = resolved[0].read_bytes()
+            digest = sha256_bytes(raw)
+            if expected and digest != expected:
+                raise SystemExit(f"{release_id}: sha256 {digest} != manifest {expected}")
+        dest = fixture_pdf_path(release_id)
+        if not dest.is_file() or sha256_bytes(dest.read_bytes()) != digest:
+            shutil.copyfile(resolved[0] if resolved else cached_pdf_path(release_id), dest)
+        calendar_row = next((row for row in load_calendar() if row["release_id"] == release_id), None)
+        if calendar_row and calendar_row.get("http_last_modified"):
+            headers.setdefault("last-modified", calendar_row["http_last_modified"])
+        new_entries.append(
+            _advance_pdf_manifest_entry(
+                release_id=release_id,
+                url=str(entry.url),
+                raw=raw,
+                headers=headers,
+                retrieval_ts=retrieval_ts,
+            )
+        )
+        print(f"  {release_id}: {dest.relative_to(PACKAGE_ROOT)}")
+
+    manifest = load_manifest()
+    sources = manifest.get("sources")
+    if not isinstance(sources, list):
+        raise SystemExit(f"{MANIFEST_PATH} has no sources list")
+    kept = [src for src in sources if not (isinstance(src, dict) and src.get("release_id") in set(chosen))]
+    pdfs = [src for src in kept if isinstance(src, dict) and src.get("kind") == "advance_pdf"]
+    other = [src for src in kept if not (isinstance(src, dict) and src.get("kind") == "advance_pdf")]
+    pdfs.extend(new_entries)
+    pdfs.sort(key=lambda src: str(src.get("release_id") or ""))
+    manifest["sources"] = pdfs + other
+    manifest["sample"] = {"added_for": "LON-15", "seed": SAMPLE_SEED, "release_ids": chosen}
+    MANIFEST_PATH.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(f"updated {MANIFEST_PATH.relative_to(PACKAGE_ROOT)} ({len(manifest['sources'])} sources)")
+    return 0
+
+
+def cmd_vintages(_args: argparse.Namespace) -> int:
+    from longaeva_app.extract.census_vintages import build_vintage_files
+
+    summary = build_vintage_files()
+    print(
+        f"parsed={summary.parsed}/{summary.total} ({summary.parse_rate:.1%}) "
+        f"failed={summary.failed} hash_failures={summary.hash_failures}"
+    )
+    print(f"wrote {summary.vintages_path.relative_to(PACKAGE_ROOT)} ({summary.vintage_rows} rows)")
+    print(f"wrote {summary.status_path.relative_to(PACKAGE_ROOT)}")
+    for row in summary.failures:
+        print(f"  FAIL {row['release_id']}: {row['error']}")
+    if summary.hash_failures:
+        return 1
+    if summary.total == 0 or summary.parse_rate < 0.95:
+        return 1
+    return 0
+
+
 def latest_release_at_or_before(cutoff_utc: str, calendar: list[dict[str, str]] | None = None) -> dict[str, str] | None:
     """Newest calendar row with publication_ts ≤ cutoff and a parsed release time."""
     rows = calendar if calendar is not None else load_calendar()
@@ -341,6 +566,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     build_p = sub.add_parser("build", help="Regenerate vintage CSVs from retained PDFs")
     build_p.set_defaults(func=cmd_build)
+
+    archive_p = sub.add_parser("fetch-archive", help="Download every advance PDF into var/cache/census")
+    archive_p.set_defaults(func=cmd_fetch_archive)
+
+    sample_p = sub.add_parser("sample", help="Copy the seeded five-PDF sample into fixtures")
+    sample_p.set_defaults(func=cmd_sample)
+
+    vintages_p = sub.add_parser("vintages", help="Build vintages.csv.gz and parse_status.csv")
+    vintages_p.set_defaults(func=cmd_vintages)
     return parser
 
 

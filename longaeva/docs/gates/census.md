@@ -129,9 +129,10 @@ Manifest: [`data/fixtures/census/sources/manifest.json`](../../data/fixtures/cen
 
 ## Handoff
 
-- **LON-15:** extend `extract/census_marts.py` across the calendar window; skip or flag
-  `possibly_replaced` files; query “latest vintage as of cutoff T” must return first-print
-  values only.
+- **LON-15 (done):** archived parser and vintage table in
+  [`docs/census-vintages.md`](../census-vintages.md). `as_of` returns the newest print
+  published at or before the cutoff, so an early cutoff still sees the first print.
+  Wiring those vintages into the payments-volume rule is LON-31.
 - **LON-21:** map Census SA growth (within-release) → US domestic payments-volume prior;
   keep qualitative/category-mix as context until a ranged rule is reviewed; never feed
   XLSX cells into parameters.

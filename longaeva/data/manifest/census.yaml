@@ -17,7 +17,8 @@ documents:
     reference_month: 2016-11
     release_id: adv1611
   expected_sha256: b8479e4bc2cd4c96cbc8db645327992c942fa20d49c88c58cd776a0cfe03b387
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -34,7 +35,8 @@ documents:
     reference_month: 2016-12
     release_id: adv1612
   expected_sha256: c54572859d4f3d52034d931bd534f19fd603b6a0c91f8e1870e4cef253f1107b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -51,7 +53,8 @@ documents:
     reference_month: 2017-01
     release_id: adv1701
   expected_sha256: 68e17326de4f8d177b2530ec12ea70fae88aed2a06aa8b09fe5bee28f440a880
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -68,7 +71,8 @@ documents:
     reference_month: 2017-02
     release_id: adv1702
   expected_sha256: 036f0e3f9d7ec2a9ba4133e9796e6b25c77151fa1c33b194eef901e9be97cf2f
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -85,7 +89,8 @@ documents:
     reference_month: 2017-03
     release_id: adv1703
   expected_sha256: ae7657d707fc773018c0865ad757fef951f34855868429de62efac9c4901967e
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -102,7 +107,8 @@ documents:
     reference_month: 2017-04
     release_id: adv1704
   expected_sha256: 7081e73ec9abea0d0d0918ff9e97a7cdda4626b67e283683da5de2f099a32e51
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -119,7 +125,8 @@ documents:
     reference_month: 2017-05
     release_id: adv1705
   expected_sha256: 98bfa3a42a65786c82d5608decd4c5428291c9b716765e990cb07e6b3d7287c7
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -136,7 +143,8 @@ documents:
     reference_month: 2017-06
     release_id: adv1706
   expected_sha256: 68b408fb0c5eb536917faec2bc2df728e95e009ce2f59decef7ac77f4a519d84
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -153,7 +161,8 @@ documents:
     reference_month: 2017-07
     release_id: adv1707
   expected_sha256: d91ce2c0f039841ca4a81b0c56e366d16150b56595401cb0b1cc312032ef9727
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -170,7 +179,8 @@ documents:
     reference_month: 2017-08
     release_id: adv1708
   expected_sha256: 32425d19731437da2eff55a2846e78f02a26a57e16cd1b09c61ea9739e0d86b1
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -187,7 +197,8 @@ documents:
     reference_month: 2017-09
     release_id: adv1709
   expected_sha256: f297891dfba1e797f1bd8d31bba40eb27d9fe04b8113c8a0ad363b2fcd7e0dbf
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -204,7 +215,8 @@ documents:
     reference_month: 2017-10
     release_id: adv1710
   expected_sha256: 5942290d25bdb2625dc5f07ef0dfc9e093076b24f3b030891ddf190da0a924dc
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -221,7 +233,8 @@ documents:
     reference_month: 2017-11
     release_id: adv1711
   expected_sha256: 59b7052841343711504e1ed035e2196722d0c156b56bf7ebb768937e6a8f3556
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -238,7 +251,8 @@ documents:
     reference_month: 2017-12
     release_id: adv1712
   expected_sha256: 89b7e992b6370bdff1e05dfd55a0f26fbd968d739c40e66c9ee7493ba233bcc4
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -255,7 +269,8 @@ documents:
     reference_month: 2018-01
     release_id: adv1801
   expected_sha256: 16af54141335be3f81144a115513a395ff68830075cf189e8ebe3d56d4553587
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -272,7 +287,8 @@ documents:
     reference_month: 2018-02
     release_id: adv1802
   expected_sha256: bdedff502d4b25bb899c7637886ba8f99216d1e334b8b056a3bec0e30d8e7f49
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -289,7 +305,8 @@ documents:
     reference_month: 2018-03
     release_id: adv1803
   expected_sha256: 5c4e750f87da1083dc7765b8a3fed8e5a1dadc9ce87f90ec23bed6d260579a4e
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -306,7 +323,8 @@ documents:
     reference_month: 2018-04
     release_id: adv1804
   expected_sha256: e135c4c265bf02f2b645e1e1f25fd0cf233c1cc86ed6ef7613d44e8b62e56658
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -323,7 +341,8 @@ documents:
     reference_month: 2018-05
     release_id: adv1805
   expected_sha256: c1625bf6a5aa559467f6bd567218b888f63db73e641b7bbcef994a5d1c61ba25
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -340,7 +359,8 @@ documents:
     reference_month: 2018-06
     release_id: adv1806
   expected_sha256: 41e4dc5ad879f004f0219cd32c955a654f9cd5fbb1a55f1b199c1234cba16a8e
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -357,7 +377,8 @@ documents:
     reference_month: 2018-07
     release_id: adv1807
   expected_sha256: 896067d95e80c611745cd17e61da252ef46b7d73cc93b0fc726d46d956a3abc4
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -374,7 +395,8 @@ documents:
     reference_month: 2018-08
     release_id: adv1808
   expected_sha256: c7e3eaf9f73ebe1155a61fcf9721ea093face3d39b3f9f677c3da6c8bc271394
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -391,7 +413,8 @@ documents:
     reference_month: 2018-09
     release_id: adv1809
   expected_sha256: 58db2a961cffc161b1d38d0cee9345619c3f49a33e728f64bc849bf8de12cb90
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -408,7 +431,8 @@ documents:
     reference_month: 2018-10
     release_id: adv1810
   expected_sha256: 4010c0bf61b8aec88c750ab2f58c3536935128a26c7c79d0dfb52fad1ca7fe3c
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -425,7 +449,8 @@ documents:
     reference_month: 2018-11
     release_id: adv1811
   expected_sha256: 86b844728831582b87981c6f37d468b4fc1f3d5d610ad845f865abe112970fa8
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -442,7 +467,8 @@ documents:
     reference_month: 2018-12
     release_id: adv1812
   expected_sha256: 39ec0d71750856bb929fa52edd9c5aa5fd44e0f7fc730e051a503d4555d66afc
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -459,7 +485,8 @@ documents:
     reference_month: 2019-01
     release_id: adv1901
   expected_sha256: 0773fa902633a187a53a18c4bdb9616e69ef3d37bd61aa4c97f8aa652cd6eed2
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -476,7 +503,8 @@ documents:
     reference_month: 2019-02
     release_id: adv1902
   expected_sha256: 74b593433970faecdfced02f51fd77c33a661a614a3b4c515e2aa2544dd8ef0a
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -493,7 +521,8 @@ documents:
     reference_month: 2019-03
     release_id: adv1903
   expected_sha256: c3a8c1cd41a790e0d23008f03c9544ee3604856340e795eeaccb069044060dae
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -510,7 +539,8 @@ documents:
     reference_month: 2019-04
     release_id: adv1904
   expected_sha256: 484f774ad9afab7172dc5809646ea09247bf662b52e38f2c88ee0e89959117de
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -527,7 +557,8 @@ documents:
     reference_month: 2019-05
     release_id: adv1905
   expected_sha256: 7ce308a3850bf0b10fc9ae5a584cf082e959f1ad82414c12d6889b02a4dc30db
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -544,7 +575,8 @@ documents:
     reference_month: 2019-06
     release_id: adv1906
   expected_sha256: d9aa0dd5fefff1b28349fee62cb69b3f2740d4fd89bd6355dc4bc2b805ae290d
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -561,7 +593,8 @@ documents:
     reference_month: 2019-07
     release_id: adv1907
   expected_sha256: f24b438c01fda35fa68a713f0b00ce54f4c323e918e9e542bb09e62d08ef9451
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -578,7 +611,8 @@ documents:
     reference_month: 2019-08
     release_id: adv1908
   expected_sha256: 388fda140044d740f2f7bbbfc4c36d6baffd0ddc52718396caf6110e590cf00a
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -595,7 +629,8 @@ documents:
     reference_month: 2019-09
     release_id: adv1909
   expected_sha256: 24d7dbd60eee6c59b8c2d31b9b85a6607a20faee424b42eb9bd38b65f30f74f3
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -612,7 +647,8 @@ documents:
     reference_month: 2019-10
     release_id: adv1910
   expected_sha256: 9e46d6707c3fa236ac77b826f2110325b258df46941e55186221d99350e8562d
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -629,7 +665,8 @@ documents:
     reference_month: 2019-11
     release_id: adv1911
   expected_sha256: dcbf6d464859f3edaeb165b559c751b6bc096e14c9fe0c8a504915e41df691f2
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -646,7 +683,8 @@ documents:
     reference_month: 2019-12
     release_id: adv1912
   expected_sha256: ae3b897dded490aa810be218e17bcca8a7b3f79ee85b0090154b3ac3fabf0464
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -663,7 +701,8 @@ documents:
     reference_month: 2020-01
     release_id: adv2001
   expected_sha256: f4d1d478abc141e5169f96ba358b012fca0d82d65cff2f83b7b69fe15ff6197d
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -680,7 +719,8 @@ documents:
     reference_month: 2020-02
     release_id: adv2002
   expected_sha256: c78fcc9bfdba9414ac8d27eceafb417af495b942994c1dbb66c5a0d00d095aa8
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -697,7 +737,8 @@ documents:
     reference_month: 2020-03
     release_id: adv2003
   expected_sha256: 76b8b8a358181aaf9398d6b89464998c45e22328b8af5dfcc6ab9fc77ba59b33
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -714,7 +755,8 @@ documents:
     reference_month: 2020-04
     release_id: adv2004
   expected_sha256: 95a77a7ade0b0dba87cbdae4bd96124e871f8e86e2ce003f9c9f84f86136d9b6
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -731,7 +773,8 @@ documents:
     reference_month: 2020-05
     release_id: adv2005
   expected_sha256: 4073403df07f7013d2d01e180f6642da32b279b75e8b363ad9dd5d408b361efb
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -748,7 +791,8 @@ documents:
     reference_month: 2020-06
     release_id: adv2006
   expected_sha256: d9a624f7503d6fe1eee732081c0b662dd695641e7e8980df16d081094b6c5930
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -765,7 +809,8 @@ documents:
     reference_month: 2020-07
     release_id: adv2007
   expected_sha256: e57b5161705e2aa1dc14daa1fc749a30e3213e578b6ca1f1b82780ee57f1b22b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -782,7 +827,8 @@ documents:
     reference_month: 2020-08
     release_id: adv2008
   expected_sha256: b16c467e4a679d5f80dd16f5aa0f2220b63f6c89e47148aede77cd7918ece6d7
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -799,7 +845,8 @@ documents:
     reference_month: 2020-09
     release_id: adv2009
   expected_sha256: 466bceca1ff24cb8774b204e4dfa9734449dd61588c28d94a69daef61428ebbe
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -816,7 +863,8 @@ documents:
     reference_month: 2020-10
     release_id: adv2010
   expected_sha256: 1f38fa19aadb985c26f6683790a8c009566e28b6696195adf12daea384a7cfe9
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -833,7 +881,8 @@ documents:
     reference_month: 2020-11
     release_id: adv2011
   expected_sha256: f3b472607048b6ffe1109c97c1026aabf8d646c33c308ca615ba3b308760aea3
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -850,7 +899,8 @@ documents:
     reference_month: 2020-12
     release_id: adv2012
   expected_sha256: 88ab9628ba599233b4b0f1f88e151aca5aa887d43c11718f7f75d2401fc9f383
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -867,7 +917,8 @@ documents:
     reference_month: 2021-01
     release_id: adv2101
   expected_sha256: d38e796d7c8a8754c3dc01beb0b1be558804e45da55dbfc3cb7c58737f4b5ac0
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -884,7 +935,8 @@ documents:
     reference_month: 2021-02
     release_id: adv2102
   expected_sha256: bc83e1aee171f9630dcf9f7180b801e73c419bbebd39f6ee69908db342b51d2c
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -901,7 +953,8 @@ documents:
     reference_month: 2021-03
     release_id: adv2103
   expected_sha256: 9bbbe455eff3fa6dc49ff07220052bca2f0d05d5b3d849177e0e86ebac0f420b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -918,7 +971,8 @@ documents:
     reference_month: 2021-04
     release_id: adv2104
   expected_sha256: f42c5fad737b009f89fd9d175750123fc1956d0425f49df112ba9e968a182426
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -935,7 +989,8 @@ documents:
     reference_month: 2021-05
     release_id: adv2105
   expected_sha256: a046693b92ffd0f4203a23a70e46ca13d2311303d009485335c9455ccc781785
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -952,7 +1007,8 @@ documents:
     reference_month: 2021-06
     release_id: adv2106
   expected_sha256: 8ed65b055983f7d131df3201aad0d60787c67169acb3ff40eb169c3702e17a88
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -969,7 +1025,8 @@ documents:
     reference_month: 2021-07
     release_id: adv2107
   expected_sha256: d306d554e97b2b870e606560ea8d2e5f684923595ca5183c70473ff1b12b5c0f
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -986,7 +1043,8 @@ documents:
     reference_month: 2021-08
     release_id: adv2108
   expected_sha256: 87e72122dea2f53eec1e63ca33f50a0c295e7e06d89e1656b20ff4e47f7cd914
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1003,7 +1061,8 @@ documents:
     reference_month: 2021-09
     release_id: adv2109
   expected_sha256: 3236ebfecc0f4e9cfdc6160fa65febc494f073116a8ddf6bdbde2077a8be3405
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1020,7 +1079,8 @@ documents:
     reference_month: 2021-10
     release_id: adv2110
   expected_sha256: fca61574d10ce8f88e1f5d0ccec9619f0eeb6beda1ad022fd636a33f7bde4221
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1037,7 +1097,8 @@ documents:
     reference_month: 2021-11
     release_id: adv2111
   expected_sha256: dcd617847e35561db694e9f89adc37392b4e78c18c66b0ed6556d5045998c07a
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1054,7 +1115,8 @@ documents:
     reference_month: 2021-12
     release_id: adv2112
   expected_sha256: effab88e1530b3cb59b2d3178a786059352aace4e8c3cb79ab58f8f5a8daaf2e
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1071,7 +1133,8 @@ documents:
     reference_month: 2022-01
     release_id: adv2201
   expected_sha256: b39c96aa5ee0074035ce9197640ff9d92bb968169556e3d7a8bcefcd0f78d744
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1088,7 +1151,8 @@ documents:
     reference_month: 2022-02
     release_id: adv2202
   expected_sha256: adb8f77624b861f9a16288474b450351ac237d31bacb10929364db0914275d45
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1105,7 +1169,8 @@ documents:
     reference_month: 2022-03
     release_id: adv2203
   expected_sha256: 27ad9de8e1af11a796da6f68149be480b6c414123d51c7ff09f6aa269c28d871
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1122,7 +1187,8 @@ documents:
     reference_month: 2022-04
     release_id: adv2204
   expected_sha256: b3aaaf492273611b9148fe1d38bef5ffc81571f3ec0d17fab958a6c0f55e0246
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1139,7 +1205,8 @@ documents:
     reference_month: 2022-05
     release_id: adv2205
   expected_sha256: bd6c7226dddef4b9614ef711c0653a3cb6430a085452484333a4852bf21e21b5
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1156,7 +1223,8 @@ documents:
     reference_month: 2022-06
     release_id: adv2206
   expected_sha256: d2b5ba1556a1aeae401df642efd190261fe61812ac58ae59730311be02474969
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1173,7 +1241,8 @@ documents:
     reference_month: 2022-07
     release_id: adv2207
   expected_sha256: 3f8856b9a93d1790526ea6b09f0e9416e262ed317c53d1851b6074d0b09fff68
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1190,7 +1259,8 @@ documents:
     reference_month: 2022-08
     release_id: adv2208
   expected_sha256: f557eb2df8bd4382abd8085c36df2a3c2aedc504b217247b7d696f954182fd6c
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1207,7 +1277,8 @@ documents:
     reference_month: 2022-09
     release_id: adv2209
   expected_sha256: f537af1383f47e0844124afbd4335417ec91995e62d366d8dcc19c24cb0b864b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1224,7 +1295,8 @@ documents:
     reference_month: 2022-10
     release_id: adv2210
   expected_sha256: 6527fa53e28421367e7795a521aaf34e09de4f28ffa3b8d6527255ba9023b681
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1241,7 +1313,8 @@ documents:
     reference_month: 2022-11
     release_id: adv2211
   expected_sha256: af20655e112ebe23d786ef92834d8e1ab5889763a7f656a2fcb5396a6a7b0fee
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1258,7 +1331,8 @@ documents:
     reference_month: 2022-12
     release_id: adv2212
   expected_sha256: 3cdb8dde8e7b93762679432140b15ad40dd1593ecbdc2a9956b2d805edd3e242
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1275,7 +1349,8 @@ documents:
     reference_month: 2023-01
     release_id: adv2301
   expected_sha256: 864fda9fac32b8d0938bea3b385dce58b6f20f3216c58e7a8a645b703e0d8fcc
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1292,7 +1367,8 @@ documents:
     reference_month: 2023-02
     release_id: adv2302
   expected_sha256: 97501b8611e62bda7554dd7110fd8e42910f45d1ba2720c25dd98a44f608e9ba
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1309,7 +1385,8 @@ documents:
     reference_month: 2023-03
     release_id: adv2303
   expected_sha256: b0b256145039cca7e8bc5538e6a98a4d30cadec34916b78d75202cc881073ee1
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1326,7 +1403,8 @@ documents:
     reference_month: 2023-04
     release_id: adv2304
   expected_sha256: e2789290b90a6e8914985b3355a5bd36bfba95995957c43d3dcb94397a263e4c
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1343,7 +1421,8 @@ documents:
     reference_month: 2023-05
     release_id: adv2305
   expected_sha256: 0a0a5df5a9d1287829b24d470407a636773d62242e86728cef3afb05a3ef0960
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1360,7 +1439,8 @@ documents:
     reference_month: 2023-06
     release_id: adv2306
   expected_sha256: 5be0b2085608e0990aab5e2182b97362d1af55c3522600272abba2e62c8f40b2
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1377,7 +1457,8 @@ documents:
     reference_month: 2023-07
     release_id: adv2307
   expected_sha256: 3c592fb000f0309e826396ec4af8ac64d3d6966865e8b63b55db03891ea41c3b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1394,7 +1475,8 @@ documents:
     reference_month: 2023-08
     release_id: adv2308
   expected_sha256: f9e5110400bcb5f1fd58bc01d1e3c7656d7336ae4cc5608f426e89b0b651dad2
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1411,7 +1493,8 @@ documents:
     reference_month: 2023-09
     release_id: adv2309
   expected_sha256: fd016e2d58b4dc3b431abf7e451903fb0ae0752a6709b836f01966707dddb0e8
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1428,7 +1511,8 @@ documents:
     reference_month: 2023-10
     release_id: adv2310
   expected_sha256: c7dd475c62d7d64be5bdb35601e6f0961470d9ace3b48b7cafb7c7bfdf0654ff
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1445,7 +1529,8 @@ documents:
     reference_month: 2023-11
     release_id: adv2311
   expected_sha256: 9328fbe8e5327cd365fc28ce90c97cfbaa0cdbcd30338e5fb7fcfffc021e3f05
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1462,7 +1547,8 @@ documents:
     reference_month: 2023-12
     release_id: adv2312
   expected_sha256: c249b373a15c6bb54c40ca6f6b65c295544de496c9944b133c0bb48c6a91552f
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1479,7 +1565,8 @@ documents:
     reference_month: 2024-01
     release_id: adv2401
   expected_sha256: 046de151734059c6e34fdc4f096b6dc2ee5dc801462075de695c96e2a7b95fb1
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1496,7 +1583,8 @@ documents:
     reference_month: 2024-02
     release_id: adv2402
   expected_sha256: 78009b610a23ca760b91a98c9c9856584a9a076ad0f7a1f7986bb5ca1babb3fb
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1513,7 +1601,8 @@ documents:
     reference_month: 2024-03
     release_id: adv2403
   expected_sha256: 58c6e9057fe48d19f64139378d441cf67f54a012d89b5683cdb2aab4917edd66
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1530,7 +1619,8 @@ documents:
     reference_month: 2024-04
     release_id: adv2404
   expected_sha256: cec5ad7576f32419f4fb7a7b3f17022856e000ffd776de7c6c7c97128d79c646
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1547,7 +1637,8 @@ documents:
     reference_month: 2024-05
     release_id: adv2405
   expected_sha256: 96f2e5c5b2b03c2d0d1de71e84332f400c345dad9d8c62a33f4ca8cc3340b53b
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1564,7 +1655,8 @@ documents:
     reference_month: 2024-06
     release_id: adv2406
   expected_sha256: 9b25aa36163643ad2e65d8c6e211cfb5e7326ee2c1a46438a8fe99c34326017d
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1581,7 +1673,8 @@ documents:
     reference_month: 2024-07
     release_id: adv2407
   expected_sha256: 4530d31069e5b71b972abfea4783f7cd78c934a1feb4431e4e72c5598ca584d1
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1598,7 +1691,8 @@ documents:
     reference_month: 2024-08
     release_id: adv2408
   expected_sha256: ff1d0e3420da7cf9a851d45f5f1341bcf2e71f0b38c04190216d7503854664af
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1615,7 +1709,8 @@ documents:
     reference_month: 2024-09
     release_id: adv2409
   expected_sha256: 2a1e0b6a27540343763304c3fab4ab446630668855c7f78a776422cf15e22b45
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1632,7 +1727,8 @@ documents:
     reference_month: 2024-10
     release_id: adv2410
   expected_sha256: debba0f7730f4835e3cf00a34bf07d1abb045730abd40aa3a96889972e23bd4a
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1649,7 +1745,8 @@ documents:
     reference_month: 2024-11
     release_id: adv2411
   expected_sha256: f8a28e2c71ee93799ba06bf8d764517b8081ede39b3faf92189aa9ad33e240de
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1666,7 +1763,8 @@ documents:
     reference_month: 2024-12
     release_id: adv2412
   expected_sha256: a82b661263e4d202849ffbda5283e59e9eb078983b49b241f926c79303acf48e
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1683,7 +1781,8 @@ documents:
     reference_month: 2025-01
     release_id: adv2501
   expected_sha256: 0471d804717d1426e64c897bef5e932de4c44858765738226c7a77eb8ea0cab5
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1700,7 +1799,8 @@ documents:
     reference_month: 2025-02
     release_id: adv2502
   expected_sha256: 4e66d9431ce1c88422f9834b6a416b9b452533b3c2c4973b63e27c92a234004f
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1717,7 +1817,8 @@ documents:
     reference_month: 2025-03
     release_id: adv2503
   expected_sha256: a6fbf845951550a65c499812f99937e6bc1516271b2c999a0e20e23b229599ba
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1734,7 +1835,8 @@ documents:
     reference_month: 2025-04
     release_id: adv2504
   expected_sha256: 68bd5cd6c4c3d6a4130cf0b645845e34129f5a9e79a092cf8829eb3ed6981bdb
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1751,7 +1853,8 @@ documents:
     reference_month: 2025-05
     release_id: adv2505
   expected_sha256: 1d96c3170cec8d76ddea315f0c1b6688fdb1141e0d0a00f1048c819bf2d8e9f6
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1768,7 +1871,8 @@ documents:
     reference_month: 2025-06
     release_id: adv2506
   expected_sha256: d90dbe4a3e2ec531af675830b6fca9bcca90f404fcbacf39d8e53675c91fa4d2
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1785,7 +1889,8 @@ documents:
     reference_month: 2025-07
     release_id: adv2507
   expected_sha256: b38c2622498a6373ea768ae707810c1c146cd4b49423ca26875c9d220e776864
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1802,7 +1907,8 @@ documents:
     reference_month: 2025-08
     release_id: adv2508
   expected_sha256: a5bee0d078b699334395cb5f9ef8a7895cf998369291b36f2e213e47e1c62cf9
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1819,7 +1925,8 @@ documents:
     reference_month: 2025-09
     release_id: adv2509
   expected_sha256: 824de3bae3137b0b18dbee9478597a13ecbc120fcd0d885f0e4c3b14ccbb7448
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1836,7 +1943,8 @@ documents:
     reference_month: 2025-10
     release_id: adv2510
   expected_sha256: a2ff4417a8ae73ed7483d3725006e609526973b4a02ae10ab94e7bc77aca4065
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1853,7 +1961,8 @@ documents:
     reference_month: 2025-11
     release_id: adv2511
   expected_sha256: b003b8bab03822265de3546da540702d7ac55875482318850ba7edf02842ad1c
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1870,7 +1979,8 @@ documents:
     reference_month: 2025-12
     release_id: adv2512
   expected_sha256: b3ea505560841c8705ff851cad4ce860ff4a1f897a67660a8bbe1e2e2545bb82
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1887,7 +1997,8 @@ documents:
     reference_month: 2026-01
     release_id: adv2601
   expected_sha256: f7bbacf6e56043ef8cc3ab830c502f157f3c6160813d2737709a5b8f8cf12866
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1904,7 +2015,8 @@ documents:
     reference_month: 2026-02
     release_id: adv2602
   expected_sha256: fe81c4981160da66b00389e4c1d2ad7613754fcb47e6cde6a4f253fddbecc291
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1921,7 +2033,8 @@ documents:
     reference_month: 2026-03
     release_id: adv2603
   expected_sha256: 5891370e244910ac38ab6f24ca173b4aaf179608176b77a88914d0ad4801eec3
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1938,7 +2051,8 @@ documents:
     reference_month: 2026-04
     release_id: adv2604
   expected_sha256: 23e7f0b629724e3cbafbb0e0b6e300210cf65e4ce5b8c1c8935631ef07a19794
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: ok
   attributes:
@@ -1955,7 +2069,8 @@ documents:
     reference_month: 2026-05
     release_id: adv2605
   expected_sha256: 44dc232db43c1d2d6f7244e832b6293c7817a0855b45d1d0ca17a3536cda9382
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
@@ -1972,7 +2087,8 @@ documents:
     reference_month: 2026-06
     release_id: adv2606
   expected_sha256: 64a4bf804b7d233d7330912f2e298d4cbe34348ae92bb0997bca5e4810ebaa01
-  license_note: U.S. Census Bureau public domain; redistribution allowed (bundled).
+  license_note: U.S. Census Bureau public domain. The parsed vintage table is bundled;
+    original advance PDFs are fetched and hash-checked, with seven test PDFs bundled.
   availability: available
   integrity_flag: possibly_replaced
   attributes:
