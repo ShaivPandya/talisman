@@ -856,12 +856,42 @@ def cmd_valuation_multiples(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluate_portfolio(args: argparse.Namespace) -> int:
+    """Fetch benchmarks in memory; Visa scoring stays explicitly not run."""
+    from longaeva_app.evaluation.portfolio import (
+        format_portfolio_table,
+        run_portfolio_evaluation,
+        write_portfolio_report,
+    )
+
+    try:
+        report = run_portfolio_evaluation(window=args.window, origin_dates=args.origin or None)
+    except ValueError as exc:
+        print(f"Portfolio evaluation refused: {exc}")
+        return 1
+    if args.output:
+        write_portfolio_report(report, Path(args.output))
+    print(
+        json.dumps(report, indent=2, sort_keys=True, allow_nan=False) if args.json else format_portfolio_table(report)
+    )
+    return int(any(source["status"] != "ok" for source in report["sources"]))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
 
     seed = sub.add_parser("seed-demo", help="Load bundled demo dataset (stub until LON-37)")
     seed.set_defaults(func=cmd_seed_demo)
+
+    portfolio = sub.add_parser(
+        "evaluate-portfolio", help="Independent benchmark windows; real Visa scoring not run (LON-28)"
+    )
+    portfolio.add_argument("--window", choices=["all", "primary", "extension"], default="all")
+    portfolio.add_argument("--origin", action="append", default=[], help="Origin date YYYY-MM-DD (repeatable)")
+    portfolio.add_argument("--output", default=None, help="Write aggregate-only report JSON")
+    portfolio.add_argument("--json", action="store_true", help="Print aggregate-only report JSON")
+    portfolio.set_defaults(func=cmd_evaluate_portfolio)
 
     openapi = sub.add_parser("export-openapi", help="Write the published OpenAPI snapshot")
     openapi.add_argument(

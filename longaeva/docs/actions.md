@@ -1,6 +1,8 @@
 # Illustrative actions
 
-LON-26 / FR-13. Scoring is LON-28 and is not done here.
+LON-26 / FR-13. LON-28's benchmark results and synthetic scoring conventions are
+documented in [portfolio-evaluation.md](portfolio-evaluation.md). Real Visa
+strategy scoring remains not run under the LON-6 data gate.
 
 The action table turns one saved run's valuation into four labeled choices for a
 demo long position: hold, add, trim, and exit. Hold is the no-action outcome.

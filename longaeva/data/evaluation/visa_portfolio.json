@@ -1,0 +1,895 @@
+{
+  "aggregates": {
+    "sp500_tr_approx": {
+      "mean_return": 0.04218987577686369,
+      "n_estimated": 1,
+      "n_scored": 16,
+      "n_unavailable": 0,
+      "worst_window_drawdown": -0.18752028872852178
+    },
+    "us_total_market_tr": {
+      "mean_return": 0.042302125306331755,
+      "n_estimated": 0,
+      "n_scored": 16,
+      "n_unavailable": 0,
+      "worst_window_drawdown": -0.19557597035866314
+    }
+  },
+  "config": {
+    "as_of_date": "2026-10-06",
+    "benchmark_vintage": "latest retrieved outcomes only; not used as forecast inputs",
+    "calendar": "union of observed FRED prices and dated Ken French sessions; no forward-filled prices/returns",
+    "code_hash": "c25c8270d5c8639f6e2000267ef941cb791ebcf5ab8fe002a6dd529bbcbdb669",
+    "entry": "close of first observed session after cutoff date in America/New_York",
+    "exit": "close 63 sessions after entry; no shortening at next origin",
+    "holding_period_sessions": 63,
+    "manifest_hash": "f2c25afbb93760d02f6635023fbcb8922f0c34612c240f0132d5b207362f90cc",
+    "origin_inventory_hash": "0397f08bf6471a0baef91b3586dbceb66a97dc3a1832e50a0968760fa1adc09d",
+    "origins": [
+      "2022-01-27",
+      "2022-04-26",
+      "2022-07-26",
+      "2022-10-25",
+      "2023-01-26",
+      "2023-04-25",
+      "2023-07-25",
+      "2023-10-24",
+      "2024-01-25",
+      "2024-04-23",
+      "2024-07-23",
+      "2024-10-29",
+      "2025-01-30",
+      "2025-04-29",
+      "2025-07-29",
+      "2025-10-28",
+      "2026-01-29",
+      "2026-04-28",
+      "2026-07-28"
+    ],
+    "overlap": "independent windows; arithmetic summaries only",
+    "rule": {
+      "costs": {
+        "funding_bps_per_day": 0.0,
+        "market_impact_bps": 5.0,
+        "slippage_bps": 3.0,
+        "transaction_cost_bps": 1.0
+      },
+      "demo_position": {
+        "direction": "long",
+        "shares": 1000.0
+      },
+      "holding_period_trading_days": 63,
+      "label": "Illustrative. Not investment advice and not a probability.",
+      "sizing": {
+        "add_fraction": 0.25,
+        "trim_fraction": 0.25
+      },
+      "thresholds": {
+        "add_at_or_above": 0.15,
+        "exit_at_or_below": -0.25,
+        "trim_at_or_below": -0.1
+      },
+      "version": 1
+    },
+    "rule_hash": "d93e2e052b7dbc75f00c4691e8afa464ac54c8d5a9bde602037767ec9dbd3039",
+    "sec_dividend_source_hashes": {
+      "data/fixtures/states/sources/0001403161-24-000027/q22024earningsrelease.htm.gz": "01e37e4a14b9bace767b5faefabd9eae8b58354dc53b40d5d3fca8d8813ce9b7",
+      "data/fixtures/states/sources/0001403161-24-000040/q32024earningsrelease.htm.gz": "89d1659cb2ef9c88c3cd7ba264967ebc2870e079578c770741ec9079e4dde76c",
+      "data/fixtures/states/sources/0001403161-25-000051/q32025earningsrelease.htm.gz": "57c088c577130f8dbe7ae1dfc9c831fa73cd529e118d89f1ba2c36c447277434",
+      "data/fixtures/states/sources/0001403161-25-000077/q42025earningsrelease.htm.gz": "4409e57f701323fd7bcdad73d0ece3f54584b18877fed80d8b8a60e9ede53c2f"
+    },
+    "source_hashes": {
+      "fred_sp500": "551b282c417da2e7fa38ad4da0c5ebc2c907d386272a0752d04f97e16b7c90dc",
+      "ken_french_daily": "2f29e22546069914890a712680a6f81f3680ebc3543b52864484d209ca13a7db",
+      "shiller_ie_data": "044196dafe44c3030b2facbdea023975b3f6aa68b4e52f8f9bafc403e19589c1"
+    },
+    "suite_version": "lon28-v1",
+    "window": "all"
+  },
+  "config_hash": "44cb1928c2159fca06dfd124e8c04a6091829e4f8cfa39734f162fbaa1fb3639",
+  "drift_diagnostic": {
+    "limitation": "Method/timing diagnostic against Shiller's monthly construction, not validation against official S&P total return.",
+    "max_absolute_drift_pp": 0.2419792968976875,
+    "mean_absolute_drift_pp": 0.011045580271919079,
+    "mean_signed_drift_pp": 0.00046200706379401945,
+    "method": "Monthly-average daily approximate wealth / monthly CPI versus Shiller real total-return price; compare monthly percentage changes.",
+    "n_months": 53,
+    "status": "ok"
+  },
+  "exclusions": [
+    {
+      "origin_date": "2022-07-26",
+      "reason": "FY2021Q3 payments-volume level is not in the parsed observations (FY2020/FY2021 10-K 12-month tables not extracted); starting state cannot be built"
+    },
+    {
+      "origin_date": "2022-10-25",
+      "reason": "FY2021Q3 payments-volume level is not in the parsed observations (FY2020/FY2021 10-K 12-month tables not extracted); starting state cannot be built"
+    },
+    {
+      "origin_date": "2026-07-28",
+      "reason": "Prospective origin; not scored."
+    }
+  ],
+  "label": "Exploratory independent holding-period results; overlapping windows are not a compounded portfolio or evidence of alpha.",
+  "labels": {
+    "primary": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+    "primary_footnote": "Not the official S&P 500 Total Return index. Prices: S&P Dow Jones Indices via FRED (SP500). Dividends: Shiller ie_data.xls (four-quarter S&P totals interpolated monthly), spread evenly across trading days. Fetched by script; not redistributed.",
+    "secondary": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+    "visa": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)"
+  },
+  "n_eligible": 16,
+  "n_excluded": 3,
+  "origins": [
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.10673278979118861,
+            "total_return": -0.06433179675111433
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.11540452814463986,
+            "total_return": -0.06598444751694998
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2022-01-27T21:08:07+00:00",
+      "entry_date": "2022-01-28",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2022-04-29",
+      "label": "FY2022Q1",
+      "origin_date": "2022-01-27",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.14567694961327682,
+            "total_return": -0.022647176182549744
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.1524646967705897,
+            "total_return": -0.025484852207041775
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2022-04-26T20:05:54+00:00",
+      "entry_date": "2022-04-27",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2022-07-28",
+      "label": "FY2022Q2",
+      "origin_date": "2022-04-26",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.0758513432171235,
+            "total_return": 0.028755075454609536
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.081463114208701,
+            "total_return": 0.01959803560500406
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2023-01-26T21:05:49+00:00",
+      "entry_date": "2023-01-27",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2023-04-28",
+      "label": "FY2023Q1",
+      "origin_date": "2023-01-26",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.025718689950672613,
+            "total_return": 0.12316478808771714
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.02539497249999989,
+            "total_return": 0.12974072377306278
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2023-04-25T20:05:31+00:00",
+      "entry_date": "2023-04-26",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2023-07-27",
+      "label": "FY2023Q2",
+      "origin_date": "2023-04-25",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.07774787040840037,
+            "total_return": -0.0662951592247063
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.08591408413496682,
+            "total_return": -0.07258557463579451
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2023-07-25T20:05:51+00:00",
+      "entry_date": "2023-07-26",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2023-10-24",
+      "label": "FY2023Q3",
+      "origin_date": "2023-07-25",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.01955681395644815,
+            "total_return": 0.17271944965678743
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.023700426105362826,
+            "total_return": 0.17671509362684867
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2023-10-24T20:05:35+00:00",
+      "entry_date": "2023-10-25",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2024-01-26",
+      "label": "FY2023Q4",
+      "origin_date": "2023-10-24",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.053898871889709876,
+            "total_return": 0.04642996082593842
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.05597309190166233,
+            "total_return": 0.04649107630887461
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2024-01-25T21:05:41+00:00",
+      "entry_date": "2024-01-26",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2024-04-26",
+      "label": "FY2024Q1",
+      "origin_date": "2024-01-25",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.04695400276691497,
+            "total_return": 0.0681648708625644
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.04612859749326892,
+            "total_return": 0.06788236150881044
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2024-04-23T20:05:39+00:00",
+      "entry_date": "2024-04-24",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2024-07-25",
+      "label": "FY2024Q2",
+      "origin_date": "2024-04-23",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.0606925998387281,
+            "total_return": 0.08158357233726665
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.06537365930000016,
+            "total_return": 0.07973061627610956
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2024-07-23T20:05:38+00:00",
+      "entry_date": "2024-07-24",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2024-10-22",
+      "label": "FY2024Q3",
+      "origin_date": "2024-07-23",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.04215729567893878,
+            "total_return": 0.034456577242112374
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.04599866802347341,
+            "total_return": 0.045488752276124034
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2024-10-29T20:06:08+00:00",
+      "entry_date": "2024-10-30",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2025-02-03",
+      "label": "FY2024Q4",
+      "origin_date": "2024-10-29",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.18752028872852178,
+            "total_return": -0.055318887547123885
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.19557597035866314,
+            "total_return": -0.06292813965743027
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2025-01-30T21:05:52+00:00",
+      "entry_date": "2025-01-31",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2025-05-02",
+      "label": "FY2025Q1",
+      "origin_date": "2025-01-30",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.026757295646593016,
+            "total_return": 0.1419737469733171
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.026809329688902372,
+            "total_return": 0.14826319256024023
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2025-04-29T20:05:41+00:00",
+      "entry_date": "2025-04-30",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2025-07-31",
+      "label": "FY2025Q2",
+      "origin_date": "2025-04-29",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.02970903788634771,
+            "total_return": 0.08613097858237517
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.030225479999999916,
+            "total_return": 0.09216674074682829
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2025-07-29T20:06:16+00:00",
+      "entry_date": "2025-07-30",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2025-10-28",
+      "label": "FY2025Q3",
+      "origin_date": "2025-07-29",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.0502951216133487,
+            "total_return": 0.010044690020852176
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.05258023731291239,
+            "total_return": 0.010986077576616626
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2025-10-28T20:06:03+00:00",
+      "entry_date": "2025-10-29",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2026-01-30",
+      "label": "FY2025Q4",
+      "origin_date": "2025-10-28",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": false,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.08898452608322638,
+            "total_return": 0.04507048390901014
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.0912449901242085,
+            "total_return": 0.03994701930086664
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2026-01-29T21:05:49+00:00",
+      "entry_date": "2026-01-30",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2026-05-01",
+      "label": "FY2026Q1",
+      "origin_date": "2026-01-29",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    },
+    {
+      "benchmarks": {
+        "sp500_tr_approx": {
+          "estimated": true,
+          "label": "S&P 500 total return (approximation: FRED S&P 500 price index + Shiller monthly dividends, accrued daily)",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.044795881222748024,
+            "total_return": 0.04513683818276282
+          },
+          "status": "ok"
+        },
+        "us_total_market_tr": {
+          "estimated": false,
+          "label": "US total-market total return (Ken French Mkt-RF + RF, CRSP value-weighted) - not the S&P 500",
+          "metrics": {
+            "average_invested_exposure": 1.0,
+            "max_drawdown": -0.045216515924646594,
+            "total_return": 0.04680732935913867
+          },
+          "status": "ok"
+        }
+      },
+      "cutoff_ts": "2026-04-28T20:05:56+00:00",
+      "entry_date": "2026-04-29",
+      "excess_vs_benchmarks": null,
+      "excess_vs_visa": null,
+      "exit_date": "2026-07-30",
+      "label": "FY2026Q2",
+      "origin_date": "2026-04-28",
+      "visa_buy_and_hold": {
+        "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      },
+      "visa_strategy": {
+        "metrics": null,
+        "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+        "status": "not_run"
+      }
+    }
+  ],
+  "overlap": {
+    "overlapping_pairs": 9,
+    "windows_with_overlap": 14
+  },
+  "rule_frozen_at": "2026-10-06T22:27:50.383110+00:00",
+  "sec_dividends": {
+    "coverage": "partial",
+    "declarations": [
+      {
+        "amount_per_share": 0.52,
+        "ex_dividend_date": "2024-05-16",
+        "path": "data/fixtures/states/sources/0001403161-24-000027/q22024earningsrelease.htm.gz",
+        "payable_date": "2024-06-03",
+        "record_date": "2024-05-17",
+        "status": "ok"
+      },
+      {
+        "amount_per_share": 0.52,
+        "ex_dividend_date": "2024-08-09",
+        "path": "data/fixtures/states/sources/0001403161-24-000040/q32024earningsrelease.htm.gz",
+        "payable_date": "2024-09-03",
+        "record_date": "2024-08-09",
+        "status": "ok"
+      },
+      {
+        "amount_per_share": 0.59,
+        "ex_dividend_date": "2025-08-12",
+        "path": "data/fixtures/states/sources/0001403161-25-000051/q32025earningsrelease.htm.gz",
+        "payable_date": "2025-09-02",
+        "record_date": "2025-08-12",
+        "status": "ok"
+      },
+      {
+        "amount_per_share": 0.67,
+        "ex_dividend_date": "2025-11-12",
+        "path": "data/fixtures/states/sources/0001403161-25-000077/q42025earningsrelease.htm.gz",
+        "payable_date": "2025-12-01",
+        "record_date": "2025-11-12",
+        "status": "ok"
+      }
+    ],
+    "limitation": "Only retained LON-3 release declarations; not a complete dividend ledger. Missing declarations do not mean zero dividends. Ex-dates follow the LON-6 convention, not exchange-verified dates.",
+    "scoring_ready": false
+  },
+  "sources": [
+    {
+      "first_date": "2016-10-06",
+      "last_date": "2026-10-05",
+      "last_modified": "Tue, 06 Oct 2026 00:01:48 GMT",
+      "retrieved_at": "2026-10-06T22:27:50.390558+00:00",
+      "row_count": 2608,
+      "sha256": "551b282c417da2e7fa38ad4da0c5ebc2c907d386272a0752d04f97e16b7c90dc",
+      "size_bytes": 48903,
+      "source_id": "fred_sp500",
+      "status": "ok",
+      "terms_url": "https://fred.stlouisfed.org/series/SP500",
+      "url": "https://fred.stlouisfed.org/graph/fredgraph.csv?id=SP500"
+    },
+    {
+      "first_date": "1871-01",
+      "last_date": "2026-06",
+      "last_modified": "Wed, 02 Sep 2026 17:51:53 GMT",
+      "retrieved_at": "2026-10-06T22:27:50.544800+00:00",
+      "row_count": 1866,
+      "sha256": "044196dafe44c3030b2facbdea023975b3f6aa68b4e52f8f9bafc403e19589c1",
+      "size_bytes": 1674752,
+      "source_id": "shiller_ie_data",
+      "status": "ok",
+      "terms_url": "https://shillerdata.com/",
+      "url": "https://img1.wsimg.com/blobby/go/e5e77e0b-59d1-44d9-ab25-4763ac982e53/downloads/70fec4f5-727f-4e53-b5f1-179af109c5fa/ie_data.xls?ver=1788371540009"
+    },
+    {
+      "first_date": "1926-07-01",
+      "last_date": "2026-08-31",
+      "last_modified": "Fri, 25 Sep 2026 21:55:02 GMT",
+      "retrieved_at": "2026-10-06T22:27:51.800867+00:00",
+      "row_count": 26317,
+      "sha256": "2f29e22546069914890a712680a6f81f3680ebc3543b52864484d209ca13a7db",
+      "size_bytes": 178184,
+      "source_id": "ken_french_daily",
+      "status": "ok",
+      "terms_url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html",
+      "url": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
+    }
+  ],
+  "suite_version": "lon28-v1",
+  "visa_buy_and_hold": {
+    "label": "Visa buy-and-hold total return: not run (no license-compliant free daily Visa price source)",
+    "metrics": null,
+    "n_scored": 0,
+    "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+    "status": "not_run"
+  },
+  "visa_strategy": {
+    "metrics": null,
+    "n_scored": 0,
+    "reason": "No license-compliant free daily Visa price source; LON-6 gate remains blocked.",
+    "status": "not_run"
+  }
+}

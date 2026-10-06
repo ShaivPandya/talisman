@@ -335,6 +335,20 @@ make evaluate ARGS='--origin 2024-07-23 --origin 2025-10-28 --n-paths 256 --json
 Committed results, 16 scored and 2 excluded: `data/evaluation/visa_full_model.json`,
 `visa_seasonal_trend.json`, `visa_financial_only.json`, `visa_guidance.json`.
 
+## Benchmark evaluation (LON-28)
+
+```bash
+make evaluate-portfolio ARGS='--output /out/visa_portfolio.json'
+```
+
+Computes independent 63-session holding-period returns for the labeled
+FRED/Shiller S&P approximation and Ken French total-market reference. All 16
+eligible origins are scored in the committed aggregate report. Real Visa
+strategy and buy-and-hold scoring remain **not run** under the approved data
+gate. No raw vendor series are retained. See
+[`docs/portfolio-evaluation.md`](docs/portfolio-evaluation.md) for conventions,
+coverage, synthetic scoring, overlap counts, and the report contract.
+
 ## Collector (LON-13)
 
 Curated manifests under [`data/manifest/`](data/manifest/) drive polite fetches of

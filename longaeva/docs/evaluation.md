@@ -1,5 +1,9 @@
 # Evaluation harness (LON-27)
 
+Benchmark holding-period results and the explicitly unrun Visa portfolio
+comparisons are documented separately in
+[`portfolio-evaluation.md`](portfolio-evaluation.md) (LON-28).
+
 Scores the full Visa model at each eligible origin in `data/fixtures/origins.csv`.
 Results are `evaluation_result` rows under one frozen `config_hash`, plus a compact
 committed file at `data/evaluation/visa_full_model.json`.
