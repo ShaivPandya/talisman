@@ -17,6 +17,7 @@ from longaeva_app.api.schemas import (
     RuleApplicationRead,
     RuleApplicationRequest,
 )
+from longaeva_app.api.workspace_schemas import ParameterEvidenceRead
 from longaeva_app.db.models import (
     MappingRule,
     ParameterSet,
@@ -28,9 +29,19 @@ from longaeva_app.db.session import get_db
 from longaeva_app.review.apply import ApplyError, RuleApplication, apply_rules, lineage, preview_rules
 from longaeva_app.review.rules import RuleRegistryError, sync_registry
 from longaeva_app.review.service import ReviewError
+from longaeva_app.workspace import parameter_evidence
 
 router = APIRouter(prefix="/parameter-sets", tags=["parameter-sets"])
 rules_router = APIRouter(prefix="/mapping-rules", tags=["mapping-rules"])
+
+
+@router.get("/{parameter_set_id}/evidence", response_model=ParameterEvidenceRead)
+def get_parameter_evidence(
+    parameter_set_id: uuid.UUID,
+    parameter: str = Query(),
+    session: Session = Depends(get_db),
+) -> ParameterEvidenceRead:
+    return parameter_evidence(session, parameter_set_id, parameter)
 
 
 @router.get("", response_model=list[ParameterSetRead])

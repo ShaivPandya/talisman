@@ -29,14 +29,23 @@ export function RunsPage() {
     let cancelled = false
     const load = async () => {
       try {
-        const [runRows, scenarioRows] = await Promise.all([listRuns(), listScenarios()])
+        const [runRows, scenarioRows] = await Promise.all([
+          listRuns(),
+          listScenarios(),
+        ])
         if (cancelled) return
         setRuns(runRows)
         setScenarios(scenarioRows)
         setError(null)
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof ApiError ? err.detail : err instanceof Error ? err.message : "Failed to load runs")
+        setError(
+          err instanceof ApiError
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : "Failed to load runs",
+        )
       } finally {
         if (!cancelled) setLoading(false)
       }
@@ -66,20 +75,28 @@ export function RunsPage() {
           <p className="theme-eyebrow">Saved runs</p>
           <h1 className="theme-page-title">Runs</h1>
           <p className="theme-page-subtitle">
-            Read-only list of Monte Carlo runs. Submit from the package root; this page
-            charts a selected run&apos;s quantiles.
+            Saved Monte Carlo runs. Open a run for its quantiles or a paired
+            comparison for its differences and attribution.
           </p>
         </div>
       </header>
 
-      {error ? <div className="theme-notice theme-notice-error mb-4">{error}</div> : null}
+      {error ? (
+        <div className="theme-notice theme-notice-error mb-4">{error}</div>
+      ) : null}
 
       {!loading && runs.length === 0 && !error ? (
         <SurfaceCard className="p-5">
-          <p className="body-copy">No saved runs yet. From the package root:</p>
-          <pre className="mt-3 overflow-x-auto rounded-lg bg-card-muted p-3 mono-text text-sm">
-            make submit-run ARGS=&apos;--origin 2024-07-23 --n-paths 64 --inline&apos;
-          </pre>
+          <p className="body-copy mb-3">
+            No saved runs yet. Build your first paired scenario from bundled
+            inputs.
+          </p>
+          <Link
+            to="/scenarios"
+            className="theme-button-base theme-button-primary"
+          >
+            Build a scenario →
+          </Link>
         </SurfaceCard>
       ) : (
         <SurfaceCard className="overflow-x-auto">
@@ -100,24 +117,50 @@ export function RunsPage() {
               {runs.map((run) => (
                 <tr key={run.id} className="border-b border-app last:border-0">
                   <td className="px-4 py-3">
-                    <Link to={`/runs/${run.id}`} className="text-link font-medium">
+                    <Link
+                      to={`/runs/${run.id}`}
+                      className="text-link font-medium"
+                    >
                       {run.origin_label}
                     </Link>
+                    {run.baseline_run_id && (
+                      <Link
+                        className="text-link block text-xs mt-1"
+                        to={`/scenarios?origin=${run.cutoff_ts.slice(0, 10)}&run_id=${run.id}&baseline_run_id=${run.baseline_run_id}`}
+                      >
+                        Compare pair →
+                      </Link>
+                    )}
                   </td>
-                  <td className="px-4 py-3 mono-text text-xs">{fmtUtc(run.cutoff_ts)}</td>
-                  <td className="px-4 py-3">{names.get(run.scenario_id) ?? shortHash(run.scenario_id, 8)}</td>
+                  <td className="px-4 py-3 mono-text text-xs">
+                    {fmtUtc(run.cutoff_ts)}
+                  </td>
                   <td className="px-4 py-3">
-                    <span className={statusClass(run.status)}>{run.status}</span>
+                    {names.get(run.scenario_id) ??
+                      shortHash(run.scenario_id, 8)}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={statusClass(run.status)}>
+                      {run.status}
+                    </span>
                   </td>
                   <td className="px-4 py-3 mono-text">{run.seed}</td>
                   <td className="px-4 py-3">{run.n_paths.toLocaleString()}</td>
-                  <td className="px-4 py-3 caption">{fmtUtc(run.created_at)}</td>
-                  <td className="px-4 py-3 mono-text text-xs">{shortHash(run.outputs_hash)}</td>
+                  <td className="px-4 py-3 caption">
+                    {fmtUtc(run.created_at)}
+                  </td>
+                  <td className="px-4 py-3 mono-text text-xs">
+                    {shortHash(run.outputs_hash)}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
-          {polling ? <p className="caption px-4 py-2">Refreshing while a run is queued or running…</p> : null}
+          {polling ? (
+            <p className="caption px-4 py-2">
+              Refreshing while a run is queued or running…
+            </p>
+          ) : null}
         </SurfaceCard>
       )}
     </div>

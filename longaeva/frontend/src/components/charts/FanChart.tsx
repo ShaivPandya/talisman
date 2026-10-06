@@ -1,3 +1,5 @@
+import { intervalBand } from "@/lib/scenarios"
+
 import {
   Area,
   CartesianGrid,
@@ -34,13 +36,24 @@ export function FanChart({
 }: FanChartProps) {
   if (!data.length) {
     return (
-      <div style={{ height }} className="flex items-center justify-center text-sm text-subtle">
+      <div
+        style={{ height }}
+        className="flex items-center justify-center text-sm text-subtle"
+      >
         No data
       </div>
     )
   }
 
   const formatValue = (v: unknown) => {
+    if (Array.isArray(v))
+      return v
+        .map((value) =>
+          tooltipFormatter
+            ? tooltipFormatter(Number(value))
+            : Number(value).toFixed(2),
+        )
+        .join(" – ")
     const n = typeof v === "number" ? v : Number(v)
     if (!Number.isFinite(n)) return ""
     return tooltipFormatter ? tooltipFormatter(n) : n.toFixed(2)
@@ -48,7 +61,15 @@ export function FanChart({
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+      <ComposedChart
+        data={data.map((row) => ({
+          ...row,
+          outer: intervalBand(row.p05, row.p95),
+          mid: intervalBand(row.p10, row.p90),
+          inner: intervalBand(row.p25, row.p75),
+        }))}
+        margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+      >
         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
         <XAxis
           dataKey="period"
@@ -66,21 +87,14 @@ export function FanChart({
         <Tooltip
           contentStyle={TOOLTIP_STYLE}
           labelFormatter={(label: unknown) => String(label)}
-          formatter={(value: unknown, name: unknown) => [formatValue(value), String(name)]}
+          formatter={(value: unknown, name: unknown) => [
+            formatValue(value),
+            String(name),
+          ]}
         />
         <Area
           type="monotone"
-          dataKey="band05"
-          stackId="outer"
-          stroke="none"
-          fill="transparent"
-          legendType="none"
-          tooltipType="none"
-        />
-        <Area
-          type="monotone"
-          dataKey="span05_95"
-          stackId="outer"
+          dataKey="outer"
           name="5–95%"
           stroke="none"
           fill="hsl(var(--accent))"
@@ -88,17 +102,7 @@ export function FanChart({
         />
         <Area
           type="monotone"
-          dataKey="band10"
-          stackId="mid"
-          stroke="none"
-          fill="transparent"
-          legendType="none"
-          tooltipType="none"
-        />
-        <Area
-          type="monotone"
-          dataKey="span10_90"
-          stackId="mid"
+          dataKey="mid"
           name="10–90%"
           stroke="none"
           fill="hsl(var(--accent))"
@@ -106,17 +110,7 @@ export function FanChart({
         />
         <Area
           type="monotone"
-          dataKey="band25"
-          stackId="inner"
-          stroke="none"
-          fill="transparent"
-          legendType="none"
-          tooltipType="none"
-        />
-        <Area
-          type="monotone"
-          dataKey="span25_75"
-          stackId="inner"
+          dataKey="inner"
           name="25–75%"
           stroke="none"
           fill="hsl(var(--accent))"
@@ -139,7 +133,12 @@ export function FanChart({
           strokeDasharray="5 4"
           dot={false}
         />
-        <Legend wrapperStyle={{ fontSize: 11, color: "hsl(var(--foreground-tertiary))" }} />
+        <Legend
+          wrapperStyle={{
+            fontSize: 11,
+            color: "hsl(var(--foreground-tertiary))",
+          }}
+        />
       </ComposedChart>
     </ResponsiveContainer>
   )

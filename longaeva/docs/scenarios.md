@@ -6,7 +6,7 @@ Two Visa runs that share a seed share the raw factor draws. An intervention is a
 persistent level shift applied once inside the transition. Comparison reads the
 saved path files. Attribution re-simulates from the pinned inputs, checks the
 saved hashes, and reports model-conditional contributions, a sensitivity ranking,
-and provenance. Charts stay in LON-34; these endpoints do not draw them.
+and provenance. The browser workspace (LON-34) consumes these endpoints; see [workspace.md](workspace.md).
 
 ## Interventions
 

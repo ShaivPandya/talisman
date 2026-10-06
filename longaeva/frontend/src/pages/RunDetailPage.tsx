@@ -16,7 +16,12 @@ import {
 } from "@/lib/api"
 import { fmtMetricValue, fmtUtc, shortHash } from "@/lib/format"
 import { DEFAULT_FAN_METRIC, metricLabel } from "@/lib/metrics"
-import { summariesForMetric, toDriverGrowthRows, toFanRows, uniqueMetrics } from "@/lib/runs"
+import {
+  summariesForMetric,
+  toDriverGrowthRows,
+  toFanRows,
+  uniqueMetrics,
+} from "@/lib/runs"
 
 function statusClass(status: string): string {
   if (status === "succeeded") return "theme-badge theme-badge-success"
@@ -51,7 +56,9 @@ export function RunDetailPage() {
             if (err instanceof ApiError && err.status === 409) {
               setResults(null)
             } else {
-              setError(err instanceof ApiError ? err.detail : "Failed to load results")
+              setError(
+                err instanceof ApiError ? err.detail : "Failed to load results",
+              )
             }
           }
         } else {
@@ -59,7 +66,13 @@ export function RunDetailPage() {
         }
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof ApiError ? err.detail : err instanceof Error ? err.message : "Failed to load run")
+        setError(
+          err instanceof ApiError
+            ? err.detail
+            : err instanceof Error
+              ? err.message
+              : "Failed to load run",
+        )
       }
     }
     void load()
@@ -78,7 +91,9 @@ export function RunDetailPage() {
     listScenarios()
       .then((rows) => {
         if (cancelled) return
-        setScenarioName(rows.find((row) => row.id === run.scenario_id)?.name ?? null)
+        setScenarioName(
+          rows.find((row) => row.id === run.scenario_id)?.name ?? null,
+        )
       })
       .catch(() => {
         if (!cancelled) setScenarioName(null)
@@ -88,7 +103,10 @@ export function RunDetailPage() {
     }
   }, [run])
 
-  const metrics = useMemo(() => (results ? uniqueMetrics(results) : []), [results])
+  const metrics = useMemo(
+    () => (results ? uniqueMetrics(results) : []),
+    [results],
+  )
   const selectedMetric = metrics.includes(metric)
     ? metric
     : metrics.includes(DEFAULT_FAN_METRIC)
@@ -99,7 +117,10 @@ export function RunDetailPage() {
     () => (results ? toFanRows(results, selectedMetric) : []),
     [results, selectedMetric],
   )
-  const driverRows = useMemo(() => (results ? toDriverGrowthRows(results) : []), [results])
+  const driverRows = useMemo(
+    () => (results ? toDriverGrowthRows(results) : []),
+    [results],
+  )
   const tableRows = useMemo(
     () => (results ? summariesForMetric(results, selectedMetric) : []),
     [results, selectedMetric],
@@ -121,10 +142,24 @@ export function RunDetailPage() {
           <h1 className="theme-page-title">{run?.origin_label ?? "Run"}</h1>
           <p className="theme-page-subtitle mono-text text-xs">{runId}</p>
         </div>
-        {run ? <span className={statusClass(run.status)}>{run.status}</span> : null}
+        {run ? (
+          <div className="flex flex-wrap items-center gap-3">
+            <span className={statusClass(run.status)}>{run.status}</span>
+            {run.baseline_run_id && (
+              <Link
+                className="text-link text-sm"
+                to={`/scenarios?origin=${run.cutoff_ts.slice(0, 10)}&run_id=${run.id}&baseline_run_id=${run.baseline_run_id}`}
+              >
+                Compare with baseline →
+              </Link>
+            )}
+          </div>
+        ) : null}
       </header>
 
-      {error ? <div className="theme-notice theme-notice-error mb-4">{error}</div> : null}
+      {error ? (
+        <div className="theme-notice theme-notice-error mb-4">{error}</div>
+      ) : null}
 
       {run?.status === "failed" && run.error ? (
         <div className="theme-notice theme-notice-error mb-4">
@@ -143,12 +178,30 @@ export function RunDetailPage() {
 
       {run ? (
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Meta label="Scenario" value={scenarioName ?? shortHash(run.scenario_id, 8)} />
+          <Meta
+            label="Scenario"
+            value={scenarioName ?? shortHash(run.scenario_id, 8)}
+          />
           <Meta label="Cutoff" value={fmtUtc(run.cutoff_ts)} />
-          <Meta label="Seed / paths" value={`${run.seed} · ${run.n_paths.toLocaleString()}`} />
-          <Meta label="Parameter set" value={shortHash(run.parameter_set_hash)} mono />
-          <Meta label="Starting state" value={shortHash(run.starting_state_hash)} mono />
-          <Meta label="Manifest" value={shortHash(run.source_manifest_hash)} mono />
+          <Meta
+            label="Seed / paths"
+            value={`${run.seed} · ${run.n_paths.toLocaleString()}`}
+          />
+          <Meta
+            label="Parameter set"
+            value={shortHash(run.parameter_set_hash)}
+            mono
+          />
+          <Meta
+            label="Starting state"
+            value={shortHash(run.starting_state_hash)}
+            mono
+          />
+          <Meta
+            label="Manifest"
+            value={shortHash(run.source_manifest_hash)}
+            mono
+          />
           <Meta label="Outputs" value={shortHash(run.outputs_hash)} mono />
           <Meta label="Code version" value={run.code_version} mono />
           <Meta
@@ -196,7 +249,10 @@ export function RunDetailPage() {
                 tooltipFormatter={(v) => fmtMetricValue(v, selectedMetric)}
               />
             </ChartTile>
-            <ChartTile title="Driver growth medians" subtitle="Constant-dollar / count growth (median)">
+            <ChartTile
+              title="Driver growth medians"
+              subtitle="Constant-dollar / count growth (median)"
+            >
               <TimeSeriesChart
                 data={driverRows}
                 xKey="period"
@@ -241,20 +297,36 @@ export function RunDetailPage() {
               </thead>
               <tbody>
                 {tableRows.map((row) => (
-                  <tr key={`${row.metric}-${row.quarter_index}`} className="border-b border-app last:border-0">
+                  <tr
+                    key={`${row.metric}-${row.quarter_index}`}
+                    className="border-b border-app last:border-0"
+                  >
                     <td className="px-4 py-3">{row.period_label}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.mean, selectedMetric)}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.std, selectedMetric)}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.std_error, selectedMetric)}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.quantiles["0.05"], selectedMetric)}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.quantiles["0.5"], selectedMetric)}</td>
-                    <td className="px-4 py-3 mono-text">{fmtMetricValue(row.quantiles["0.95"], selectedMetric)}</td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.mean, selectedMetric)}
+                    </td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.std, selectedMetric)}
+                    </td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.std_error, selectedMetric)}
+                    </td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.quantiles["0.05"], selectedMetric)}
+                    </td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.quantiles["0.5"], selectedMetric)}
+                    </td>
+                    <td className="px-4 py-3 mono-text">
+                      {fmtMetricValue(row.quantiles["0.95"], selectedMetric)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <p className="caption px-4 py-2">
-              Quantile SE is stored on the run record; mean Monte Carlo SE is std / sqrt(n_paths).
+              Quantile SE is stored on the run record; mean Monte Carlo SE is
+              std / sqrt(n_paths).
               {run ? ` n=${run.n_paths.toLocaleString()}.` : ""}
             </p>
           </SurfaceCard>
@@ -276,7 +348,13 @@ function Meta({
   return (
     <SurfaceCard muted className="p-3">
       <p className="caption">{label}</p>
-      <p className={mono ? "mt-1 truncate mono-text text-sm" : "mt-1 truncate text-sm"}>{value}</p>
+      <p
+        className={
+          mono ? "mt-1 truncate mono-text text-sm" : "mt-1 truncate text-sm"
+        }
+      >
+        {value}
+      </p>
     </SurfaceCard>
   )
 }

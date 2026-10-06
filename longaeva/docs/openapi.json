@@ -614,6 +614,39 @@
         "title": "DemoPositionRead",
         "type": "object"
       },
+      "Derivation": {
+        "additionalProperties": false,
+        "properties": {
+          "formula": {
+            "title": "Formula",
+            "type": "string"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Inputs",
+            "type": "object"
+          },
+          "rounding_band": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rounding Band"
+          }
+        },
+        "required": [
+          "formula",
+          "inputs"
+        ],
+        "title": "Derivation",
+        "type": "object"
+      },
       "DocumentTextCreate": {
         "additionalProperties": false,
         "properties": {
@@ -867,6 +900,137 @@
           "created_at"
         ],
         "title": "EvaluationResultRead",
+        "type": "object"
+      },
+      "EvidenceExcerpt": {
+        "properties": {
+          "after": {
+            "default": "",
+            "title": "After",
+            "type": "string"
+          },
+          "before": {
+            "default": "",
+            "title": "Before",
+            "type": "string"
+          },
+          "char_end": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char End"
+          },
+          "char_start": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Char Start"
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "document_text_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Text Id"
+          },
+          "observation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Observation Id"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "publication_ts": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Ts"
+          },
+          "quote": {
+            "default": "",
+            "title": "Quote",
+            "type": "string"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "title": "EvidenceExcerpt",
         "type": "object"
       },
       "ExtractionCallRead": {
@@ -2411,11 +2575,41 @@
                 "type": "null"
               }
             ],
-            "default": null,
             "title": "Rationale"
           }
         },
         "title": "ParameterEvidence",
+        "type": "object"
+      },
+      "ParameterEvidenceRead": {
+        "properties": {
+          "evidence": {
+            "$ref": "#/components/schemas/ParameterEvidence"
+          },
+          "excerpts": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceExcerpt"
+            },
+            "title": "Excerpts",
+            "type": "array"
+          },
+          "parameter": {
+            "title": "Parameter",
+            "type": "string"
+          },
+          "updates": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterUpdateDetailRead"
+            },
+            "title": "Updates",
+            "type": "array"
+          }
+        },
+        "required": [
+          "parameter",
+          "evidence"
+        ],
+        "title": "ParameterEvidenceRead",
         "type": "object"
       },
       "ParameterOverride": {
@@ -2583,6 +2777,49 @@
           "created_at"
         ],
         "title": "ParameterSetRead",
+        "type": "object"
+      },
+      "ParameterSpecRead": {
+        "properties": {
+          "default": {
+            "title": "Default",
+            "type": "number"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "lower": {
+            "title": "Lower",
+            "type": "number"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "upper": {
+            "title": "Upper",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "unit",
+          "lower",
+          "upper",
+          "default",
+          "role",
+          "description"
+        ],
+        "title": "ParameterSpecRead",
         "type": "object"
       },
       "ParameterUpdateDetailRead": {
@@ -4276,6 +4513,64 @@
         "title": "SourceRead",
         "type": "object"
       },
+      "SourceRef": {
+        "additionalProperties": false,
+        "properties": {
+          "acceptance_utc": {
+            "title": "Acceptance Utc",
+            "type": "string"
+          },
+          "accession": {
+            "title": "Accession",
+            "type": "string"
+          },
+          "content_sha256": {
+            "title": "Content Sha256",
+            "type": "string"
+          },
+          "document": {
+            "title": "Document",
+            "type": "string"
+          },
+          "form": {
+            "title": "Form",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "input",
+              "post_cutoff_check"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "url": {
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "accession",
+          "document",
+          "form",
+          "acceptance_utc",
+          "url",
+          "role",
+          "content_sha256"
+        ],
+        "title": "SourceRef",
+        "type": "object"
+      },
       "SourceRetrievalCreate": {
         "additionalProperties": false,
         "properties": {
@@ -4406,6 +4701,35 @@
         "title": "SourceRetrievalRead",
         "type": "object"
       },
+      "Span": {
+        "additionalProperties": false,
+        "properties": {
+          "anchor": {
+            "title": "Anchor",
+            "type": "string"
+          },
+          "char_end": {
+            "title": "Char End",
+            "type": "integer"
+          },
+          "char_start": {
+            "title": "Char Start",
+            "type": "integer"
+          },
+          "quote": {
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "anchor",
+          "quote",
+          "char_start",
+          "char_end"
+        ],
+        "title": "Span",
+        "type": "object"
+      },
       "SpendReductionIntervention": {
         "additionalProperties": false,
         "properties": {
@@ -4433,6 +4757,205 @@
           "reduction"
         ],
         "title": "SpendReductionIntervention",
+        "type": "object"
+      },
+      "StateValue": {
+        "additionalProperties": false,
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "derivation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Derivation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "first_post_cutoff_source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Post Cutoff Source Id"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "period_end": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period End"
+          },
+          "period_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Label"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "source_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Id"
+          },
+          "span": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Span"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "enum": [
+              "measured",
+              "derived",
+              "unavailable_at_cutoff"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unavailable_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unavailable Reason"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "unit",
+          "basis"
+        ],
+        "title": "StateValue",
+        "type": "object"
+      },
+      "SupportingLevel": {
+        "additionalProperties": false,
+        "description": "Measured intermediate (e.g. year-ago PV) used in a derivation but not a FIELDS key.",
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "period_end": {
+            "format": "date",
+            "title": "Period End",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "period_start": {
+            "format": "date",
+            "title": "Period Start",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "span": {
+            "$ref": "#/components/schemas/Span"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "key",
+          "value",
+          "unit",
+          "basis",
+          "period_label",
+          "period_start",
+          "period_end",
+          "source_id",
+          "span"
+        ],
+        "title": "SupportingLevel",
         "type": "object"
       },
       "ValidationError": {
@@ -4984,6 +5507,108 @@
           "label"
         ],
         "title": "ValueGapRead",
+        "type": "object"
+      },
+      "WorkspaceOriginRead": {
+        "properties": {
+          "cutoff_ts": {
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin_date": {
+            "title": "Origin Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin_date",
+          "cutoff_ts",
+          "label"
+        ],
+        "title": "WorkspaceOriginRead",
+        "type": "object"
+      },
+      "WorkspaceStateRead": {
+        "properties": {
+          "cutoff_ts": {
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "evidence": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EvidenceExcerpt"
+            },
+            "title": "Evidence",
+            "type": "object"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "notes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "origin_date": {
+            "title": "Origin Date",
+            "type": "string"
+          },
+          "parameter_specs": {
+            "items": {
+              "$ref": "#/components/schemas/ParameterSpecRead"
+            },
+            "title": "Parameter Specs",
+            "type": "array"
+          },
+          "post_cutoff_sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Post Cutoff Sources",
+            "type": "object"
+          },
+          "sources": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SourceRef"
+            },
+            "title": "Sources",
+            "type": "object"
+          },
+          "supporting_levels": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/SupportingLevel"
+            },
+            "title": "Supporting Levels",
+            "type": "object"
+          },
+          "values": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StateValue"
+            },
+            "title": "Values",
+            "type": "object"
+          }
+        },
+        "required": [
+          "origin_date",
+          "cutoff_ts",
+          "label",
+          "values",
+          "supporting_levels",
+          "evidence",
+          "sources",
+          "post_cutoff_sources",
+          "parameter_specs",
+          "notes"
+        ],
+        "title": "WorkspaceStateRead",
         "type": "object"
       }
     }
@@ -5935,6 +6560,58 @@
           }
         },
         "summary": "List Parameter Context",
+        "tags": [
+          "parameter-sets"
+        ]
+      }
+    },
+    "/parameter-sets/{parameter_set_id}/evidence": {
+      "get": {
+        "operationId": "get_parameter_evidence_parameter_sets__parameter_set_id__evidence_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parameter_set_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parameter Set Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "parameter",
+            "required": true,
+            "schema": {
+              "title": "Parameter",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterEvidenceRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parameter Evidence",
         "tags": [
           "parameter-sets"
         ]
@@ -7251,6 +7928,115 @@
         "summary": "Get Multiples",
         "tags": [
           "valuation"
+        ]
+      }
+    },
+    "/workspace/origins": {
+      "get": {
+        "operationId": "list_origins_workspace_origins_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceOriginRead"
+                  },
+                  "title": "Response List Origins Workspace Origins Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Origins",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/workspace/origins/{origin_date}": {
+      "get": {
+        "operationId": "get_state_workspace_origins__origin_date__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "origin_date",
+            "required": true,
+            "schema": {
+              "title": "Origin Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceStateRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get State",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/workspace/origins/{origin_date}/prepare": {
+      "post": {
+        "operationId": "prepare_workspace_origins__origin_date__prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "origin_date",
+            "required": true,
+            "schema": {
+              "title": "Origin Date",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterSetRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare",
+        "tags": [
+          "workspace"
         ]
       }
     }

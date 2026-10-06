@@ -20,6 +20,7 @@ from longaeva_app.api.routers import (
     search,
     sources,
     valuation,
+    workspace,
 )
 from longaeva_app.api.schemas import OPENAPI_CONTRACT_SCHEMAS
 
@@ -42,6 +43,7 @@ app.include_router(runs.router)
 app.include_router(valuation.router)
 app.include_router(forecasts.router)
 app.include_router(evaluation.router)
+app.include_router(workspace.router)
 
 
 def custom_openapi() -> dict[str, Any]:

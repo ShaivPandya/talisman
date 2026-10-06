@@ -27,6 +27,11 @@ the Vite-built web app.
 Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR fetches
 (LON-1). Compose does not require a `.env` file.
 
+Open **State & Evidence** to inspect the two bundled starting states, then
+**Scenarios** to submit a calibrated baseline and an editable variant. Both pages
+work immediately on a fresh database, with no LLM key or collection step.
+See [`docs/workspace.md`](docs/workspace.md) for controls, evidence and comparisons.
+
 Stop with `make down`.
 
 Visa driver and accounting definitions (LON-2) are settled in

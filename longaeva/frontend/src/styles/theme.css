@@ -748,3 +748,20 @@
     padding-top: max(1rem, var(--safe-top));
   }
 }
+
+/* Workspace evidence and scenario tables. Native dialog supplies focus trapping. */
+.evidence-dialog {
+  width: min(850px, calc(100vw - 2rem));
+  max-height: 85dvh;
+  margin: auto;
+  padding: 1.5rem;
+  color: hsl(var(--foreground));
+}
+.evidence-dialog::backdrop { background: hsl(var(--background-overlay) / 0.55); }
+.evidence-passage { line-height: 1.75; overflow-wrap: anywhere; font-size: .9rem; }
+.evidence-passage mark { background: hsl(var(--warning-muted)); color: hsl(var(--foreground)); padding: .1rem .2rem; font-weight: 600; }
+.workspace-table { width: 100%; text-align: left; font-size: .875rem; }
+.workspace-table th { font-weight: 600; color: hsl(var(--foreground-tertiary)); font-size: .75rem; }
+.workspace-table th, .workspace-table td { padding: 1rem; border-bottom: 1px solid hsl(var(--border)); vertical-align: top; }
+.workspace-table tr:last-child td { border-bottom: 0; }
+.workspace-table td { min-width: 130px; }
