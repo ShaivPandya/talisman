@@ -306,11 +306,12 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 
     from longaeva_app.api.deps import get_artifact_store
     from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.ablations import ABLATION_VARIANTS, run_ablation, run_ablations, write_persistence
     from longaeva_app.evaluation.baselines import BASELINE_VARIANTS, format_comparison, run_baseline
     from longaeva_app.evaluation.harness import format_tables, report_to_dict, run_evaluation, write_report
 
     variant = str(args.variant)
-    if args.output and variant == "all":
+    if args.output and variant in {"all", "ablations"}:
         print("--output writes one variant; use --output-dir with --variant all", flush=True)
         return 2
     variants = ["full_model", *BASELINE_VARIANTS] if variant == "all" else [variant]
@@ -322,8 +323,43 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
     n_paths = int(args.n_paths)
     base_seed = int(args.seed)
     use_cache = not bool(args.no_cache)
+    if variant == "ablations":
+        import sys
+
+        suite = run_ablations(
+            factory,
+            window=window,
+            origin_dates=origin_dates,
+            n_paths=n_paths,
+            base_seed=base_seed,
+            use_cache=use_cache,
+            artifact_store=store,
+            progress=lambda message: print(message, file=sys.stderr, flush=True),
+        )
+        if args.output_dir:
+            directory = Path(args.output_dir)
+            for report in suite.profiles["central"]:
+                write_report(report, directory / f"visa_{report.config.model_variant}.json")
+            write_persistence(suite, directory)
+        if args.json:
+            print(json.dumps(suite.persistence, indent=2, sort_keys=True))
+        else:
+            print(format_comparison(suite.profiles["central"]))
+            print("Persistence: all 13 predefined profiles complete; see visa_ablation_persistence.json")
+        return 0
     for name in variants:
-        if name == "full_model":
+        if name in ABLATION_VARIANTS:
+            report = run_ablation(
+                name,
+                factory,
+                window=window,
+                origin_dates=origin_dates,
+                n_paths=n_paths,
+                base_seed=base_seed,
+                use_cache=use_cache,
+                artifact_store=store,
+            )
+        elif name == "full_model":
             report = run_evaluation(
                 factory,
                 window=window,
@@ -1020,9 +1056,19 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate_p.add_argument("--seed", type=int, default=27000, help="Base seed (paired per origin)")
     evaluate_p.add_argument(
         "--variant",
-        choices=("full_model", "seasonal_trend", "financial_only", "guidance", "all"),
+        choices=(
+            "full_model",
+            "seasonal_trend",
+            "financial_only",
+            "guidance",
+            "all",
+            "no_external_commentary",
+            "pooled_spending",
+            "no_service_lag",
+            "ablations",
+        ),
         default="full_model",
-        help="full_model, one baseline, or all (full model plus the three baselines)",
+        help="One model/baseline/ablation; all runs baselines, ablations runs the matched 13-profile suite",
     )
     evaluate_p.add_argument("--output", default=None, help="Write one variant's results JSON to this path")
     evaluate_p.add_argument(

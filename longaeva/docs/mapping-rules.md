@@ -15,7 +15,7 @@ Apply syncs, then writes.
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `booking_guidance_to_cross_border_premium` v1 | analyst range | booking | guidance, room nights, units, percent | `cross_border_growth_premium` | anchor 8%, betas 0.2–0.4, scale 1, cap ±4pp, priority 20 | `ablation_a_cross_border_error` | range (assumption) |
 | `booking_room_nights_to_cross_border_premium` v1 | estimated | booking | measured, room nights, units, percent | `cross_border_growth_premium` | same range as the fallback; Visa field `cross_border_ex_intra_europe_growth_constant` | `ablation_a_cross_border_error` | fallback (fewer than 12 aligned quarters) |
-| `census_retail_yoy_to_payments_volume_growth` v1 | estimated | census | measured SA `retail_food_services_total` `yoy_3m_pct` `three_month` | `payments_volume_growth` | anchor 3%, betas 0.25–0.75, scale 0.45, cap ±4pp | `ablation_a_us_payments_volume_error` | fallback (fewer than 12 aligned quarters) |
+| `census_retail_yoy_to_payments_volume_growth` v2 | estimated | census | measured SA `retail_food_services_total` `yoy_3m_pct` `three_month` | `payments_volume_growth` | anchor 3%, betas 0.25–0.75, scale 0.45, cap ±4pp | `ablation_a_us_payments_volume_error` | estimated when at least 12 unique eligible quarters exist; otherwise fallback |
 | `airline_context` v1 | context | airline | any | none | none | `context_until_a_reviewed_rule` | context |
 | `retailer_context` v1 | context | retailer | any | none | none | `context_until_a_reviewed_rule` | context |
 | `processor_context` v1 | context | processor | any | none | none | `context_until_a_reviewed_rule` | context |
@@ -52,9 +52,13 @@ Alignment:
 - Census retail growth uses `containing_visa_quarter`: the Visa fiscal quarter that
   contains the three-month period end.
 
-History is read from the retained fixtures (Booking JSON, `adv*.csv`, Visa
-`observations.csv`), not from the database. Adding vintages does not require a code
-change. Until 12 aligned quarters exist, both estimated rules stay on the fallback.
+History is read from retained Booking JSON, the verified Census archive and Visa
+`observations.csv`. Census uses one SA trailing-three-month growth figure ending
+March, June, September or December per Visa quarter. Only parsed, hash-verified,
+`ok` releases enter; both sources must be available by the cutoff. The same
+selector supplies evaluation observations. Census now has enough quarterly
+history to fit when 12 eligible pairs exist; Booking remains sparse and uses the
+explicit analyst-range fallback. Historical outcomes are not used to tune rules.
 
 ## Apply
 

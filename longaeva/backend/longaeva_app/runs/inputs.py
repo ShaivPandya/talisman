@@ -27,7 +27,7 @@ from longaeva_app.companies.visa.starting_state import (
     required_fixture_paths,
     to_starting_state,
 )
-from longaeva_app.db.models import ParameterSet, Scenario, Source
+from longaeva_app.db.models import Observation, ParameterSet, Scenario, Source
 from longaeva_app.hashing import content_hash, utc_isoformat
 from longaeva_app.runs.errors import RunError
 
@@ -308,6 +308,29 @@ def resolve_run_inputs(
     if unknown:
         raise RunError(f"unknown switches: {unknown}", status_code=422)
     manifest = document_manifest_for_fixture(session, fixture)
+    # Reviewed external evidence is an input document too. Hash its stable source
+    # identity, while retaining database IDs only as lookup metadata.
+    known_hashes = {entry["content_hash"] for entry in manifest}
+    evidence_ids = {item for link in create.evidence_links.values() for item in link.observation_ids}
+    if evidence_ids:
+        sources = session.scalars(
+            select(Source).join(Observation, Observation.source_id == Source.id).where(Observation.id.in_(evidence_ids))
+        )
+        for source in sources:
+            if source.content_hash in known_hashes:
+                continue
+            if source.publication_ts > parse_aware_utc(fixture.cutoff_utc):
+                raise RunError("Parameter evidence source was published after the run cutoff", status_code=422)
+            manifest.append(
+                {
+                    "document_key": f"reviewed:{source.content_hash}",
+                    "content_hash": source.content_hash,
+                    "publication_ts": utc_isoformat(source.publication_ts),
+                    "source_id": str(source.id),
+                }
+            )
+            known_hashes.add(source.content_hash)
+    manifest.sort(key=lambda entry: entry["document_key"])
     return ResolvedRunInputs(
         fixture=fixture,
         origin=origin,

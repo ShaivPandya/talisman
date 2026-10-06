@@ -169,7 +169,7 @@ def test_booking_origin_b_guidance_supersedes_measured_room_nights(client: TestC
 
 
 @pytest.mark.db
-def test_census_adv2406_scales_payments_volume_by_us_share(client: TestClient, db_session: Session) -> None:
+def test_census_adv2406_uses_quarterly_history_and_records_fit(client: TestClient, db_session: Session) -> None:
     base = _baseline(db_session, ORIGIN_A)
     loaded = load_gate_fixtures(db_session, accept=True, families={"census"})
     db_session.commit()
@@ -177,8 +177,10 @@ def test_census_adv2406_scales_payments_volume_by_us_share(client: TestClient, d
     assert applied.status_code == 201, applied.text
     update = applied.json()["updates"][0]
     assert update["target_parameter"] == "payments_volume_growth"
-    assert update["after_value"]["value"] == pytest.approx(0.078875)
-    assert update["after_value"]["fallback"] is True
+    assert update["after_value"]["value"] == pytest.approx(0.058145106091718)
+    assert update["after_value"]["fallback"] is False
+    assert update["after_value"]["n_aligned"] >= 12
+    assert update["rule_version"] == 2
     assert update["observation_id"] == str(loaded["census:adv2406:retail_food_services_total:yoy_3m_pct"].id)
     assert "0.45" in update["rationale"]
 

@@ -541,32 +541,16 @@ def _booking_room_nights(cutoff: datetime) -> list[_ExternalPoint]:
 
 
 def _census_retail_yoy(cutoff: datetime) -> list[_ExternalPoint]:
-    points: list[_ExternalPoint] = []
-    for path in sorted(_CENSUS_DIR.glob("adv*.csv")):
-        with path.open(newline="", encoding="utf-8") as handle:
-            for row in csv.DictReader(handle):
-                if row.get("series_key") != "retail_food_services_total":
-                    continue
-                if row.get("measure") != "yoy_3m_pct" or row.get("basis") != "sa":
-                    continue
-                if row.get("estimate_status") != "three_month":
-                    continue
-                if (row.get("value_flag") or "").strip():
-                    continue
-                raw = (row.get("value") or "").strip()
-                if not raw:
-                    continue
-                published = parse_aware_utc(row["publication_ts"])
-                if published > cutoff:
-                    continue
-                points.append(
-                    _ExternalPoint(
-                        period_end=date.fromisoformat(row["period_end"]),
-                        value_ratio=_to_ratio(float(raw), row.get("unit") or "pct"),
-                        published=published,
-                    )
-                )
-    return points
+    from longaeva_app.extract.census_quarters import quarter_prints
+
+    return [
+        _ExternalPoint(
+            period_end=date.fromisoformat(row.period_end),
+            value_ratio=_to_ratio(float(row.value), row.unit),
+            published=parse_aware_utc(row.publication_ts),
+        )
+        for row in quarter_prints(cutoff)
+    ]
 
 
 def aligned_pairs(spec: RuleSpec, cutoff: datetime) -> list[tuple[float, float]]:
@@ -700,7 +684,7 @@ REGISTRY: tuple[RuleSpec, ...] = (
     ),
     RuleSpec(
         rule_key="census_retail_yoy_to_payments_volume_growth",
-        version=1,
+        version=2,
         kind="estimated",
         source_family="census",
         input_type="measured",
@@ -717,7 +701,9 @@ REGISTRY: tuple[RuleSpec, ...] = (
         ),
         rationale=(
             "Census MARTS seasonally adjusted retail and food-services 3-month year-over-year "
-            "growth, computed inside one advance release, shifts payments-volume growth. "
+            "growth, computed inside one verified advance release ending March, June, September "
+            "or December, shifts payments-volume growth. One print per Visa quarter; "
+            "possibly replaced releases are excluded. "
             "Scale 0.45 is an explicit assumption for the US share of Visa volume because Census "
             "is US-only. Estimated when at least 12 vintages align to a Visa quarter published "
             "by the cutoff; otherwise an analyst range around a 3% retail anchor. The revised "

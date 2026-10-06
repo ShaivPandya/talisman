@@ -108,10 +108,24 @@ back to the newest release flagged `ok`. For the December 2018 total, the
 only print available by `2019-02-20` is `adv1812`, so the strict query returns
 nothing. The November 2018 total falls back to an `ok` release.
 
-## Handoff to LON-31
+## Quarterly mapping and evaluation (LON-31)
 
-The payments-volume rule still reads `data/fixtures/census/adv*.csv`, which
-matches only `adv2406.csv` and `adv2506.csv`. Do not point it at
-`vintages.csv.gz`. These vintages are monthly, about three reference months
-per Visa quarter, and the rule's quarter alignment needs its own decision.
-The revised workbook stays out of every cutoff.
+`extract/census_quarters.py` selects the latest print available by each cutoff
+for SA retail-and-food-services `yoy_3m_pct` ending March, June, September or
+December. There is one observation per Visa quarter, with no averaging of
+overlapping monthly windows. Both the mapping-rule fit and evaluation use this
+selector. Releases must be parsed, hash verified and flagged `ok`; blank,
+flagged and nonfinite values are excluded. The revised workbook is never read.
+
+The evaluation loader uses the newest eligible complete quarter as the signal,
+retaining its period and publication date. When a quarter's release is suspect,
+an older eligible quarter can remain the newest signal; this is visible in the
+saved snapshot. Historical fits count unique quarters and use only Visa and
+Census prints published by the origin cutoff, with pandemic quarters excluded.
+
+The rule is `census_retail_yoy_to_payments_volume_growth` v2. The v1 registry
+record and earlier parameter sets remain available. The parser checklist is
+recorded as an acceptance decision for newly loaded quarterly observations;
+existing rejection or correction decisions are preserved. Review occurred
+retrospectively; this does not claim the research decisions were made at the
+historical cutoff.

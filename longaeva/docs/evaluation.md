@@ -92,9 +92,11 @@ score → write rows. Ensemble members and weights are stored in each row's `det
 Each variant writes `data/evaluation/visa_<variant>.json`: config and hash,
 per-origin scores, aggregate tables (overall / primary / extension), the
 four-quarter table, exclusions with reasons, and `n` per metric. Floats are
-rounded to 10 significant digits. All four files below share
-`code_version` `0.1.0+cf93263a1d638ffa`. `visa_full_model.json` was regenerated
-with the baselines so the comparison is one code version.
+rounded to 10 significant digits. Artifacts are regenerated together after implementation changes. `code_version`
+fingerprints the simulation engine; `evaluation_code_hash` separately fingerprints
+the evaluation, review, quarterly selector and run-input code. The full-model and
+ablation configs additionally freeze the retained evidence files, reviewed
+snapshots, mapping-rule hashes and parameter-range settings before scoring.
 
 A `baseline` object is stored on the config and enters the hash only when it is
 non-empty, so an empty baseline does not change the full-model hash.
@@ -114,11 +116,16 @@ whose actuals were already published. Fewer than six residuals sets
 calibration quality gate, so FY2022Q1 and FY2022Q2 have no level point (the
 year-ago quarter is image-era). Operating profit uses the derived series.
 
+**Full model.** Chronological Visa calibration followed by the retained reviewed
+external mapping rules, using only publications available by the origin cutoff.
+
 **Financial-only.** The harness path with no external mapping rules.
 `external_updates` is `[]` and the excluded families are booking, census,
-airline, retailer and processor. The harness does not apply those rules yet
-(that is LON-31 ablation (a), plus LON-15 Census vintages), so this variant
-matches `full_model` exactly. The pair is not evidence about external data.
+airline, retailer and processor. It rebuilds from the original calibrated parent and matches the
+`no_external_commentary` ablation. The full model now applies reviewed Booking
+and quarterly Census updates. Airline, retailer and processor evidence stays
+context under the existing registry. Removing external inputs changes numerical
+parameters where adopted rules apply; origins with no change remain scored.
 
 **Company guidance.** The point is the midpoint of Visa's next-quarter outlook
 applied to the year-ago actual. Operating profit is derived (guided revenue
@@ -142,15 +149,65 @@ is the 80% interval):
 
 | Variant | Target | n | MAE | Coverage | Mean CRPS |
 | --- | --- | ---: | ---: | --- | ---: |
-| full_model | net revenue | 16 | 196.3 | 8 of 16 | 151.6 |
-| full_model | operating profit ex special items | 16 | 212.2 | 8 of 16 | 159.9 |
-| seasonal_trend | net revenue | 14 | 137.6 | 7 of 14 | 112.1 |
-| seasonal_trend | operating profit ex special items | 14 | 115.1 | 8 of 14 | 87.04 |
-| financial_only | net revenue | 16 | 196.3 | 8 of 16 | 151.6 |
-| financial_only | operating profit ex special items | 16 | 212.2 | 8 of 16 | 159.9 |
-| guidance | net revenue | 12 | 216.3 | 5 of 12 | 162 |
-| guidance | operating profit ex special items | 12 | 168.4 | 6 of 12 | 130.5 |
+| full_model | net revenue | 16 | 196.339 | 9 of 16 | 149.038 |
+| full_model | operating profit ex special items | 16 | 209.153 | 8 of 16 | 158.016 |
+| seasonal_trend | net revenue | 14 | 137.648 | 7 of 14 | 112.139 |
+| seasonal_trend | operating profit ex special items | 14 | 115.125 | 8 of 14 | 87.042 |
+| financial_only | net revenue | 16 | 196.315 | 8 of 16 | 151.578 |
+| financial_only | operating profit ex special items | 16 | 212.210 | 8 of 16 | 159.921 |
+| guidance | net revenue | 12 | 216.301 | 5 of 12 | 161.962 |
+| guidance | operating profit ex special items | 12 | 168.416 | 6 of 12 | 130.528 |
 
 `n` is the number of origins with a scored error, not the origin-set size.
 Seasonal drivers are scored at all 16 origins. Guidance has no driver or
 four-quarter scores. The JSON files are the source for unrounded values.
+
+## Ablations and persistence (LON-31)
+
+```bash
+make evaluate ARGS='--variant ablations --output-dir /out'
+make evaluate ARGS='--variant no_external_commentary --output /out/visa_no_external_commentary.json'
+```
+
+The suite runs the full model, `no_external_commentary`, `pooled_spending`
+(`pool_mix=true`) and `no_service_lag` (`service_lag=false`). All share origin
+sets, starting states, seeds, paths and scoring. The other engine switch remains
+at its full-model default in each ablation. No recalibration to evaluation
+outcomes takes place.
+
+The central profile plus one-at-a-time calibrated low/high endpoints of payments
+volume growth, cross-border growth premium and the four yield/incentive drifts
+produce 13 predefined profiles. Each profile starts from the same calibrated
+parent setting for all four variants, before external updates.
+
+`visa_ablation_persistence.json` holds all profile configs and hashes, per-origin
+results, paired differences and wins/ties/losses. `ablation_persistence.md` is its
+readable table. Positive `ablated_minus_full` means lower error for the full model.
+Next-quarter and four-quarter targets stay separate, with counts and coverage.
+The suite fails if a variant lacks an origin or a matching scoring target; it
+does not claim completion from the surviving subset.
+
+Saved inputs record source dates, review status, parent hashes, numerical changes,
+context, absent families and no-effect flags. The retained corpus has limited
+Booking coverage, and suspect Census releases can leave an older quarter as the
+latest eligible signal. Reviews are retrospective. These comparisons measure
+the specified model and corpus, and do not guarantee forecast improvement.
+
+Recorded suite: 13 profiles × four variants × 16 origins = 832 model/origin results,
+using 5,000 paths, four quarters and base seed 27,000. Both documented exclusions
+remain. Every profile has all four matched variants and all 16 origins.
+
+Central net-revenue absolute-error comparisons (USD millions; wins are per origin):
+
+| Horizon | Removed feature | n | Full wins | Ablated wins | Ties | Mean ablated − full error | Full coverage | Ablated coverage |
+| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| q1 | no_external_commentary | 16 | 6 | 10 | 0 | -0.024 | 9 of 16 | 8 of 16 |
+| q1 | pooled_spending | 16 | 9 | 7 | 0 | 5.665 | 9 of 16 | 7 of 16 |
+| q1 | no_service_lag | 16 | 15 | 1 | 0 | 149.882 | 9 of 16 | 4 of 16 |
+| 4q | no_external_commentary | 13 | 7 | 6 | 0 | 52.510 | 9 of 13 | 8 of 13 |
+| 4q | pooled_spending | 13 | 5 | 8 | 0 | -195.459 | 9 of 13 | 9 of 13 |
+| 4q | no_service_lag | 13 | 7 | 6 | 0 | 71.560 | 9 of 13 | 9 of 13 |
+
+CRPS, WIS, driver targets, origin-level differences and the 13-profile direction
+counts appear in the persistence artifacts. The external-evidence comparison is
+small and does not consistently improve error; unchanged cases are retained.

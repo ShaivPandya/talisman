@@ -184,6 +184,7 @@
     "coverage_level": 0.8,
     "crps": "empirical_sample_sorted",
     "driver_method": "guidance_midpoint_v1",
+    "evaluation_code_hash": "1182ed2a1f9f635dc08751555ef91bd5c1db4c926fd496429654063d2c9c1e6b",
     "include_pandemic": false,
     "manifest_hash": "f8bb867fb01eddd95c85571a04026cd5ac76e40301772214a26386bacb7699b8",
     "metrics": [
@@ -235,10 +236,13 @@
     },
     "seed_policy": "base_seed + stable hash of origin_date",
     "suite_version": "lon29-v1",
-    "switches": {},
+    "switches": {
+      "pool_mix": false,
+      "service_lag": true
+    },
     "wis": "median_plus_50_80_90_intervals_div_k_plus_1"
   },
-  "config_hash": "18146b2865659e92d333cf9298cfddbb70bb173586a647d44921862c2815c3bd",
+  "config_hash": "5043706a05322a129e8652953eead19933d67d27ccfaf11563baede5bca9c16d",
   "exclusions": [
     {
       "label": "FY2022Q3",
@@ -313,6 +317,7 @@
   "origins": [
     {
       "error": null,
+      "inputs": {},
       "label": "FY2022Q1",
       "n_rows": 10,
       "origin_date": "2022-01-27",
@@ -327,6 +332,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2022Q2",
       "n_rows": 10,
       "origin_date": "2022-04-26",
@@ -341,6 +347,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2023Q1",
       "n_rows": 24,
       "origin_date": "2023-01-26",
@@ -368,6 +375,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2023Q2",
       "n_rows": 24,
       "origin_date": "2023-04-25",
@@ -395,6 +403,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2023Q3",
       "n_rows": 10,
       "origin_date": "2023-07-25",
@@ -409,6 +418,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2023Q4",
       "n_rows": 10,
       "origin_date": "2023-10-24",
@@ -423,6 +433,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2024Q1",
       "n_rows": 24,
       "origin_date": "2024-01-25",
@@ -450,6 +461,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2024Q2",
       "n_rows": 24,
       "origin_date": "2024-04-23",
@@ -477,6 +489,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2024Q3",
       "n_rows": 24,
       "origin_date": "2024-07-23",
@@ -504,6 +517,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2024Q4",
       "n_rows": 24,
       "origin_date": "2024-10-29",
@@ -531,6 +545,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2025Q1",
       "n_rows": 24,
       "origin_date": "2025-01-30",
@@ -558,6 +573,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2025Q2",
       "n_rows": 24,
       "origin_date": "2025-04-29",
@@ -585,6 +601,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2025Q3",
       "n_rows": 24,
       "origin_date": "2025-07-29",
@@ -612,6 +629,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2025Q4",
       "n_rows": 24,
       "origin_date": "2025-10-28",
@@ -639,6 +657,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2026Q1",
       "n_rows": 24,
       "origin_date": "2026-01-29",
@@ -666,6 +685,7 @@
     },
     {
       "error": null,
+      "inputs": {},
       "label": "FY2026Q2",
       "n_rows": 24,
       "origin_date": "2026-04-28",

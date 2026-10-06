@@ -1,9 +1,8 @@
 """Financial-only driver-model baseline (LON-29).
 
 Same harness path as ``full_model``, with no external mapping rules applied.
-Booking, Census and the second-wave families are recorded as excluded. The
-numbers match ``full_model`` until the harness itself applies external updates
-(LON-31 ablation (a) and LON-15 Census vintages).
+Booking, Census and the second-wave families are recorded as excluded. It matches the
+``no_external_commentary`` ablation, rebuilt from the calibrated parent.
 """
 
 from __future__ import annotations
@@ -66,6 +65,7 @@ def run_financial_only(
         use_cache=use_cache,
         calibrate_fn=calibrate_fn,
         artifact_store=artifact_store,
+        external_evidence=False,
         model_variant=VARIANT,
         suite_version=SUITE_VERSION,
         driver_method="history_anchored_v1",

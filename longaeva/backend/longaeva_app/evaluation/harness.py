@@ -22,7 +22,6 @@ from longaeva_app.companies.visa.calibration import (
     CalibrationResult,
     MemberFit,
     calibrate,
-    persist_calibrated,
     result_to_dict,
     round_sig,
 )
@@ -31,6 +30,7 @@ from longaeva_app.config import get_settings
 from longaeva_app.db.models import EvaluationResult, Job, Run
 from longaeva_app.engine.outputs import load_npz_arrays
 from longaeva_app.engine.provenance import code_version
+from longaeva_app.evaluation.evidence import EvidenceSnapshot
 from longaeva_app.evaluation.leakage import (
     LeakageError,
     assert_inputs_before_cutoff,
@@ -60,7 +60,7 @@ from longaeva_app.runs.service import submit_run
 from longaeva_app.storage.local import LocalArtifactStore
 from longaeva_app.worker.queue import execute_job
 
-SUITE_VERSION = "lon27-v1"
+SUITE_VERSION = "lon31-v1"
 MODEL_VARIANT = "full_model"
 DEFAULT_N_PATHS = 5000
 DEFAULT_N_QUARTERS = 4
@@ -97,8 +97,9 @@ class EvaluationConfig:
             "processed_transactions_growth": "count",
         }
     )
-    # Empty for the full model so the committed visa_full_model.json hash stays valid.
-    # Baselines (LON-29) put their method here and it enters the config hash.
+    evaluation_code_hash: str = ""
+    evaluation_inputs: dict[str, Any] = field(default_factory=dict)
+    # Baseline method metadata also enters the config hash.
     baseline: dict[str, Any] = field(default_factory=dict)
 
     def to_hashable(self) -> dict[str, Any]:
@@ -124,6 +125,10 @@ class EvaluationConfig:
             "crps": "empirical_sample_sorted",
             "wis": "median_plus_50_80_90_intervals_div_k_plus_1",
         }
+        if self.evaluation_code_hash:
+            payload["evaluation_code_hash"] = self.evaluation_code_hash
+        if self.evaluation_inputs:
+            payload["evaluation_inputs"] = self.evaluation_inputs
         if self.baseline:
             payload["baseline"] = self.baseline
         return payload
@@ -136,6 +141,7 @@ class OriginEvaluation:
     rows: list[dict[str, Any]]
     skipped_drivers: dict[str, str]
     error: str | None = None
+    input_details: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -166,8 +172,15 @@ def build_config(
     suite_version: str = SUITE_VERSION,
     driver_method: str = "history_anchored_v1",
     baseline: Mapping[str, Any] | None = None,
+    evaluation_inputs: Mapping[str, Any] | None = None,
 ) -> EvaluationConfig:
+    package = Path(__file__).resolve().parents[1]
+    sources = sorted(path for folder in ("evaluation", "review") for path in (package / folder).rglob("*.py"))
+    sources.extend([package / "extract" / "census_quarters.py", package / "runs" / "inputs.py"])
+    evaluation_digest = content_hash({str(path.relative_to(package)): file_sha256(path) for path in sources})
     return EvaluationConfig(
+        evaluation_code_hash=evaluation_digest,
+        evaluation_inputs=dict(evaluation_inputs or {}),
         suite_version=suite_version,
         model_variant=model_variant,
         driver_method=driver_method,
@@ -175,7 +188,7 @@ def build_config(
         n_paths=n_paths,
         n_quarters=n_quarters,
         base_seed=base_seed,
-        switches=dict(switches or {}),
+        switches=dict(switches or {"service_lag": True, "pool_mix": False}),
         include_pandemic=include_pandemic,
         origin_dates=[o.origin_date for o in origins if o.scored],
         code_version=code_version(),
@@ -457,6 +470,9 @@ def evaluate_origin(
     use_cache: bool = True,
     calibrate_fn: CalibrateFn | None = None,
     details_extra: Mapping[str, Any] | None = None,
+    evidence_snapshot: EvidenceSnapshot | None = None,
+    external_evidence: bool = True,
+    sensitivity: Mapping[str, str] | None = None,
 ) -> OriginEvaluation:
     fixture = resolve_fixture(origin.cutoff_ts)
     calib = _calibrate_cached(
@@ -475,9 +491,20 @@ def evaluate_origin(
     )
 
     with factory() as session:
-        _param_set, scenario = persist_calibrated(calib, session)
+        from longaeva_app.evaluation.evidence import prepare_parameters
+
+        if evidence_snapshot is None:
+            raise ValueError("evaluation requires a frozen evidence snapshot")
+        _param_set, prepared_scenario, input_details = prepare_parameters(
+            session,
+            calib,
+            evidence_snapshot,
+            origin.origin_date,
+            external_evidence=external_evidence,
+            sensitivity=dict(sensitivity or {}),
+        )
         session.commit()
-        scenario_id = scenario.id
+        scenario_id = prepared_scenario.id
         parameter_set_hash = _param_set.content_hash
 
     seed = origin_seed(config.base_seed, origin.origin_date)
@@ -544,6 +571,9 @@ def evaluate_origin(
 
     actuals = load_actuals(origin)
     details_base = {
+        **input_details,
+        "seed": seed,
+        "switches": dict(resolved.switches),
         "origin_label": origin.label,
         "origin_date": origin.origin_date,
         "origin_window": origin.origin_window,
@@ -560,7 +590,7 @@ def evaluate_origin(
         "ensemble_weights": dict(calib.weights),
     }
     if details_extra:
-        details_base.update(dict(details_extra))
+        details_base = {**dict(details_extra), **details_base}
 
     rows: list[dict[str, Any]] = []
     for name in LEVEL_TARGETS:
@@ -689,6 +719,7 @@ def evaluate_origin(
         run_id=str(run.id),
         rows=rows,
         skipped_drivers=dict(history.skip_reasons),
+        input_details={**input_details, "seed": seed, "switches": dict(resolved.switches)},
     )
 
 
@@ -803,10 +834,21 @@ def run_evaluation(
     driver_method: str = "history_anchored_v1",
     baseline: Mapping[str, Any] | None = None,
     details_extra: Mapping[str, Any] | None = None,
+    external_evidence: bool = True,
+    evidence_snapshot: EvidenceSnapshot | None = None,
+    sensitivity: Mapping[str, str] | None = None,
 ) -> EvaluationReport:
     origins = load_evaluation_origins(window=window, origin_dates=origin_dates)
     scored = [o for o in origins if o.scored]
     excluded = [o for o in origins if o.status == "candidate" and o.exclusion_reason]
+    from longaeva_app.evaluation.evidence import freeze_evidence
+
+    snapshot = evidence_snapshot or freeze_evidence(factory, scored)
+    evaluation_inputs = {
+        **snapshot.policy,
+        "external_evidence": external_evidence,
+        "sensitivity": dict(sensitivity or {}),
+    }
     config = build_config(
         scored,
         n_paths=n_paths,
@@ -817,6 +859,7 @@ def run_evaluation(
         suite_version=suite_version,
         driver_method=driver_method,
         baseline=baseline,
+        evaluation_inputs=evaluation_inputs,
     )
     digest = config_hash(config)
     store = artifact_store or LocalArtifactStore(get_settings().artifact_dir)
@@ -834,6 +877,9 @@ def run_evaluation(
                 use_cache=use_cache,
                 calibrate_fn=calibrate_fn,
                 details_extra=details_extra,
+                evidence_snapshot=snapshot,
+                external_evidence=external_evidence,
+                sensitivity=sensitivity,
             )
         except (LeakageError, Exception) as exc:  # noqa: BLE001 — record per-origin failures
             origin_evals.append(
@@ -879,6 +925,7 @@ def report_to_dict(report: EvaluationReport) -> dict[str, Any]:
                 "error": item.error,
                 "skipped_drivers": item.skipped_drivers,
                 "n_rows": len(item.rows),
+                "inputs": item.input_details,
                 "scores": {
                     row["metric"]: round_sig(float(row["value"]), _FLOAT_SIGFIGS)
                     for row in item.rows

@@ -320,6 +320,10 @@ runnable. Forecast archive is explicit and refuses uncalibrated defaults.
 Score the full model, or a baseline, across eligible origins: next-quarter levels
 and drivers, 80% coverage, CRPS/WIS, plus a separate four-quarter table. Baselines
 are seasonal/trend, financial-only (no external updates) and company guidance.
+The full model applies retained reviewed Booking and quarter-end Census evidence.
+`make evaluate ARGS='--variant ablations --output-dir /out'` runs three matched
+ablations plus 12 predefined parameter-range checks; results and persistence
+counts are documented in `docs/evaluation.md`.
 Details: [`docs/evaluation.md`](docs/evaluation.md).
 
 ```bash

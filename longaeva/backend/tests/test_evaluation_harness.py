@@ -116,6 +116,8 @@ def test_committed_results_file_when_present() -> None:
 
     data = json.loads(path.read_text(encoding="utf-8"))
     rebuilt = EvaluationConfig(
+        evaluation_code_hash=data["config"].get("evaluation_code_hash", ""),
+        evaluation_inputs=data["config"].get("evaluation_inputs", {}),
         suite_version=data["config"]["suite_version"],
         model_variant=data["config"]["model_variant"],
         n_paths=data["config"]["n_paths"],

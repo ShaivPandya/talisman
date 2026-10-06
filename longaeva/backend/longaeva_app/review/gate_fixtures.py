@@ -271,6 +271,8 @@ def _upsert_observation(
     extractor_id: str,
     extractor_version: str,
     accept: bool,
+    acceptance_rationale: str = GATE_RATIONALE,
+    acceptance_decided_by: str = GATE_DECIDED_BY,
 ) -> Observation:
     existing = session.scalars(
         select(Observation).where(
@@ -311,8 +313,8 @@ def _upsert_observation(
             session,
             observation_id=existing.id,
             decision="accept",
-            rationale=GATE_RATIONALE,
-            decided_by=GATE_DECIDED_BY,
+            rationale=acceptance_rationale,
+            decided_by=acceptance_decided_by,
         )
     return existing
 

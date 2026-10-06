@@ -264,6 +264,8 @@ def _rebuild_config(data: dict[str, Any]) -> EvaluationConfig:
     assert isinstance(scoring, dict)
     assert isinstance(baseline, dict)
     return EvaluationConfig(
+        evaluation_code_hash=str(config.get("evaluation_code_hash", "")),
+        evaluation_inputs=config.get("evaluation_inputs", {}),
         suite_version=str(config["suite_version"]),
         model_variant=str(config["model_variant"]),
         n_paths=int(config["n_paths"]),
@@ -300,4 +302,6 @@ def test_committed_baseline_results_when_present() -> None:
         loaded[name] = payload
     full = loaded["visa_full_model.json"]["aggregates"]
     financial = loaded["visa_financial_only.json"]["aggregates"]
-    assert full == financial
+    assert full != financial
+    removed = json.loads((_EVAL_DIR / "visa_no_external_commentary.json").read_text(encoding="utf-8"))
+    assert removed["aggregates"] == financial

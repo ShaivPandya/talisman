@@ -261,6 +261,11 @@ def test_submit_run_refuses_a_pending_observation_until_it_is_reviewed(
     source = _source(db_session)
     observation = _observation(db_session, source)
     cutoff = _cutoff()
+    # Keep publication eligibility valid while exercising the independent review guard.
+    source.publication_ts = cutoff - timedelta(days=1)
+    source.retrieval_ts = cutoff - timedelta(hours=1)
+    observation.period_start = date(2024, 4, 1)
+    observation.period_end = date(2024, 6, 30)
     param_set = _parameter_set(db_session, observation.id, cutoff)
     scenario = Scenario(
         company="visa",
@@ -295,3 +300,10 @@ def test_submit_run_refuses_a_pending_observation_until_it_is_reviewed(
     assert accepted.status_code == 201, accepted.text
     allowed = client.post("/runs", json=body)
     assert allowed.status_code == 202, allowed.text
+    # A reviewed observation still cannot use a document published after the cutoff.
+    source.publication_ts = cutoff + timedelta(seconds=1)
+    source.retrieval_ts = cutoff + timedelta(seconds=2)
+    db_session.commit()
+    late = client.post("/runs", json=body)
+    assert late.status_code == 422
+    assert "published after" in late.json()["detail"]

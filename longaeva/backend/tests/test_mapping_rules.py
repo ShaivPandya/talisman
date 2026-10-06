@@ -173,12 +173,16 @@ def test_fitter_recovers_slope_at_twelve_quarters_and_falls_back_below() -> None
     assert fallback.value == pytest.approx(0.023)
 
 
-def test_retained_history_is_below_the_fit_threshold() -> None:
+def test_retained_history_threshold_counts_quarterly_census_and_sparse_booking() -> None:
     cutoff = parse_aware_utc("2024-07-23T20:05:38Z")
     assert isinstance(cutoff, datetime)
     for key in ("booking_room_nights_to_cross_border_premium", "census_retail_yoy_to_payments_volume_growth"):
         spec = next(item for item in REGISTRY if item.rule_key == key)
-        assert len(aligned_pairs(spec, cutoff)) < 12
+        pairs = aligned_pairs(spec, cutoff)
+        if spec.source_family == "booking":
+            assert len(pairs) < 12
+        else:
+            assert len(pairs) >= 12
 
 
 @pytest.mark.db
