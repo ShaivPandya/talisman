@@ -193,7 +193,8 @@ def test_baselines_on_two_fixture_origins(
 ) -> None:
     factory = sessionmaker(bind=db_session.get_bind(), expire_on_commit=False)
     reports = []
-    for name in BASELINE_VARIANTS:
+    distribution_variants = tuple(name for name in BASELINE_VARIANTS if name != "llm_baseline")
+    for name in distribution_variants:
         report = run_baseline(
             name,
             factory,
@@ -213,7 +214,7 @@ def test_baselines_on_two_fixture_origins(
     assert len(hashes) == 3
     with factory() as session:
         rows = list(session.scalars(select(EvaluationResult)))
-    assert {row.model_variant for row in rows} == set(BASELINE_VARIANTS)
+    assert {row.model_variant for row in rows} == set(distribution_variants)
     assert {row.config_hash for row in rows} == set(hashes.values())
     by_variant: dict[str, list[EvaluationResult]] = {name: [] for name in BASELINE_VARIANTS}
     for row in rows:

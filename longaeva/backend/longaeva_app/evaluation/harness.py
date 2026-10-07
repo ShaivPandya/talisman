@@ -131,6 +131,9 @@ class EvaluationConfig:
             payload["evaluation_inputs"] = self.evaluation_inputs
         if self.baseline:
             payload["baseline"] = self.baseline
+        if self.model_variant == "llm_baseline":
+            payload["metrics"] = ["signed_error", "abs_error", "pct_error", "covered_80", "wis"]
+            payload["crps"] = "unavailable_quantile_only"
         return payload
 
 

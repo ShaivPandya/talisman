@@ -95,6 +95,26 @@ def covered_80(quantiles: Mapping[str, float], actual: float) -> bool:
     return lo <= y <= hi
 
 
+def score_quantiles(
+    quantiles: Mapping[str, float], actual: float, *, percentage_error: bool = True
+) -> dict[str, float | None]:
+    """Exact shared quantile scores. Seven quantiles do not define a mean or CRPS."""
+    values = [float(quantiles[_quantile_key(q)]) for q in DEFAULT_QUANTILES]
+    if not np.all(np.isfinite(values)) or any(a > b for a, b in zip(values, values[1:], strict=False)):
+        raise ValueError("Quantiles must be finite and nondecreasing")
+    y = float(actual)
+    median = float(quantiles["0.5"])
+    signed = median - y
+    return {
+        "median": median,
+        "signed_error": signed,
+        "abs_error": abs(signed),
+        "pct_error": abs(signed) / abs(y) if percentage_error and y != 0.0 else None,
+        "covered_80": float(covered_80(quantiles, y)),
+        "wis": weighted_interval_score(quantiles, y),
+    }
+
+
 def score_samples(
     samples: Sequence[float] | FloatArray,
     actual: float,
@@ -163,8 +183,8 @@ def aggregate_scores(rows: Sequence[Mapping[str, Any]]) -> AggregateScores:
     signed = [float(r["signed_error"]) for r in rows]
     pcts = [float(r["pct_error"]) for r in rows if r.get("pct_error") is not None]
     covered = [bool(r["covered_80"]) for r in rows]
-    crps = [float(r["crps"]) for r in rows]
-    wis = [float(r["wis"]) for r in rows]
+    crps = [float(r["crps"]) for r in rows if r.get("crps") is not None]
+    wis = [float(r["wis"]) for r in rows if r.get("wis") is not None]
     return AggregateScores(
         n=n,
         mae=float(np.mean(abs_errors)),
@@ -172,8 +192,8 @@ def aggregate_scores(rows: Sequence[Mapping[str, Any]]) -> AggregateScores:
         mape=float(np.mean(pcts)) if pcts else None,
         covered_k=sum(1 for flag in covered if flag),
         covered_n=n,
-        mean_crps=float(np.mean(crps)),
-        mean_wis=float(np.mean(wis)),
+        mean_crps=float(np.mean(crps)) if crps else None,
+        mean_wis=float(np.mean(wis)) if wis else None,
     )
 
 
@@ -202,5 +222,6 @@ __all__ = [
     "empirical_crps",
     "empirical_crps_quadratic",
     "score_samples",
+    "score_quantiles",
     "weighted_interval_score",
 ]

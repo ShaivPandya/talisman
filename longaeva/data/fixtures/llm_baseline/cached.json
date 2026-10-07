@@ -1,0 +1,1299 @@
+{
+  "calls": [
+    {
+      "attempts": 1,
+      "call_hash": "2fc0fb752024f98cb1de31885d42b7eee6623f0c80710ea01ba769767e53e2aa",
+      "created_at": "2026-10-07T18:21:01.089448Z",
+      "error": null,
+      "input_tokens": 59361,
+      "latency_ms": 28112,
+      "origin_date": "2022-01-27",
+      "output_tokens": 1816,
+      "pack_hash": "341f1aeed1dcca8dcde1d7682a9bfd74f6326c028ef1d90d6c7d37663c87c739",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.2,
+              "q10": 0.23,
+              "q25": 0.28,
+              "q50": 0.34,
+              "q75": 0.4,
+              "q90": 0.46,
+              "q95": 0.5
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 6700.0,
+              "q10": 6800.0,
+              "q25": 6925.0,
+              "q50": 7050.0,
+              "q75": 7200.0,
+              "q90": 7350.0,
+              "q95": 7450.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 4480.0,
+              "q10": 4580.0,
+              "q25": 4720.0,
+              "q50": 4870.0,
+              "q75": 5020.0,
+              "q90": 5160.0,
+              "q95": 5260.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.11,
+              "q10": 0.12,
+              "q25": 0.14,
+              "q50": 0.155,
+              "q75": 0.17,
+              "q90": 0.19,
+              "q95": 0.205
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.14,
+              "q10": 0.15,
+              "q25": 0.17,
+              "q50": 0.195,
+              "q75": 0.22,
+              "q90": 0.24,
+              "q95": 0.255
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2022Q2"
+      },
+      "request_key": "acbace24ef2a087c05b88d43b76768c62a93a56dd2d9a06b8c0fa98c311f9eb4",
+      "response_text": "{\"target_period\":\"FY2022Q2\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":6700,\"q10\":6800,\"q25\":6925,\"q50\":7050,\"q75\":7200,\"q90\":7350,\"q95\":7450},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":4480,\"q10\":4580,\"q25\":4720,\"q50\":4870,\"q75\":5020,\"q90\":5160,\"q95\":5260},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.11,\"q10\":0.12,\"q25\":0.14,\"q50\":0.155,\"q75\":0.17,\"q90\":0.19,\"q95\":0.205},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.2,\"q10\":0.23,\"q25\":0.28,\"q50\":0.34,\"q75\":0.4,\"q90\":0.46,\"q95\":0.5},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.14,\"q10\":0.15,\"q25\":0.17,\"q50\":0.195,\"q75\":0.22,\"q90\":0.24,\"q95\":0.255},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2022Q2"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "d84b5fa460b7e633ec5aa1ab7915be35eac38c96de120b9b5fbb6af8b8598fbb",
+      "created_at": "2026-10-07T18:25:14.132003Z",
+      "error": null,
+      "input_tokens": 60705,
+      "latency_ms": 32988,
+      "origin_date": "2022-04-26",
+      "output_tokens": 2000,
+      "pack_hash": "58c5d3868c96346f7e6f0ce3be39d813ece3e1a7a3aa3c0570311097db5ced45",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.18,
+              "q10": 0.21,
+              "q25": 0.25,
+              "q50": 0.3,
+              "q75": 0.35,
+              "q90": 0.4,
+              "q95": 0.43
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 7140.0,
+              "q10": 7225.0,
+              "q25": 7330.0,
+              "q50": 7460.0,
+              "q75": 7610.0,
+              "q90": 7760.0,
+              "q95": 7850.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 4740.0,
+              "q10": 4820.0,
+              "q25": 4925.0,
+              "q50": 5070.0,
+              "q75": 5225.0,
+              "q90": 5375.0,
+              "q95": 5470.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.1,
+              "q10": 0.11,
+              "q25": 0.125,
+              "q50": 0.145,
+              "q75": 0.16,
+              "q90": 0.175,
+              "q95": 0.185
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.12,
+              "q10": 0.13,
+              "q25": 0.145,
+              "q50": 0.16,
+              "q75": 0.175,
+              "q90": 0.19,
+              "q95": 0.2
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2022Q3"
+      },
+      "request_key": "6087912a536d47720994cdd4f72d32594d54ac25d0044f16e50721b74eb7b9ea",
+      "response_text": "{\"target_period\":\"FY2022Q3\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":7140,\"q10\":7225,\"q25\":7330,\"q50\":7460,\"q75\":7610,\"q90\":7760,\"q95\":7850},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":4740,\"q10\":4820,\"q25\":4925,\"q50\":5070,\"q75\":5225,\"q90\":5375,\"q95\":5470},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.10,\"q10\":0.11,\"q25\":0.125,\"q50\":0.145,\"q75\":0.16,\"q90\":0.175,\"q95\":0.185},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.18,\"q10\":0.21,\"q25\":0.25,\"q50\":0.3,\"q75\":0.35,\"q90\":0.4,\"q95\":0.43},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.12,\"q10\":0.13,\"q25\":0.145,\"q50\":0.16,\"q75\":0.175,\"q90\":0.19,\"q95\":0.2},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2022Q3"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "fdf773465e15e779654b2a3e85c74778abb70bcaa41a5cfa3f89efe5556867fd",
+      "created_at": "2026-10-07T18:25:47.131449Z",
+      "error": null,
+      "input_tokens": 69635,
+      "latency_ms": 16297,
+      "origin_date": "2023-01-26",
+      "output_tokens": 1069,
+      "pack_hash": "049cdb047031519231c1dd8812e08f38a34630b7cbf827f4bbc3921094b875e3",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.17,
+              "q10": 0.19,
+              "q25": 0.22,
+              "q50": 0.25,
+              "q75": 0.29,
+              "q90": 0.33,
+              "q95": 0.35
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 7810.0,
+              "q10": 7890.0,
+              "q25": 7990.0,
+              "q50": 8140.0,
+              "q75": 8290.0,
+              "q90": 8410.0,
+              "q95": 8490.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5310.0,
+              "q10": 5380.0,
+              "q25": 5480.0,
+              "q50": 5620.0,
+              "q75": 5750.0,
+              "q90": 5860.0,
+              "q95": 5930.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.04,
+              "q10": 0.05,
+              "q25": 0.06,
+              "q50": 0.07,
+              "q75": 0.08,
+              "q90": 0.09,
+              "q95": 0.1
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.07,
+              "q10": 0.08,
+              "q25": 0.09,
+              "q50": 0.1,
+              "q75": 0.11,
+              "q90": 0.12,
+              "q95": 0.13
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2023Q2"
+      },
+      "request_key": "ecd554eb0d1957de2f74f3edc93a43fc4c588008d898fed46d1cb179a7d9902c",
+      "response_text": "{\"target_period\":\"FY2023Q2\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":7810,\"q10\":7890,\"q25\":7990,\"q50\":8140,\"q75\":8290,\"q90\":8410,\"q95\":8490},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5310,\"q10\":5380,\"q25\":5480,\"q50\":5620,\"q75\":5750,\"q90\":5860,\"q95\":5930},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.04,\"q10\":0.05,\"q25\":0.06,\"q50\":0.07,\"q75\":0.08,\"q90\":0.09,\"q95\":0.10},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.17,\"q10\":0.19,\"q25\":0.22,\"q50\":0.25,\"q75\":0.29,\"q90\":0.33,\"q95\":0.35},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.07,\"q10\":0.08,\"q25\":0.09,\"q50\":0.10,\"q75\":0.11,\"q90\":0.12,\"q95\":0.13},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2023Q2"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "1840484b2ca44ec8fc2293eb0937b5f4fce5199e23616de164b3e2a88bc8c175",
+      "created_at": "2026-10-07T18:26:03.438036Z",
+      "error": null,
+      "input_tokens": 71632,
+      "latency_ms": 21243,
+      "origin_date": "2023-04-25",
+      "output_tokens": 1395,
+      "pack_hash": "5f306efb8c2aecca7cc25505a01ae791955e3ba19664935b159723e839cba4be",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.16,
+              "q10": 0.18,
+              "q25": 0.205,
+              "q50": 0.23,
+              "q75": 0.255,
+              "q90": 0.28,
+              "q95": 0.295
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 7810.0,
+              "q10": 7885.0,
+              "q25": 7980.0,
+              "q50": 8090.0,
+              "q75": 8210.0,
+              "q90": 8335.0,
+              "q95": 8410.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5125.0,
+              "q10": 5200.0,
+              "q25": 5310.0,
+              "q50": 5440.0,
+              "q75": 5575.0,
+              "q90": 5700.0,
+              "q95": 5780.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.082,
+              "q25": 0.092,
+              "q50": 0.103,
+              "q75": 0.115,
+              "q90": 0.127,
+              "q95": 0.135
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.095,
+              "q10": 0.1,
+              "q25": 0.108,
+              "q50": 0.117,
+              "q75": 0.126,
+              "q90": 0.135,
+              "q95": 0.142
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2023Q3"
+      },
+      "request_key": "57e335f9ffcfebccd548fd74b8ba66bc73c36332e5a826a9b847c82da2889ee8",
+      "response_text": "{\"target_period\":\"FY2023Q3\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":7810,\"q10\":7885,\"q25\":7980,\"q50\":8090,\"q75\":8210,\"q90\":8335,\"q95\":8410},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5125,\"q10\":5200,\"q25\":5310,\"q50\":5440,\"q75\":5575,\"q90\":5700,\"q95\":5780},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.082,\"q25\":0.092,\"q50\":0.103,\"q75\":0.115,\"q90\":0.127,\"q95\":0.135},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.16,\"q10\":0.18,\"q25\":0.205,\"q50\":0.23,\"q75\":0.255,\"q90\":0.28,\"q95\":0.295},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.095,\"q10\":0.1,\"q25\":0.108,\"q50\":0.117,\"q75\":0.126,\"q90\":0.135,\"q95\":0.142},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2023Q3"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "23cd518800cd433579101b760eec7c1ca2f74221420e9abeaeeaf9711573231b",
+      "created_at": "2026-10-07T18:26:24.689693Z",
+      "error": null,
+      "input_tokens": 74266,
+      "latency_ms": 26198,
+      "origin_date": "2023-07-25",
+      "output_tokens": 1695,
+      "pack_hash": "a265231b6245a086b4827397fbe6906558b64ddb62cbebdb017f846ebd0484d7",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.09,
+              "q10": 0.105,
+              "q25": 0.13,
+              "q50": 0.16,
+              "q75": 0.19,
+              "q90": 0.22,
+              "q95": 0.24
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 8110.0,
+              "q10": 8200.0,
+              "q25": 8350.0,
+              "q50": 8510.0,
+              "q75": 8680.0,
+              "q90": 8830.0,
+              "q95": 8920.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5290.0,
+              "q10": 5380.0,
+              "q25": 5530.0,
+              "q50": 5710.0,
+              "q75": 5890.0,
+              "q90": 6050.0,
+              "q95": 6140.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.05,
+              "q10": 0.055,
+              "q25": 0.07,
+              "q50": 0.08,
+              "q75": 0.09,
+              "q90": 0.105,
+              "q95": 0.115
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.08,
+              "q25": 0.09,
+              "q50": 0.1,
+              "q75": 0.11,
+              "q90": 0.12,
+              "q95": 0.125
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2023Q4"
+      },
+      "request_key": "51b1bbcdc4044b41758b651f50872b5c9ecd76fb8b42c52089b7409a3c23c225",
+      "response_text": "{\"target_period\":\"FY2023Q4\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":8110,\"q10\":8200,\"q25\":8350,\"q50\":8510,\"q75\":8680,\"q90\":8830,\"q95\":8920},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5290,\"q10\":5380,\"q25\":5530,\"q50\":5710,\"q75\":5890,\"q90\":6050,\"q95\":6140},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.05,\"q10\":0.055,\"q25\":0.07,\"q50\":0.08,\"q75\":0.09,\"q90\":0.105,\"q95\":0.115},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.09,\"q10\":0.105,\"q25\":0.13,\"q50\":0.16,\"q75\":0.19,\"q90\":0.22,\"q95\":0.24},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.08,\"q25\":0.09,\"q50\":0.10,\"q75\":0.11,\"q90\":0.12,\"q95\":0.125},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2023Q4"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "57be1dc46eeef4f4a0324b3d722465bcf498bc3c713ca75cf457c0640b91be50",
+      "created_at": "2026-10-07T18:26:50.898167Z",
+      "error": null,
+      "input_tokens": 77048,
+      "latency_ms": 31545,
+      "origin_date": "2023-10-24",
+      "output_tokens": 2028,
+      "pack_hash": "00fbf5e166a26e891fc1bb3ea98818bfd8303116981f6f7ce5ef5ab1e3e72d76",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.1,
+              "q10": 0.115,
+              "q25": 0.135,
+              "q50": 0.16,
+              "q75": 0.18,
+              "q90": 0.2,
+              "q95": 0.215
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 8440.0,
+              "q10": 8530.0,
+              "q25": 8670.0,
+              "q50": 8820.0,
+              "q75": 8970.0,
+              "q90": 9110.0,
+              "q95": 9200.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5640.0,
+              "q10": 5740.0,
+              "q25": 5890.0,
+              "q50": 6040.0,
+              "q75": 6190.0,
+              "q90": 6320.0,
+              "q95": 6400.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.06,
+              "q10": 0.065,
+              "q25": 0.08,
+              "q50": 0.09,
+              "q75": 0.1,
+              "q90": 0.11,
+              "q95": 0.115
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.08,
+              "q10": 0.085,
+              "q25": 0.095,
+              "q50": 0.1,
+              "q75": 0.11,
+              "q90": 0.115,
+              "q95": 0.12
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2024Q1"
+      },
+      "request_key": "6337de5dd2234544041304bc27ca81ea9a2614c4cbbb3d39895e355a3e2c8cde",
+      "response_text": "{\"target_period\":\"FY2024Q1\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":8440,\"q10\":8530,\"q25\":8670,\"q50\":8820,\"q75\":8970,\"q90\":9110,\"q95\":9200},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5640,\"q10\":5740,\"q25\":5890,\"q50\":6040,\"q75\":6190,\"q90\":6320,\"q95\":6400},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.06,\"q10\":0.065,\"q25\":0.08,\"q50\":0.09,\"q75\":0.1,\"q90\":0.11,\"q95\":0.115},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.1,\"q10\":0.115,\"q25\":0.135,\"q50\":0.16,\"q75\":0.18,\"q90\":0.2,\"q95\":0.215},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.08,\"q10\":0.085,\"q25\":0.095,\"q50\":0.1,\"q75\":0.11,\"q90\":0.115,\"q95\":0.12},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2024Q1"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "df516f6a5ac1a45dc8e9b3b117fb629c965f6543183b3bc719c68d387d8557f2",
+      "created_at": "2026-10-07T18:28:26.212739Z",
+      "error": null,
+      "input_tokens": 79676,
+      "latency_ms": 24686,
+      "origin_date": "2024-01-25",
+      "output_tokens": 1600,
+      "pack_hash": "d50348f8b89ba3cc48d9100f5bb972479bc93fa015a998d80e29d9323030a255",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.11,
+              "q10": 0.12,
+              "q25": 0.14,
+              "q50": 0.155,
+              "q75": 0.17,
+              "q90": 0.185,
+              "q95": 0.195
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 8470.0,
+              "q10": 8550.0,
+              "q25": 8675.0,
+              "q50": 8790.0,
+              "q75": 8910.0,
+              "q90": 9030.0,
+              "q95": 9100.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5720.0,
+              "q10": 5800.0,
+              "q25": 5910.0,
+              "q50": 6020.0,
+              "q75": 6135.0,
+              "q90": 6245.0,
+              "q95": 6320.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.06,
+              "q10": 0.065,
+              "q25": 0.075,
+              "q50": 0.085,
+              "q75": 0.095,
+              "q90": 0.105,
+              "q95": 0.11
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.08,
+              "q25": 0.09,
+              "q50": 0.095,
+              "q75": 0.105,
+              "q90": 0.115,
+              "q95": 0.12
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2024Q2"
+      },
+      "request_key": "c9315600e1e5ca08e19ec008845d167209b662dd64c3e7cf654ff6298826c9d6",
+      "response_text": "{\"target_period\":\"FY2024Q2\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":8470,\"q10\":8550,\"q25\":8675,\"q50\":8790,\"q75\":8910,\"q90\":9030,\"q95\":9100},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5720,\"q10\":5800,\"q25\":5910,\"q50\":6020,\"q75\":6135,\"q90\":6245,\"q95\":6320},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.06,\"q10\":0.065,\"q25\":0.075,\"q50\":0.085,\"q75\":0.095,\"q90\":0.105,\"q95\":0.11},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.11,\"q10\":0.12,\"q25\":0.14,\"q50\":0.155,\"q75\":0.17,\"q90\":0.185,\"q95\":0.195},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.08,\"q25\":0.09,\"q50\":0.095,\"q75\":0.105,\"q90\":0.115,\"q95\":0.12},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2024Q2"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "bd13d6e504a925f75f88fb4edfe9ded934dd78cb364d5224ee301999be625f83",
+      "created_at": "2026-10-07T18:28:50.907685Z",
+      "error": null,
+      "input_tokens": 81804,
+      "latency_ms": 21713,
+      "origin_date": "2024-04-23",
+      "output_tokens": 1359,
+      "pack_hash": "f9ba545c8181e622580877c5b0902f248e04cac920a5567985b5ef1261b63dba",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.11,
+              "q10": 0.12,
+              "q25": 0.135,
+              "q50": 0.15,
+              "q75": 0.165,
+              "q90": 0.18,
+              "q95": 0.19
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 8750.0,
+              "q10": 8840.0,
+              "q25": 8960.0,
+              "q50": 9100.0,
+              "q75": 9260.0,
+              "q90": 9400.0,
+              "q95": 9500.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5890.0,
+              "q10": 5980.0,
+              "q25": 6110.0,
+              "q50": 6260.0,
+              "q75": 6410.0,
+              "q90": 6530.0,
+              "q95": 6610.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.065,
+              "q10": 0.07,
+              "q25": 0.075,
+              "q50": 0.085,
+              "q75": 0.095,
+              "q90": 0.105,
+              "q95": 0.11
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.09,
+              "q10": 0.095,
+              "q25": 0.1,
+              "q50": 0.11,
+              "q75": 0.12,
+              "q90": 0.125,
+              "q95": 0.13
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2024Q3"
+      },
+      "request_key": "6f3f72bb5964c3f5682f48b20b4914ea2faa06c4044c67c43813357bccf364ee",
+      "response_text": "{\"target_period\":\"FY2024Q3\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":8750,\"q10\":8840,\"q25\":8960,\"q50\":9100,\"q75\":9260,\"q90\":9400,\"q95\":9500},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5890,\"q10\":5980,\"q25\":6110,\"q50\":6260,\"q75\":6410,\"q90\":6530,\"q95\":6610},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.065,\"q10\":0.07,\"q25\":0.075,\"q50\":0.085,\"q75\":0.095,\"q90\":0.105,\"q95\":0.11},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.11,\"q10\":0.12,\"q25\":0.135,\"q50\":0.15,\"q75\":0.165,\"q90\":0.18,\"q95\":0.19},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.09,\"q10\":0.095,\"q25\":0.1,\"q50\":0.11,\"q75\":0.12,\"q90\":0.125,\"q95\":0.13},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2024Q3"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "3718fc72eb2790cc8f4f38f4159a1054ec4d9e60aadfeea4badd7674c89c0a5e",
+      "created_at": "2026-10-07T18:29:12.630010Z",
+      "error": null,
+      "input_tokens": 93207,
+      "latency_ms": 27955,
+      "origin_date": "2024-07-23",
+      "output_tokens": 1919,
+      "pack_hash": "ae38e692299c8274507f0607051d68a8aa5d6d473567acd852785e9f28dc0bf7",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.09,
+              "q10": 0.105,
+              "q25": 0.125,
+              "q50": 0.145,
+              "q75": 0.165,
+              "q90": 0.18,
+              "q95": 0.19
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 9140.0,
+              "q10": 9200.0,
+              "q25": 9300.0,
+              "q50": 9390.0,
+              "q75": 9490.0,
+              "q90": 9600.0,
+              "q95": 9680.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 5900.0,
+              "q10": 5980.0,
+              "q25": 6080.0,
+              "q50": 6180.0,
+              "q75": 6290.0,
+              "q90": 6400.0,
+              "q95": 6480.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.045,
+              "q10": 0.055,
+              "q25": 0.068,
+              "q50": 0.078,
+              "q75": 0.088,
+              "q90": 0.098,
+              "q95": 0.105
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.082,
+              "q25": 0.092,
+              "q50": 0.1,
+              "q75": 0.108,
+              "q90": 0.117,
+              "q95": 0.123
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2024Q4"
+      },
+      "request_key": "4e2bab79d8425af0cb3a9484d4324f2be28fd2cd18ac16111839696cfa059b23",
+      "response_text": "{\"target_period\":\"FY2024Q4\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":9140,\"q10\":9200,\"q25\":9300,\"q50\":9390,\"q75\":9490,\"q90\":9600,\"q95\":9680},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":5900,\"q10\":5980,\"q25\":6080,\"q50\":6180,\"q75\":6290,\"q90\":6400,\"q95\":6480},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.045,\"q10\":0.055,\"q25\":0.068,\"q50\":0.078,\"q75\":0.088,\"q90\":0.098,\"q95\":0.105},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.09,\"q10\":0.105,\"q25\":0.125,\"q50\":0.145,\"q75\":0.165,\"q90\":0.18,\"q95\":0.19},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.082,\"q25\":0.092,\"q50\":0.1,\"q75\":0.108,\"q90\":0.117,\"q95\":0.123},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2024Q4"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "92818d285b0feb25445653f5ddfcc8c0181c2abd81e9ac80ee128e0451d0879e",
+      "created_at": "2026-10-07T18:29:40.652861Z",
+      "error": null,
+      "input_tokens": 95953,
+      "latency_ms": 22234,
+      "origin_date": "2024-10-29",
+      "output_tokens": 1447,
+      "pack_hash": "0fa22c2c69896541de245d19019fbcead86b1057a7201f1c0f7263ac8396ea13",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.095,
+              "q10": 0.102,
+              "q25": 0.115,
+              "q50": 0.128,
+              "q75": 0.142,
+              "q90": 0.156,
+              "q95": 0.164
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 9100.0,
+              "q10": 9200.0,
+              "q25": 9325.0,
+              "q50": 9450.0,
+              "q75": 9580.0,
+              "q90": 9725.0,
+              "q95": 9825.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6250.0,
+              "q10": 6325.0,
+              "q25": 6430.0,
+              "q50": 6540.0,
+              "q75": 6660.0,
+              "q90": 6780.0,
+              "q95": 6860.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.058,
+              "q10": 0.063,
+              "q25": 0.072,
+              "q50": 0.08,
+              "q75": 0.088,
+              "q90": 0.097,
+              "q95": 0.103
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.078,
+              "q10": 0.083,
+              "q25": 0.091,
+              "q50": 0.1,
+              "q75": 0.108,
+              "q90": 0.117,
+              "q95": 0.123
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2025Q1"
+      },
+      "request_key": "dd1e95598599aa968b91a14b7f26b9f0d1a5efa611f94e502d91c41509d01840",
+      "response_text": "{\"target_period\":\"FY2025Q1\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":9100,\"q10\":9200,\"q25\":9325,\"q50\":9450,\"q75\":9580,\"q90\":9725,\"q95\":9825},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6250,\"q10\":6325,\"q25\":6430,\"q50\":6540,\"q75\":6660,\"q90\":6780,\"q95\":6860},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.058,\"q10\":0.063,\"q25\":0.072,\"q50\":0.080,\"q75\":0.088,\"q90\":0.097,\"q95\":0.103},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.095,\"q10\":0.102,\"q25\":0.115,\"q50\":0.128,\"q75\":0.142,\"q90\":0.156,\"q95\":0.164},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.078,\"q10\":0.083,\"q25\":0.091,\"q50\":0.100,\"q75\":0.108,\"q90\":0.117,\"q95\":0.123},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2025Q1"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "48d409ac5fb6f82d2e88ff6910afebfd4a4fec37a1223ad585c35037eb5476ea",
+      "created_at": "2026-10-07T18:30:02.912557Z",
+      "error": null,
+      "input_tokens": 98805,
+      "latency_ms": 25143,
+      "origin_date": "2025-01-30",
+      "output_tokens": 1794,
+      "pack_hash": "62e3607573546ac4b457212b095716a0d739414d12e90e2eaddd4014d03b66ef",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.12,
+              "q10": 0.13,
+              "q25": 0.142,
+              "q50": 0.155,
+              "q75": 0.168,
+              "q90": 0.18,
+              "q95": 0.188
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 9340.0,
+              "q10": 9420.0,
+              "q25": 9510.0,
+              "q50": 9610.0,
+              "q75": 9725.0,
+              "q90": 9845.0,
+              "q95": 9925.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6210.0,
+              "q10": 6280.0,
+              "q25": 6360.0,
+              "q50": 6450.0,
+              "q75": 6555.0,
+              "q90": 6665.0,
+              "q95": 6745.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.065,
+              "q10": 0.07,
+              "q25": 0.078,
+              "q50": 0.085,
+              "q75": 0.093,
+              "q90": 0.1,
+              "q95": 0.105
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.085,
+              "q10": 0.09,
+              "q25": 0.097,
+              "q50": 0.105,
+              "q75": 0.112,
+              "q90": 0.12,
+              "q95": 0.125
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2025Q2"
+      },
+      "request_key": "9f02eba917a03d0375e66262cb161b60257da769ff80883be0c12c14f36aa302",
+      "response_text": "{\"target_period\":\"FY2025Q2\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":9340,\"q10\":9420,\"q25\":9510,\"q50\":9610,\"q75\":9725,\"q90\":9845,\"q95\":9925},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6210,\"q10\":6280,\"q25\":6360,\"q50\":6450,\"q75\":6555,\"q90\":6665,\"q95\":6745},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.065,\"q10\":0.07,\"q25\":0.078,\"q50\":0.085,\"q75\":0.093,\"q90\":0.1,\"q95\":0.105},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.12,\"q10\":0.13,\"q25\":0.142,\"q50\":0.155,\"q75\":0.168,\"q90\":0.18,\"q95\":0.188},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.085,\"q10\":0.09,\"q25\":0.097,\"q50\":0.105,\"q75\":0.112,\"q90\":0.12,\"q95\":0.125},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2025Q2"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "ee6e83313d86a372cab1d9c7a56dcee7f122342bb9c33abe8f81692b1ed7693e",
+      "created_at": "2026-10-07T18:30:28.074468Z",
+      "error": null,
+      "input_tokens": 100943,
+      "latency_ms": 25863,
+      "origin_date": "2025-04-29",
+      "output_tokens": 1784,
+      "pack_hash": "c6f2cb692ab9cf04ebe089bc0a0620c54e6796ec65bb67e8714faf7c5dfd1b0b",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.09,
+              "q10": 0.098,
+              "q25": 0.11,
+              "q50": 0.123,
+              "q75": 0.135,
+              "q90": 0.148,
+              "q95": 0.155
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 9490.0,
+              "q10": 9550.0,
+              "q25": 9640.0,
+              "q50": 9755.0,
+              "q75": 9875.0,
+              "q90": 9975.0,
+              "q95": 10040.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6270.0,
+              "q10": 6330.0,
+              "q25": 6425.0,
+              "q50": 6545.0,
+              "q75": 6670.0,
+              "q90": 6775.0,
+              "q95": 6845.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.065,
+              "q10": 0.07,
+              "q25": 0.075,
+              "q50": 0.082,
+              "q75": 0.088,
+              "q90": 0.095,
+              "q95": 0.1
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.08,
+              "q25": 0.085,
+              "q50": 0.093,
+              "q75": 0.1,
+              "q90": 0.108,
+              "q95": 0.115
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2025Q3"
+      },
+      "request_key": "ef35b099fc1770e92bde2d09f6f1ecf80a2fe71aeaab0f4aade6ae3e855e9ccc",
+      "response_text": "{\"target_period\":\"FY2025Q3\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":9490,\"q10\":9550,\"q25\":9640,\"q50\":9755,\"q75\":9875,\"q90\":9975,\"q95\":10040},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6270,\"q10\":6330,\"q25\":6425,\"q50\":6545,\"q75\":6670,\"q90\":6775,\"q95\":6845},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.065,\"q10\":0.07,\"q25\":0.075,\"q50\":0.082,\"q75\":0.088,\"q90\":0.095,\"q95\":0.1},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.09,\"q10\":0.098,\"q25\":0.11,\"q50\":0.123,\"q75\":0.135,\"q90\":0.148,\"q95\":0.155},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.08,\"q25\":0.085,\"q50\":0.093,\"q75\":0.1,\"q90\":0.108,\"q95\":0.115},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2025Q3"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "1a96b75a0608a4b2c213d804f154ab3a7c10c2f8a6b3df9d3366035cbd71e12f",
+      "created_at": "2026-10-07T18:30:53.959461Z",
+      "error": null,
+      "input_tokens": 103646,
+      "latency_ms": 27153,
+      "origin_date": "2025-07-29",
+      "output_tokens": 1665,
+      "pack_hash": "523d7182f4226b854223f49d021af78ed9e37a796f88c5eaecbb4ff5e8a2ab5a",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.07,
+              "q10": 0.08,
+              "q25": 0.09,
+              "q50": 0.1,
+              "q75": 0.11,
+              "q90": 0.12,
+              "q95": 0.125
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 10280.0,
+              "q10": 10380.0,
+              "q25": 10520.0,
+              "q50": 10720.0,
+              "q75": 10920.0,
+              "q90": 11120.0,
+              "q95": 11240.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6690.0,
+              "q10": 6790.0,
+              "q25": 6940.0,
+              "q50": 7100.0,
+              "q75": 7270.0,
+              "q90": 7410.0,
+              "q95": 7500.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.06,
+              "q10": 0.065,
+              "q25": 0.07,
+              "q50": 0.08,
+              "q75": 0.085,
+              "q90": 0.09,
+              "q95": 0.095
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.08,
+              "q10": 0.085,
+              "q25": 0.09,
+              "q50": 0.1,
+              "q75": 0.105,
+              "q90": 0.11,
+              "q95": 0.115
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2025Q4"
+      },
+      "request_key": "d52ac655589740508cd489d1b4b71b2c922ed483c11200bbd80ec5e8a4f6fcd1",
+      "response_text": "{\"target_period\":\"FY2025Q4\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":10280,\"q10\":10380,\"q25\":10520,\"q50\":10720,\"q75\":10920,\"q90\":11120,\"q95\":11240},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6690,\"q10\":6790,\"q25\":6940,\"q50\":7100,\"q75\":7270,\"q90\":7410,\"q95\":7500},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.06,\"q10\":0.065,\"q25\":0.07,\"q50\":0.08,\"q75\":0.085,\"q90\":0.09,\"q95\":0.095},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.07,\"q10\":0.08,\"q25\":0.09,\"q50\":0.10,\"q75\":0.11,\"q90\":0.12,\"q95\":0.125},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.08,\"q10\":0.085,\"q25\":0.09,\"q50\":0.10,\"q75\":0.105,\"q90\":0.11,\"q95\":0.115},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2025Q4"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "310d83e3e26428c980c535bd9af0b58776b4e26c62697180da43352ded1fd9ba",
+      "created_at": "2026-10-07T18:31:21.144073Z",
+      "error": null,
+      "input_tokens": 115577,
+      "latency_ms": 25945,
+      "origin_date": "2025-10-28",
+      "output_tokens": 1731,
+      "pack_hash": "22a8f9058ae0f2f94c41732e369a11b0ea785407d07eca232c4868a7f53c6f12",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.04,
+              "q10": 0.05,
+              "q25": 0.065,
+              "q50": 0.08,
+              "q75": 0.095,
+              "q90": 0.11,
+              "q95": 0.12
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 10050.0,
+              "q10": 10160.0,
+              "q25": 10320.0,
+              "q50": 10500.0,
+              "q75": 10690.0,
+              "q90": 10870.0,
+              "q95": 11000.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6870.0,
+              "q10": 6950.0,
+              "q25": 7060.0,
+              "q50": 7210.0,
+              "q75": 7360.0,
+              "q90": 7490.0,
+              "q95": 7580.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.055,
+              "q10": 0.06,
+              "q25": 0.07,
+              "q50": 0.08,
+              "q75": 0.09,
+              "q90": 0.1,
+              "q95": 0.105
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.07,
+              "q10": 0.075,
+              "q25": 0.085,
+              "q50": 0.095,
+              "q75": 0.105,
+              "q90": 0.115,
+              "q95": 0.12
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2026Q1"
+      },
+      "request_key": "e2cddb66550f9e8f12381f63eb2429f9ff8c332b22293f6c78e0ea09a90c1813",
+      "response_text": "{\"target_period\":\"FY2026Q1\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":10050,\"q10\":10160,\"q25\":10320,\"q50\":10500,\"q75\":10690,\"q90\":10870,\"q95\":11000},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6870,\"q10\":6950,\"q25\":7060,\"q50\":7210,\"q75\":7360,\"q90\":7490,\"q95\":7580},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.055,\"q10\":0.06,\"q25\":0.07,\"q50\":0.08,\"q75\":0.09,\"q90\":0.1,\"q95\":0.105},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.04,\"q10\":0.05,\"q25\":0.065,\"q50\":0.08,\"q75\":0.095,\"q90\":0.11,\"q95\":0.12},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.07,\"q10\":0.075,\"q25\":0.085,\"q50\":0.095,\"q75\":0.105,\"q90\":0.115,\"q95\":0.12},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2026Q1"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "0db17431962c4c8b910df865abe196949d73a14946c6aab13f4e04f88b7f94ef",
+      "created_at": "2026-10-07T18:31:47.103985Z",
+      "error": null,
+      "input_tokens": 118368,
+      "latency_ms": 28561,
+      "origin_date": "2026-01-29",
+      "output_tokens": 1858,
+      "pack_hash": "e5164587e71ddc0f79bf3473b60e2e79906686b951607693fa3e912f22a25320",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.07,
+              "q10": 0.075,
+              "q25": 0.09,
+              "q50": 0.105,
+              "q75": 0.115,
+              "q90": 0.13,
+              "q95": 0.14
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 10380.0,
+              "q10": 10520.0,
+              "q25": 10720.0,
+              "q50": 10970.0,
+              "q75": 11220.0,
+              "q90": 11480.0,
+              "q95": 11650.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 6820.0,
+              "q10": 6950.0,
+              "q25": 7160.0,
+              "q50": 7410.0,
+              "q75": 7660.0,
+              "q90": 7920.0,
+              "q95": 8070.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.06,
+              "q10": 0.065,
+              "q25": 0.075,
+              "q50": 0.08,
+              "q75": 0.085,
+              "q90": 0.095,
+              "q95": 0.1
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.07,
+              "q10": 0.075,
+              "q25": 0.085,
+              "q50": 0.095,
+              "q75": 0.1,
+              "q90": 0.11,
+              "q95": 0.115
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2026Q2"
+      },
+      "request_key": "a732ef8f8a89947980d3a69cca3f5261cd9fcb54dc734cc76759c3c75c725f5e",
+      "response_text": "{\"target_period\":\"FY2026Q2\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":10380,\"q10\":10520,\"q25\":10720,\"q50\":10970,\"q75\":11220,\"q90\":11480,\"q95\":11650},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":6820,\"q10\":6950,\"q25\":7160,\"q50\":7410,\"q75\":7660,\"q90\":7920,\"q95\":8070},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.06,\"q10\":0.065,\"q25\":0.075,\"q50\":0.08,\"q75\":0.085,\"q90\":0.095,\"q95\":0.1},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.07,\"q10\":0.075,\"q25\":0.09,\"q50\":0.105,\"q75\":0.115,\"q90\":0.13,\"q95\":0.14},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.07,\"q10\":0.075,\"q25\":0.085,\"q50\":0.095,\"q75\":0.1,\"q90\":0.11,\"q95\":0.115},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2026Q2"
+    },
+    {
+      "attempts": 1,
+      "call_hash": "328ef96a5ffd1162cbc4dcfe13e0d847cfde563ebe44190b82bfd8d77b02945d",
+      "created_at": "2026-10-07T18:32:15.681761Z",
+      "error": null,
+      "input_tokens": 122039,
+      "latency_ms": 21118,
+      "origin_date": "2026-04-28",
+      "output_tokens": 1365,
+      "pack_hash": "382db7cd2c7453b50d8a2204da19669671a3499247087a23f021c2562529ac5d",
+      "parsed": {
+        "forecasts": {
+          "cross_border_ex_intra_europe_growth_constant": {
+            "quantiles": {
+              "q05": 0.08,
+              "q10": 0.085,
+              "q25": 0.095,
+              "q50": 0.105,
+              "q75": 0.115,
+              "q90": 0.125,
+              "q95": 0.135
+            },
+            "unavailable_reason": null
+          },
+          "net_revenue": {
+            "quantiles": {
+              "q05": 11100.0,
+              "q10": 11220.0,
+              "q25": 11400.0,
+              "q50": 11600.0,
+              "q75": 11820.0,
+              "q90": 12020.0,
+              "q95": 12160.0
+            },
+            "unavailable_reason": null
+          },
+          "operating_profit_ex_special_items": {
+            "quantiles": {
+              "q05": 7340.0,
+              "q10": 7440.0,
+              "q25": 7590.0,
+              "q50": 7770.0,
+              "q75": 7950.0,
+              "q90": 8110.0,
+              "q95": 8210.0
+            },
+            "unavailable_reason": null
+          },
+          "payments_volume_growth_constant": {
+            "quantiles": {
+              "q05": 0.06,
+              "q10": 0.07,
+              "q25": 0.08,
+              "q50": 0.085,
+              "q75": 0.09,
+              "q90": 0.1,
+              "q95": 0.105
+            },
+            "unavailable_reason": null
+          },
+          "processed_transactions_growth": {
+            "quantiles": {
+              "q05": 0.075,
+              "q10": 0.08,
+              "q25": 0.085,
+              "q50": 0.09,
+              "q75": 0.1,
+              "q90": 0.105,
+              "q95": 0.11
+            },
+            "unavailable_reason": null
+          }
+        },
+        "target_period": "FY2026Q3"
+      },
+      "request_key": "d7e39cfb5b083de5e00707b4e97ad8c59cc9198ac0bcef0731f060a321bd9d16",
+      "response_text": "{\"target_period\":\"FY2026Q3\",\"forecasts\":{\"net_revenue\":{\"quantiles\":{\"q05\":11100,\"q10\":11220,\"q25\":11400,\"q50\":11600,\"q75\":11820,\"q90\":12020,\"q95\":12160},\"unavailable_reason\":null},\"operating_profit_ex_special_items\":{\"quantiles\":{\"q05\":7340,\"q10\":7440,\"q25\":7590,\"q50\":7770,\"q75\":7950,\"q90\":8110,\"q95\":8210},\"unavailable_reason\":null},\"payments_volume_growth_constant\":{\"quantiles\":{\"q05\":0.06,\"q10\":0.07,\"q25\":0.08,\"q50\":0.085,\"q75\":0.09,\"q90\":0.10,\"q95\":0.105},\"unavailable_reason\":null},\"cross_border_ex_intra_europe_growth_constant\":{\"quantiles\":{\"q05\":0.08,\"q10\":0.085,\"q25\":0.095,\"q50\":0.105,\"q75\":0.115,\"q90\":0.125,\"q95\":0.135},\"unavailable_reason\":null},\"processed_transactions_growth\":{\"quantiles\":{\"q05\":0.075,\"q10\":0.08,\"q25\":0.085,\"q50\":0.09,\"q75\":0.10,\"q90\":0.105,\"q95\":0.11},\"unavailable_reason\":null}}}",
+      "status": "succeeded",
+      "target_period": "FY2026Q3"
+    }
+  ],
+  "limitation": "Historical publication cutoffs restrict supplied evidence, but cannot remove historical outcomes from pretrained-model knowledge. This is an exploratory retrospective comparison, not proof of an ex-ante forecast or causal improvement. Inputs are evidence excerpts rather than full documents.",
+  "model": "gpt-5.4",
+  "prompt_policy_hash": "1c94bca54c698e615b4f0eeff8a63cd10a352573a7b2420ee2a446236e46a5ed",
+  "prompt_version": "lon30-v1",
+  "provider": "openai",
+  "request_settings": {
+    "base_url": "provider_default",
+    "max_output_tokens": 4096,
+    "max_transport_attempts": 2,
+    "provider_schema_version": "inline-refs-v1",
+    "reasoning_effort": "low",
+    "timeout_sec": 60.0
+  },
+  "selection_policy": "lon30-excerpts-v1: union of starting-state input spans, calibration-used observation spans, driver-history spans and frozen reviewed external evidence. HTML tables retain the containing row, preceding row and first three header/context rows; prose retains nearby text nodes within 500 raw characters. Census retains page 1 containing the dated three-month headline, including verified quarter-end fitting history. Overlapping rows/nodes are deduplicated. No model predictions, parameter estimates, mapping results, future actuals or later revisions are supplied.",
+  "suite_version": "lon30-v1"
+}

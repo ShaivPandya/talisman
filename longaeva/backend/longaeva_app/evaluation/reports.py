@@ -36,13 +36,14 @@ REPORTS = {
     "ablations": ("Ablation robustness", "ablations", "LON-31", "visa_ablation_persistence.json"),
     "portfolio": ("Benchmarks and portfolio", "portfolio", "LON-28", "visa_portfolio.json"),
     "extraction": ("Extraction error sample", "extraction", "LON-18", "extraction.json"),
-    "llm_baseline": ("LLM same-document baseline", "pending", "LON-30", None),
+    "llm_baseline": ("LLM same-document baseline", "forecast", "LON-30", "visa_llm_baseline.json"),
     "prospective": ("Prospective Q4 FY2026 registration", "pending", "LON-32", None),
     "failure_case": ("Final report and failure case", "pending", "LON-33", None),
 }
 DOCUMENTS = {
     "evaluation-notes": ("Evaluation notes", "LON-27", "docs/evaluation.md"),
     "extraction-eval": ("Extraction evaluation guide", "LON-18", "docs/extraction-eval.md"),
+    "llm-baseline": ("LLM forecast baseline guide", "LON-30", "docs/llm-baseline.md"),
     "model-spec": ("Model specification", "LON-19", "docs/model-spec.md"),
     "evaluation-report": ("Final evaluation report", "LON-33", "docs/evaluation-report.md"),
     "limitations": ("Limitations", "LON-33", "docs/limitations.md"),

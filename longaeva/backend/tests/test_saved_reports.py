@@ -37,7 +37,6 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
     catalog = {r["key"]: r for r in response.json()["reports"]}
     assert catalog["full_model"]["status"] == "available"
     for key, owner in {
-        "llm_baseline": "LON-30",
         "prospective": "LON-32",
         "failure_case": "LON-33",
     }.items():
@@ -45,6 +44,7 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
         assert result["status"] == "pending"
         assert result["owner_issue"] == owner
         assert result["forecast"] is result["ablations"] is result["portfolio"] is None
+    assert catalog["llm_baseline"]["status"] == "available"
 
 
 def test_extraction_preserves_coverage_denominators_and_provenance(report_client: TestClient) -> None:
@@ -63,6 +63,7 @@ def test_extraction_preserves_coverage_denominators_and_provenance(report_client
         "seasonal_trend",
         "financial_only",
         "guidance",
+        "llm_baseline",
         "no_external_commentary",
         "pooled_spending",
         "no_service_lag",

@@ -348,7 +348,16 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             print("Persistence: all 13 predefined profiles complete; see visa_ablation_persistence.json")
         return 0
     for name in variants:
-        if name in ABLATION_VARIANTS:
+        if name == "llm_baseline":
+            from longaeva_app.evaluation.baselines.llm_docs import run_llm_docs
+
+            report = run_llm_docs(
+                window=window,
+                origin_dates=origin_dates,
+                cache_path=Path(args.llm_cache),
+                input_dir=Path(args.llm_input_dir),
+            )
+        elif name in ABLATION_VARIANTS:
             report = run_ablation(
                 name,
                 factory,
@@ -398,7 +407,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
             print(format_tables(item))
             print()
         print(format_comparison(reports))
-    if any(origin.error for item in reports for origin in item.origins):
+    if any(origin.error and not origin.error.startswith("not run (") for item in reports for origin in item.origins):
         return 1
     return 0
 
@@ -893,6 +902,59 @@ def cmd_evaluate_extraction(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_capture_llm_baseline(args: argparse.Namespace) -> int:
+    from longaeva_app.config import Settings, get_settings
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.baselines.common import split_origins
+    from longaeva_app.evaluation.baselines.llm_docs import (
+        ForecastResponse,
+        capture_forecasts,
+        load_packs,
+    )
+    from longaeva_app.evaluation.llm_inputs import prepare_packs, verify_originals
+    from longaeva_app.extract.providers import build_provider, describe_extraction
+
+    origins, _excluded = split_origins(window=args.window, origin_dates=args.origin or None)
+    directory = Path(args.input_dir)
+    try:
+        if args.prepare_only or any(not (directory / f"{o.origin_date}.json").is_file() for o in origins):
+            prepare_packs(get_session_factory(get_settings().database_url), origins, directory)
+        packs = load_packs(origins, directory)
+        if args.prepare_only:
+            print(f"Prepared {len(packs)} evidence packs; no provider calls")
+            return 0
+        for pack in packs.values():
+            verify_originals(pack)
+        settings = Settings(**{"_env_file": args.credentials_env}) if args.credentials_env else Settings()
+        described = describe_extraction(settings, provider=args.provider, model=args.model)
+        provider = build_provider(
+            settings,
+            provider=args.provider,
+            model=args.model,
+            response_schema=ForecastResponse.model_json_schema(),
+            schema_name="visa_forecast",
+        )
+        try:
+            result = capture_forecasts(
+                origins,
+                packs,
+                provider=provider,
+                provider_name=args.provider,
+                model=args.model,
+                settings=settings,
+                output=Path(args.output),
+            )
+        finally:
+            if provider is not None:
+                provider.close()
+        if provider is None:
+            print(described.disabled_reason or "not run (no provider)")
+        return int(provider is None or any(c["status"] != "succeeded" for c in result["calls"]))
+    except (OSError, ValueError) as exc:
+        print(f"LLM baseline refused: {exc}")
+        return 2
+
+
 def cmd_capture_extraction(args: argparse.Namespace) -> int:
     from longaeva_app.config import Settings
     from longaeva_app.db.session import get_session_factory
@@ -1167,6 +1229,7 @@ def build_parser() -> argparse.ArgumentParser:
             "seasonal_trend",
             "financial_only",
             "guidance",
+            "llm_baseline",
             "all",
             "no_external_commentary",
             "pooled_spending",
@@ -1183,12 +1246,27 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write visa_<variant>.json for each variant that ran",
     )
     evaluate_p.add_argument("--json", action="store_true", help="Print the full report as JSON")
+    evaluate_p.add_argument("--llm-cache", default=str(PACKAGE_ROOT / "data/fixtures/llm_baseline/cached.json"))
+    evaluate_p.add_argument("--llm-input-dir", default=str(PACKAGE_ROOT / "data/fixtures/llm_baseline"))
     evaluate_p.add_argument(
         "--no-cache",
         action="store_true",
         help="Ignore the calibration cache under ARTIFACT_DIR/evaluation/calibration/",
     )
     evaluate_p.set_defaults(func=cmd_evaluate)
+
+    llm_capture = sub.add_parser("capture-llm-baseline", help="Explicit, bounded forecast capture (LON-30)")
+    llm_capture.add_argument("--origin", action="append", default=[])
+    llm_capture.add_argument("--window", choices=("all", "primary", "extension"), default="all")
+    llm_capture.add_argument("--provider", choices=("openai", "anthropic", "gemini", "stub"), default="openai")
+    llm_capture.add_argument("--model", default="gpt-5.4")
+    llm_capture.add_argument("--credentials-env", default=None, help="Runtime credentials file, never copied/exported")
+    llm_capture.add_argument("--input-dir", default=str(PACKAGE_ROOT / "data/fixtures/llm_baseline"))
+    llm_capture.add_argument("--output", default=str(PACKAGE_ROOT / "data/fixtures/llm_baseline/cached.json"))
+    llm_capture.add_argument(
+        "--prepare-only", action="store_true", help="Verify and freeze evidence; no provider calls"
+    )
+    llm_capture.set_defaults(func=cmd_capture_llm_baseline)
 
     extract_p = sub.add_parser("extract", help="Extract observations from selected passages (LON-16)")
     extract_p.add_argument("--passage", action="append", default=[], help="document_text UUID (repeatable)")

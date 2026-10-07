@@ -21,6 +21,7 @@ const FORECAST_KEYS = [
   "seasonal_trend",
   "financial_only",
   "guidance",
+  "llm_baseline",
   "no_external_commentary",
   "pooled_spending",
   "no_service_lag",

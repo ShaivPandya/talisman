@@ -58,6 +58,8 @@ class ProviderResult:
     input_tokens: int | None
     output_tokens: int | None
     attempts: int
+    refusal: str | None = None
+    incomplete: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +122,8 @@ class _HttpProvider:
         owns_client: bool,
         root: str,
         max_output_tokens: int,
+        response_schema: dict[str, Any] | None = None,
+        schema_name: str = "extraction",
     ) -> None:
         self.model = model
         self._api_key = api_key
@@ -127,6 +131,8 @@ class _HttpProvider:
         self._owns_client = owns_client
         self._root = root.rstrip("/")
         self._max_output_tokens = max_output_tokens
+        self._response_schema = response_schema if response_schema is not None else extraction_json_schema()
+        self._schema_name = schema_name
 
     def close(self) -> None:
         if self._owns_client:
@@ -156,7 +162,8 @@ class AnthropicProvider(_HttpProvider):
     name = "anthropic"
 
     def complete(self, *, system: str, user: str) -> ProviderResult:
-        schema = openai_strict_schema(extraction_json_schema())
+        schema = openai_strict_schema(self._response_schema)
+        tool_name = TOOL_NAME if self._schema_name == "extraction" else self._schema_name
         body = {
             "model": self.model,
             "max_tokens": self._max_output_tokens,
@@ -164,12 +171,12 @@ class AnthropicProvider(_HttpProvider):
             "messages": [{"role": "user", "content": user}],
             "tools": [
                 {
-                    "name": TOOL_NAME,
+                    "name": tool_name,
                     "description": "Record observations stated in the supplied passage.",
                     "input_schema": schema,
                 }
             ],
-            "tool_choice": {"type": "tool", "name": TOOL_NAME},
+            "tool_choice": {"type": "tool", "name": tool_name},
         }
         headers = {
             "x-api-key": self._api_key,
@@ -192,7 +199,7 @@ class OpenAIProvider(_HttpProvider):
     name = "openai"
 
     def complete(self, *, system: str, user: str) -> ProviderResult:
-        schema = openai_strict_schema(extraction_json_schema())
+        schema = openai_strict_schema(self._response_schema)
         body: dict[str, Any] = {
             "model": self.model,
             "instructions": system,
@@ -202,7 +209,7 @@ class OpenAIProvider(_HttpProvider):
             "text": {
                 "format": {
                     "type": "json_schema",
-                    "name": "extraction",
+                    "name": self._schema_name,
                     "schema": schema,
                     "strict": True,
                 }
@@ -221,6 +228,8 @@ class OpenAIProvider(_HttpProvider):
             input_tokens=_int_or_none(usage, "input_tokens"),
             output_tokens=_int_or_none(usage, "output_tokens"),
             attempts=attempts,
+            refusal=_openai_refusal(payload),
+            incomplete=isinstance(payload, dict) and payload.get("status") == "incomplete",
         )
 
 
@@ -228,7 +237,7 @@ class GeminiProvider(_HttpProvider):
     name = "gemini"
 
     def complete(self, *, system: str, user: str) -> ProviderResult:
-        schema = gemini_response_schema(extraction_json_schema())
+        schema = gemini_response_schema(self._response_schema)
         body = {
             "systemInstruction": {"parts": [{"text": system}]},
             "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -312,6 +321,8 @@ def build_provider(
     provider: str | None = None,
     model: str | None = None,
     client: httpx.Client | None = None,
+    response_schema: dict[str, Any] | None = None,
+    schema_name: str = "extraction",
 ) -> LLMProvider | None:
     """Return a provider, or None before any client is constructed when disabled."""
     status = describe_extraction(settings, provider=provider, model=model)
@@ -331,6 +342,8 @@ def build_provider(
             owns_client=owns_client,
             root=root,
             max_output_tokens=settings.llm_max_output_tokens,
+            response_schema=response_schema,
+            schema_name=schema_name,
         )
     if status.provider == "openai":
         return OpenAIProvider(
@@ -340,6 +353,8 @@ def build_provider(
             owns_client=owns_client,
             root=root,
             max_output_tokens=settings.llm_max_output_tokens,
+            response_schema=response_schema,
+            schema_name=schema_name,
         )
     return GeminiProvider(
         model=status.model,
@@ -348,6 +363,8 @@ def build_provider(
         owns_client=owns_client,
         root=root,
         max_output_tokens=settings.llm_max_output_tokens,
+        response_schema=response_schema,
+        schema_name=schema_name,
     )
 
 
@@ -464,6 +481,17 @@ def _openai_text(payload: dict[str, Any]) -> str:
                 if isinstance(part, dict) and part.get("type") in {"output_text", "text"}:
                     chunks.append(str(part.get("text") or ""))
     return "".join(chunks)
+
+
+def _openai_refusal(payload: dict[str, Any] | None) -> str | None:
+    if payload is None:
+        return None
+    for item in payload.get("output", []):
+        if isinstance(item, dict):
+            for part in item.get("content", []):
+                if isinstance(part, dict) and part.get("type") == "refusal":
+                    return str(part.get("refusal") or "Provider refused the forecast")
+    return None
 
 
 def _gemini_text(payload: dict[str, Any]) -> str:

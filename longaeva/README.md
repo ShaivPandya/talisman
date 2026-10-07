@@ -335,6 +335,20 @@ make evaluate ARGS='--origin 2024-07-23 --origin 2025-10-28 --n-paths 256 --json
 Committed results, 16 scored and 2 excluded: `data/evaluation/visa_full_model.json`,
 `visa_seasonal_trend.json`, `visa_financial_only.json`, `visa_guidance.json`.
 
+## LLM forecast baseline (LON-30)
+
+The same-source evidence-excerpt baseline uses OpenAI `gpt-5.4`, frozen next-quarter
+quantiles and offline median-error, coverage and WIS scoring. Capture is explicit;
+opening the Evaluation page and running the evaluation suite only read cached
+responses. CRPS is unavailable for quantile-only forecasts. Historical cutoffs
+cannot remove pretrained-model knowledge. Details: [`docs/llm-baseline.md`](docs/llm-baseline.md).
+
+```bash
+make capture-llm-baseline ARGS='--prepare-only'
+make capture-llm-baseline ARGS='--credentials-env /path/to/runtime.env'
+make evaluate-llm-baseline
+```
+
 ## Benchmark evaluation (LON-28)
 
 ```bash

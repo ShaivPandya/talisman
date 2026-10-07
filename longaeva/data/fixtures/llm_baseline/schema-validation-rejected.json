@@ -1,0 +1,34 @@
+{
+  "calls": [
+    {
+      "attempts": 1,
+      "call_hash": "6d3e9ffc6b0ad326a4c85ed498dbe611f928594349b2c64cd0ae1d2eb01a0699",
+      "created_at": "2026-10-07T18:19:19.841281Z",
+      "error": "{\n  \"error\": {\n    \"message\": \"Invalid schema for response_format 'visa_forecast': In context=('properties', 'forecasts'), reference to component '#/$defs/ForecastTargets' which was not found in the schema.\",\n    \"type\": \"invalid_request_error\",\n    \"param\": \"text.format.schema\",\n    \"code\": \"invalid_json_schema\"\n  }\n}",
+      "input_tokens": null,
+      "latency_ms": 1054,
+      "origin_date": "2022-01-27",
+      "output_tokens": null,
+      "pack_hash": "341f1aeed1dcca8dcde1d7682a9bfd74f6326c028ef1d90d6c7d37663c87c739",
+      "parsed": null,
+      "request_key": "b371aaf7002b469de53e30bb6ca30ca69840f7eb8eecefeb87dc9c30972445cf",
+      "response_text": null,
+      "status": "provider_error",
+      "target_period": "FY2022Q2"
+    }
+  ],
+  "limitation": "Historical publication cutoffs restrict supplied evidence, but cannot remove historical outcomes from pretrained-model knowledge. This is an exploratory retrospective comparison, not proof of an ex-ante forecast or causal improvement. Inputs are evidence excerpts rather than full documents.",
+  "model": "gpt-5.4",
+  "prompt_policy_hash": "1c94bca54c698e615b4f0eeff8a63cd10a352573a7b2420ee2a446236e46a5ed",
+  "prompt_version": "lon30-v1",
+  "provider": "openai",
+  "request_settings": {
+    "base_url": "provider_default",
+    "max_output_tokens": 4096,
+    "max_transport_attempts": 2,
+    "reasoning_effort": "low",
+    "timeout_sec": 60.0
+  },
+  "selection_policy": "lon30-excerpts-v1: union of starting-state input spans, calibration-used observation spans, driver-history spans and frozen reviewed external evidence. HTML tables retain the containing row, preceding row and first three header/context rows; prose retains nearby text nodes within 500 raw characters. Census retains page 1 containing the dated three-month headline, including verified quarter-end fitting history. Overlapping rows/nodes are deduplicated. No model predictions, parameter estimates, mapping results, future actuals or later revisions are supplied.",
+  "suite_version": "lon30-v1"
+}

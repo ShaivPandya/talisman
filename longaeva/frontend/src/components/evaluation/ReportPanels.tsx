@@ -38,6 +38,8 @@ export function ForecastPanel({
 }) {
   const chosen = reports.find((r) => r.key === selected)
   const report = chosen?.forecast
+  const llm = report?.config.model_variant === "llm_baseline"
+  const baseline = report?.config.baseline as Record<string, unknown> | undefined
   if (!report)
     return (
       <p className="theme-notice">
@@ -54,9 +56,30 @@ export function ForecastPanel({
       <SurfaceCard className="p-5 mb-5">
         <h2 className="font-semibold">{chosen.title}</h2>
         <p className="body-copy mt-2">
-          {report.n_scored} origins processed · {report.n_excluded} excluded.
+          {report.n_scored} origins scored · {report.n_excluded} excluded.
           Each target has its own scored n.
         </p>
+        {llm && (
+          <div className="theme-notice mt-3 flex-col">
+            <p>
+              {String(baseline?.provider ?? "No provider capture")} ·{" "}
+              {String(baseline?.model ?? "Not run")}. Evidence excerpts selected
+              from the same dated model inputs. CRPS unavailable: seven quantiles
+              do not specify a full distribution. Four-quarter forecasts not run.
+            </p>
+            <p className="mt-2">
+              Excerpt selection: matched and preceding table rows with the first
+              three header/context rows; prose within 500 source characters;
+              the first Census page. Overlapping excerpts are deduplicated.
+            </p>
+            <p className="mt-2">{String(baseline?.limitation ?? "")}</p>
+            <p className="mt-2">
+              Capture outcomes: {Object.entries(baseline?.capture_counts ?? {})
+                .map(([status, count]) => `${count} ${status.replaceAll("_", " ")}`)
+                .join(" · ") || "Not run"}
+            </p>
+          </div>
+        )}
         {horizon === "4q" && (
           <p className="caption mt-2">
             Four-quarter aggregates cover all windows. Only origins with four
@@ -101,7 +124,7 @@ export function ForecastPanel({
                     <td>{fmtScore(a?.bias, target)}</td>
                     <td>{fmtRatioPct(a?.mape)}</td>
                     <td>{coverageLabel(a)}</td>
-                    <td>{fmtScore(a?.mean_crps, target)}</td>
+                    <td>{r.key === "llm_baseline" ? "Unavailable" : fmtScore(a?.mean_crps, target)}</td>
                     <td>{fmtScore(a?.mean_wis, target)}</td>
                   </tr>
                 )
@@ -155,7 +178,7 @@ export function ForecastPanel({
                       ? "Yes"
                       : "No"}
                 </td>
-                <td>{fmtScore(o.scores[`${scoreKey}.crps`], target)}</td>
+                <td>{llm ? "Unavailable" : fmtScore(o.scores[`${scoreKey}.crps`], target)}</td>
                 <td>{fmtScore(o.scores[`${scoreKey}.wis`], target)}</td>
                 <td>
                   {o.error ??

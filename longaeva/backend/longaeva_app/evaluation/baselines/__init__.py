@@ -8,11 +8,12 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from longaeva_app.evaluation.baselines.financial_only import run_financial_only
 from longaeva_app.evaluation.baselines.guidance import run_guidance
+from longaeva_app.evaluation.baselines.llm_docs import run_llm_docs
 from longaeva_app.evaluation.baselines.seasonal import run_seasonal_trend
 from longaeva_app.evaluation.harness import CalibrateFn, EvaluationReport
 from longaeva_app.storage.local import LocalArtifactStore
 
-BASELINE_VARIANTS: tuple[str, ...] = ("seasonal_trend", "financial_only", "guidance")
+BASELINE_VARIANTS: tuple[str, ...] = ("seasonal_trend", "financial_only", "guidance", "llm_baseline")
 COMPARISON_TARGETS: tuple[str, ...] = ("net_revenue", "operating_profit_ex_special_items")
 
 
@@ -36,6 +37,7 @@ def run_baseline(
         "seasonal_trend": run_seasonal_trend,
         "financial_only": run_financial_only,
         "guidance": run_guidance,
+        "llm_baseline": run_llm_docs,
     }
     return runners[name](
         factory,

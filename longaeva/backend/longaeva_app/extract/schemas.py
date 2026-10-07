@@ -102,7 +102,7 @@ def openai_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
                 converted["required"] = list(properties.keys())
         return converted
 
-    converted = convert(schema)
+    converted = convert(_inline_refs(schema))
     return converted if isinstance(converted, dict) else {}
 
 
@@ -145,7 +145,7 @@ def gemini_response_schema(schema: dict[str, Any]) -> dict[str, Any]:
             converted["nullable"] = True
         return converted
 
-    converted = convert(schema)
+    converted = convert(_inline_refs(schema))
     return converted if isinstance(converted, dict) else {}
 
 
