@@ -13,10 +13,17 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples
+.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction"
+
+# Offline: no database, provider, or API key required. Capture is an explicit separate command.
+evaluate-extraction:
+	cd backend && .venv/bin/python -m longaeva_app.cli evaluate-extraction $(ARGS)
+
+capture-extraction:
+	cd backend && .venv/bin/python -m longaeva_app.cli capture-extraction $(ARGS)
 
 up:
 	$(COMPOSE) up --build -d --wait

@@ -1,0 +1,32 @@
+{
+  "status": "reviewed",
+  "author": "Codex (AI assistant)",
+  "reviewer": "user",
+  "selected_label_ids": [
+    "visa-lag-01",
+    "visa-stable-01",
+    "booking-growth-03",
+    "booking-outlook-01",
+    "census-june24-06",
+    "census-sectors-01",
+    "united-eps-03",
+    "paypal-transactions-01",
+    "costco-comparables-01",
+    "costco-comparables-03"
+  ],
+  "decisions": [
+    {"label_id": "visa-lag-01", "decision": "accept"},
+    {"label_id": "visa-stable-01", "decision": "accept"},
+    {"label_id": "booking-growth-03", "decision": "accept"},
+    {"label_id": "booking-outlook-01", "decision": "accept"},
+    {"label_id": "census-june24-06", "decision": "accept"},
+    {"label_id": "census-sectors-01", "decision": "accept"},
+    {"label_id": "united-eps-03", "decision": "accept"},
+    {"label_id": "paypal-transactions-01", "decision": "accept"},
+    {"label_id": "costco-comparables-01", "decision": "accept"},
+    {"label_id": "costco-comparables-03", "decision": "accept"}
+  ],
+  "reviewed_at": "2026-10-07T16:46:51Z",
+  "gold_sha256": "8b9bab336fb47912d9279584c868bb9e2bf1b86764acd6626a6acb6976f77c52",
+  "notes": "The user confirmed all ten selected labels are correct in this chat and approved implementation on October 7, 2026. No labels were changed. Human review covers ten of the 85 assistant-curated labels, not the entire corpus."
+}

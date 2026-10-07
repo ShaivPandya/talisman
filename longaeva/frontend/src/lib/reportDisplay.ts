@@ -98,3 +98,6 @@ export function documentHref(
     ? `/evaluation?section=documents&document=${encodeURIComponent(key)}${fragment ? `#${fragment}` : ""}`
     : undefined
 }
+export function extractionRate(rate: number | null) {
+  return rate === null ? "Not scored" : `${(100 * rate).toFixed(1)}%`
+}

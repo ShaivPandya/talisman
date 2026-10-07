@@ -1257,6 +1257,131 @@
         "title": "EvidenceExcerpt",
         "type": "object"
       },
+      "ExtractionCallMetadata": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "cache_hit": {
+            "title": "Cache Hit",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "extraction_call_id": {
+            "title": "Extraction Call Id",
+            "type": "string"
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "item_errors": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Item Errors",
+            "type": "array"
+          },
+          "latency_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latency Ms"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "passage_id": {
+            "title": "Passage Id",
+            "type": "string"
+          },
+          "prompt_hash": {
+            "title": "Prompt Hash",
+            "type": "string"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "text_sha256": {
+            "title": "Text Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passage_id",
+          "extraction_call_id",
+          "provider",
+          "model",
+          "prompt_version",
+          "prompt_hash",
+          "status",
+          "error",
+          "item_errors",
+          "attempts",
+          "latency_ms",
+          "input_tokens",
+          "output_tokens",
+          "created_at",
+          "cache_hit",
+          "source_sha256",
+          "text_sha256"
+        ],
+        "title": "ExtractionCallMetadata",
+        "type": "object"
+      },
       "ExtractionCallRead": {
         "properties": {
           "attempts": {
@@ -1404,6 +1529,339 @@
         "title": "ExtractionCallRead",
         "type": "object"
       },
+      "ExtractionCoverage": {
+        "properties": {
+          "correct_labels": {
+            "title": "Correct Labels",
+            "type": "integer"
+          },
+          "disputed_labels": {
+            "title": "Disputed Labels",
+            "type": "integer"
+          },
+          "failed_passages": {
+            "title": "Failed Passages",
+            "type": "integer"
+          },
+          "matched_labels": {
+            "title": "Matched Labels",
+            "type": "integer"
+          },
+          "missing_passages": {
+            "title": "Missing Passages",
+            "type": "integer"
+          },
+          "predictions": {
+            "title": "Predictions",
+            "type": "integer"
+          },
+          "scored_labels": {
+            "title": "Scored Labels",
+            "type": "integer"
+          },
+          "succeeded_passages": {
+            "title": "Succeeded Passages",
+            "type": "integer"
+          },
+          "total_labels": {
+            "title": "Total Labels",
+            "type": "integer"
+          },
+          "total_passages": {
+            "title": "Total Passages",
+            "type": "integer"
+          },
+          "unavailable_labels": {
+            "title": "Unavailable Labels",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_passages",
+          "succeeded_passages",
+          "failed_passages",
+          "missing_passages",
+          "total_labels",
+          "disputed_labels",
+          "scored_labels",
+          "unavailable_labels",
+          "matched_labels",
+          "correct_labels",
+          "predictions"
+        ],
+        "title": "ExtractionCoverage",
+        "type": "object"
+      },
+      "ExtractionDisagreement": {
+        "properties": {
+          "actual": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Actual"
+          },
+          "categories": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Categories",
+            "type": "array"
+          },
+          "company": {
+            "title": "Company",
+            "type": "string"
+          },
+          "errors": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Errors",
+            "type": "array"
+          },
+          "expected": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "label_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label Id"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "passage_id": {
+            "title": "Passage Id",
+            "type": "string"
+          },
+          "rationale": {
+            "title": "Rationale",
+            "type": "string"
+          },
+          "source_url": {
+            "title": "Source Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label_id",
+          "passage_id",
+          "company",
+          "family",
+          "categories",
+          "errors",
+          "expected",
+          "actual",
+          "source_url",
+          "page",
+          "rationale"
+        ],
+        "title": "ExtractionDisagreement",
+        "type": "object"
+      },
+      "ExtractionErrorRate": {
+        "properties": {
+          "denominator": {
+            "title": "Denominator",
+            "type": "integer"
+          },
+          "errors": {
+            "title": "Errors",
+            "type": "integer"
+          },
+          "rate": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rate"
+          }
+        },
+        "required": [
+          "errors",
+          "denominator",
+          "rate"
+        ],
+        "title": "ExtractionErrorRate",
+        "type": "object"
+      },
+      "ExtractionFailure": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "family": {
+            "title": "Family",
+            "type": "string"
+          },
+          "passage_id": {
+            "title": "Passage Id",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "passage_id",
+          "family",
+          "status",
+          "error"
+        ],
+        "title": "ExtractionFailure",
+        "type": "object"
+      },
+      "ExtractionReport": {
+        "properties": {
+          "by_category": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ExtractionErrorRate"
+              },
+              "type": "object"
+            },
+            "title": "By Category",
+            "type": "object"
+          },
+          "by_family": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ExtractionErrorRate"
+              },
+              "type": "object"
+            },
+            "title": "By Family",
+            "type": "object"
+          },
+          "calls": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractionCallMetadata"
+            },
+            "title": "Calls",
+            "type": "array"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "corpus_hash": {
+            "title": "Corpus Hash",
+            "type": "string"
+          },
+          "coverage": {
+            "$ref": "#/components/schemas/ExtractionCoverage"
+          },
+          "disagreements": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractionDisagreement"
+            },
+            "title": "Disagreements",
+            "type": "array"
+          },
+          "errors": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ExtractionErrorRate"
+            },
+            "title": "Errors",
+            "type": "object"
+          },
+          "failures": {
+            "items": {
+              "$ref": "#/components/schemas/ExtractionFailure"
+            },
+            "title": "Failures",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "numeric_tolerance": {
+            "title": "Numeric Tolerance",
+            "type": "number"
+          },
+          "prompt_version": {
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "provider": {
+            "title": "Provider",
+            "type": "string"
+          },
+          "review": {
+            "$ref": "#/components/schemas/ExtractionReview"
+          },
+          "suite_version": {
+            "title": "Suite Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "suite_version",
+          "content_hash",
+          "corpus_hash",
+          "provider",
+          "model",
+          "prompt_version",
+          "numeric_tolerance",
+          "coverage",
+          "review",
+          "errors",
+          "by_family",
+          "by_category",
+          "failures",
+          "disagreements",
+          "calls",
+          "limitations"
+        ],
+        "title": "ExtractionReport",
+        "type": "object"
+      },
       "ExtractionRequest": {
         "additionalProperties": false,
         "properties": {
@@ -1443,6 +1901,62 @@
           "document_text_ids"
         ],
         "title": "ExtractionRequest",
+        "type": "object"
+      },
+      "ExtractionReview": {
+        "properties": {
+          "author": {
+            "title": "Author",
+            "type": "string"
+          },
+          "decisions": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Decisions",
+            "type": "array"
+          },
+          "reviewed_labels": {
+            "title": "Reviewed Labels",
+            "type": "integer"
+          },
+          "reviewer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer"
+          },
+          "selected_label_ids": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selected Label Ids",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "reviewed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "author",
+          "reviewer",
+          "reviewed_labels",
+          "selected_label_ids",
+          "decisions"
+        ],
+        "title": "ExtractionReview",
         "type": "object"
       },
       "ExtractionStatusRead": {
@@ -4236,6 +4750,7 @@
               "forecast",
               "ablations",
               "portfolio",
+              "extraction",
               "pending"
             ],
             "title": "Kind",
@@ -4901,6 +5416,16 @@
               }
             ]
           },
+          "extraction": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ExtractionReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "forecast": {
             "anyOf": [
               {
@@ -4920,6 +5445,7 @@
               "forecast",
               "ablations",
               "portfolio",
+              "extraction",
               "pending"
             ],
             "title": "Kind",

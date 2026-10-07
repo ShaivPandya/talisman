@@ -6,6 +6,7 @@ import {
   PortfolioPanel,
 } from "@/components/evaluation/ReportPanels"
 import { SavedDocument } from "@/components/evaluation/SavedDocument"
+import { ExtractionPanel } from "@/components/evaluation/ExtractionPanel"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
 import {
   getReportCatalog,
@@ -28,6 +29,7 @@ const SECTIONS = {
   forecasts: "Forecasts & baselines",
   ablations: "Ablations",
   portfolio: "Benchmarks",
+  extraction: "Extraction",
   documents: "Report & model",
   pending: "Pending content",
 }
@@ -60,7 +62,7 @@ export function EvaluationPage() {
   const signature =
     section === "forecasts"
       ? FORECAST_KEYS.join(",")
-      : ["ablations", "portfolio"].includes(section)
+      : ["ablations", "portfolio", "extraction"].includes(section)
         ? section
         : ""
   const [state, setState] = useState<{
@@ -111,6 +113,7 @@ export function EvaluationPage() {
   const current = state?.signature === signature ? state : null
   const ablation = current?.reports[0]?.ablations
   const portfolio = current?.reports[0]?.portfolio
+  const extraction = current?.reports[0]?.extraction
   const selectedProfile =
     ablation && profile in ablation.summaries ? profile : "central"
   function change(key: string, value: string) {
@@ -264,6 +267,7 @@ export function EvaluationPage() {
       {section === "portfolio" && portfolio && (
         <PortfolioPanel report={portfolio} />
       )}
+      {section === "extraction" && extraction && <ExtractionPanel report={extraction} />}
       {signature &&
         current?.reports[0]?.status === "pending" &&
         section !== "forecasts" && (

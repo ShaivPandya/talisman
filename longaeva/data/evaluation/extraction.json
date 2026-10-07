@@ -1,0 +1,3725 @@
+{
+  "by_category": {
+    "contradiction": {
+      "activity_scope": {
+        "denominator": 14,
+        "errors": 5,
+        "rate": 0.35714285714285715
+      },
+      "duplicate": {
+        "denominator": 30,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 14,
+        "errors": 4,
+        "rate": 0.2857142857142857
+      },
+      "invalid_quote": {
+        "denominator": 30,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 15,
+        "errors": 1,
+        "rate": 0.06666666666666667
+      },
+      "period": {
+        "denominator": 14,
+        "errors": 2,
+        "rate": 0.14285714285714285
+      },
+      "statement_type": {
+        "denominator": 14,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 14,
+        "errors": 4,
+        "rate": 0.2857142857142857
+      },
+      "unsupported": {
+        "denominator": 30,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 14,
+        "errors": 0,
+        "rate": 0.0
+      }
+    },
+    "geography": {
+      "activity_scope": {
+        "denominator": 29,
+        "errors": 20,
+        "rate": 0.6896551724137931
+      },
+      "duplicate": {
+        "denominator": 40,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 29,
+        "errors": 20,
+        "rate": 0.6896551724137931
+      },
+      "invalid_quote": {
+        "denominator": 40,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 29,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "period": {
+        "denominator": 29,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 29,
+        "errors": 1,
+        "rate": 0.034482758620689655
+      },
+      "unit_basis": {
+        "denominator": 29,
+        "errors": 16,
+        "rate": 0.5517241379310345
+      },
+      "unsupported": {
+        "denominator": 40,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 29,
+        "errors": 1,
+        "rate": 0.034482758620689655
+      }
+    },
+    "numeric": {
+      "activity_scope": {
+        "denominator": 67,
+        "errors": 29,
+        "rate": 0.43283582089552236
+      },
+      "duplicate": {
+        "denominator": 67,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 67,
+        "errors": 26,
+        "rate": 0.3880597014925373
+      },
+      "invalid_quote": {
+        "denominator": 67,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 74,
+        "errors": 7,
+        "rate": 0.0945945945945946
+      },
+      "period": {
+        "denominator": 67,
+        "errors": 4,
+        "rate": 0.05970149253731343
+      },
+      "statement_type": {
+        "denominator": 67,
+        "errors": 1,
+        "rate": 0.014925373134328358
+      },
+      "unit_basis": {
+        "denominator": 67,
+        "errors": 30,
+        "rate": 0.44776119402985076
+      },
+      "unsupported": {
+        "denominator": 67,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 67,
+        "errors": 2,
+        "rate": 0.029850746268656716
+      }
+    },
+    "period": {
+      "activity_scope": {
+        "denominator": 42,
+        "errors": 19,
+        "rate": 0.4523809523809524
+      },
+      "duplicate": {
+        "denominator": 58,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 42,
+        "errors": 16,
+        "rate": 0.38095238095238093
+      },
+      "invalid_quote": {
+        "denominator": 58,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 47,
+        "errors": 5,
+        "rate": 0.10638297872340426
+      },
+      "period": {
+        "denominator": 42,
+        "errors": 4,
+        "rate": 0.09523809523809523
+      },
+      "statement_type": {
+        "denominator": 42,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 42,
+        "errors": 16,
+        "rate": 0.38095238095238093
+      },
+      "unsupported": {
+        "denominator": 58,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 42,
+        "errors": 1,
+        "rate": 0.023809523809523808
+      }
+    },
+    "qualitative": {
+      "activity_scope": {
+        "denominator": 4,
+        "errors": 3,
+        "rate": 0.75
+      },
+      "duplicate": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 4,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 6,
+        "errors": 2,
+        "rate": 0.3333333333333333
+      },
+      "period": {
+        "denominator": 4,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 4,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 4,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unsupported": {
+        "denominator": 7,
+        "errors": 3,
+        "rate": 0.42857142857142855
+      },
+      "value_range": {
+        "denominator": 4,
+        "errors": 0,
+        "rate": 0.0
+      }
+    },
+    "range": {
+      "activity_scope": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "duplicate": {
+        "denominator": 9,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 9,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "period": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 7,
+        "errors": 1,
+        "rate": 0.14285714285714285
+      },
+      "unsupported": {
+        "denominator": 9,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 7,
+        "errors": 1,
+        "rate": 0.14285714285714285
+      }
+    },
+    "scope": {
+      "activity_scope": {
+        "denominator": 44,
+        "errors": 14,
+        "rate": 0.3181818181818182
+      },
+      "duplicate": {
+        "denominator": 52,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 44,
+        "errors": 14,
+        "rate": 0.3181818181818182
+      },
+      "invalid_quote": {
+        "denominator": 52,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 45,
+        "errors": 1,
+        "rate": 0.022222222222222223
+      },
+      "period": {
+        "denominator": 44,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 44,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 44,
+        "errors": 17,
+        "rate": 0.38636363636363635
+      },
+      "unsupported": {
+        "denominator": 52,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 44,
+        "errors": 1,
+        "rate": 0.022727272727272728
+      }
+    },
+    "unit": {
+      "activity_scope": {
+        "denominator": 17,
+        "errors": 8,
+        "rate": 0.47058823529411764
+      },
+      "duplicate": {
+        "denominator": 32,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 17,
+        "errors": 6,
+        "rate": 0.35294117647058826
+      },
+      "invalid_quote": {
+        "denominator": 32,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 23,
+        "errors": 6,
+        "rate": 0.2608695652173913
+      },
+      "period": {
+        "denominator": 17,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 17,
+        "errors": 1,
+        "rate": 0.058823529411764705
+      },
+      "unit_basis": {
+        "denominator": 17,
+        "errors": 13,
+        "rate": 0.7647058823529411
+      },
+      "unsupported": {
+        "denominator": 32,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 17,
+        "errors": 1,
+        "rate": 0.058823529411764705
+      }
+    }
+  },
+  "by_family": {
+    "airline": {
+      "activity_scope": {
+        "denominator": 5,
+        "errors": 2,
+        "rate": 0.4
+      },
+      "duplicate": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "period": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 5,
+        "errors": 3,
+        "rate": 0.6
+      },
+      "unsupported": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 5,
+        "errors": 0,
+        "rate": 0.0
+      }
+    },
+    "booking": {
+      "activity_scope": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "duplicate": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 13,
+        "errors": 1,
+        "rate": 0.07692307692307693
+      },
+      "period": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 12,
+        "errors": 2,
+        "rate": 0.16666666666666666
+      },
+      "unsupported": {
+        "denominator": 12,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 12,
+        "errors": 1,
+        "rate": 0.08333333333333333
+      }
+    },
+    "census": {
+      "activity_scope": {
+        "denominator": 14,
+        "errors": 14,
+        "rate": 1.0
+      },
+      "duplicate": {
+        "denominator": 14,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 14,
+        "errors": 14,
+        "rate": 1.0
+      },
+      "invalid_quote": {
+        "denominator": 14,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 15,
+        "errors": 1,
+        "rate": 0.06666666666666667
+      },
+      "period": {
+        "denominator": 14,
+        "errors": 2,
+        "rate": 0.14285714285714285
+      },
+      "statement_type": {
+        "denominator": 14,
+        "errors": 1,
+        "rate": 0.07142857142857142
+      },
+      "unit_basis": {
+        "denominator": 14,
+        "errors": 10,
+        "rate": 0.7142857142857143
+      },
+      "unsupported": {
+        "denominator": 14,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 14,
+        "errors": 1,
+        "rate": 0.07142857142857142
+      }
+    },
+    "processor": {
+      "activity_scope": {
+        "denominator": 7,
+        "errors": 1,
+        "rate": 0.14285714285714285
+      },
+      "duplicate": {
+        "denominator": 8,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 8,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 10,
+        "errors": 3,
+        "rate": 0.3
+      },
+      "period": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 7,
+        "errors": 2,
+        "rate": 0.2857142857142857
+      },
+      "unsupported": {
+        "denominator": 8,
+        "errors": 1,
+        "rate": 0.125
+      },
+      "value_range": {
+        "denominator": 7,
+        "errors": 0,
+        "rate": 0.0
+      }
+    },
+    "retailer": {
+      "activity_scope": {
+        "denominator": 22,
+        "errors": 12,
+        "rate": 0.5454545454545454
+      },
+      "duplicate": {
+        "denominator": 22,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 22,
+        "errors": 12,
+        "rate": 0.5454545454545454
+      },
+      "invalid_quote": {
+        "denominator": 22,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 26,
+        "errors": 4,
+        "rate": 0.15384615384615385
+      },
+      "period": {
+        "denominator": 22,
+        "errors": 2,
+        "rate": 0.09090909090909091
+      },
+      "statement_type": {
+        "denominator": 22,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 22,
+        "errors": 10,
+        "rate": 0.45454545454545453
+      },
+      "unsupported": {
+        "denominator": 22,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "value_range": {
+        "denominator": 22,
+        "errors": 0,
+        "rate": 0.0
+      }
+    },
+    "visa": {
+      "activity_scope": {
+        "denominator": 11,
+        "errors": 3,
+        "rate": 0.2727272727272727
+      },
+      "duplicate": {
+        "denominator": 13,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "geography": {
+        "denominator": 11,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "invalid_quote": {
+        "denominator": 13,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "omission": {
+        "denominator": 11,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "period": {
+        "denominator": 11,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "statement_type": {
+        "denominator": 11,
+        "errors": 0,
+        "rate": 0.0
+      },
+      "unit_basis": {
+        "denominator": 11,
+        "errors": 3,
+        "rate": 0.2727272727272727
+      },
+      "unsupported": {
+        "denominator": 13,
+        "errors": 2,
+        "rate": 0.15384615384615385
+      },
+      "value_range": {
+        "denominator": 11,
+        "errors": 0,
+        "rate": 0.0
+      }
+    }
+  },
+  "calls": [
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:50:39.803750Z",
+      "error": null,
+      "extraction_call_id": "a82404fe-b7c0-4010-a6d4-af2fec7bd421",
+      "input_tokens": 830,
+      "item_errors": [],
+      "latency_ms": 7027,
+      "model": "gpt-5.4",
+      "output_tokens": 429,
+      "passage_id": "visa-income",
+      "prompt_hash": "162ebaaef1004d1c2aef6cca7a8e679dd787778145804e1bcda69ac1b12eb3ea",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c25ad024f6cc3c74893ec3ce4ff81edec3bed64d6f66b0a02b137043d0bc0d2b",
+      "status": "succeeded",
+      "text_sha256": "69e9f1b253d9985c5fb6eaff2d5fdb33705e54a62c996782270d8582d100d4a1"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:50:46.963593Z",
+      "error": null,
+      "extraction_call_id": "58a98664-1980-44e0-af3f-96e6427e63b7",
+      "input_tokens": 956,
+      "item_errors": [],
+      "latency_ms": 9907,
+      "model": "gpt-5.4",
+      "output_tokens": 867,
+      "passage_id": "visa-lag",
+      "prompt_hash": "9de1cafd4ad8d17d80a995918e9414375ca1ce3b152ac3b50ae1c0ddc188d945",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c25ad024f6cc3c74893ec3ce4ff81edec3bed64d6f66b0a02b137043d0bc0d2b",
+      "status": "succeeded",
+      "text_sha256": "3bce6f24a6d17314c4c3cd922dcd7188abe2d03e5fea18ead807de745f9e3b35"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:50:56.932006Z",
+      "error": null,
+      "extraction_call_id": "8c34bbc5-d59d-4042-9736-ac84035aba66",
+      "input_tokens": 808,
+      "item_errors": [],
+      "latency_ms": 4978,
+      "model": "gpt-5.4",
+      "output_tokens": 319,
+      "passage_id": "visa-stable",
+      "prompt_hash": "e783c56a934d79317bc027b724eafd7e1aa819af01dd49f707f95195f0b45c6c",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c25ad024f6cc3c74893ec3ce4ff81edec3bed64d6f66b0a02b137043d0bc0d2b",
+      "status": "succeeded",
+      "text_sha256": "c507a3a4d23bd027998570402d9e2e0c79d6db44f86412f5cd03f3452019d8be"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:01.972672Z",
+      "error": null,
+      "extraction_call_id": "ef173393-2ca5-4e08-82fe-d0c5ee4f5f4e",
+      "input_tokens": 863,
+      "item_errors": [],
+      "latency_ms": 4301,
+      "model": "gpt-5.4",
+      "output_tokens": 447,
+      "passage_id": "booking-growth",
+      "prompt_hash": "e7bc303eb20a0bee7d17cf23963eb8cf9d1e58525578207aca35a0057c43e745",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "98e8a46ee0d1bf113608ceba45027ffa9414cfcc2bc05dc07056150c2feed61b",
+      "status": "succeeded",
+      "text_sha256": "3cd57b717022cb93582bbee972f74e0a434c785afc849bdf6c974678bec62040"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:06.347800Z",
+      "error": null,
+      "extraction_call_id": "87241312-f1ee-4411-a030-98b44050e791",
+      "input_tokens": 867,
+      "item_errors": [],
+      "latency_ms": 9774,
+      "model": "gpt-5.4",
+      "output_tokens": 830,
+      "passage_id": "booking-outlook",
+      "prompt_hash": "b9811735e3b9c52f2a18a650fecd3b9750785b60272c60896d491cdb323d8c6c",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "98e8a46ee0d1bf113608ceba45027ffa9414cfcc2bc05dc07056150c2feed61b",
+      "status": "succeeded",
+      "text_sha256": "321689381838df8876039c887c5fe5ab3b591f4d044175009bcd86cf3f1edb49"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:16.190431Z",
+      "error": null,
+      "extraction_call_id": "67cac7b6-d986-4ffd-b160-a4c3e280faf4",
+      "input_tokens": 829,
+      "item_errors": [],
+      "latency_ms": 4753,
+      "model": "gpt-5.4",
+      "output_tokens": 260,
+      "passage_id": "booking-demand",
+      "prompt_hash": "d3bbfcbfb797a989fe298442ab3c0f07fe811c1b585e890de3404f3efa79dfa8",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "98e8a46ee0d1bf113608ceba45027ffa9414cfcc2bc05dc07056150c2feed61b",
+      "status": "succeeded",
+      "text_sha256": "98cdf2e2876b7ed61ca209e3551b32ba5987d3e34047b5f577b9565af993a576"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:20.990254Z",
+      "error": null,
+      "extraction_call_id": "7f294433-e2de-4745-bcae-cffc371b6cac",
+      "input_tokens": 947,
+      "item_errors": [],
+      "latency_ms": 10348,
+      "model": "gpt-5.4",
+      "output_tokens": 889,
+      "passage_id": "census-june24",
+      "prompt_hash": "76876dcd0a77576ed0a603be42cf9c1eb26b021d2be72579641da29b2f7197c3",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "9b25aa36163643ad2e65d8c6e211cfb5e7326ee2c1a46438a8fe99c34326017d",
+      "status": "succeeded",
+      "text_sha256": "ebfb69d5d0230e2bf0329a39072cb8fca0458d582ee92ed6535437cef0f5927b"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:31.362701Z",
+      "error": null,
+      "extraction_call_id": "c9f56163-549c-43f7-9065-dfe608d9b182",
+      "input_tokens": 937,
+      "item_errors": [],
+      "latency_ms": 9188,
+      "model": "gpt-5.4",
+      "output_tokens": 848,
+      "passage_id": "census-june25",
+      "prompt_hash": "724a17839f79595a6050544832fd03dd5ce966e49418f666804b025bc4c92e95",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d90dbe4a3e2ec531af675830b6fca9bcca90f404fcbacf39d8e53675c91fa4d2",
+      "status": "succeeded",
+      "text_sha256": "90392040332c73cee1dcdd19e4325cc500bc715e98b9095c56e6e776ed80b14e"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:40.590753Z",
+      "error": null,
+      "extraction_call_id": "8a05116e-1c03-4597-a4c7-c2222a44760c",
+      "input_tokens": 879,
+      "item_errors": [],
+      "latency_ms": 5749,
+      "model": "gpt-5.4",
+      "output_tokens": 449,
+      "passage_id": "census-sectors",
+      "prompt_hash": "36e24b680708ee9a7f5b9a7f4373bf8329556a9ae50b1513578f0c0b6f02b1f3",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "9b25aa36163643ad2e65d8c6e211cfb5e7326ee2c1a46438a8fe99c34326017d",
+      "status": "succeeded",
+      "text_sha256": "a9d1a31aa469494c58cd1411168bbd1ee113dcd890810aef1264bd34f3432ce0"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:46.360277Z",
+      "error": null,
+      "extraction_call_id": "aee12043-8f6d-4de8-8722-26954fb9e6c3",
+      "input_tokens": 845,
+      "item_errors": [],
+      "latency_ms": 6513,
+      "model": "gpt-5.4",
+      "output_tokens": 441,
+      "passage_id": "united-eps",
+      "prompt_hash": "7c211b918f59fac381a022c1432ce0c8fed396c5bd05539bae7986ef5e693038",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d33ebc25346ef70d3c859fecc3795fc6011bd3fff14c684aeba12b4d690ad927",
+      "status": "succeeded",
+      "text_sha256": "759b69471839527bd6abf74963511beab5d179b7a86f1f64f0689e80dcaad09f"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:52.888191Z",
+      "error": null,
+      "extraction_call_id": "b7324c1c-d54c-4f1c-b5b3-a4c3c3d90bc0",
+      "input_tokens": 843,
+      "item_errors": [],
+      "latency_ms": 4787,
+      "model": "gpt-5.4",
+      "output_tokens": 407,
+      "passage_id": "united-demand",
+      "prompt_hash": "6c438111a16b1aef966026df4befe202619e137cdbb4a8d05b67a89653ab5024",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d33ebc25346ef70d3c859fecc3795fc6011bd3fff14c684aeba12b4d690ad927",
+      "status": "succeeded",
+      "text_sha256": "d5406918b572e1ad30a8802aac2de0570a0bc6ae026dba79ee53939abacc4ce0"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:51:57.689823Z",
+      "error": "Response did not match the extraction schema",
+      "extraction_call_id": "45e4d474-7322-491b-9bdf-ca3277de63ab",
+      "input_tokens": 878,
+      "item_errors": [],
+      "latency_ms": 4416,
+      "model": "gpt-5.4",
+      "output_tokens": 472,
+      "passage_id": "united-revenue-mix",
+      "prompt_hash": "74993afd9690253063cc60d8ac780c6f20b3d4b964c56308f885698f591b4639",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d33ebc25346ef70d3c859fecc3795fc6011bd3fff14c684aeba12b4d690ad927",
+      "status": "invalid_response",
+      "text_sha256": "2918e391ed9e6d2adf09b54f6c7ca424ab5be1dde3b29b30ac72f9d66001d339"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:02.126379Z",
+      "error": null,
+      "extraction_call_id": "f7f5c851-05fe-49fe-8d06-ff6ef26c1868",
+      "input_tokens": 816,
+      "item_errors": [],
+      "latency_ms": 3411,
+      "model": "gpt-5.4",
+      "output_tokens": 206,
+      "passage_id": "paypal-revenue",
+      "prompt_hash": "92007c6cc4e5857b0d95e28ebb548945f426cf6fd48a9e914bec81155512f554",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "status": "succeeded",
+      "text_sha256": "3f3319a5be5e02f5411bccfe695cce42011aa3a259acb21d71193114bf3a5330"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:05.552351Z",
+      "error": null,
+      "extraction_call_id": "c083ac8a-02f6-4d0e-8026-091c0830cf3b",
+      "input_tokens": 824,
+      "item_errors": [],
+      "latency_ms": 2746,
+      "model": "gpt-5.4",
+      "output_tokens": 196,
+      "passage_id": "paypal-transactions",
+      "prompt_hash": "eea0016ef4d4b71bc3ea8f0c678079239bf7883e82ef60b81c8b9f74c55e6ac7",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "status": "succeeded",
+      "text_sha256": "3f0a5eb89e5717ba9558a39f98ed923eeca1c18cf4a5f5d69600f80a4a26ce48"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:08.312708Z",
+      "error": null,
+      "extraction_call_id": "e7370ab3-0105-4521-a2af-ad0fca472465",
+      "input_tokens": 831,
+      "item_errors": [],
+      "latency_ms": 6876,
+      "model": "gpt-5.4",
+      "output_tokens": 524,
+      "passage_id": "paypal-tpa",
+      "prompt_hash": "8c1517f233f2bc15c35dceb4abc8514fa1b86da506fa6e78393f7feff304f7ac",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "status": "succeeded",
+      "text_sha256": "2eb8e4fdd183afd7d37b78a681f007b2c641b2daa493d807654bcb1a9da5ff59"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:15.218795Z",
+      "error": null,
+      "extraction_call_id": "a2123a99-ebd6-4a33-8e43-afd81edfa742",
+      "input_tokens": 834,
+      "item_errors": [],
+      "latency_ms": 3591,
+      "model": "gpt-5.4",
+      "output_tokens": 172,
+      "passage_id": "paypal-position",
+      "prompt_hash": "79b994d06c41ff78d3cec1e00e0386e3efc6467ce5bf2369198f6806e19c79b2",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "c6bf7a1edeee58ec96ab21e21c7a650e283ec21875f63676b6794592f8383baf",
+      "status": "succeeded",
+      "text_sha256": "b9b930881b21f475ae753fb8c0d253cb708190ffe999dfc38e0fc38566b4679f"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:18.827873Z",
+      "error": null,
+      "extraction_call_id": "63d9e6db-5efa-4576-87be-877de3f73a4c",
+      "input_tokens": 852,
+      "item_errors": [],
+      "latency_ms": 7595,
+      "model": "gpt-5.4",
+      "output_tokens": 631,
+      "passage_id": "costco-sales",
+      "prompt_hash": "202bf518f99e2cd723d40555a3d17a76db2dc3acb4ce91ba6cd8d9d67e46a256",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d325c97604c04754684661ce21e4e2f55b8c2d3020f2b9875ee5332948e1c099",
+      "status": "succeeded",
+      "text_sha256": "4e9dc96370b77c10284ba8db59156df6bebee7a5a07fd91b85a2187453ddac2a"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:26.452918Z",
+      "error": null,
+      "extraction_call_id": "83931ad3-4a0b-4a1e-b2cd-3aa31f6d4c62",
+      "input_tokens": 973,
+      "item_errors": [],
+      "latency_ms": 20597,
+      "model": "gpt-5.4",
+      "output_tokens": 2388,
+      "passage_id": "costco-comparables",
+      "prompt_hash": "19d610c5630b90dc933efe12da751feaea082ebc2ec75d4e7888505d80e5c08c",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d325c97604c04754684661ce21e4e2f55b8c2d3020f2b9875ee5332948e1c099",
+      "status": "succeeded",
+      "text_sha256": "212d298c50cd4c30d21b6db730a55788fa415bb65d70538daf639a2d92e431c5"
+    },
+    {
+      "attempts": 1,
+      "cache_hit": false,
+      "created_at": "2026-10-07T16:52:47.080053Z",
+      "error": null,
+      "extraction_call_id": "e7fa8ffb-7ca2-4d95-8f3a-5d881ab37ac8",
+      "input_tokens": 845,
+      "item_errors": [],
+      "latency_ms": 1569,
+      "model": "gpt-5.4",
+      "output_tokens": 22,
+      "passage_id": "costco-event",
+      "prompt_hash": "042c5b7121adb30974465fa2771e8f750f5aeaabf14f487b3fef9561e25e12dc",
+      "prompt_version": "lon16-v1",
+      "provider": "openai",
+      "source_sha256": "d325c97604c04754684661ce21e4e2f55b8c2d3020f2b9875ee5332948e1c099",
+      "status": "succeeded",
+      "text_sha256": "cf5fecabd7f7d279613c4b737a8d3169e9176d74a96bcd78922224bc57fc35dd"
+    }
+  ],
+  "content_hash": "55360cd8d41f4db9b9f3974a744db87b86e0014d16f68c0f22743a64d7d953d5",
+  "corpus_hash": "9542090a7509d18d3ec22a49e48cd8d5f95310c8ec23d5a20f19969f4d068d5a",
+  "coverage": {
+    "correct_labels": 23,
+    "disputed_labels": 0,
+    "failed_passages": 1,
+    "matched_labels": 71,
+    "missing_passages": 0,
+    "predictions": 74,
+    "scored_labels": 80,
+    "succeeded_passages": 18,
+    "total_labels": 85,
+    "total_passages": 19,
+    "unavailable_labels": 5
+  },
+  "disagreements": [
+    {
+      "actual": {
+        "activity_type": "gaap_net_income",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "GAAP net income of $4.9B",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "$B",
+        "value": 4.9
+      },
+      "categories": [
+        "numeric",
+        "unit",
+        "scope"
+      ],
+      "company": "visa",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "gaap_net_income",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "GAAP net income of $4.9B or $2.40 per share",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 4.9
+      },
+      "family": "visa",
+      "label_id": "visa-income-01",
+      "page": 1,
+      "passage_id": "visa-income",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "non_gaap_net_income",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "non-GAAP net income of $4.9B",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "$B",
+        "value": 4.9
+      },
+      "categories": [
+        "numeric",
+        "unit",
+        "scope"
+      ],
+      "company": "visa",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "non_gaap_net_income",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "non-GAAP net income of $4.9B or $2.42 per share",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 4.9
+      },
+      "family": "visa",
+      "label_id": "visa-income-03",
+      "page": 1,
+      "passage_id": "visa-income",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "total_processed_transactions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total processed transactions, which represent transactions processed by Visa, for the three months ended June 30, 2024, were 59.3 billion, a 10% increase over the prior year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "billion",
+        "value": 59.3
+      },
+      "categories": [
+        "numeric",
+        "unit"
+      ],
+      "company": "visa",
+      "errors": [
+        "activity_scope",
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "processed_transactions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total processed transactions, which represent transactions processed by Visa, for the three months ended June 30, 2024, were 59.3 billion, a 10% increase over the prior year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "billions",
+        "value": 59.3
+      },
+      "family": "visa",
+      "label_id": "visa-lag-05",
+      "page": 2,
+      "passage_id": "visa-lag",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "total_processed_transactions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total processed transactions, which represent transactions processed by Visa, for the three months ended June 30, 2024, were 59.3 billion, a 10% increase over the prior year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 10.0
+      },
+      "categories": [
+        "numeric",
+        "unit"
+      ],
+      "company": "visa",
+      "errors": [
+        "activity_scope"
+      ],
+      "expected": {
+        "activity_type": "processed_transactions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total processed transactions, which represent transactions processed by Visa, for the three months ended June 30, 2024, were 59.3 billion, a 10% increase over the prior year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 10.0
+      },
+      "family": "visa",
+      "label_id": "visa-lag-06",
+      "page": 2,
+      "passage_id": "visa-lag",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "payments_volume_growth",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Growth in payments volume, cross-border volume and processed transactions remained relatively stable",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative"
+      ],
+      "company": "visa",
+      "errors": [
+        "activity_scope"
+      ],
+      "expected": {
+        "activity_type": "business_drivers",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Growth in payments volume, cross-border volume and processed transactions remained relatively stable",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "family": "visa",
+      "label_id": "visa-stable-01",
+      "page": 1,
+      "passage_id": "visa-stable",
+      "rationale": "Relative stability is qualitative; there is no growth value in this passage.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "cross_border_volume_growth",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Growth in payments volume, cross-border volume and processed transactions remained relatively stable",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative"
+      ],
+      "company": "visa",
+      "errors": [
+        "unsupported"
+      ],
+      "expected": null,
+      "family": "visa",
+      "label_id": null,
+      "page": 1,
+      "passage_id": "visa-stable",
+      "rationale": "Unmatched original prediction.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "processed_transactions_growth",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Growth in payments volume, cross-border volume and processed transactions remained relatively stable",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative"
+      ],
+      "company": "visa",
+      "errors": [
+        "unsupported"
+      ],
+      "expected": null,
+      "family": "visa",
+      "label_id": null,
+      "page": 1,
+      "passage_id": "visa-stable",
+      "rationale": "Unmatched original prediction.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1403161/000140316124000040/q32024earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "gross_bookings",
+        "basis": "as_reported",
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Gross bookings grew 14% compared to the third quarter of 2024",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 14.0
+      },
+      "categories": [
+        "numeric",
+        "scope",
+        "contradiction"
+      ],
+      "company": "booking",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "gross_bookings",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Gross bookings grew 14% compared to the third quarter of 2024, or 10% on a constant currency basis.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 14.0
+      },
+      "family": "booking",
+      "label_id": "booking-growth-02",
+      "page": 1,
+      "passage_id": "booking-growth",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "revenue",
+        "basis": "as_reported",
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Revenue grew 13% compared to the third quarter of 2024",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.0
+      },
+      "categories": [
+        "numeric",
+        "scope",
+        "contradiction"
+      ],
+      "company": "booking",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "revenue",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Revenue grew 13% compared to the third quarter of 2024, or 8% on a constant currency basis.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.0
+      },
+      "family": "booking",
+      "label_id": "booking-growth-04",
+      "page": 1,
+      "passage_id": "booking-growth",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "room_nights",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-01-01",
+        "quote": "Q4 2025 FY 2025 Room Nights Growth 4% - 6% About 7%",
+        "range_high": 7.0,
+        "range_low": 7.0,
+        "statement_type": "guidance",
+        "unit": "percent",
+        "value": null
+      },
+      "categories": [
+        "numeric",
+        "period",
+        "range",
+        "scope"
+      ],
+      "company": "booking",
+      "errors": [
+        "value_range"
+      ],
+      "expected": {
+        "activity_type": "room_nights",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-01-01",
+        "quote": "Room Nights Growth 4% - 6% About 7%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "guidance",
+        "unit": "percent",
+        "value": 7.0
+      },
+      "family": "booking",
+      "label_id": "booking-outlook-02",
+      "page": 3,
+      "passage_id": "booking-outlook",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "qualitative"
+      ],
+      "company": "booking",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "macro_geopolitical_conditions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-10-01",
+        "quote": "While there remains some uncertainty in the macroeconomic and geopolitical backdrop",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "family": "booking",
+      "label_id": "booking-demand-01",
+      "page": 3,
+      "passage_id": "booking-demand",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1075531/000107553125000050/q3-25bkngearningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2024, adjusted for seasonal variation and holiday and trading-day differences, but not for price changes, were $704.3 billion",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "billion USD",
+        "value": 704.3
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2024, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $704.3 billion, virtually unchanged \n(±0.5 percent)* from the previous month, but up 2.3 percent (±0.5 percent) above June 2023.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 704.3
+      },
+      "family": "census",
+      "label_id": "census-june24-01",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "virtually unchanged (±0.5 percent)* from the previous month",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "value_range",
+        "statement_type",
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_mom",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2024, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $704.3 billion, virtually unchanged \n(±0.5 percent)* from the previous month, but up 2.3 percent (±0.5 percent) above June 2023.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.0
+      },
+      "family": "census",
+      "label_id": "census-june24-02",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "up 2.3 percent (±0.5 percent) above June 2023",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.3
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_yoy",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2024, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $704.3 billion, virtually unchanged \n(±0.5 percent)* from the previous month, but up 2.3 percent (±0.5 percent) above June 2023.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.3
+      },
+      "family": "census",
+      "label_id": "census-june24-03",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total sales for the April 2024 through June 2024 period were up 2.5 percent (±0.5 percent) from the same period a year ago.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.5
+      },
+      "categories": [
+        "numeric",
+        "period"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_yoy",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-04-01",
+        "quote": "Total sales \nfor the April 2024 through June 2024 period were up 2.5 percent (±0.5 percent) from the same period a \nyear ago.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.5
+      },
+      "family": "census",
+      "label_id": "census-june24-04",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "contradiction",
+        "period"
+      ],
+      "company": "census",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_mom",
+        "basis": "previous_estimate",
+        "geography": "US",
+        "period_end": "2024-05-31",
+        "period_start": "2024-05-01",
+        "quote": "The April 2024 to May 2024 percent change was revised from up 0.1 percent (±0.4 percent)* to \nup 0.3 percent (±0.2 percent).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.1
+      },
+      "family": "census",
+      "label_id": "census-june24-05",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Revision supersedes the prior estimate; both stated figures are retained with distinct estimate-status basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2024-05-31",
+        "period_start": "2024-04-01",
+        "quote": "The April 2024 to May 2024 percent change was revised from up 0.1 percent (±0.4 percent)* to up 0.3 percent (±0.2 percent).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.3
+      },
+      "categories": [
+        "numeric",
+        "contradiction",
+        "period"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "period",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_mom",
+        "basis": "revised_estimate",
+        "geography": "US",
+        "period_end": "2024-05-31",
+        "period_start": "2024-05-01",
+        "quote": "The April 2024 to May 2024 percent change was revised from up 0.1 percent (±0.4 percent)* to \nup 0.3 percent (±0.2 percent).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.3
+      },
+      "family": "census",
+      "label_id": "census-june24-06",
+      "page": 1,
+      "passage_id": "census-june24",
+      "rationale": "Revision supersedes the prior estimate; both stated figures are retained with distinct estimate-status basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2025, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $720.1 billion",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "billion_usd",
+        "value": 720.1
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2025, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $720.1 billion, up 0.6 percent (±0.5 \npercent) from the previous month, and up 3.9 percent (±0.5 percent) from June 2024.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 720.1
+      },
+      "family": "census",
+      "label_id": "census-june25-01",
+      "page": 1,
+      "passage_id": "census-june25",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "up 0.6 percent (±0.5 \npercent) from the previous month",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.6
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_mom",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2025, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $720.1 billion, up 0.6 percent (±0.5 \npercent) from the previous month, and up 3.9 percent (±0.5 percent) from June 2024.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 0.6
+      },
+      "family": "census",
+      "label_id": "census-june25-02",
+      "page": 1,
+      "passage_id": "census-june25",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "up 3.9 percent (±0.5 percent) from June 2024",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 3.9
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "unit"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_yoy",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2025-06-30",
+        "period_start": "2025-06-01",
+        "quote": "Advance estimates of U.S. retail and food services sales for June 2025, adjusted for seasonal variation and \nholiday and trading-day differences, but not for price changes, were $720.1 billion, up 0.6 percent (±0.5 \npercent) from the previous month, and up 3.9 percent (±0.5 percent) from June 2024.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 3.9
+      },
+      "family": "census",
+      "label_id": "census-june25-03",
+      "page": 1,
+      "passage_id": "census-june25",
+      "rationale": "Headline point estimate; confidence-interval margins are uncertainty, not additional business observations.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-06-30",
+        "period_start": "2025-04-01",
+        "quote": "Total sales for the \nApril 2025 through June 2025 period were up 4.1 percent (±0.4 percent) from the same period a year ago.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.1
+      },
+      "categories": [
+        "numeric",
+        "period"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_yoy",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2025-06-30",
+        "period_start": "2025-04-01",
+        "quote": "Total sales for the \nApril 2025 through June 2025 period were up 4.1 percent (±0.4 percent) from the same period a year ago.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.1
+      },
+      "family": "census",
+      "label_id": "census-june25-04",
+      "page": 1,
+      "passage_id": "census-june25",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_and_food_services_sales",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-05-31",
+        "period_start": "2025-04-01",
+        "quote": "The April 2025 to May 2025 percent change was unrevised from down 0.9 percent (±0.2 percent).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": -0.9
+      },
+      "categories": [
+        "numeric",
+        "period",
+        "contradiction"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "period",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_food_services_sales_mom",
+        "basis": "seasonally_adjusted",
+        "geography": "US",
+        "period_end": "2025-05-31",
+        "period_start": "2025-05-01",
+        "quote": "The April 2025 to May 2025 percent change was unrevised from down 0.9 percent (±0.2 percent).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": -0.9
+      },
+      "family": "census",
+      "label_id": "census-june25-05",
+      "page": 1,
+      "passage_id": "census-june25",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2506.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_trade_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Retail trade sales were down 0.1 percent (±0.5 percent)* from May 2024",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": -0.1
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "contradiction"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_trade_sales_mom",
+        "basis": null,
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Retail trade sales were down 0.1 percent (±0.5 percent)* from May 2024, but up 2.0 percent (±0.5 \npercent) above last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": -0.1
+      },
+      "family": "census",
+      "label_id": "census-sectors-01",
+      "page": 1,
+      "passage_id": "census-sectors",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "retail_trade_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "but up 2.0 percent (±0.5 \npercent) above last year",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.0
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "contradiction"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "retail_trade_sales_yoy",
+        "basis": null,
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Retail trade sales were down 0.1 percent (±0.5 percent)* from May 2024, but up 2.0 percent (±0.5 \npercent) above last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 2.0
+      },
+      "family": "census",
+      "label_id": "census-sectors-02",
+      "page": 1,
+      "passage_id": "census-sectors",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "nonstore_retailers_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Nonstore retailers were up 8.9 percent (±1.4 percent) from last year",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.9
+      },
+      "categories": [
+        "numeric",
+        "scope"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "nonstore_retail_sales_yoy",
+        "basis": null,
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Nonstore retailers were up 8.9 percent (±1.4 percent) from last year, while food \nservices and drinking places were up 4.4 percent (±2.1 percent) from June 2023.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.9
+      },
+      "family": "census",
+      "label_id": "census-sectors-03",
+      "page": 1,
+      "passage_id": "census-sectors",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "food_services_and_drinking_places_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "food \nservices and drinking places were up 4.4 percent (±2.1 percent) from June 2023",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.4
+      },
+      "categories": [
+        "numeric",
+        "scope"
+      ],
+      "company": "census",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "food_services_sales_yoy",
+        "basis": null,
+        "geography": "US",
+        "period_end": "2024-06-30",
+        "period_start": "2024-06-01",
+        "quote": "Nonstore retailers were up 8.9 percent (±1.4 percent) from last year, while food \nservices and drinking places were up 4.4 percent (±2.1 percent) from June 2023.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.4
+      },
+      "family": "census",
+      "label_id": "census-sectors-04",
+      "page": 1,
+      "passage_id": "census-sectors",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www2.census.gov/retail/releases/historical/marts/adv2406.pdf"
+    },
+    {
+      "actual": {
+        "activity_type": "diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Q3 diluted earnings per share of $2.90",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "USD/share",
+        "value": 2.9
+      },
+      "categories": [
+        "numeric",
+        "scope",
+        "unit"
+      ],
+      "company": "united",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "gaap_diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Q3 diluted earnings per share of $2.90; Q3 adjusted diluted earnings per share1 of $2.78, above the top end of guidance; Q4 adjusted diluted earnings per share guidance of $3.00 to $3.502",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_per_share",
+        "value": 2.9
+      },
+      "family": "airline",
+      "label_id": "united-eps-01",
+      "page": 1,
+      "passage_id": "united-eps",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "adjusted_diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Q3 adjusted diluted earnings per share1 of $2.78, above the top end of guidance",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "USD/share",
+        "value": 2.78
+      },
+      "categories": [
+        "numeric",
+        "scope",
+        "unit"
+      ],
+      "company": "united",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "adjusted_diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Q3 diluted earnings per share of $2.90; Q3 adjusted diluted earnings per share1 of $2.78, above the top end of guidance; Q4 adjusted diluted earnings per share guidance of $3.00 to $3.502",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_per_share",
+        "value": 2.78
+      },
+      "family": "airline",
+      "label_id": "united-eps-02",
+      "page": 1,
+      "passage_id": "united-eps",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "adjusted_diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-10-01",
+        "quote": "Q4 adjusted diluted earnings per share guidance of $3.00 to $3.50",
+        "range_high": 3.5,
+        "range_low": 3.0,
+        "statement_type": "guidance",
+        "unit": "USD/share",
+        "value": null
+      },
+      "categories": [
+        "numeric",
+        "period",
+        "range"
+      ],
+      "company": "united",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "adjusted_diluted_eps",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-10-01",
+        "quote": "Q3 diluted earnings per share of $2.90; Q3 adjusted diluted earnings per share1 of $2.78, above the top end of guidance; Q4 adjusted diluted earnings per share guidance of $3.00 to $3.502",
+        "range_high": 3.5,
+        "range_low": 3.0,
+        "statement_type": "guidance",
+        "unit": "usd_per_share",
+        "value": null
+      },
+      "family": "airline",
+      "label_id": "united-eps-03",
+      "page": 1,
+      "passage_id": "united-eps",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "customer_loyalty_resilience",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-01-01",
+        "quote": "Growing base of brand-loyal customers boosted resilience through macro volatility during the first three quarters of the year",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative",
+        "period"
+      ],
+      "company": "united",
+      "errors": [
+        "activity_scope"
+      ],
+      "expected": {
+        "activity_type": "brand_loyal_customers",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-01-01",
+        "quote": "Growing base of brand-loyal customers boosted resilience through macro volatility during the first three quarters of the year",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "family": "airline",
+      "label_id": "united-demand-01",
+      "page": 1,
+      "passage_id": "united-demand",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "unit_revenue",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-10-01",
+        "quote": "is poised to fuel a strong Q4 as the demand environment strengthens with an expected meaningful improvement in unit revenue year-over-year compared to Q3",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative",
+        "period"
+      ],
+      "company": "united",
+      "errors": [
+        "activity_scope"
+      ],
+      "expected": {
+        "activity_type": "demand_outlook",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-12-31",
+        "period_start": "2025-10-01",
+        "quote": "is poised to fuel a strong Q4 as the demand environment strengthens with an expected meaningful improvement in unit revenue year-over-year compared to Q3",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "family": "airline",
+      "label_id": "united-demand-02",
+      "page": 1,
+      "passage_id": "united-demand",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/100517/000010051725000190/ual_09302025erex991.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "net_revenues",
+        "basis": "as_reported",
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Net revenues increased 7% to $8.4 billion",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.0
+      },
+      "categories": [
+        "numeric",
+        "unit",
+        "scope"
+      ],
+      "company": "paypal",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "net_revenue",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Net revenues increased 7% to $8.4 billion; 6% currency-neutral (“FXN”).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.0
+      },
+      "family": "processor",
+      "label_id": "paypal-revenue-01",
+      "page": 1,
+      "passage_id": "paypal-revenue",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "unit",
+        "scope"
+      ],
+      "company": "paypal",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "net_revenue",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Net revenues increased 7% to $8.4 billion; 6% currency-neutral (“FXN”).",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 8.4
+      },
+      "family": "processor",
+      "label_id": "paypal-revenue-02",
+      "page": 1,
+      "passage_id": "paypal-revenue",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "unit"
+      ],
+      "company": "paypal",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "payment_transactions",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "Payment transactions decreased 5% to 6.3 billion. Excluding payment service provider transactions4 (“PSP”), payment transactions increased 7%.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "billions",
+        "value": 6.3
+      },
+      "family": "processor",
+      "label_id": "paypal-transactions-02",
+      "page": 1,
+      "passage_id": "paypal-transactions",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "payment_transactions_per_active_account",
+        "basis": "units",
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2024-10-01",
+        "quote": "Payment transactions per active account (“TPA”) on a trailing 12-month basis decreased 6% to 57.6.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "transactions_per_active_account",
+        "value": 57.6
+      },
+      "categories": [
+        "numeric",
+        "unit",
+        "period"
+      ],
+      "company": "paypal",
+      "errors": [
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "transactions_per_active_account",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2024-10-01",
+        "quote": "Payment transactions per active account (“TPA”) on a trailing 12-month basis decreased 6% to 57.6. TPA ex-PSP4 increased 5%.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "transactions_per_account",
+        "value": 57.6
+      },
+      "family": "processor",
+      "label_id": "paypal-tpa-02",
+      "page": 1,
+      "passage_id": "paypal-tpa",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "payment_transactions_per_active_account_ex_psp4",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2024-10-01",
+        "quote": "TPA ex-PSP4 increased 5%.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.0
+      },
+      "categories": [
+        "numeric",
+        "contradiction",
+        "period"
+      ],
+      "company": "paypal",
+      "errors": [
+        "activity_scope"
+      ],
+      "expected": {
+        "activity_type": "transactions_per_active_account_ex_psp",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2024-10-01",
+        "quote": "Payment transactions per active account (“TPA”) on a trailing 12-month basis decreased 6% to 57.6. TPA ex-PSP4 increased 5%.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.0
+      },
+      "family": "processor",
+      "label_id": "paypal-tpa-03",
+      "page": 1,
+      "passage_id": "paypal-tpa",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "qualitative"
+      ],
+      "company": "paypal",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "competitive_position",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "This is a stronger company today than we were two years ago. With differentiated competitive advantages, clear strategic direction and building execution momentum, we believe we are exceptionally well-placed to win into the future.”",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "family": "processor",
+      "label_id": "paypal-position-01",
+      "page": 1,
+      "passage_id": "paypal-position",
+      "rationale": "One qualitative claim about competitive position; no measured growth rate is stated. Source reporting period is the default for undated present-tense commentary.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "business_positioning",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-09-30",
+        "period_start": "2025-07-01",
+        "quote": "This is a stronger company today than we were two years ago. With differentiated competitive advantages, clear strategic direction and building execution momentum, we believe we are exceptionally well-placed to win into the future.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "qualitative",
+        "unit": "text",
+        "value": null
+      },
+      "categories": [
+        "qualitative"
+      ],
+      "company": "paypal",
+      "errors": [
+        "unsupported"
+      ],
+      "expected": null,
+      "family": "processor",
+      "label_id": null,
+      "page": 1,
+      "passage_id": "paypal-position",
+      "rationale": "Unmatched original prediction.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/1633917/000163391725000194/pypl3q-25earningsrelease.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-06-01",
+        "quote": "Net sales for the quarter increased 8.0 percent, to $84.4 billion, from $78.2 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.0
+      },
+      "categories": [
+        "numeric",
+        "period"
+      ],
+      "company": "costco",
+      "errors": [
+        "period"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Net sales for the quarter increased 8.0 percent, to $84.4 billion, from $78.2 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.0
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-01",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "period",
+        "unit"
+      ],
+      "company": "costco",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Net sales for the quarter increased 8.0 percent, to $84.4 billion, from $78.2 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 84.4
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-02",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "period",
+        "unit"
+      ],
+      "company": "costco",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-09-01",
+        "period_start": "2024-05-13",
+        "quote": "Net sales for the quarter increased 8.0 percent, to $84.4 billion, from $78.2 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 78.2
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-03",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "The comparison value belongs to the previous fiscal year, not the currently reported period.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-01",
+        "quote": "Net sales for the fiscal year increased 8.1 percent, to $269.9 billion, from $249.6 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.1
+      },
+      "categories": [
+        "numeric",
+        "period"
+      ],
+      "company": "costco",
+      "errors": [
+        "period"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Net sales for the fiscal year increased 8.1 percent, to $269.9 billion, from $249.6 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.1
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-04",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "period",
+        "unit"
+      ],
+      "company": "costco",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Net sales for the fiscal year increased 8.1 percent, to $269.9 billion, from $249.6 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 269.9
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-05",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "Use the stated figure and reporting period; do not infer unstated geography or accounting basis.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": null,
+      "categories": [
+        "numeric",
+        "period",
+        "unit"
+      ],
+      "company": "costco",
+      "errors": [
+        "omission"
+      ],
+      "expected": {
+        "activity_type": "net_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2024-09-01",
+        "period_start": "2023-09-04",
+        "quote": "Net sales for the fiscal year increased 8.1 percent, to $269.9 billion, from $249.6 billion last year.",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "usd_billions",
+        "value": 249.6
+      },
+      "family": "retailer",
+      "label_id": "costco-sales-06",
+      "page": 1,
+      "passage_id": "costco-sales",
+      "rationale": "The comparison value belongs to the previous fiscal year, not the currently reported period.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "U.S. | 5.1% | 6.0% | 6.2% | 7.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 6.0
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "US",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "U.S. | 5.1% | 6.0% | 6.2% | 7.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 6.0
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-02",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "U.S.",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "U.S. | 5.1% | 6.0% | 6.2% | 7.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.3
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "US",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "U.S. | 5.1% | 6.0% | 6.2% | 7.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.3
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-04",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Canada",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Canada | 6.3% | 8.3% | 5.0% | 8.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.3
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "Canada",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Canada | 6.3% | 8.3% | 5.0% | 8.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.3
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-06",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Canada",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Canada | 6.3% | 8.3% | 5.0% | 8.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.3
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "Canada",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Canada | 6.3% | 8.3% | 5.0% | 8.3%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.3
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-08",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "Other International",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.6
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "other_international",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.6
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-09",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Other International",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.2
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "other_international",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.2
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-10",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "Other International",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.8
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "other_international",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 4.8
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-11",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Other International",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.2
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": "other_international",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Other International | 8.6% | 7.2% | 4.8% | 8.2%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 8.2
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-12",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "Total Company",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.7
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.7
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-13",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Total Company",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 6.4
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 6.4
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-14",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "Total Company",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.9
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 5.9
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-15",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "Total Company",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.6
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "Total Company | 5.7% | 6.4% | 5.9% | 7.6%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 7.6
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-16",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "E-commerce",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.6
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "ecommerce_comparable_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.6
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-17",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "E-commerce",
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.5
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "ecommerce_comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2025-05-12",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 13.5
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-18",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales",
+        "basis": null,
+        "geography": "E-commerce",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 15.6
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "ecommerce_comparable_sales",
+        "basis": null,
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 15.6
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-19",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    },
+    {
+      "actual": {
+        "activity_type": "comparable_sales_adjusted",
+        "basis": null,
+        "geography": "E-commerce",
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 16.1
+      },
+      "categories": [
+        "numeric",
+        "geography",
+        "period",
+        "scope"
+      ],
+      "company": "costco",
+      "errors": [
+        "activity_scope",
+        "unit_basis",
+        "geography"
+      ],
+      "expected": {
+        "activity_type": "ecommerce_comparable_sales",
+        "basis": "gasoline_and_fx_adjusted",
+        "geography": null,
+        "period_end": "2025-08-31",
+        "period_start": "2024-09-02",
+        "quote": "E-commerce | 13.6% | 13.5% | 15.6% | 16.1%",
+        "range_high": null,
+        "range_low": null,
+        "statement_type": "measured",
+        "unit": "percent",
+        "value": 16.1
+      },
+      "family": "retailer",
+      "label_id": "costco-comparables-20",
+      "page": 1,
+      "passage_id": "costco-comparables",
+      "rationale": "16-week quarter begins May 12; 52-week fiscal year begins September 2. Adjusted columns exclude both gasoline-price and FX effects.",
+      "source_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983225000093/costex9918-k92525.htm"
+    }
+  ],
+  "errors": {
+    "activity_scope": {
+      "denominator": 71,
+      "errors": 32,
+      "rate": 0.4507042253521127
+    },
+    "duplicate": {
+      "denominator": 74,
+      "errors": 0,
+      "rate": 0.0
+    },
+    "geography": {
+      "denominator": 71,
+      "errors": 26,
+      "rate": 0.36619718309859156
+    },
+    "invalid_quote": {
+      "denominator": 74,
+      "errors": 0,
+      "rate": 0.0
+    },
+    "omission": {
+      "denominator": 80,
+      "errors": 9,
+      "rate": 0.1125
+    },
+    "period": {
+      "denominator": 71,
+      "errors": 4,
+      "rate": 0.056338028169014086
+    },
+    "statement_type": {
+      "denominator": 71,
+      "errors": 1,
+      "rate": 0.014084507042253521
+    },
+    "unit_basis": {
+      "denominator": 71,
+      "errors": 30,
+      "rate": 0.4225352112676056
+    },
+    "unsupported": {
+      "denominator": 74,
+      "errors": 3,
+      "rate": 0.04054054054054054
+    },
+    "value_range": {
+      "denominator": 71,
+      "errors": 2,
+      "rate": 0.028169014084507043
+    }
+  },
+  "failures": [
+    {
+      "error": "Response did not match the extraction schema",
+      "family": "airline",
+      "passage_id": "united-revenue-mix",
+      "status": "invalid_response"
+    }
+  ],
+  "limitations": [
+    "Assistant-curated sample; human review covers the selected ten labels, not the entire corpus.",
+    "Short purposively selected passages are not a random sample of filing extraction quality.",
+    "Contradictions include revisions and opposing or apparently conflicting figures resolved by scope or period.",
+    "Rates for semantic fields use matched labels; omissions use labels in successful passages. Unavailable labels remain in coverage.",
+    "Prediction errors by category inherit all tags of the passage; categories overlap and must not be summed.",
+    "Fiscal-period defaults, uncertainty margins, and semantic aliases follow the documented labeling guide.",
+    "These extraction errors are separate from forecast errors and do not establish predictive performance."
+  ],
+  "model": "gpt-5.4",
+  "numeric_tolerance": 1e-06,
+  "prompt_version": "lon16-v1",
+  "provider": "openai",
+  "review": {
+    "author": "Codex (AI assistant)",
+    "decisions": [
+      {
+        "decision": "accept",
+        "label_id": "visa-lag-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "visa-stable-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "booking-growth-03"
+      },
+      {
+        "decision": "accept",
+        "label_id": "booking-outlook-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "census-june24-06"
+      },
+      {
+        "decision": "accept",
+        "label_id": "census-sectors-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "united-eps-03"
+      },
+      {
+        "decision": "accept",
+        "label_id": "paypal-transactions-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "costco-comparables-01"
+      },
+      {
+        "decision": "accept",
+        "label_id": "costco-comparables-03"
+      }
+    ],
+    "reviewed_labels": 10,
+    "reviewer": "user",
+    "selected_label_ids": [
+      "visa-lag-01",
+      "visa-stable-01",
+      "booking-growth-03",
+      "booking-outlook-01",
+      "census-june24-06",
+      "census-sectors-01",
+      "united-eps-03",
+      "paypal-transactions-01",
+      "costco-comparables-01",
+      "costco-comparables-03"
+    ],
+    "status": "reviewed"
+  },
+  "suite_version": "lon18-v1"
+}

@@ -387,6 +387,12 @@ Rules:
 
 ## Extraction and review (LON-16)
 
+Extraction quality (LON-18): 85 assistant-curated labels in 19 retained-source
+passages, a ten-label human-review packet, bounded OpenAI capture and offline
+scoring. Run `make evaluate-extraction` and inspect **Evaluation → Extraction**.
+Coverage, failures, denominators and review status are explicit. See
+[`docs/extraction-eval.md`](docs/extraction-eval.md).
+
 Passage-only LLM extraction into pending observations, plus a versioned accept /
 reject / correct workflow. With `LLM_PROVIDER` unset, `POST /observations/extract`
 returns 503 and no provider client is created. Setup, cache, and the manual

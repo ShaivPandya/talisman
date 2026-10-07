@@ -877,9 +877,85 @@ def cmd_evaluate_portfolio(args: argparse.Namespace) -> int:
     return int(any(source["status"] != "ok" for source in report["sources"]))
 
 
+def cmd_evaluate_extraction(args: argparse.Namespace) -> int:
+    from longaeva_app.evaluation.extraction_scoring import load_corpus, load_review, score_extractions, write_report
+
+    try:
+        gold, passages = load_corpus(Path(args.gold), Path(args.passages))
+        review = load_review(Path(args.review), Path(args.gold))
+        cached = json.loads(Path(args.cached).read_text()) if Path(args.cached).is_file() else {"calls": []}
+        report = score_extractions(gold, passages, cached, review)
+        write_report(report, Path(args.output))
+    except (OSError, ValueError) as exc:
+        print(f"Extraction scoring failed: {exc}")
+        return 2
+    print(json.dumps(report["coverage"], sort_keys=True))
+    return 0
+
+
+def cmd_capture_extraction(args: argparse.Namespace) -> int:
+    from longaeva_app.config import Settings
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.evaluation.extraction_capture import capture_extractions
+    from longaeva_app.evaluation.extraction_scoring import load_corpus, load_review, require_reviewed
+    from longaeva_app.extract.providers import build_provider
+
+    gold, passages = load_corpus(Path(args.gold), Path(args.passages))
+    review = load_review(Path(args.review), Path(args.gold))
+    try:
+        require_reviewed(review, gold)
+    except ValueError as exc:
+        print(str(exc))
+        return 2
+    settings = Settings(**{"_env_file": args.credentials_env}) if args.credentials_env else Settings()
+    provider = build_provider(settings, provider="openai", model="gpt-5.4")
+    if provider is None:
+        print("OpenAI extraction is disabled: configure OPENAI_API_KEY at runtime.")
+        return 2
+    try:
+        with get_session_factory(settings.database_url)() as session:
+            result = capture_extractions(
+                session,
+                gold=gold,
+                passages=passages,
+                review=review,
+                provider=provider,
+                settings=settings,
+                output=Path(args.output),
+            )
+    finally:
+        provider.close()
+    return int(any(c["status"] != "succeeded" for c in result["calls"]))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    from longaeva_app.evaluation.extraction_scoring import FIXTURE_DIR
+
+    for command, func in [
+        ("evaluate-extraction", cmd_evaluate_extraction),
+        ("capture-extraction", cmd_capture_extraction),
+    ]:
+        extraction = sub.add_parser(
+            command,
+            help="Offline extraction scoring"
+            if command.startswith("evaluate")
+            else "Explicit bounded extraction capture after label review",
+        )
+        extraction.add_argument("--gold", default=str(FIXTURE_DIR / "gold.jsonl"))
+        extraction.add_argument("--passages", default=str(FIXTURE_DIR / "passages.jsonl"))
+        extraction.add_argument("--review", default=str(FIXTURE_DIR / "review.json"))
+        if command.startswith("evaluate"):
+            extraction.add_argument("--cached", default=str(FIXTURE_DIR / "cached.json"))
+            extraction.add_argument("--output", default=str(PACKAGE_ROOT / "data/evaluation/extraction.json"))
+        else:
+            extraction.add_argument(
+                "--credentials-env", default=None, help="Optional runtime .env file (never copied into the package)"
+            )
+            extraction.add_argument("--output", default=str(FIXTURE_DIR / "cached.json"))
+        extraction.set_defaults(func=func)
 
     seed = sub.add_parser("seed-demo", help="Load bundled demo dataset (stub until LON-37)")
     seed.set_defaults(func=cmd_seed_demo)

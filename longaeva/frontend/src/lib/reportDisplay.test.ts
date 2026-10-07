@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import {
   coverageLabel,
+  extractionRate,
   documentHref,
   fmtScore,
   horizonTarget,
@@ -12,6 +13,11 @@ import { fmtRatioPct } from "./format"
 import type { ValuationBridge } from "./valuationApi"
 
 describe("saved report display", () => {
+  it("keeps unscored extraction rates distinct from zero errors", () => {
+    expect(extractionRate(null)).toBe("Not scored")
+    expect(extractionRate(0)).toBe("0.0%")
+    expect(extractionRate(1 / 3)).toBe("33.3%")
+  })
   it("distinguishes percentages, percentage points, and dollar scores", () => {
     expect(fmtRatioPct(0.042189)).toBe("4.2%")
     expect(fmtScore(0.042189, "payments_volume_growth_constant")).toBe(

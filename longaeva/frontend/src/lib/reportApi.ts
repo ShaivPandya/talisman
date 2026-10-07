@@ -3,7 +3,7 @@ import { apiGet, apiPost } from "./api"
 export interface ReportMetadata {
   key: string
   title: string
-  kind: "forecast" | "ablations" | "portfolio" | "pending"
+  kind: "forecast" | "ablations" | "portfolio" | "extraction" | "pending"
   status: "available" | "pending"
   reason: string | null
   owner_issue: string
@@ -123,10 +123,94 @@ export interface PortfolioReport {
   visa_strategy: PortfolioSeries
   visa_buy_and_hold: PortfolioSeries
 }
+export interface ExtractionErrorRate {
+  errors: number
+  denominator: number
+  rate: number | null
+}
+export interface ExtractionObservation {
+  statement_type: string
+  activity_type: string | null
+  geography: string | null
+  period_start: string
+  period_end: string
+  value: number | null
+  range_low: number | null
+  range_high: number | null
+  unit: string
+  basis: string | null
+  quote: string
+}
+export interface ExtractionReport {
+  suite_version: string
+  content_hash: string
+  corpus_hash: string
+  provider: string
+  model: string
+  prompt_version: string
+  numeric_tolerance: number
+  coverage: {
+    total_passages: number
+    succeeded_passages: number
+    failed_passages: number
+    missing_passages: number
+    total_labels: number
+    disputed_labels: number
+    scored_labels: number
+    unavailable_labels: number
+    matched_labels: number
+    correct_labels: number
+    predictions: number
+  }
+  review: {
+    status: "pending" | "reviewed"
+    author: string
+    reviewer: string | null
+    reviewed_labels: number
+    selected_label_ids: string[]
+    decisions: Record<string, unknown>[]
+  }
+  errors: Record<string, ExtractionErrorRate>
+  by_family: Record<string, Record<string, ExtractionErrorRate>>
+  by_category: Record<string, Record<string, ExtractionErrorRate>>
+  failures: { passage_id: string; family: string; status: string; error: string | null }[]
+  disagreements: {
+    label_id: string | null
+    passage_id: string
+    company: string
+    family: string
+    categories: string[]
+    errors: string[]
+    expected: ExtractionObservation | null
+    actual: ExtractionObservation | null
+    source_url: string
+    page: number
+    rationale: string
+  }[]
+  calls: {
+    passage_id: string
+    extraction_call_id: string
+    provider: string
+    model: string
+    prompt_version: string
+    prompt_hash: string
+    status: string
+    error: string | null
+    attempts: number
+    cache_hit: boolean
+    input_tokens: number | null
+    output_tokens: number | null
+    source_sha256: string
+    text_sha256: string
+    created_at: string
+  }[]
+  limitations: string[]
+}
 export interface SavedReport extends ReportMetadata {
   forecast: ForecastReport | null
   ablations: AblationReport | null
   portfolio: PortfolioReport | null
+  extraction: ExtractionReport | null
 }
 export interface ReportCatalog {
   reports: ReportMetadata[]

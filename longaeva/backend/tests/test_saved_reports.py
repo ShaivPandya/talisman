@@ -37,7 +37,6 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
     catalog = {r["key"]: r for r in response.json()["reports"]}
     assert catalog["full_model"]["status"] == "available"
     for key, owner in {
-        "extraction": "LON-18",
         "llm_baseline": "LON-30",
         "prospective": "LON-32",
         "failure_case": "LON-33",
@@ -46,6 +45,15 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
         assert result["status"] == "pending"
         assert result["owner_issue"] == owner
         assert result["forecast"] is result["ablations"] is result["portfolio"] is None
+
+
+def test_extraction_preserves_coverage_denominators_and_provenance(report_client: TestClient) -> None:
+    original = _original("extraction.json")
+    result = report_client.get("/evaluation/reports/extraction")
+    assert result.status_code == 200
+    assert result.json()["kind"] == "extraction"
+    assert result.json()["extraction"] == original
+    assert result.json()["extraction"]["coverage"]["total_labels"] >= 40
 
 
 @pytest.mark.parametrize(
@@ -119,6 +127,7 @@ def test_missing_invalid_and_replaced_artifacts(
     original = _original("visa_full_model.json")
     monkeypatch.setattr(reports, "PACKAGE_ROOT", tmp_path)
     assert report_client.get("/evaluation/reports/full_model").json()["status"] == "pending"
+    assert report_client.get("/evaluation/reports/extraction").json()["status"] == "pending"
     assert report_client.get("/evaluation/documents/model-spec").json()["status"] == "pending"
     path = tmp_path / "data/evaluation/visa_full_model.json"
     path.parent.mkdir(parents=True)

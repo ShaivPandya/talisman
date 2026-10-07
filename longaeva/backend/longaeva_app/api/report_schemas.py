@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class ReportMetadata(BaseModel):
     key: str
     title: str
-    kind: Literal["forecast", "ablations", "portfolio", "pending"]
+    kind: Literal["forecast", "ablations", "portfolio", "extraction", "pending"]
     status: Literal["available", "pending"]
     reason: str | None = None
     owner_issue: str
@@ -137,10 +137,100 @@ class PortfolioReport(BaseModel):
     visa_buy_and_hold: PortfolioSeries
 
 
+class ExtractionErrorRate(BaseModel):
+    errors: int
+    denominator: int
+    rate: float | None
+
+
+class ExtractionCoverage(BaseModel):
+    total_passages: int
+    succeeded_passages: int
+    failed_passages: int
+    missing_passages: int
+    total_labels: int
+    disputed_labels: int
+    scored_labels: int
+    unavailable_labels: int
+    matched_labels: int
+    correct_labels: int
+    predictions: int
+
+
+class ExtractionReview(BaseModel):
+    status: Literal["pending", "reviewed"]
+    author: str
+    reviewer: str | None
+    reviewed_labels: int
+    selected_label_ids: list[str]
+    decisions: list[dict[str, Any]]
+
+
+class ExtractionDisagreement(BaseModel):
+    label_id: str | None
+    passage_id: str
+    company: str
+    family: str
+    categories: list[str]
+    errors: list[str]
+    expected: dict[str, Any] | None
+    actual: dict[str, Any] | None
+    source_url: str
+    page: int
+    rationale: str
+
+
+class ExtractionFailure(BaseModel):
+    passage_id: str
+    family: str
+    status: str
+    error: str | None
+
+
+class ExtractionCallMetadata(BaseModel):
+    passage_id: str
+    extraction_call_id: str
+    provider: str
+    model: str
+    prompt_version: str
+    prompt_hash: str
+    status: str
+    error: str | None
+    item_errors: list[dict[str, Any]]
+    attempts: int
+    latency_ms: int | None
+    input_tokens: int | None
+    output_tokens: int | None
+    created_at: str
+    cache_hit: bool
+    source_sha256: str
+    text_sha256: str
+
+
+class ExtractionReport(BaseModel):
+    suite_version: str
+    content_hash: str
+    corpus_hash: str
+    provider: str
+    model: str
+    prompt_version: str
+    numeric_tolerance: float
+    coverage: ExtractionCoverage
+    review: ExtractionReview
+    errors: dict[str, ExtractionErrorRate]
+    by_family: dict[str, dict[str, ExtractionErrorRate]]
+    by_category: dict[str, dict[str, ExtractionErrorRate]]
+    failures: list[ExtractionFailure]
+    disagreements: list[ExtractionDisagreement]
+    calls: list[ExtractionCallMetadata]
+    limitations: list[str]
+
+
 class SavedReportRead(ReportMetadata):
     forecast: ForecastReport | None = None
     ablations: AblationReport | None = None
     portfolio: PortfolioReport | None = None
+    extraction: ExtractionReport | None = None
 
 
 class ReportCatalog(BaseModel):
