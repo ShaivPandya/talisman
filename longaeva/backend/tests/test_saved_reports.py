@@ -32,7 +32,7 @@ def _original(filename: str) -> dict[str, Any]:
     return dict(json.loads((reports.PACKAGE_ROOT / "data/evaluation" / filename).read_text()))
 
 
-def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> None:
+def test_catalog_and_completed_document_without_db(report_client: TestClient) -> None:
     response = report_client.get("/evaluation/reports")
     assert response.status_code == 200
     catalog = {r["key"]: r for r in response.json()["reports"]}
@@ -41,10 +41,15 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
         "failure_case": "LON-33",
     }.items():
         result = report_client.get(f"/evaluation/reports/{key}").json()
-        assert result["status"] == "pending"
+        assert result["status"] == "available"
+        assert result["kind"] == "document"
+        assert result["document_key"] == "evaluation-report"
         assert result["owner_issue"] == owner
         assert result["forecast"] is result["ablations"] is result["portfolio"] is None
     assert catalog["llm_baseline"]["status"] == "available"
+    document = report_client.get("/evaluation/documents/evaluation-report").json()
+    assert "## Failure case" in document["markdown"]
+    assert "## Matched-origin baseline comparisons" in document["markdown"]
 
 
 def test_prospective_is_available_without_db_and_never_scored(report_client: TestClient) -> None:
@@ -152,6 +157,8 @@ def test_documents_and_unknown_keys(report_client: TestClient) -> None:
     assert result.status_code == 200
     assert result.json()["markdown"] == (reports.PACKAGE_ROOT / "docs/model-spec.md").read_text()
     assert result.json()["document_links"]["definitions.md"] == "definitions"
+    assert result.json()["document_links"]["mapping-rules.md"] == "mapping-rules"
+    assert result.json()["document_links"]["visa-parser.md"] == "visa-parser"
     for path in ["/evaluation/reports/secrets", "/evaluation/documents/secrets", "/evaluation/documents/%2E%2E%2F.env"]:
         assert report_client.get(path).status_code == 404
 
@@ -167,6 +174,7 @@ def test_missing_invalid_and_replaced_artifacts(
     assert report_client.get("/evaluation/reports/extraction").json()["status"] == "pending"
     assert report_client.get("/evaluation/reports/prospective").json()["status"] == "pending"
     assert report_client.get("/evaluation/documents/model-spec").json()["status"] == "pending"
+    assert report_client.get("/evaluation/reports/failure_case").json()["status"] == "pending"
     path = tmp_path / "data/evaluation/visa_full_model.json"
     path.parent.mkdir(parents=True)
     for invalid in ["not json", "[]", '{"origins":[]}']:

@@ -1,7 +1,7 @@
 # Visa model specification
 
-LON-19 / LON-20 · planning v1 · engine core settled October 3, 2026; calibration
-settled October 3, 2026.
+Consolidated for LON-33 on October 7, 2026. Engine and calibration definitions
+remain those used by the retained evaluation runs.
 
 This document describes the Visa quarterly operating model implemented in
 `backend/longaeva_app/companies/visa/` and the company-agnostic Monte Carlo engine in
@@ -11,8 +11,8 @@ the activity step below; with none active, this arithmetic is unchanged.
 
 ## 1. Overview
 
-Each simulation starts from a dated starting state (LON-3 fixtures today; LON-14 parser
-later), draws correlated factor shocks from a seeded generator, and advances four fiscal
+Each simulation starts from a dated starting state built by the Visa parser from
+cutoff-filtered observations, draws seeded correlated factor shocks, and advances four fiscal
 quarters. Company code never generates random numbers. All randomness arrives through
 factor draws so paired runs (LON-22) can share them exactly.
 
@@ -261,59 +261,84 @@ Re-measure:
 cd backend && .venv/bin/python -m longaeva_app.cli engine-benchmark --repeats 3
 ```
 
-## 9. Handoffs
+## 9. Evidence and rule provenance
 
-- **LON-14:** parsers must reproduce LON-3 fixtures; engine consumes the same field names.
-- **LON-20 (done):** chronological fit, ensemble weights, evidence UUIDs, sensitivity
-  table, and pandemic exclusion are implemented; see §6.1.
-- **LON-21 (done):** mapping rules turn reviewed Booking and Census observations into
-  a child parameter set with `parameter_update` provenance. Estimated rules fall back
-  to an analyst range until 12 aligned quarters exist. Qualitative observations and
-  the second-wave families stay context. See [`docs/mapping-rules.md`](mapping-rules.md).
-- **LON-22 (done):** `mix_shift_conserving_total` and `total_spend_reduction`, paired
-  runs on one seed, path-wise comparison from saved `paths.npz`, and model-conditional
-  attribution. See [`docs/scenarios.md`](scenarios.md). LON-34 should chart the
-  comparison endpoint and must not re-simulate to draw it.
-- **LON-23:** persist runs with seed, `n_paths`, parameter-set hash, switches and
-  output hash; see [`docs/runs-and-replay.md`](runs-and-replay.md).
-- **LON-25 (done):** the earnings/multiple bridge maps
-  `operating_profit_ex_special_items` paths, plus fixture `tax_rate` /
-  `net_interest_other` / `diluted_shares`, to forward EPS and a value grid.
-  The multiple band is the min/median/max trailing P/E from SEC repurchase
-  prices and EPS excluding special items, filtered by the run cutoff. See
-  [`docs/valuation.md`](valuation.md).
-- **LON-26 (done):** illustrative hold/add/trim/exit for a 1,000-share demo
-  position. The decision compares p50 value per share with the latest SEC
-  buyback average accepted by the cutoff. Costs and the 63-day holding period
-  live in `config/decision_rule.yaml`; `rule_hash` is
-  `d93e2e052b7dbc75f00c4691e8afa464ac54c8d5a9bde602037767ec9dbd3039`. An
-  unsupported bridge stays a reason, and the decision is hold. See
-  [`docs/actions.md`](actions.md). The outer envelope is not a probability.
-- **LON-27 (done):** evaluation harness calibrates at each origin, runs the full model,
-  scores levels and history-anchored YoY drivers, and records ensemble members/weights
-  per row. See [`docs/evaluation.md`](evaluation.md). Engine metric
-  `payments_volume_growth_constant` remains annualized QoQ; scoring recovers quarterly
-  rates before the YoY transform.
-- **LON-29 (done):** seasonal/trend, financial-only and company guidance run through
-  the harness on the same origins, actuals and seeds. See [`docs/evaluation.md`](evaluation.md).
-  Financial-only matches `full_model` until external updates are applied.
-- **LON-30:** same-document LLM forecast baseline. Do not label it consensus, and
-  do not reuse the company-guidance rows.
-- **LON-31:** ablation (a) is what makes `full_model` differ from `financial_only`.
-  Keep the same origins, actuals, seeds and metrics.
-- **LON-32:** the state builder produces the FY2026Q3 prospective start; reuse the
-  sensitivity harness for ablations.
-- **LON-33:** cite `data/evaluation/visa_full_model.json` and the three
-  `visa_{seasonal_trend,financial_only,guidance}.json` files, each with its `n`
-  and exclusions. Do not read an external-evidence effect off the
-  full-model / financial-only pair; those aggregates are equal.
-- **LON-36:** `GET /evaluation-results` needs `model_variant` / `config_hash` filters
-  and a higher limit (~800 rows per variant). The Valuation page should call
-  `POST /valuation/bridge` and `GET /valuation/multiples` (LON-25) and draw the
-  earnings-driven and multiple-driven spreads separately. The actions table
-  should call `POST /valuation/actions` and keep the illustrative and
-  buyback-average labels (LON-26). Do not draw a gap when status is
-  `unsupported`.
-- **LON-37:** load observations under the deterministic UUIDs so evidence links resolve.
-- **Parser follow-up:** extract FY2020/FY2021 10-K 12-month PV tables to recover
-  FY2022Q3 and FY2022Q4.
+The [definitions](definitions.md) cite retained SEC originals for accounting and
+activity definitions; [Visa parser](visa-parser.md) documents extraction and
+first-print selection. The model implements effective revenue relationships,
+not published contractual fee schedules. Each simulation rule below is either
+supported by those disclosures or explicitly a modeling assumption.
+
+| Rule / input | Evidence and implementation | Status / limitation |
+| --- | --- | --- |
+| Starting levels and recurring opex | Parsed release/10-Q observations, source IDs, spans and publication timestamps; `companies/visa/state.py`, `extract/visa_tables.py` | Accounting measurements, with identified special items removed from modeled opex; missing required fields refuse a state |
+| Service revenue on prior-quarter volume | Definitions §4; reported service-revenue timing; `transitions.py` | Disclosed timing, effective lag-basis yield; no contractual fee inferred |
+| Data-processing revenue on processed transactions | Definitions §2.4 and revenue definitions; `transitions.py` | Driver relationship from disclosures; effective yield absorbs business mix |
+| International revenue on cross-border activity | Definitions §3 and revenue definitions; `transitions.py` | Disclosed growth basis; absolute share/level is an analyst assumption |
+| Other revenue, incentives, net revenue, profit | Retained category amounts and accounting identities; definitions and `transitions.py` | Effective drifts and incentive intensity are modeled; ex-special-items profit differs from GAAP |
+| Activity, seasonal effects, yields, opex and shock scales | Chronological calibration §6.1, `data/calibration/visa_<date>.json` evidence index | Fits and ranges use cutoff-known observations; cross-border seasonality and sparse-history fallbacks are assumptions |
+| Correlated shocks | Seeded sampler §3 and calibrated macro residual correlations | Gaussian factor model is assumed; PSD projection is numerical regularization, not economic evidence |
+| Booking room nights / guidance → cross-border premium | `booking_room_nights_to_cross_border_premium` v1 and `booking_guidance_to_cross_border_premium` v1; retained Booking observations | Sparse aligned history uses an analyst-range fallback; geography and business coverage differ |
+| Census retail growth → payments-volume growth | `census_retail_yoy_to_payments_volume_growth` v2; verified trailing-three-month SA quarter-end releases | Fit uses eligible aligned history when sufficient, otherwise an explicit fallback; US share scaling remains assumed |
+| Airline, retailer and processor statements | `airline_context`, `retailer_context`, `processor_context` v1 | Context only; no adopted numerical parameter transform |
+| Intervention and attribution rules | [Scenarios](scenarios.md), saved baseline/intervention paths | User-specified model interventions; sequential and one-at-a-time attribution are model-conditional |
+| Earnings/multiple bridge and action rule | [Valuation](valuation.md), [actions](actions.md), `config/decision_rule.yaml` | Illustrative assumptions; buyback average is not a market close; separate earnings and multiple spreads |
+
+The authoritative [mapping registry](mapping-rules.md) states constants,
+alignment, priority and fallback rules. Full-model artifacts retain reviewed
+source snapshots, rule hashes, parent parameter hashes, before/after values and
+context/no-effect reasons in each origin's `inputs`. Qualitative statements and
+LLM confidence never become probabilities. Financial-only and the
+no-external-commentary ablation rebuild from the calibrated parent; the full
+model applies adopted Booking/Census rules. They are no longer identical by
+construction.
+
+## 10. Evaluation definitions and retained evidence
+
+[The evaluation report](evaluation-report.md) is the consolidated, generated
+record of sample counts, exclusions, matched comparisons and source hashes.
+[Evaluation methodology](evaluation.md) describes target transformations and
+baselines; [LLM baseline](llm-baseline.md) documents evidence excerpts and capture.
+
+- Point errors use the predictive median: signed error = median − actual,
+  absolute error = its magnitude, and percentage error = absolute error / |actual|.
+  Percentage error is unavailable at a zero actual and is not used for drivers.
+- Coverage is the inclusive interval from quantile 0.1 to 0.9. CRPS for sampled
+  forecasts is `mean(|X−y|) − mean(|X−X'|)/2` over empirical paths.
+- The **implemented WIS variant** is `(abs(median−y) + Σ[(α/2)(u−l) +
+  max(l−y,0) + max(y−u,0)]) / (K+1)`, with central intervals 50%, 80%, 90%,
+  `α = 1 − coverage`, and `K = 3`. It gives the median absolute-error term
+  weight 1. This is the repository's retained weighting, not the common
+  median-weight-1/2, denominator-`K+1/2` normalization. It is used consistently
+  across saved comparisons; this reporting change does not rescore history.
+- Levels are USD millions. Driver target values are YoY ratios and their errors
+  are displayed in percentage points. Engine driver paths remain annualized QoQ;
+  the harness performs the documented history-anchored conversion before scoring.
+- Four-quarter level targets are sums; driver targets are fourth-quarter YoY.
+  They have separate eligibility and denominators and overlap adjacent origins.
+- Baselines comprise seasonal/trend, financial-only, company guidance, and a
+  same-source evidence-excerpt LLM forecast. Guidance is not consensus. LLM
+  quantiles support median errors, coverage and WIS, but not mean or CRPS;
+  guidance and the LLM baseline have no four-quarter forecast.
+- Ablations remove external commentary, pool spending, or remove service lag.
+  The retained persistence suite uses central and predefined one-at-a-time low/high
+  settings. Those profiles do not increase the number of independent origins.
+
+The source ledger retains the code fingerprints actually used. A later
+report-only code change does not invalidate historical outputs. The generator
+checks source hashes and aggregates from exported score rows without fitting,
+replaying simulations, capturing provider responses or rewriting the forecast.
+
+## 11. Prospective registration and remaining package work
+
+The frozen FY2026Q4 registration contains its actual October creation timestamp,
+July evidence cutoff, inputs, hashes and paths. It forecasts unpublished results
+for a quarter that had already ended. It is not scored in the retrospective
+report. [The report's prospective procedure](evaluation-report.md) explains how
+later actuals must be recorded and scored separately without changing the archive.
+
+The result pages read packaged reports without running scoring. The final report,
+model specification and failure case are available through the saved-document API.
+Bundled saved runs/demo seeding remain LON-37; final clean-environment export
+validation remains LON-38. Recovering the two excluded extension origins requires
+additional FY2020/FY2021 10-K volume parsing; this report does not fill those gaps.

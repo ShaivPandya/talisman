@@ -529,3 +529,19 @@ python3.12 -m venv .venv
 See `docs/reuse-notes.md` for Talisman pattern provenance (copied/adapted, never imported).
 
 Demo data arrives in LON-37.
+
+## Evaluation report and model specification
+
+Open **Evaluation → Report & model** for the completed
+[evaluation report and failure case](docs/evaluation-report.md),
+[model specification](docs/model-spec.md), and [limitations](docs/limitations.md).
+The report traces numbers to saved artifacts and distinguishes historical
+forecasts, extraction labels, benchmark windows and the unscored prospective run.
+
+```bash
+make evaluation-report                # regenerate delimited tables from retained evidence
+make evaluation-report ARGS=--check   # validate inputs and detect stale generated sections
+```
+
+Both use the installed backend virtualenv and work without Postgres, network or
+provider credentials. Authored analysis and prospective instructions are preserved.

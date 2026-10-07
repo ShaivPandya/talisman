@@ -2,6 +2,11 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 .PHONY: capture-llm-baseline evaluate-llm-baseline
+
+.PHONY: evaluation-report
+evaluation-report:
+	cd backend && .venv/bin/python -m longaeva_app.cli evaluation-report $(ARGS)
+
 .PHONY: register-prospective replay-prospective
 
 register-prospective:
@@ -32,7 +37,7 @@ GUARD_ARGS ?=
 .PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction evaluate-llm-baseline capture-llm-baseline"
+	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction evaluate-llm-baseline capture-llm-baseline evaluation-report"
 
 # Offline: no database, provider, or API key required. Capture is an explicit separate command.
 evaluate-extraction:

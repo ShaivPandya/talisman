@@ -8,10 +8,11 @@ from pydantic import BaseModel, Field
 class ReportMetadata(BaseModel):
     key: str
     title: str
-    kind: Literal["forecast", "ablations", "portfolio", "extraction", "prospective", "pending"]
+    kind: Literal["forecast", "ablations", "portfolio", "extraction", "prospective", "document", "pending"]
     status: Literal["available", "pending"]
     reason: str | None = None
     owner_issue: str
+    document_key: str | None = None
 
 
 class ReportExclusion(BaseModel):

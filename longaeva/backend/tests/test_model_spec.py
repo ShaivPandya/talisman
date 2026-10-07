@@ -56,7 +56,9 @@ def test_model_spec_required_sections() -> None:
         "## 6. Parameters",
         "## 7. Outputs",
         "## 8. Performance (NR-01)",
-        "## 9. Handoffs",
+        "## 9. Evidence and rule provenance",
+        "## 10. Evaluation definitions and retained evidence",
+        "## 11. Prospective registration and remaining package work",
     ):
         assert heading in text, heading
     model = VisaModel()

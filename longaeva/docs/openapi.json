@@ -4903,6 +4903,17 @@
       },
       "ReportMetadata": {
         "properties": {
+          "document_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Key"
+          },
           "key": {
             "title": "Key",
             "type": "string"
@@ -4914,6 +4925,7 @@
               "portfolio",
               "extraction",
               "prospective",
+              "document",
               "pending"
             ],
             "title": "Kind",
@@ -5579,6 +5591,17 @@
               }
             ]
           },
+          "document_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Document Key"
+          },
           "extraction": {
             "anyOf": [
               {
@@ -5610,6 +5633,7 @@
               "portfolio",
               "extraction",
               "prospective",
+              "document",
               "pending"
             ],
             "title": "Kind",

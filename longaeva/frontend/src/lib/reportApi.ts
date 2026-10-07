@@ -3,10 +3,11 @@ import { apiGet, apiPost } from "./api"
 export interface ReportMetadata {
   key: string
   title: string
-  kind: "forecast" | "ablations" | "portfolio" | "extraction" | "prospective" | "pending"
+  kind: "forecast" | "ablations" | "portfolio" | "extraction" | "prospective" | "document" | "pending"
   status: "available" | "pending"
   reason: string | null
   owner_issue: string
+  document_key?: string | null
 }
 export interface DocumentMetadata {
   key: string

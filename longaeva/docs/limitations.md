@@ -1,7 +1,8 @@
 # Limitations
 
-Living document for packaging, licensing and evaluation caveats. LON-33 and LON-38
-extend this file; LON-12 adds the personal-data and secrets checklist below.
+Packaging, licensing and evaluation caveats consolidated for LON-33. See the
+[evaluation report](evaluation-report.md) for measured results and the documented
+failure case. Final export verification remains LON-38.
 
 ## Personal data and secrets (LON-12 / PR-07)
 
@@ -128,11 +129,10 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 
 ## Baselines (LON-29)
 
-- **Financial-only currently equals the full model.** The harness applies no
-  external mapping rules, so `visa_financial_only.json` and `visa_full_model.json`
-  have the same aggregates. That is not a finding about Booking, Census or the
-  second-wave families. The comparison becomes informative when LON-31 ablation
-  (a) and LON-15 Census vintages wire those updates into `full_model` only.
+- **External effects are conditional.** The full model now applies reviewed Booking
+  and Census mapping rules; financial-only matches the no-external-commentary
+  ablation. Effects are mixed across targets, horizons and retained parameter
+  ranges. They are not evidence of a generally predictive external signal.
 - **Deck guidance is a different basis from the actual.** Outlook slides state
   adjusted constant-dollar growth. Scoring uses GAAP nominal actuals. Rows carry
   `basis_note`. The residual distribution absorbs the systematic gap; it is not
@@ -202,10 +202,10 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **US share is assumed.** Census is scaled by 0.45, an explicit assumption for the
   US share of Visa volume. No observation parses that share. `payments_volume_nominal_us`
   is US dollars, not the United States.
-- **Estimated rules are on the fallback.** Booking and Census each have fewer than 12
-  aligned quarters in the retained fixtures, so the OLS fitter records
-  `after_value.fallback=true` and flags the update as an assumption. The fitter runs
-  once 12 quarters are published at or before the cutoff, with no rule-code change.
+- **Estimated rules depend on retained history.** Booking remains sparse and uses
+  an analyst fallback. Census fits when at least 12 eligible aligned quarter-end
+  pairs exist; otherwise it records a fallback assumption. A fitted slope still
+  reflects the selected retrospective corpus and the assumed US scaling.
 - **Guidance widens the range.** A low–high outlook uses the midpoint as the point
   update and the half-width in the recorded range. That width is not a probability.
 - **The first apply wins the update text.** Re-applying the same child hash does not
@@ -261,9 +261,8 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without
   credentials. Do not expose Compose ports beyond `127.0.0.1`.
-- **PairedDiffChart is not mounted.** Path-wise differences are available from
-  `GET /scenarios/comparison` (LON-22). The chart component and the scenario
-  workspace land in LON-34. Subtracting two runs' quantiles is not that statistic.
+- **Paired charts read saved differences.** The scenario workspace is implemented.
+  Subtracting two independently summarized quantiles is not a paired effect.
 - **Metric labels are a frontend catalog** aligned with `VisaModel.metrics`. The results
   API does not send units; unknown metric keys fall back to raw numbers.
 - **Playwright is not in this package yet.** Frontend checks are ESLint, Vitest, and
@@ -274,9 +273,9 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Log lives outside the package.** Validation logs belong in Talisman's
   `docs/hackathon/planning/validation/` and are attached to the Linear issue; they are
   not bundled in the ZIP.
-- **UF-01 / UF-03 browser flows are not automated.** This rehearsal smokes HTTP and
-  charts via the existing Run page; Playwright and the full scenario workspace land in
-  LON-34 / LON-36.
+- **Early rehearsal scope.** The LON-24 rehearsal checked the original run page.
+  Scenario and result pages have since been implemented and inspected; the final
+  exported application still requires the LON-38 clean-environment validation.
 - **Cold image builds need the network.** `--no-cache` pulls from PyPI and npm.
 - **Docker Desktop must share `/tmp`.** The verifier unpacks under `/tmp/longaeva-verify.*`
   and bind-mounts that tree into Compose. If file sharing excludes `/tmp`, `make up`
@@ -302,3 +301,29 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   search over 5,000 synthetic passages. The demo seed is LON-37. The corpus
   collected in development is smaller than that fixture.
 
+
+## Consolidated evidence (LON-33)
+
+- **Retrospective development.** Publication cutoffs prevent later supplied inputs;
+  they cannot remove retrospective source selection, review or model choices.
+  Pretrained LLM knowledge may contain outcomes. The retained LLM comparison uses
+  evidence excerpts, not complete filings or a historical live workflow.
+- **Different denominators.** Missing baseline targets and unavailable four-quarter
+  forecasts stay missing. The report uses matched origins for direct comparisons;
+  Monte Carlo paths, metrics and sensitivity profiles do not increase independent n.
+- **Metric convention.** WIS uses the repository's median-weight-1, denominator-K+1
+  variant documented in the model specification. Do not compare these scores with
+  another implementation's normalization without aligning formulas.
+- **Extraction sample.** The curated passages are purposive; user review covers the
+  selected labels, not the whole corpus. Scope, basis and omission errors have
+  different denominators. An extraction error rate is not a forecast error rate.
+- **Portfolio comparisons unavailable.** Benchmark returns use the exact approximation
+  labels in the report. No license-compliant free daily Visa price source was retained,
+  so strategy, buy-and-hold and excess-return metrics are not run. Overlapping benchmark
+  windows are not an investable portfolio track record.
+- **Prospective timing.** The July-cutoff registration was created in October after
+  fiscal quarter end and before results publication. It remains unscored; later
+  actuals must not alter its original archive or historical sample counts.
+- **Report validation limits.** Generation validates retained source hashes, exported
+  scores and denominators. It does not independently reproduce old simulations,
+  recover absent distribution tails or certify primary-source extraction accuracy.

@@ -18,6 +18,18 @@ def cmd_seed_demo(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_evaluation_report(args: argparse.Namespace) -> int:
+    from longaeva_app.evaluation.report import update_report
+
+    try:
+        current = update_report(check=args.check)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"Evaluation report validation failed: {exc}")
+        return 1
+    print("Evaluation report is current." if current else "Evaluation report is stale; run make evaluation-report.")
+    return 0 if current else 1
+
+
 def cmd_register_prospective(args: argparse.Namespace) -> int:
     from longaeva_app.config import get_settings
     from longaeva_app.db.session import get_session_factory
@@ -1027,6 +1039,12 @@ def cmd_capture_extraction(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="longaeva", description="Longaeva CLI")
     sub = parser.add_subparsers(dest="command", required=True)
+
+    report = sub.add_parser("evaluation-report", help="Generate the consolidated report offline from saved evidence")
+    report.add_argument(
+        "--check", action="store_true", help="Validate evidence and fail if generated sections are stale"
+    )
+    report.set_defaults(func=cmd_evaluation_report)
 
     from longaeva_app.evaluation.extraction_scoring import FIXTURE_DIR
 

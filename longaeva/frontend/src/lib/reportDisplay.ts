@@ -84,6 +84,13 @@ export const REPLAY_LABELS: Record<ReplayReport["status"], string> = {
   inputs_changed: "Pinned inputs have changed",
 }
 export const fmtReturn = fmtRatioPct
+export function evaluationDocumentSelection(params: URLSearchParams) {
+  const legacy = params.get("section") === "pending"
+  return {
+    section: legacy ? "documents" : (params.get("section") ?? "forecasts"),
+    documentKey: legacy ? "evaluation-report" : (params.get("document") ?? "evaluation-report"),
+  }
+}
 export function documentHref(
   href: string | undefined,
   links: Record<string, string>,

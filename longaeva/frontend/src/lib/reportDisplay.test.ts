@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 import {
   coverageLabel,
   extractionRate,
+  evaluationDocumentSelection,
   documentHref,
   fmtScore,
   horizonTarget,
@@ -106,4 +107,13 @@ describe("saved report display", () => {
       "https://www.sec.gov/",
     )
   })
+})
+
+it("defaults to the completed report and resolves old pending links", () => {
+  expect(evaluationDocumentSelection(new URLSearchParams("section=documents")))
+    .toEqual({ section: "documents", documentKey: "evaluation-report" })
+  expect(evaluationDocumentSelection(new URLSearchParams("section=pending")))
+    .toEqual({ section: "documents", documentKey: "evaluation-report" })
+  expect(evaluationDocumentSelection(new URLSearchParams("section=documents&document=model-spec")))
+    .toEqual({ section: "documents", documentKey: "model-spec" })
 })

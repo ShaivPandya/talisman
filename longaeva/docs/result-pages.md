@@ -67,21 +67,17 @@ HTML disabled. Registered document links navigate within the viewer; other local
 file links remain text. External HTTP(S) links are retained. Selection survives
 reload. Missing documents have explicit availability messages.
 
-### Deferred content ownership
+### Completed report content (LON-33)
 
-The approved LON-36 scope supplies visible availability states for later work:
+Extraction, the LLM baseline, prospective registration and the consolidated report
+are available. **Report & model** opens the final report by default, including its
+failure case; the model specification and limitations remain selectable. Legacy
+`section=pending` links open the final report. LON-37 still owns saved demo runs
+and seeding.
 
-| Section | Owning issue |
-| --- | --- |
-| Extraction error sample | LON-18, step 33 |
-| LLM same-document baseline | LON-30, step 34 |
-| Prospective Q4 FY2026 registration | LON-32, step 35 |
-| Final evaluation report and failure case | LON-33, step 36 |
-
-These are not scored as zero or presented as completed. Later issues must register
-their artifact projections and replace the relevant pending section. The final
-report document already resolves `docs/evaluation-report.md` when it becomes
-available. LON-37 still owns bundled saved runs and demo seeding.
+`failure_case` remains a valid report key. Its metadata uses `kind=document` and
+`document_key=evaluation-report`, with availability inherited from the saved
+Markdown document. It does not return a duplicate numerical projection.
 
 ## Replay
 

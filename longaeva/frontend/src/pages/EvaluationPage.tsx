@@ -15,7 +15,11 @@ import {
   type ReportCatalog,
   type SavedReport,
 } from "@/lib/reportApi"
-import { EVALUATION_TARGETS, TARGET_LABELS } from "@/lib/reportDisplay"
+import {
+  EVALUATION_TARGETS,
+  TARGET_LABELS,
+  evaluationDocumentSelection,
+} from "@/lib/reportDisplay"
 
 const FORECAST_KEYS = [
   "full_model",
@@ -34,12 +38,11 @@ const SECTIONS = {
   extraction: "Extraction",
   prospective: "Prospective",
   documents: "Report & model",
-  pending: "Pending content",
 }
 
 export function EvaluationPage() {
   const [params, setParams] = useSearchParams()
-  const rawSection = params.get("section") ?? "forecasts"
+  const { section: rawSection, documentKey } = evaluationDocumentSelection(params)
   const section = rawSection in SECTIONS ? rawSection : "forecasts"
   const target = EVALUATION_TARGETS.includes(
     params.get("target") as (typeof EVALUATION_TARGETS)[number],
@@ -58,7 +61,6 @@ export function EvaluationPage() {
     ? params.get("variant")!
     : "full_model"
   const profile = params.get("profile") ?? "central"
-  const documentKey = params.get("document") ?? "evaluation-notes"
   const [revision, setRevision] = useState(0)
   const [catalog, setCatalog] = useState<ReportCatalog | null>(null)
   const [catalogError, setCatalogError] = useState<string | null>(null)
@@ -300,35 +302,6 @@ export function EvaluationPage() {
           </label>
           <SavedDocument documentKey={documentKey} />
         </>
-      )}
-      {section === "pending" && (
-        <div className="space-y-4">
-          {catalog?.reports
-            .filter((r) => r.kind === "pending")
-            .map((r) => (
-              <SurfaceCard key={r.key} className="p-5">
-                <h2 className="font-semibold">{r.title}</h2>
-                <p className="body-copy mt-2">{r.reason}</p>
-                <p className="caption mt-2">Owned by {r.owner_issue}</p>
-                {r.key === "failure_case" && (
-                  <button
-                    className="theme-button-base theme-button-secondary mt-3"
-                    onClick={() => {
-                      const next = new URLSearchParams(params)
-                      next.set("section", "documents")
-                      next.set("document", "evaluation-report")
-                      setParams(next)
-                    }}
-                  >
-                    Open final report availability
-                  </button>
-                )}
-              </SurfaceCard>
-            ))}
-        </div>
-      )}
-      {section === "pending" && !catalog && !catalogError && (
-        <p role="status">Loading availability…</p>
       )}
     </div>
   )

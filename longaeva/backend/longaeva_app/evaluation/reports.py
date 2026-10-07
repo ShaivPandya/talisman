@@ -45,16 +45,19 @@ REPORTS = {
         "LON-32",
         "../demo/forecasts/prospective_fy2026q4.json",
     ),
-    "failure_case": ("Final report and failure case", "pending", "LON-33", None),
+    "failure_case": ("Final report and failure case", "document", "LON-33", "evaluation-report"),
 }
 DOCUMENTS = {
     "evaluation-notes": ("Evaluation notes", "LON-27", "docs/evaluation.md"),
+    "extraction-scores": ("Extraction scored labels", "LON-18", "data/evaluation/extraction.md"),
     "extraction-eval": ("Extraction evaluation guide", "LON-18", "docs/extraction-eval.md"),
     "llm-baseline": ("LLM forecast baseline guide", "LON-30", "docs/llm-baseline.md"),
-    "model-spec": ("Model specification", "LON-19", "docs/model-spec.md"),
+    "model-spec": ("Model specification", "LON-33", "docs/model-spec.md"),
     "evaluation-report": ("Final evaluation report", "LON-33", "docs/evaluation-report.md"),
     "limitations": ("Limitations", "LON-33", "docs/limitations.md"),
     "definitions": ("Visa definitions", "LON-2", "docs/definitions.md"),
+    "visa-parser": ("Visa parser", "LON-14", "docs/visa-parser.md"),
+    "mapping-rules": ("Mapping rules", "LON-21", "docs/mapping-rules.md"),
     "scenarios": ("Scenarios", "LON-22", "docs/scenarios.md"),
     "valuation": ("Valuation bridge", "LON-25", "docs/valuation.md"),
     "actions": ("Illustrative actions", "LON-26", "docs/actions.md"),
@@ -67,6 +70,18 @@ def report_metadata(key: str) -> ReportMetadata:
     if key not in REPORTS:
         raise HTTPException(404, "Unknown saved report")
     title, kind, owner, filename = REPORTS[key]
+    if kind == "document":
+        assert filename is not None
+        document = document_metadata(filename)
+        return ReportMetadata(
+            key=key,
+            title=title,
+            kind="document",
+            owner_issue=owner,
+            status=document.status,
+            reason=document.reason,
+            document_key=filename,
+        )
     available = filename is not None and (PACKAGE_ROOT / "data/evaluation" / filename).is_file()
     return ReportMetadata.model_validate(
         {
@@ -150,7 +165,7 @@ def _cached_report(key: str, path: Path, mtime: int, size: int) -> dict[str, Any
 
 def saved_report(key: str) -> SavedReportRead:
     metadata = report_metadata(key)
-    if metadata.status == "pending":
+    if metadata.status == "pending" or metadata.kind == "document":
         return SavedReportRead(**metadata.model_dump())
     filename = REPORTS[key][3]
     assert filename is not None
