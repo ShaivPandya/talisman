@@ -84,7 +84,7 @@ export function AppShell() {
               to={item.to}
               className={({ isActive }) =>
                 cx(
-                  "theme-badge whitespace-nowrap",
+                  "theme-badge shrink-0 whitespace-nowrap",
                   isActive ? "theme-badge-info" : "theme-badge-neutral",
                 )
               }

@@ -144,6 +144,15 @@ export function RunDetailPage() {
         </div>
         {run ? (
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              className="text-link text-sm"
+              to={`/valuation?run_id=${run.id}`}
+            >
+              Valuation & Actions
+            </Link>
+            <Link className="text-link text-sm" to={`/replay?run_id=${run.id}`}>
+              Replay
+            </Link>
             <span className={statusClass(run.status)}>{run.status}</span>
             {run.baseline_run_id && (
               <Link

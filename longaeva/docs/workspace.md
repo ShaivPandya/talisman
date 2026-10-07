@@ -1,5 +1,8 @@
 # Scenario workspace (LON-34)
 
+Valuation, evaluation and replay pages are documented in
+[`result-pages.md`](result-pages.md) (LON-36).
+
 Start with `make up`, then open the web app on port 3000. State & Evidence and
 Scenarios work on an empty database, without collector commands, internet data
 access, or LLM credentials. The workspace uses the two bundled calibrated origins:

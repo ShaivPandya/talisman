@@ -14,6 +14,7 @@ from longaeva_app.api.routers import (
     jobs,
     observations,
     parameters,
+    reports,
     review,
     runs,
     scenarios,
@@ -43,6 +44,7 @@ app.include_router(runs.router)
 app.include_router(valuation.router)
 app.include_router(forecasts.router)
 app.include_router(evaluation.router)
+app.include_router(reports.router)
 app.include_router(workspace.router)
 
 

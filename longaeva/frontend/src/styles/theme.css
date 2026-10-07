@@ -45,9 +45,11 @@
     --disabled: 220 8% 72%;
 
     --shadow-color: 220 26% 10%;
-    --shadow-soft: 0 1px 2px hsl(var(--shadow-color) / 0.06),
+    --shadow-soft:
+      0 1px 2px hsl(var(--shadow-color) / 0.06),
       0 10px 30px hsl(var(--shadow-color) / 0.05);
-    --shadow-floating: 0 10px 25px hsl(var(--shadow-color) / 0.12),
+    --shadow-floating:
+      0 10px 25px hsl(var(--shadow-color) / 0.12),
       0 3px 10px hsl(var(--shadow-color) / 0.08);
 
     --chart-grid: 220 18% 88%;
@@ -106,9 +108,11 @@
     --disabled: 219 8% 36%;
 
     --shadow-color: 220 45% 2%;
-    --shadow-soft: 0 1px 1px hsl(var(--shadow-color) / 0.25),
+    --shadow-soft:
+      0 1px 1px hsl(var(--shadow-color) / 0.25),
       0 12px 40px hsl(var(--shadow-color) / 0.22);
-    --shadow-floating: 0 20px 45px hsl(var(--shadow-color) / 0.42),
+    --shadow-floating:
+      0 20px 45px hsl(var(--shadow-color) / 0.42),
       0 6px 14px hsl(var(--shadow-color) / 0.2);
 
     --chart-grid: 223 12% 28%;
@@ -143,17 +147,20 @@
     min-height: 100%;
     margin: 0;
     background:
-      radial-gradient(circle at top, hsl(var(--accent) / 0.08), transparent 28%),
-      linear-gradient(180deg, hsl(var(--background-card-muted)) 0%, hsl(var(--background)) 22%);
+      radial-gradient(
+        circle at top,
+        hsl(var(--accent) / 0.08),
+        transparent 28%
+      ),
+      linear-gradient(
+        180deg,
+        hsl(var(--background-card-muted)) 0%,
+        hsl(var(--background)) 22%
+      );
     color: hsl(var(--foreground));
     font-family:
-      -apple-system,
-      BlinkMacSystemFont,
-      "SF Pro Text",
-      "SF Pro Display",
-      "Segoe UI",
-      system-ui,
-      sans-serif;
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+      "Segoe UI", system-ui, sans-serif;
     line-height: 1.5;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -208,8 +215,7 @@
 
 @layer components {
   .theme-page {
-    padding:
-      max(1rem, var(--safe-top))
+    padding: max(1rem, var(--safe-top))
       max(1rem, calc(1rem + var(--safe-right)))
       max(1.5rem, calc(1.5rem + var(--safe-bottom)))
       max(1rem, calc(1rem + var(--safe-left)));
@@ -470,8 +476,11 @@
   }
 
   .theme-sidebar {
-    background:
-      linear-gradient(180deg, hsl(var(--background-card) / 0.94), hsl(var(--background-grouped) / 0.88));
+    background: linear-gradient(
+      180deg,
+      hsl(var(--background-card) / 0.94),
+      hsl(var(--background-grouped) / 0.88)
+    );
     backdrop-filter: blur(20px) saturate(155%);
   }
 
@@ -737,7 +746,9 @@
   }
 
   .mono-text {
-    font-family: ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas, monospace;
+    font-family:
+      ui-monospace, "SFMono-Regular", "SF Mono", Menlo, Monaco, Consolas,
+      monospace;
   }
 
   .safe-bottom {
@@ -757,11 +768,122 @@
   padding: 1.5rem;
   color: hsl(var(--foreground));
 }
-.evidence-dialog::backdrop { background: hsl(var(--background-overlay) / 0.55); }
-.evidence-passage { line-height: 1.75; overflow-wrap: anywhere; font-size: .9rem; }
-.evidence-passage mark { background: hsl(var(--warning-muted)); color: hsl(var(--foreground)); padding: .1rem .2rem; font-weight: 600; }
-.workspace-table { width: 100%; text-align: left; font-size: .875rem; }
-.workspace-table th { font-weight: 600; color: hsl(var(--foreground-tertiary)); font-size: .75rem; }
-.workspace-table th, .workspace-table td { padding: 1rem; border-bottom: 1px solid hsl(var(--border)); vertical-align: top; }
-.workspace-table tr:last-child td { border-bottom: 0; }
-.workspace-table td { min-width: 130px; }
+.evidence-dialog::backdrop {
+  background: hsl(var(--background-overlay) / 0.55);
+}
+.evidence-passage {
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+  font-size: 0.9rem;
+}
+.evidence-passage mark {
+  background: hsl(var(--warning-muted));
+  color: hsl(var(--foreground));
+  padding: 0.1rem 0.2rem;
+  font-weight: 600;
+}
+.workspace-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.workspace-table th {
+  font-weight: 600;
+  color: hsl(var(--foreground-tertiary));
+  font-size: 0.75rem;
+}
+.workspace-table th,
+.workspace-table td {
+  padding: 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: top;
+}
+.workspace-table tr:last-child td {
+  border-bottom: 0;
+}
+.workspace-table td {
+  min-width: 130px;
+}
+
+/* Saved report tables scroll within their cards on narrow screens. */
+.report-illustrative {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.report-table {
+  width: 100%;
+  text-align: left;
+  font-size: 0.875rem;
+  border-collapse: collapse;
+}
+.report-table caption {
+  text-align: left;
+  padding: 1rem;
+  font-weight: 600;
+}
+.report-table th {
+  font-weight: 600;
+  color: hsl(var(--foreground-tertiary));
+  font-size: 0.75rem;
+}
+.report-table th,
+.report-table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid hsl(var(--border));
+  vertical-align: top;
+  min-width: 95px;
+}
+.report-table tr:last-child td {
+  border-bottom: 0;
+}
+.report-pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  padding: 1rem;
+  margin-top: 0.75rem;
+  background: hsl(var(--background-muted));
+  border-radius: 0.5rem;
+}
+.saved-markdown {
+  overflow-wrap: anywhere;
+  line-height: 1.75;
+  font-size: 0.9rem;
+}
+.saved-markdown h1 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+.saved-markdown h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 1.5rem 0 0.75rem;
+}
+.saved-markdown h3 {
+  font-weight: 600;
+  margin: 1.25rem 0 0.5rem;
+}
+.saved-markdown p,
+.saved-markdown ul,
+.saved-markdown ol {
+  margin: 0.75rem 0;
+}
+.saved-markdown ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+}
+.saved-markdown ol {
+  list-style: decimal;
+  padding-left: 1.25rem;
+}
+.saved-markdown blockquote {
+  border-left: 3px solid hsl(var(--border));
+  padding-left: 1rem;
+  color: hsl(var(--foreground-secondary));
+}
+.saved-markdown code {
+  font-size: 0.8rem;
+}

@@ -1,6 +1,135 @@
 {
   "components": {
     "schemas": {
+      "AblationComparison": {
+        "properties": {
+          "ablated_coverage": {
+            "title": "Ablated Coverage",
+            "type": "number"
+          },
+          "ablated_covered": {
+            "title": "Ablated Covered",
+            "type": "integer"
+          },
+          "ablated_wins": {
+            "title": "Ablated Wins",
+            "type": "integer"
+          },
+          "full_coverage": {
+            "title": "Full Coverage",
+            "type": "number"
+          },
+          "full_covered": {
+            "title": "Full Covered",
+            "type": "integer"
+          },
+          "full_wins": {
+            "title": "Full Wins",
+            "type": "integer"
+          },
+          "mean_ablated_minus_full": {
+            "title": "Mean Ablated Minus Full",
+            "type": "number"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n",
+          "full_wins",
+          "ablated_wins",
+          "ties",
+          "mean_ablated_minus_full",
+          "full_covered",
+          "ablated_covered",
+          "full_coverage",
+          "ablated_coverage"
+        ],
+        "title": "AblationComparison",
+        "type": "object"
+      },
+      "AblationReport": {
+        "properties": {
+          "config_hashes": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            "title": "Config Hashes",
+            "type": "object"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "delta_convention": {
+            "title": "Delta Convention",
+            "type": "string"
+          },
+          "profile_policy": {
+            "title": "Profile Policy",
+            "type": "string"
+          },
+          "robustness": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RobustnessCount"
+            },
+            "title": "Robustness",
+            "type": "object"
+          },
+          "settings": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ]
+              },
+              "type": "object"
+            },
+            "title": "Settings",
+            "type": "object"
+          },
+          "suite_version": {
+            "title": "Suite Version",
+            "type": "string"
+          },
+          "summaries": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/AblationComparison"
+              },
+              "type": "object"
+            },
+            "title": "Summaries",
+            "type": "object"
+          }
+        },
+        "required": [
+          "suite_version",
+          "content_hash",
+          "delta_convention",
+          "profile_policy",
+          "settings",
+          "summaries",
+          "robustness",
+          "config_hashes"
+        ],
+        "title": "AblationReport",
+        "type": "object"
+      },
       "ActionRowRead": {
         "additionalProperties": false,
         "properties": {
@@ -181,6 +310,53 @@
           "verification"
         ],
         "title": "AttributionRead",
+        "type": "object"
+      },
+      "BenchmarkAggregate": {
+        "properties": {
+          "mean_return": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Return"
+          },
+          "n_estimated": {
+            "title": "N Estimated",
+            "type": "integer"
+          },
+          "n_scored": {
+            "title": "N Scored",
+            "type": "integer"
+          },
+          "n_unavailable": {
+            "title": "N Unavailable",
+            "type": "integer"
+          },
+          "worst_window_drawdown": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Worst Window Drawdown"
+          }
+        },
+        "required": [
+          "n_scored",
+          "n_unavailable",
+          "n_estimated",
+          "mean_return",
+          "worst_window_drawdown"
+        ],
+        "title": "BenchmarkAggregate",
         "type": "object"
       },
       "ComparisonRead": {
@@ -645,6 +821,54 @@
           "inputs"
         ],
         "title": "Derivation",
+        "type": "object"
+      },
+      "DocumentMetadata": {
+        "properties": {
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "owner_issue": {
+            "title": "Owner Issue",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "filename",
+          "status",
+          "owner_issue"
+        ],
+        "title": "DocumentMetadata",
         "type": "object"
       },
       "DocumentTextCreate": {
@@ -1421,6 +1645,70 @@
           "created_at"
         ],
         "title": "ForecastRead",
+        "type": "object"
+      },
+      "ForecastReport": {
+        "properties": {
+          "aggregates": {
+            "additionalProperties": {
+              "additionalProperties": {
+                "$ref": "#/components/schemas/ScoreAggregate"
+              },
+              "type": "object"
+            },
+            "title": "Aggregates",
+            "type": "object"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/ReportExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "four_quarter": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ScoreAggregate"
+            },
+            "title": "Four Quarter",
+            "type": "object"
+          },
+          "n_excluded": {
+            "title": "N Excluded",
+            "type": "integer"
+          },
+          "n_scored": {
+            "title": "N Scored",
+            "type": "integer"
+          },
+          "origins": {
+            "items": {
+              "$ref": "#/components/schemas/OriginScore"
+            },
+            "title": "Origins",
+            "type": "array"
+          }
+        },
+        "required": [
+          "config",
+          "config_hash",
+          "n_scored",
+          "n_excluded",
+          "exclusions",
+          "aggregates",
+          "four_quarter",
+          "origins"
+        ],
+        "title": "ForecastReport",
         "type": "object"
       },
       "ForwardEpsRead": {
@@ -2456,6 +2744,67 @@
         "title": "ObservationReviewRead",
         "type": "object"
       },
+      "OriginScore": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin_date": {
+            "title": "Origin Date",
+            "type": "string"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "scores": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Scores",
+            "type": "object"
+          },
+          "skipped_drivers": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Skipped Drivers",
+            "type": "object"
+          },
+          "window": {
+            "title": "Window",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin_date",
+          "label",
+          "window",
+          "scores",
+          "skipped_drivers"
+        ],
+        "title": "OriginScore",
+        "type": "object"
+      },
       "OuterEnvelopeRead": {
         "additionalProperties": false,
         "properties": {
@@ -3272,6 +3621,261 @@
         "title": "PeHistoryRowRead",
         "type": "object"
       },
+      "PortfolioMetrics": {
+        "properties": {
+          "average_invested_exposure": {
+            "title": "Average Invested Exposure",
+            "type": "number"
+          },
+          "max_drawdown": {
+            "title": "Max Drawdown",
+            "type": "number"
+          },
+          "total_return": {
+            "title": "Total Return",
+            "type": "number"
+          }
+        },
+        "required": [
+          "total_return",
+          "max_drawdown",
+          "average_invested_exposure"
+        ],
+        "title": "PortfolioMetrics",
+        "type": "object"
+      },
+      "PortfolioOrigin": {
+        "properties": {
+          "benchmarks": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PortfolioSeries"
+            },
+            "title": "Benchmarks",
+            "type": "object"
+          },
+          "cutoff_ts": {
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "entry_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entry Date"
+          },
+          "exit_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exit Date"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "origin_date": {
+            "title": "Origin Date",
+            "type": "string"
+          },
+          "visa_buy_and_hold": {
+            "$ref": "#/components/schemas/PortfolioSeries"
+          },
+          "visa_strategy": {
+            "$ref": "#/components/schemas/PortfolioSeries"
+          }
+        },
+        "required": [
+          "origin_date",
+          "label",
+          "cutoff_ts",
+          "entry_date",
+          "exit_date",
+          "benchmarks",
+          "visa_strategy",
+          "visa_buy_and_hold"
+        ],
+        "title": "PortfolioOrigin",
+        "type": "object"
+      },
+      "PortfolioReport": {
+        "properties": {
+          "aggregates": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BenchmarkAggregate"
+            },
+            "title": "Aggregates",
+            "type": "object"
+          },
+          "config": {
+            "additionalProperties": true,
+            "title": "Config",
+            "type": "object"
+          },
+          "config_hash": {
+            "title": "Config Hash",
+            "type": "string"
+          },
+          "drift_diagnostic": {
+            "additionalProperties": true,
+            "title": "Drift Diagnostic",
+            "type": "object"
+          },
+          "exclusions": {
+            "items": {
+              "$ref": "#/components/schemas/ReportExclusion"
+            },
+            "title": "Exclusions",
+            "type": "array"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "labels": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Labels",
+            "type": "object"
+          },
+          "n_eligible": {
+            "title": "N Eligible",
+            "type": "integer"
+          },
+          "n_excluded": {
+            "title": "N Excluded",
+            "type": "integer"
+          },
+          "origins": {
+            "items": {
+              "$ref": "#/components/schemas/PortfolioOrigin"
+            },
+            "title": "Origins",
+            "type": "array"
+          },
+          "overlap": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Overlap",
+            "type": "object"
+          },
+          "rule_frozen_at": {
+            "title": "Rule Frozen At",
+            "type": "string"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "suite_version": {
+            "title": "Suite Version",
+            "type": "string"
+          },
+          "visa_buy_and_hold": {
+            "$ref": "#/components/schemas/PortfolioSeries"
+          },
+          "visa_strategy": {
+            "$ref": "#/components/schemas/PortfolioSeries"
+          }
+        },
+        "required": [
+          "suite_version",
+          "config",
+          "config_hash",
+          "rule_frozen_at",
+          "label",
+          "labels",
+          "n_eligible",
+          "n_excluded",
+          "aggregates",
+          "exclusions",
+          "origins",
+          "overlap",
+          "sources",
+          "drift_diagnostic",
+          "visa_strategy",
+          "visa_buy_and_hold"
+        ],
+        "title": "PortfolioReport",
+        "type": "object"
+      },
+      "PortfolioSeries": {
+        "properties": {
+          "estimated": {
+            "default": false,
+            "title": "Estimated",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "n_scored": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "N Scored"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "metrics"
+        ],
+        "title": "PortfolioSeries",
+        "type": "object"
+      },
       "PositionRead": {
         "additionalProperties": false,
         "properties": {
@@ -3568,6 +4172,113 @@
         "title": "ReplayReport",
         "type": "object"
       },
+      "ReportCatalog": {
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/DocumentMetadata"
+            },
+            "title": "Documents",
+            "type": "array"
+          },
+          "reports": {
+            "items": {
+              "$ref": "#/components/schemas/ReportMetadata"
+            },
+            "title": "Reports",
+            "type": "array"
+          }
+        },
+        "required": [
+          "reports",
+          "documents"
+        ],
+        "title": "ReportCatalog",
+        "type": "object"
+      },
+      "ReportExclusion": {
+        "properties": {
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "origin_date": {
+            "title": "Origin Date",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "origin_date",
+          "reason"
+        ],
+        "title": "ReportExclusion",
+        "type": "object"
+      },
+      "ReportMetadata": {
+        "properties": {
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "forecast",
+              "ablations",
+              "portfolio",
+              "pending"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_issue": {
+            "title": "Owner Issue",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "kind",
+          "status",
+          "owner_issue"
+        ],
+        "title": "ReportMetadata",
+        "type": "object"
+      },
       "ReviewDecisionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -3685,6 +4396,34 @@
           "decided_by"
         ],
         "title": "ReviewDecisionRead",
+        "type": "object"
+      },
+      "RobustnessCount": {
+        "properties": {
+          "ablated_better": {
+            "title": "Ablated Better",
+            "type": "integer"
+          },
+          "full_better": {
+            "title": "Full Better",
+            "type": "integer"
+          },
+          "profiles": {
+            "title": "Profiles",
+            "type": "integer"
+          },
+          "ties": {
+            "title": "Ties",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "profiles",
+          "full_better",
+          "ablated_better",
+          "ties"
+        ],
+        "title": "RobustnessCount",
         "type": "object"
       },
       "RuleApplicationRead": {
@@ -4084,6 +4823,156 @@
         "title": "RunResultSummary",
         "type": "object"
       },
+      "SavedDocumentRead": {
+        "properties": {
+          "document_links": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Document Links",
+            "type": "object"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "markdown": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Markdown"
+          },
+          "owner_issue": {
+            "title": "Owner Issue",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "filename",
+          "status",
+          "owner_issue"
+        ],
+        "title": "SavedDocumentRead",
+        "type": "object"
+      },
+      "SavedReportRead": {
+        "properties": {
+          "ablations": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AblationReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "forecast": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ForecastReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "key": {
+            "title": "Key",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "forecast",
+              "ablations",
+              "portfolio",
+              "pending"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "owner_issue": {
+            "title": "Owner Issue",
+            "type": "string"
+          },
+          "portfolio": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PortfolioReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "pending"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "key",
+          "title",
+          "kind",
+          "status",
+          "owner_issue"
+        ],
+        "title": "SavedReportRead",
+        "type": "object"
+      },
       "ScenarioCreate": {
         "additionalProperties": false,
         "properties": {
@@ -4203,6 +5092,95 @@
           "created_at"
         ],
         "title": "ScenarioRead",
+        "type": "object"
+      },
+      "ScoreAggregate": {
+        "properties": {
+          "bias": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bias"
+          },
+          "coverage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Coverage"
+          },
+          "covered_k": {
+            "title": "Covered K",
+            "type": "integer"
+          },
+          "covered_n": {
+            "title": "Covered N",
+            "type": "integer"
+          },
+          "mae": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mae"
+          },
+          "mape": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mape"
+          },
+          "mean_crps": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Crps"
+          },
+          "mean_wis": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Wis"
+          },
+          "n": {
+            "title": "N",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "n",
+          "covered_k",
+          "covered_n"
+        ],
+        "title": "ScoreAggregate",
         "type": "object"
       },
       "SensitivityRead": {
@@ -5680,6 +6658,111 @@
           }
         },
         "summary": "List Evaluation Results",
+        "tags": [
+          "evaluation"
+        ]
+      }
+    },
+    "/evaluation/documents/{document_key}": {
+      "get": {
+        "operationId": "get_saved_document_evaluation_documents__document_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_key",
+            "required": true,
+            "schema": {
+              "title": "Document Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedDocumentRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Saved Document",
+        "tags": [
+          "evaluation"
+        ]
+      }
+    },
+    "/evaluation/reports": {
+      "get": {
+        "operationId": "get_report_catalog_evaluation_reports_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Report Catalog",
+        "tags": [
+          "evaluation"
+        ]
+      }
+    },
+    "/evaluation/reports/{report_key}": {
+      "get": {
+        "operationId": "get_saved_report_evaluation_reports__report_key__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "report_key",
+            "required": true,
+            "schema": {
+              "title": "Report Key",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SavedReportRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Saved Report",
         "tags": [
           "evaluation"
         ]
