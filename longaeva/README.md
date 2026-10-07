@@ -32,6 +32,12 @@ Open **State & Evidence** to inspect the two bundled starting states, then
 work immediately on a fresh database, with no LLM key or collection step.
 See [`docs/workspace.md`](docs/workspace.md) for controls, evidence and comparisons.
 
+The **Evaluation → Prospective** section displays the frozen Q4 FY2026 registration,
+its actual creation timestamp, five metric distributions and exact replay proof.
+It is not yet scored. Replay the packaged forecast without a database or LLM with
+`make replay-prospective`; see [`docs/evaluation-report.md`](docs/evaluation-report.md)
+for registration and later-scoring procedures.
+
 Stop with `make down`.
 
 Visa driver and accounting definitions (LON-2) are settled in

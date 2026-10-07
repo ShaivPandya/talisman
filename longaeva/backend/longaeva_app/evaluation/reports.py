@@ -16,6 +16,8 @@ from longaeva_app.api.report_schemas import (
     ExtractionReport,
     ForecastReport,
     PortfolioReport,
+    ProspectiveMetric,
+    ProspectiveReport,
     ReportCatalog,
     ReportMetadata,
     SavedDocumentRead,
@@ -37,7 +39,12 @@ REPORTS = {
     "portfolio": ("Benchmarks and portfolio", "portfolio", "LON-28", "visa_portfolio.json"),
     "extraction": ("Extraction error sample", "extraction", "LON-18", "extraction.json"),
     "llm_baseline": ("LLM same-document baseline", "forecast", "LON-30", "visa_llm_baseline.json"),
-    "prospective": ("Prospective Q4 FY2026 registration", "pending", "LON-32", None),
+    "prospective": (
+        "Prospective Q4 FY2026 registration",
+        "prospective",
+        "LON-32",
+        "../demo/forecasts/prospective_fy2026q4.json",
+    ),
     "failure_case": ("Final report and failure case", "pending", "LON-33", None),
 }
 DOCUMENTS = {
@@ -149,6 +156,38 @@ def saved_report(key: str) -> SavedReportRead:
     assert filename is not None
     path = PACKAGE_ROOT / "data/evaluation" / filename
     try:
+        if key == "prospective":
+            # Validate the complete frozen archive and path hash before exposing a bounded view.
+            from longaeva_app.hashing import utc_isoformat
+            from longaeva_app.runs.prospective import load_registration
+
+            bundle = load_registration(path)
+            run = bundle.run
+            prospective = ProspectiveReport(
+                kind="prospective",
+                target=bundle.target,
+                scoring_status="Not yet scored",
+                cutoff_ts=utc_isoformat(bundle.cutoff_ts),
+                registered_at=utc_isoformat(bundle.registered_at),
+                run_id=run["id"],
+                n_paths=run["n_paths"],
+                n_quarters=run["n_quarters"],
+                seed=run["seed"],
+                content_hash=bundle.content_hash,
+                outputs_hash=run["outputs_hash"],
+                parameter_set_hash=run["parameter_set_hash"],
+                source_manifest_hash=run["source_manifest_hash"],
+                code_version=run["code_version"],
+                lib_versions=run["lib_versions"],
+                replay_status="exact_match",
+                publication_check_url=bundle.publication_check.source_url,
+                publication_checked_at=utc_isoformat(bundle.publication_check.checked_at),
+                forecasts=[
+                    ProspectiveMetric.model_validate({**row, **bundle.metric_definitions[row["metric"]]})
+                    for row in bundle.forecasts
+                ],
+            )
+            return SavedReportRead(**metadata.model_dump(), prospective=prospective)
         stat = path.stat()
         projection = _cached_report(key, path, stat.st_mtime_ns, stat.st_size)
         return SavedReportRead(**metadata.model_dump(), **projection)

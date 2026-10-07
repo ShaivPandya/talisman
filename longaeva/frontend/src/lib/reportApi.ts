@@ -3,7 +3,7 @@ import { apiGet, apiPost } from "./api"
 export interface ReportMetadata {
   key: string
   title: string
-  kind: "forecast" | "ablations" | "portfolio" | "extraction" | "pending"
+  kind: "forecast" | "ablations" | "portfolio" | "extraction" | "prospective" | "pending"
   status: "available" | "pending"
   reason: string | null
   owner_issue: string
@@ -206,11 +206,43 @@ export interface ExtractionReport {
   }[]
   limitations: string[]
 }
+export interface ProspectiveMetric {
+  metric: string
+  period_label: string
+  target_period_start: string
+  target_period_end: string
+  quantiles: Record<string, number>
+  unit: string
+  basis: string
+  growth_convention: string
+}
+export interface ProspectiveReport {
+  kind: "prospective"
+  target: "FY2026Q4"
+  scoring_status: "Not yet scored"
+  cutoff_ts: string
+  registered_at: string
+  run_id: string
+  n_paths: number
+  n_quarters: number
+  seed: number
+  content_hash: string
+  outputs_hash: string
+  parameter_set_hash: string
+  source_manifest_hash: string
+  code_version: string
+  lib_versions: Record<string, unknown>
+  replay_status: "exact_match"
+  publication_check_url: string
+  publication_checked_at: string
+  forecasts: ProspectiveMetric[]
+}
 export interface SavedReport extends ReportMetadata {
   forecast: ForecastReport | null
   ablations: AblationReport | null
   portfolio: PortfolioReport | null
   extraction: ExtractionReport | null
+  prospective: ProspectiveReport | null
 }
 export interface ReportCatalog {
   reports: ReportMetadata[]

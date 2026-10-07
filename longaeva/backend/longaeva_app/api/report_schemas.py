@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 class ReportMetadata(BaseModel):
     key: str
     title: str
-    kind: Literal["forecast", "ablations", "portfolio", "extraction", "pending"]
+    kind: Literal["forecast", "ablations", "portfolio", "extraction", "prospective", "pending"]
     status: Literal["available", "pending"]
     reason: str | None = None
     owner_issue: str
@@ -226,11 +226,45 @@ class ExtractionReport(BaseModel):
     limitations: list[str]
 
 
+class ProspectiveMetric(BaseModel):
+    metric: str
+    period_label: str
+    target_period_start: str
+    target_period_end: str
+    quantiles: dict[str, float]
+    unit: str
+    basis: str
+    growth_convention: str
+
+
+class ProspectiveReport(BaseModel):
+    kind: Literal["prospective"]
+    target: Literal["FY2026Q4"]
+    scoring_status: Literal["Not yet scored"]
+    cutoff_ts: str
+    registered_at: str
+    run_id: str
+    n_paths: int
+    n_quarters: int
+    seed: int
+    content_hash: str
+    outputs_hash: str
+    parameter_set_hash: str
+    source_manifest_hash: str
+    code_version: str
+    lib_versions: dict[str, Any]
+    replay_status: Literal["exact_match"]
+    publication_check_url: str
+    publication_checked_at: str
+    forecasts: list[ProspectiveMetric]
+
+
 class SavedReportRead(ReportMetadata):
     forecast: ForecastReport | None = None
     ablations: AblationReport | None = None
     portfolio: PortfolioReport | None = None
     extraction: ExtractionReport | None = None
+    prospective: ProspectiveReport | None = None
 
 
 class ReportCatalog(BaseModel):

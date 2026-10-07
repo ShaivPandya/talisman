@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +38,6 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
     catalog = {r["key"]: r for r in response.json()["reports"]}
     assert catalog["full_model"]["status"] == "available"
     for key, owner in {
-        "prospective": "LON-32",
         "failure_case": "LON-33",
     }.items():
         result = report_client.get(f"/evaluation/reports/{key}").json()
@@ -45,6 +45,42 @@ def test_catalog_and_pending_ownership_without_db(report_client: TestClient) -> 
         assert result["owner_issue"] == owner
         assert result["forecast"] is result["ablations"] is result["portfolio"] is None
     assert catalog["llm_baseline"]["status"] == "available"
+
+
+def test_prospective_is_available_without_db_and_never_scored(report_client: TestClient) -> None:
+    result = report_client.get("/evaluation/reports/prospective")
+    assert result.status_code == 200, result.text
+    body = result.json()
+    assert body["kind"] == "prospective"
+    assert body["status"] == "available"
+    assert body["forecast"] is None
+    report = body["prospective"]
+    assert report["target"] == "FY2026Q4"
+    assert report["scoring_status"] == "Not yet scored"
+    assert len(report["forecasts"]) == 20
+    assert "aggregates" not in report and "n_scored" not in report
+    assert "parameters" not in report and "evidence" not in report
+    assert len(result.content) < 30_000
+    assert report["replay_status"] == "exact_match"
+
+
+def test_prospective_invalid_artifacts_fail_visibly(
+    report_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    original = reports.PACKAGE_ROOT / "data/demo/forecasts"
+    destination = tmp_path / "data/demo/forecasts"
+    shutil.copytree(original, destination)
+    monkeypatch.setattr(reports, "PACKAGE_ROOT", tmp_path)
+    (tmp_path / "data/evaluation").mkdir(parents=True)
+    path = destination / "prospective_fy2026q4.json"
+    content = path.read_bytes()
+    path.write_text("not json")
+    assert report_client.get("/evaluation/reports/prospective").status_code == 500
+    path.write_bytes(content)
+    (destination / "prospective_fy2026q4.paths.npz").write_bytes(b"corrupted")
+    assert report_client.get("/evaluation/reports/prospective").status_code == 500
 
 
 def test_extraction_preserves_coverage_denominators_and_provenance(report_client: TestClient) -> None:
@@ -129,6 +165,7 @@ def test_missing_invalid_and_replaced_artifacts(
     monkeypatch.setattr(reports, "PACKAGE_ROOT", tmp_path)
     assert report_client.get("/evaluation/reports/full_model").json()["status"] == "pending"
     assert report_client.get("/evaluation/reports/extraction").json()["status"] == "pending"
+    assert report_client.get("/evaluation/reports/prospective").json()["status"] == "pending"
     assert report_client.get("/evaluation/documents/model-spec").json()["status"] == "pending"
     path = tmp_path / "data/evaluation/visa_full_model.json"
     path.parent.mkdir(parents=True)

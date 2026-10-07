@@ -4488,6 +4488,168 @@
         "title": "ProposedUpdateRead",
         "type": "object"
       },
+      "ProspectiveMetric": {
+        "properties": {
+          "basis": {
+            "title": "Basis",
+            "type": "string"
+          },
+          "growth_convention": {
+            "title": "Growth Convention",
+            "type": "string"
+          },
+          "metric": {
+            "title": "Metric",
+            "type": "string"
+          },
+          "period_label": {
+            "title": "Period Label",
+            "type": "string"
+          },
+          "quantiles": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "title": "Quantiles",
+            "type": "object"
+          },
+          "target_period_end": {
+            "title": "Target Period End",
+            "type": "string"
+          },
+          "target_period_start": {
+            "title": "Target Period Start",
+            "type": "string"
+          },
+          "unit": {
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "metric",
+          "period_label",
+          "target_period_start",
+          "target_period_end",
+          "quantiles",
+          "unit",
+          "basis",
+          "growth_convention"
+        ],
+        "title": "ProspectiveMetric",
+        "type": "object"
+      },
+      "ProspectiveReport": {
+        "properties": {
+          "code_version": {
+            "title": "Code Version",
+            "type": "string"
+          },
+          "content_hash": {
+            "title": "Content Hash",
+            "type": "string"
+          },
+          "cutoff_ts": {
+            "title": "Cutoff Ts",
+            "type": "string"
+          },
+          "forecasts": {
+            "items": {
+              "$ref": "#/components/schemas/ProspectiveMetric"
+            },
+            "title": "Forecasts",
+            "type": "array"
+          },
+          "kind": {
+            "const": "prospective",
+            "title": "Kind",
+            "type": "string"
+          },
+          "lib_versions": {
+            "additionalProperties": true,
+            "title": "Lib Versions",
+            "type": "object"
+          },
+          "n_paths": {
+            "title": "N Paths",
+            "type": "integer"
+          },
+          "n_quarters": {
+            "title": "N Quarters",
+            "type": "integer"
+          },
+          "outputs_hash": {
+            "title": "Outputs Hash",
+            "type": "string"
+          },
+          "parameter_set_hash": {
+            "title": "Parameter Set Hash",
+            "type": "string"
+          },
+          "publication_check_url": {
+            "title": "Publication Check Url",
+            "type": "string"
+          },
+          "publication_checked_at": {
+            "title": "Publication Checked At",
+            "type": "string"
+          },
+          "registered_at": {
+            "title": "Registered At",
+            "type": "string"
+          },
+          "replay_status": {
+            "const": "exact_match",
+            "title": "Replay Status",
+            "type": "string"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scoring_status": {
+            "const": "Not yet scored",
+            "title": "Scoring Status",
+            "type": "string"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "source_manifest_hash": {
+            "title": "Source Manifest Hash",
+            "type": "string"
+          },
+          "target": {
+            "const": "FY2026Q4",
+            "title": "Target",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "scoring_status",
+          "cutoff_ts",
+          "registered_at",
+          "run_id",
+          "n_paths",
+          "n_quarters",
+          "seed",
+          "content_hash",
+          "outputs_hash",
+          "parameter_set_hash",
+          "source_manifest_hash",
+          "code_version",
+          "lib_versions",
+          "replay_status",
+          "publication_check_url",
+          "publication_checked_at",
+          "forecasts"
+        ],
+        "title": "ProspectiveReport",
+        "type": "object"
+      },
       "QuarterEffectRead": {
         "properties": {
           "mean_difference": {
@@ -4751,6 +4913,7 @@
               "ablations",
               "portfolio",
               "extraction",
+              "prospective",
               "pending"
             ],
             "title": "Kind",
@@ -5446,6 +5609,7 @@
               "ablations",
               "portfolio",
               "extraction",
+              "prospective",
               "pending"
             ],
             "title": "Kind",
@@ -5459,6 +5623,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/PortfolioReport"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "prospective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProspectiveReport"
               },
               {
                 "type": "null"

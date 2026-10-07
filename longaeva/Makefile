@@ -2,6 +2,13 @@ SHELL := /bin/bash
 .DEFAULT_GOAL := help
 
 .PHONY: capture-llm-baseline evaluate-llm-baseline
+.PHONY: register-prospective replay-prospective
+
+register-prospective:
+	cd backend && LLM_PROVIDER= .venv/bin/python -m longaeva_app.cli register-prospective $(ARGS)
+
+replay-prospective:
+	cd backend && LLM_PROVIDER= .venv/bin/python -m longaeva_app.cli register-prospective --replay-bundle "$(CURDIR)/data/demo/forecasts/prospective_fy2026q4.json"
 
 # Capture is explicit; cached scoring requires neither credentials nor a database.
 capture-llm-baseline:

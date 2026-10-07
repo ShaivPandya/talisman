@@ -18,6 +18,40 @@ def cmd_seed_demo(_args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_register_prospective(args: argparse.Namespace) -> int:
+    from longaeva_app.config import get_settings
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.runs.prospective import PublicationCheck, replay_registration
+    from longaeva_app.runs.registration import register_prospective
+    from longaeva_app.storage.local import LocalArtifactStore
+
+    if args.replay_bundle:
+        report = replay_registration(Path(args.replay_bundle))
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if report["status"] in {"exact_match", "numerically_equivalent"} else 1
+    publication = None
+    if args.publication_check:
+        publication = PublicationCheck.model_validate_json(Path(args.publication_check).read_text())
+    bundle = register_prospective(
+        get_session_factory(),
+        LocalArtifactStore(get_settings().artifact_dir),
+        Path(args.output_dir),
+        publication,
+    )
+    print(
+        json.dumps(
+            {
+                "run_id": bundle.run["id"],
+                "registered_at": bundle.registered_at.isoformat(),
+                "content_hash": bundle.content_hash,
+                "replay": bundle.replay["status"],
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def cmd_export_openapi(args: argparse.Namespace) -> int:
     from longaeva_app.api.main import app
 
@@ -1172,6 +1206,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Skip the Monte Carlo sensitivity table (faster local iteration)",
     )
     calibrate_p.set_defaults(func=cmd_calibrate)
+
+    prospective = sub.add_parser("register-prospective", help="Freeze or replay the Q4 FY2026 registration (LON-32)")
+    prospective.add_argument("--publication-check", help="Fresh JSON capture of Visa's rendered earnings-release row")
+    prospective.add_argument("--output-dir", default=str(PACKAGE_ROOT / "data/demo/forecasts"))
+    prospective.add_argument("--replay-bundle", help="Offline replay of a frozen registration JSON (no database)")
+    prospective.set_defaults(func=cmd_register_prospective)
 
     submit = sub.add_parser("submit-run", help="Submit a Visa simulation run (LON-23)")
     submit.add_argument(
