@@ -24,3 +24,11 @@ this package imports Talisman at runtime.
 | `backend/longaeva_app/valuation/actions.py` | `portfolio/scenario_simulator.py` `_apply_delta`, `_traded_notional`, `_execution_friction` (lines 357–518); tests `tests/test_scenario_simulator.py` | Copy + adapt | Percent-of-position sizing only (hold/add/trim/exit). Costs are transaction, slippage, impact, and funding. Funding applies only to added notional over the configured holding period. Dropped the ADV cap, policy gate, ontology writeback, and scenario P&L. The rule is `config/decision_rule.yaml`, hashed with `content_hash`. |
 
 Later issues will extend this file when evidence UI is copied.
+
+## LON-35 evidence and review
+
+The evidence-card hierarchy (source metadata, status, and a detail action) was
+adapted from Talisman's `frontend/src/components/shared/EvidenceLedgerPanel.tsx`.
+The Longaeva implementation was rewritten around its own observation, review,
+search, and mapping contracts; it imports no Talisman components or contexts.
+Source excerpts reuse Longaeva's LON-34 server resolver and shared evidence view.

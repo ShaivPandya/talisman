@@ -9,6 +9,7 @@ import {
 } from "@/lib/api"
 import { fmtNumber, fmtUtc } from "@/lib/format"
 import { errorMessage } from "@/lib/scenarios"
+import { EvidenceWorkspace } from "@/components/evidence/EvidenceWorkspace"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
 import {
   EvidencePanel,
@@ -24,6 +25,7 @@ function groupFor(name: string): string {
 
 export function StatePage() {
   const [params, setParams] = useSearchParams()
+  const tab = params.get("tab") === "evidence" ? "evidence" : "state"
   const origin = params.get("origin") ?? "2024-07-23"
   const [origins, setOrigins] = useState<WorkspaceOrigin[]>([])
   const [state, setState] = useState<WorkspaceState | null>(null)
@@ -74,7 +76,8 @@ export function StatePage() {
             className="theme-input"
             value={origin}
             onChange={(event) => {
-              setParams({ origin: event.target.value })
+              setParams({ origin: event.target.value, tab })
+              setEvidence(null)
               setError(null)
             }}
           >
@@ -101,13 +104,34 @@ export function StatePage() {
           </p>
         </div>
       </SurfaceCard>
+      <nav
+        aria-label="State and evidence views"
+        className="flex flex-wrap gap-3 mb-5"
+      >
+        {[
+          ["state", "Starting state"],
+          ["evidence", "Evidence & Review"],
+        ].map(([value, label]) => (
+          <Link
+            key={value}
+            aria-current={tab === value ? "page" : undefined}
+            className={`theme-button-base ${tab === value ? "theme-button-primary" : "theme-button-secondary"}`}
+            to={`?${new URLSearchParams({ ...Object.fromEntries(params), tab: value })}`}
+          >
+            {label}
+          </Link>
+        ))}
+      </nav>
       {error && (
         <p role="alert" className="theme-notice theme-notice-error mb-4">
           {error}
         </p>
       )}
       {!current && !error && <p role="status">Loading starting state…</p>}
-      {current && (
+      {current && tab === "evidence" && (
+        <EvidenceWorkspace key={origin} state={current} />
+      )}
+      {current && tab === "state" && (
         <>
           {[
             "Activity & effective yields",

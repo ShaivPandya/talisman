@@ -95,3 +95,88 @@ The container registry stalled while resolving the nginx runtime image. The
 exported frontend was therefore built and served with the already installed
 nginx image as its build context; application sources, checks and assets came
 from the export. No container configuration was changed for this workaround.
+
+## Evidence & Review (LON-35)
+
+Open **State & Evidence → Evidence & Review**. The observation queue reads the
+local database and can be filtered by company, review status, or a search result's
+source. It shows 20 observations per page. Queue cards show original extracted
+values; the detail view distinguishes originals from effective reviewed values.
+An empty database has a clear empty state; full demo seeding remains LON-37.
+This page does not collect documents or start an LLM extraction.
+
+Search accepts company (exact stored name), source reporting-period bounds and
+an explicit timestamp with timezone. Its initial cutoff is the selected origin's
+exact publication cutoff, not midnight. Search results link to stored passages
+and all observations from the selected source. Search snippets and passage text
+are rendered as text, never executable HTML. Source-period search filters and
+observation-company/status filters are independent and labeled separately.
+
+The selected observation's source panel uses server-side character slicing so
+Python code-point offsets, including text before emoji, remain accurate in the
+browser. A source published after the origin cutoff, missing passage, mismatched
+source/page, or invalid span has an explicit unavailable message. Gate observations
+without a retained `document_text` row keep their original link but cannot show a
+highlight; the UI does not invent one.
+
+**Accept**, **Adjust**, and **Reject** append versioned decisions. Reviewer name
+(self-reported; the local app has no login) and rationale are required. Adjust
+edits only semantic fields and starts from the latest correction, even after a
+rejection. Percent values are entered as printed (8 means 8 percent). Original
+source spans remain unchanged. History and effective values survive reload.
+A failed or ambiguous save keeps the draft and requires a read of persisted
+history before another write; it is never automatically retried.
+
+The mapping panel prepares/reuses the origin's calibrated base. Other stored
+Visa sets at the exact same cutoff are selectable. It lists the most recent 200
+Visa sets and always includes an explicitly linked set. **Preview rule changes**
+uses only the selected accepted/corrected observation and does not write a child
+set. It shows rule/version, point values, rule range, change size, assumptions,
+and rationale in model units. Unsupported observations appear as context.
+**Apply reviewed rule changes** separately persists/reuses a child; a context-only
+result records context without a numeric change. The base selection stays fixed
+after application, so reapplying the same inputs can reuse the child instead of
+silently compounding changes. Saved lineage, updates, and actual stored parameter
+ranges are shown below. Existing scenarios and saved runs are not reassigned.
+
+Editing reviewer/rationale, changing observation or base, or saving another review
+invalidates the preview. Before preview/apply, the client rechecks the persisted
+review version and refuses a known stale decision. There is no automatic write
+retry. The local single-reviewer workflow does not provide an atomic multi-user
+review-version precondition between that read and the existing application API.
+
+The URL retains the tab, origin, observation, submitted search/queue filters,
+selected base (`parameter_set_id`, or the origin default), and saved result
+(`result_set_id`). Changing origin clears selections and resets the cutoff.
+
+### Read API additions
+
+- `GET /observations?source_id=...&offset=...`: optional source filter and offset;
+  existing array response and limits retained. Ordering is creation time descending,
+  then UUID ascending, including tied timestamps.
+- `GET /observations/{id}/evidence?cutoff_ts=...`: timezone-aware cutoff required;
+  returns the shared `EvidenceExcerpt` contract, or 404 for an unknown observation.
+
+Review and mapping writes use the existing contracts. No migration is needed.
+
+### LON-35 validation record — October 6, 2026
+
+- Backend ruff, format check, mypy, and PostgreSQL suite: **468 tests passed**.
+- Frontend lint, Vitest (**24 tests**), and TypeScript/production build passed,
+  including a build from the exported source with cached, unchanged dependencies.
+- Standalone ZIP extracted outside the repository; strict isolation guard:
+  **zero findings**. API and production nginx frontend used that export with a
+  separate disposable PostgreSQL container and no LLM provider.
+- Playwright verified search-to-source navigation, exact cutoff exclusion,
+  Unicode highlights, escaped source HTML, original/effective values, accept /
+  adjust / reject history after reload, preview without writes, preview
+  invalidation, explicit child application, and saved result/ranges after reload.
+- Context-only application preserved parameters; post-cutoff application was
+  refused. A simulated failed review save retained its draft and made one request.
+- Read failures recovered when resubmitting unchanged search/queue filters.
+  Twenty-three tied-timestamp observations paginated as 20 + 3 without duplicates,
+  and the selected page survived reload.
+- Desktop (1440px) and mobile (390px) reviewed visually; no page-level horizontal
+  overflow in detail or adjustment forms. Keyboard focus moves from the selected
+  observation heading to Close review. Intentional HTTP-error checks produced
+  expected browser network errors; no unexpected browser errors were observed.

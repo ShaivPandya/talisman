@@ -110,44 +110,50 @@ export function EvidencePanel({
       )}
       <div className="space-y-4">
         {excerpts?.map((excerpt, index) => (
-          <article key={index} className="rounded-xl border border-app p-4">
-            <p className="mono-text text-xs break-all">
-              {excerpt.source_id ?? "Unresolved source"}
-            </p>
-            {excerpt.observation_id && (
-              <p className="caption break-all">
-                Observation: {excerpt.observation_id}
-              </p>
-            )}
-            <p className="caption mt-1">
-              Published {fmtUtc(excerpt.publication_ts)}
-              {excerpt.char_start !== null
-                ? ` · characters ${excerpt.char_start}–${excerpt.char_end}`
-                : ""}
-              {excerpt.page !== null ? ` · page ${excerpt.page}` : ""}
-            </p>
-            {excerpt.unavailable_reason ? (
-              <p className="theme-notice theme-notice-warning mt-3">
-                {excerpt.unavailable_reason}
-              </p>
-            ) : (
-              <blockquote className="evidence-passage mt-3">
-                {excerpt.before} <mark>{excerpt.quote}</mark> {excerpt.after}
-              </blockquote>
-            )}
-            {excerpt.url && /^https?:\/\//i.test(excerpt.url) && (
-              <a
-                className="text-link inline-block mt-3 text-sm"
-                href={excerpt.url}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Open original document ↗
-              </a>
-            )}
-          </article>
+          <EvidenceExcerptView key={index} excerpt={excerpt} />
         ))}
       </div>
     </dialog>
+  )
+}
+
+export function EvidenceExcerptView({ excerpt }: { excerpt: EvidenceExcerpt }) {
+  return (
+    <article className="rounded-xl border border-app p-4">
+      <p className="mono-text text-xs break-all">
+        {excerpt.source_id ?? "Unresolved source"}
+      </p>
+      {excerpt.observation_id && (
+        <p className="caption break-all">
+          Observation: {excerpt.observation_id}
+        </p>
+      )}
+      <p className="caption mt-1">
+        Published {fmtUtc(excerpt.publication_ts)}
+        {excerpt.char_start !== null
+          ? ` · characters ${excerpt.char_start}–${excerpt.char_end}`
+          : ""}
+        {excerpt.page !== null ? ` · page ${excerpt.page}` : ""}
+      </p>
+      {excerpt.unavailable_reason ? (
+        <p className="theme-notice theme-notice-warning mt-3">
+          {excerpt.unavailable_reason}
+        </p>
+      ) : (
+        <blockquote className="evidence-passage mt-3">
+          {excerpt.before} <mark>{excerpt.quote}</mark> {excerpt.after}
+        </blockquote>
+      )}
+      {excerpt.url && /^https?:\/\//i.test(excerpt.url) && (
+        <a
+          className="text-link inline-block mt-3 text-sm"
+          href={excerpt.url}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open original document ↗
+        </a>
+      )}
+    </article>
   )
 }

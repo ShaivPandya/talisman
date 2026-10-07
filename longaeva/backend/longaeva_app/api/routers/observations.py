@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import AwareDatetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -17,12 +18,14 @@ from longaeva_app.api.schemas import (
     ObservationReviewRead,
     ReviewDecisionRead,
 )
+from longaeva_app.api.workspace_schemas import EvidenceExcerpt
 from longaeva_app.config import get_settings
 from longaeva_app.db.models import ExtractionCall, Job, Observation, ReviewDecision
 from longaeva_app.db.session import get_db
 from longaeva_app.extract.llm import ExtractionError, load_passages
 from longaeva_app.extract.providers import describe_extraction
 from longaeva_app.review.service import effective_observation
+from longaeva_app.workspace import observation_evidence
 
 router = APIRouter(prefix="/observations", tags=["observations"])
 
@@ -31,14 +34,18 @@ router = APIRouter(prefix="/observations", tags=["observations"])
 def list_observations(
     company: str | None = Query(default=None),
     review_status: str | None = Query(default=None),
+    source_id: uuid.UUID | None = Query(default=None),
+    offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     session: Session = Depends(get_db),
 ) -> list[Observation]:
-    stmt = select(Observation).order_by(Observation.created_at.desc()).limit(limit)
+    stmt = select(Observation).order_by(Observation.created_at.desc(), Observation.id).offset(offset).limit(limit)
     if company is not None:
         stmt = stmt.where(Observation.company == company)
     if review_status is not None:
         stmt = stmt.where(Observation.review_status == review_status)
+    if source_id is not None:
+        stmt = stmt.where(Observation.source_id == source_id)
     return list(session.scalars(stmt).all())
 
 
@@ -104,6 +111,15 @@ def get_observation(observation_id: uuid.UUID, session: Session = Depends(get_db
     if observation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Observation not found")
     return observation
+
+
+@router.get("/{observation_id}/evidence", response_model=EvidenceExcerpt)
+def get_observation_evidence(
+    observation_id: uuid.UUID,
+    cutoff_ts: AwareDatetime = Query(),
+    session: Session = Depends(get_db),
+) -> EvidenceExcerpt:
+    return observation_evidence(session, observation_id, cutoff_ts)
 
 
 @router.get("/{observation_id}/review", response_model=ObservationReviewRead)

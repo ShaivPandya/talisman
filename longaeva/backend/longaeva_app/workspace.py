@@ -202,9 +202,18 @@ def _database_excerpt(session: Session, obs: Observation, cutoff: datetime) -> E
         excerpt.unavailable_reason = "Source was published after this cutoff."
     elif passage is None or passage.source_id != source.id:
         excerpt.unavailable_reason = "Observation has no retained passage."
+    elif obs.span_page != passage.page:
+        excerpt.unavailable_reason = "Stored source page does not match the retained passage."
     else:
         _fill_excerpt(excerpt, passage.text, obs.span_char_start, obs.span_char_end, offset=passage.char_start)
     return excerpt
+
+
+def observation_evidence(session: Session, observation_id: uuid.UUID, cutoff: datetime) -> EvidenceExcerpt:
+    observation = session.get(Observation, observation_id)
+    if observation is None:
+        raise HTTPException(404, "Observation not found")
+    return _database_excerpt(session, observation, _utc(cutoff))
 
 
 def parameter_evidence(session: Session, parameter_set_id: uuid.UUID, parameter: str) -> ParameterEvidenceRead:
