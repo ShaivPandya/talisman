@@ -91,7 +91,8 @@ check-local:
 	    PATH="$(CURDIR)/backend/.venv/bin:$$PATH" bash scripts/check.sh
 
 seed:
-	$(COMPOSE) run --rm --no-deps api python -m longaeva_app.cli seed-demo
+	$(COMPOSE) up -d --wait db
+	$(COMPOSE) run --rm --no-deps api sh -ec 'alembic upgrade head && python -m longaeva_app.cli seed-demo'
 
 # Collect curated manifests into the Compose artifact volume + database (LON-13).
 # Usage: make collect ARGS='--only visa:release:FY2026Q3'

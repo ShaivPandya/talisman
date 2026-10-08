@@ -45,7 +45,9 @@ services:
       - sh
       - -c
       - |
+        set -eu
         alembic upgrade head
+        python -m longaeva_app.cli seed-demo
         exec uvicorn longaeva_app.api.main:app --host 0.0.0.0 --port 8000
     healthcheck:
       test:

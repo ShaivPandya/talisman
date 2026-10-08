@@ -15,7 +15,7 @@ From this directory, with Docker Desktop running:
 make up
 ```
 
-That starts Postgres, runs Alembic migrations, brings up the API and worker, and serves
+That starts Postgres, runs Alembic migrations and the offline demo seed, brings up the API and worker, and serves
 the Vite-built web app.
 
 - API health: http://127.0.0.1:8000/health
@@ -30,7 +30,9 @@ Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR 
 Open **State & Evidence** to inspect the two bundled starting states, then
 **Scenarios** to submit a calibrated baseline and an editable variant. Both pages
 work immediately on a fresh database, with no LLM key or collection step.
-See [`docs/workspace.md`](docs/workspace.md) for controls, evidence and comparisons.
+Saved comparisons, valuation and replay are available immediately in Runs.
+See [the demo walkthrough](docs/demo-script.md) for exact links and expected results,
+and [`docs/workspace.md`](docs/workspace.md) for controls and evidence.
 
 The **Evaluation → Prospective** section displays the frozen Q4 FY2026 registration,
 its actual creation timestamp, five metric distributions and exact replay proof.
@@ -508,7 +510,13 @@ invent a price or a value.
 make seed
 ```
 
-Stub until LON-37 (prints that no demo dataset exists yet).
+Loads the validated offline demo, including both historical origins, saved scenario
+comparisons, reviewed evidence, forecast archives and the original prospective run.
+`make up` runs this after migrations on every startup; repeated imports reuse existing
+records and preserve later review decisions. See [the walkthrough](docs/demo-script.md).
+The [data license notes](docs/data-licenses.md) and
+[per-file inventory](docs/data-license-inventory.csv) record provenance, checksums
+and retention decisions for every bundled input.
 
 ## Local process mode (optional)
 
@@ -519,6 +527,7 @@ cd backend
 python3.12 -m venv .venv
 .venv/bin/pip install -r requirements-dev.txt -c requirements.lock
 .venv/bin/alembic upgrade head
+.venv/bin/python -m longaeva_app.cli seed-demo
 .venv/bin/uvicorn longaeva_app.api.main:app --reload --port 8000
 # other terminal:
 .venv/bin/python -m longaeva_app.worker.loop
@@ -528,7 +537,7 @@ python3.12 -m venv .venv
 
 See `docs/reuse-notes.md` for Talisman pattern provenance (copied/adapted, never imported).
 
-Demo data arrives in LON-37.
+The versioned demo manifest and saved outputs live under `data/demo/`.
 
 ## Evaluation report and model specification
 

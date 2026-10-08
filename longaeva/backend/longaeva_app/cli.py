@@ -14,7 +14,35 @@ DEFAULT_OPENAPI_PATH = PACKAGE_ROOT / "docs" / "openapi.json"
 
 
 def cmd_seed_demo(_args: argparse.Namespace) -> int:
-    print("No demo dataset yet (LON-37). Seed is a no-op stub.")
+    from sqlalchemy.exc import SQLAlchemyError
+
+    from longaeva_app.config import get_settings
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.demo import seed_demo
+    from longaeva_app.storage.local import LocalArtifactStore
+
+    try:
+        result = seed_demo(get_session_factory(), LocalArtifactStore(get_settings().artifact_dir))
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        print(f"Demo seed failed: {exc}")
+        return 1
+    except SQLAlchemyError:
+        print("Demo seed failed: database conflict or unavailable database. No demo rows committed.")
+        return 1
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+def cmd_build_demo(args: argparse.Namespace) -> int:
+    from longaeva_app.config import get_settings
+    from longaeva_app.db.session import get_session_factory
+    from longaeva_app.demo_build import build_demo
+    from longaeva_app.storage.local import LocalArtifactStore
+
+    path = build_demo(
+        get_session_factory(), LocalArtifactStore(get_settings().artifact_dir), Path(args.registration_records)
+    )
+    print(f"Built and validated demo: {path.name}")
     return 0
 
 
@@ -1071,8 +1099,11 @@ def build_parser() -> argparse.ArgumentParser:
             extraction.add_argument("--output", default=str(FIXTURE_DIR / "cached.json"))
         extraction.set_defaults(func=func)
 
-    seed = sub.add_parser("seed-demo", help="Load bundled demo dataset (stub until LON-37)")
+    seed = sub.add_parser("seed-demo", help="Load or reuse the validated offline demo dataset")
     seed.set_defaults(func=cmd_seed_demo)
+    build_demo = sub.add_parser("build-demo", help="Curator only: generate the bundle in an empty disposable database")
+    build_demo.add_argument("--registration-records", default=str(PACKAGE_ROOT / "data/demo/prospective-records.json"))
+    build_demo.set_defaults(func=cmd_build_demo)
 
     portfolio = sub.add_parser(
         "evaluate-portfolio", help="Independent benchmark windows; real Visa scoring not run (LON-28)"
