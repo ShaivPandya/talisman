@@ -134,12 +134,10 @@ export function RunDetailPage() {
     <div>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">
-            <Link to="/runs" className="text-link">
-              Runs
-            </Link>
-          </p>
-          <h1 className="theme-page-title">{run?.origin_label ?? "Run"}</h1>
+          <div className="flex items-center flex-wrap gap-x-4 gap-y-2">
+            <h1 className="theme-page-title">{run?.origin_label ?? "Run"}</h1>
+            <Link to="/runs" className="text-link text-sm">← All runs</Link>
+          </div>
           <p className="theme-page-subtitle mono-text text-xs">{runId}</p>
         </div>
         {run ? (

@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react"
 import { listObservations, type Observation } from "@/lib/evidence"
 import { errorMessage } from "@/lib/scenarios"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import type { UpdateParams } from "./PassageSearch"
 
 const PAGE_SIZE = 20
@@ -53,6 +54,7 @@ export function ObservationQueue({
     })
   }
   return (
+    <TourTarget id={params.get("observation") ? undefined : "evidence-review"} status={error ? "error" : !rows ? "loading" : rows.length ? "ready" : "empty"} message={error || (rows?.length === 0 ? "No observations match this queue. Clear filters or import the packaged demo with make seed." : null)} onRetry={() => { setError(null); setRows(null); setAttempt((value) => value + 1) }}>
     <SurfaceCard className="p-5 mb-5">
       <h2 className="section-title mb-3">Observation queue</h2>
       <p className="caption mb-3">
@@ -192,5 +194,6 @@ export function ObservationQueue({
         </>
       )}
     </SurfaceCard>
+    </TourTarget>
   )
 }

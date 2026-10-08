@@ -6,6 +6,23 @@ The demo contains two historical origins, six completed historical runs (baselin
 
 ## Walkthrough
 
+For the in-app version, open [How to use](http://127.0.0.1:3000/guide) and select
+**Start product tour**. The docked instructions highlight the real page and follow
+the July 23, 2024 starting state, Evidence & Review, scenario controls, the saved
+−10% cross-border mix-shift comparison, baseline valuation, historical evaluation,
+the unscored prospective registration, and baseline replay. Optional actions use
+the regular page controls; Next never submits a simulation, review, rule application,
+or replay. The static guide also links directly to methodology, model specification,
+the failure case, and limitations.
+
+**Product tour** is available on every page. Exit leaves the current page and inputs
+intact. A later launch offers Resume or Restart; progress uses versioned local browser
+storage with an in-memory fallback when storage is disabled. Reload does not reopen
+the tour. Manual navigation pauses it and offers Return to tour step. Tour navigation
+warns before discarding unsaved scenario, observation-review, or mapping-rule edits.
+Unavailable content offers retry, skip, and exit. Source dialogs include Exit tour;
+Escape closes the dialog first, or exits the tour when no dialog is open.
+
 1. Open [State & Evidence](http://127.0.0.1:3000/state?origin=2024-07-23). Inspect period, units, accounting basis and the source excerpt for net revenue. Repeat with October 28, 2025. Post-cutoff checks are labeled separately.
 2. Open the Evidence & Review tab. Search for “Room nights”, select a Booking observation, and inspect its exact retained quote and review history. Existing gate/parser acceptance rationales are preserved; they are not newly claimed human labels. Accept, adjust or reject with a rationale; reload to confirm the new decision survives.
 3. Open a saved comparison below. Inspect net-revenue and operating-profit fan charts, path-wise differences, paired conditions, and conditional attribution. The mix-shift example conserves total payments volume on every path.

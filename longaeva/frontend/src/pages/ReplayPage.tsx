@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom"
 import { SavedRunPicker } from "@/components/shared/SavedRunPicker"
 import { useSelectedRun } from "@/lib/useSelectedRun"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import { fmtUtc } from "@/lib/format"
 import { REPLAY_LABELS } from "@/lib/reportDisplay"
 import { replayRun, type ReplayReport } from "@/lib/reportApi"
@@ -45,10 +46,9 @@ export function ReplayPage() {
   const report = result?.id === runId ? result.report : null
   const error = runError ?? (result?.id === runId ? result.error : null)
   return (
-    <div>
+    <TourTarget id="replay-run" status={error ? "error" : run?.status === "succeeded" ? "ready" : run ? "empty" : "loading"} message={error} onRetry={() => { setResult(null); setRevision((n) => n + 1) }}>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Reproducibility</p>
           <h1 className="theme-page-title">Replay</h1>
           <p className="theme-page-subtitle">
             Recompute a saved run from pinned inputs and compare its output
@@ -189,6 +189,6 @@ export function ReplayPage() {
           </div>
         </SurfaceCard>
       )}
-    </div>
+    </TourTarget>
   )
 }

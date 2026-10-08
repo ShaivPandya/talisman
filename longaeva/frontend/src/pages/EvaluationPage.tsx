@@ -9,6 +9,7 @@ import { SavedDocument } from "@/components/evaluation/SavedDocument"
 import { ExtractionPanel } from "@/components/evaluation/ExtractionPanel"
 import { ProspectivePanel } from "@/components/evaluation/ProspectivePanel"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import {
   getReportCatalog,
   getSavedReport,
@@ -130,10 +131,9 @@ export function EvaluationPage() {
     setParams(next)
   }
   return (
-    <div>
+    <TourTarget id={section === "forecasts" ? "evaluation-results" : section === "prospective" ? "prospective-results" : undefined} status={catalogError || current?.errors.length ? "error" : !current ? "loading" : current.reports.some((report) => report.status === "pending") ? "empty" : "ready"} message={catalogError || current?.errors.join(" · ") || current?.reports.find((report) => report.status === "pending")?.reason} onRetry={() => { setState(null); setRevision((n) => n + 1) }}>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Saved results</p>
           <h1 className="theme-page-title">Evaluation</h1>
           <p className="theme-page-subtitle">
             Inspect packaged evaluation artifacts, counts and limitations. No
@@ -303,6 +303,6 @@ export function EvaluationPage() {
           <SavedDocument documentKey={documentKey} />
         </>
       )}
-    </div>
+    </TourTarget>
   )
 }

@@ -20,6 +20,7 @@ import { FanChart } from "@/components/charts/FanChart"
 import { PairedDiffChart } from "@/components/charts/PairedDiffChart"
 import { ChartTile } from "@/components/shared/ChartTile"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import {
   EvidencePanel,
   type EvidenceSelection,
@@ -138,6 +139,7 @@ export function SavedComparison({
       })
   }
   return (
+    <TourTarget id="saved-comparison" status={error || attributionError || pair?.some((run) => run.status === "failed") ? "error" : results && attribution ? "ready" : "loading"} message={error || attributionError || pair?.find((run) => run.status === "failed")?.error} onRetry={() => { setError(null); setAttributionError(null); setAttempt((value) => value + 1); setAttributionAttempt((value) => value + 1) }}>
     <section
       ref={section}
       className="scroll-mt-5"
@@ -145,7 +147,6 @@ export function SavedComparison({
     >
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Saved comparison</p>
           <h2 className="text-xl font-semibold">
             {results?.variantName ?? "Paired scenario runs"}
           </h2>
@@ -487,5 +488,6 @@ export function SavedComparison({
         <EvidencePanel selection={evidence} onClose={() => setEvidence(null)} />
       )}
     </section>
+    </TourTarget>
   )
 }

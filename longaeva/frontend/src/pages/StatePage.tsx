@@ -11,6 +11,7 @@ import { fmtNumber, fmtUtc } from "@/lib/format"
 import { errorMessage } from "@/lib/scenarios"
 import { EvidenceWorkspace } from "@/components/evidence/EvidenceWorkspace"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import {
   EvidencePanel,
   type EvidenceSelection,
@@ -31,6 +32,7 @@ export function StatePage() {
   const [state, setState] = useState<WorkspaceState | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [evidence, setEvidence] = useState<EvidenceSelection | null>(null)
+  const [attempt, setAttempt] = useState(0)
   useEffect(() => {
     let cancelled = false
     Promise.all([listOrigins(), getWorkspace(origin)])
@@ -47,13 +49,12 @@ export function StatePage() {
     return () => {
       cancelled = true
     }
-  }, [origin])
+  }, [origin, attempt])
   const current = state?.origin_date === origin ? state : null
   return (
-    <div>
+    <TourTarget id={tab === "state" ? "starting-state" : !current ? "evidence-review" : undefined} status={error ? "error" : current ? "ready" : "loading"} message={error} onRetry={() => { setError(null); setAttempt((value) => value + 1) }}>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Visa · historical starting state</p>
           <h1 className="theme-page-title">State & Evidence</h1>
           <p className="theme-page-subtitle">
             Inspect what was known at the cutoff, then build a scenario.
@@ -249,7 +250,7 @@ export function StatePage() {
       {evidence && (
         <EvidencePanel selection={evidence} onClose={() => setEvidence(null)} />
       )}
-    </div>
+    </TourTarget>
   )
 }
 

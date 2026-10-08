@@ -1,10 +1,14 @@
 import { useEffect, useState } from "react"
-import { NavLink, Outlet } from "react-router-dom"
+import { Link, NavLink, Outlet } from "react-router-dom"
 
 import { getHealth, type HealthResponse } from "@/lib/api"
 import { cx } from "@/lib/cx"
+import { useTour } from "@/lib/tourContext"
+import { TourProvider } from "@/components/tour/TourProvider"
+import { TourPanel } from "@/components/tour/TourPanel"
 
 const NAV = [
+  { to: "/guide", label: "How to use" },
   { to: "/runs", label: "Runs" },
   { to: "/state", label: "State & Evidence" },
   { to: "/scenarios", label: "Scenarios" },
@@ -14,6 +18,11 @@ const NAV = [
 ] as const
 
 export function AppShell() {
+  return <TourProvider><ShellContent /></TourProvider>
+}
+
+function ShellContent() {
+  const { state, launch } = useTour()
   const [health, setHealth] = useState<HealthResponse | null>(null)
   const [healthError, setHealthError] = useState<string | null>(null)
 
@@ -45,10 +54,9 @@ export function AppShell() {
   const apiOk = health?.status === "ok"
 
   return (
-    <div className="flex min-h-dvh">
+    <div className={`flex min-h-dvh ${state.mode !== "closed" ? "tour-open" : ""}`}>
       <aside className="theme-sidebar hidden w-60 shrink-0 flex-col border-r border-strong p-4 sm:flex">
-        <p className="theme-eyebrow">Longaeva</p>
-        <h1 className="mb-6 text-lg font-semibold tracking-tight">Visa simulation</h1>
+        <Link to="/guide" className="app-wordmark">Longaeva<span aria-hidden="true">.</span></Link>
         <nav className="flex flex-col">
           {NAV.map((item) => (
             <NavLink
@@ -73,19 +81,23 @@ export function AppShell() {
         </div>
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-app px-4 py-3 sm:hidden">
-          <span className="font-semibold">Longaeva</span>
-          <span className="caption">{apiOk ? "API ok" : healthError ? "API down" : "…"}</span>
-        </header>
-        <nav className="flex gap-2 overflow-x-auto border-b border-app px-3 py-2 sm:hidden">
+        <div className="tour-toolbar">
+          <div className="app-context">
+            <Link to="/guide" className="app-wordmark sm:hidden">Longaeva<span aria-hidden="true">.</span></Link>
+            <span className="app-context-company">Visa</span>
+            <span className="caption hidden sm:inline">Business simulation</span>
+          </div>
+          <button data-tour-launcher className="theme-button-base theme-button-secondary" onClick={launch}>Product tour</button>
+        </div>
+        <nav className="app-mobile-nav sm:hidden">
           {NAV.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               className={({ isActive }) =>
                 cx(
-                  "theme-badge shrink-0 whitespace-nowrap",
-                  isActive ? "theme-badge-info" : "theme-badge-neutral",
+                  "app-mobile-link",
+                  isActive && "app-mobile-link-active",
                 )
               }
             >
@@ -93,11 +105,14 @@ export function AppShell() {
             </NavLink>
           ))}
         </nav>
-        <main className="theme-page flex-1 overflow-auto">
-          <div className="theme-page-content">
-            <Outlet />
-          </div>
-        </main>
+        <div className="tour-main-row">
+          <main className="theme-page flex-1 min-w-0">
+            <div className="theme-page-content">
+              <Outlet />
+            </div>
+          </main>
+          <TourPanel />
+        </div>
       </div>
     </div>
   )

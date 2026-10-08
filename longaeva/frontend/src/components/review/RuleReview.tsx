@@ -26,6 +26,7 @@ import {
 import { errorMessage } from "@/lib/scenarios"
 import { fmtNumber, fmtUtc, shortHash } from "@/lib/format"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { useTourDraftGuard } from "@/lib/tourContext"
 import type { UpdateParams } from "@/components/evidence/PassageSearch"
 
 export function RuleReview({
@@ -84,6 +85,9 @@ function RuleWorkspace({
   const [attempt, setAttempt] = useState(0)
   const [savedRevision, setSavedRevision] = useState(0)
   const lock = useRef(false)
+  const signature = JSON.stringify({ reviewer, rationale })
+  const cleanForm = useRef(signature)
+  useTourDraftGuard(busy || signature !== cleanForm.current, "mapping rule edits")
   const eligible =
     review.observation.review_status === "accepted" ||
     review.observation.review_status === "corrected"
@@ -157,6 +161,7 @@ function RuleWorkspace({
       }
       if (apply && validPreview) {
         const result = await applyRules(base.id, validPreview.body)
+        cleanForm.current = signature
         setPreview(null)
         update({
           result_set_id: result.result_parameter_set_id ?? base.id,

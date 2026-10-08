@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import Markdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { Link } from "react-router-dom"
+import { Link, useLocation } from "react-router-dom"
 import {
   getSavedDocument,
   type SavedDocument as DocumentRead,
@@ -10,6 +10,7 @@ import { documentHref } from "@/lib/reportDisplay"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
 
 export function SavedDocument({ documentKey }: { documentKey: string }) {
+  const { hash } = useLocation()
   const [revision, setRevision] = useState(0)
   const [state, setState] = useState<{
     key: string
@@ -36,6 +37,11 @@ export function SavedDocument({ documentKey }: { documentKey: string }) {
     }
   }, [documentKey, revision])
   const current = state?.key === documentKey ? state : null
+  useEffect(() => {
+    if (hash === "#failure-case" && current?.document?.status === "available") {
+      window.document.getElementById("failure-case")?.scrollIntoView({ block: "start" })
+    }
+  }, [hash, current?.document])
   if (!current) return <p role="status">Loading saved document…</p>
   if (current.error)
     return (
@@ -63,6 +69,7 @@ export function SavedDocument({ documentKey }: { documentKey: string }) {
           remarkPlugins={[remarkGfm]}
           skipHtml
           components={{
+            h2: ({ node, children }) => <h2 id={node?.children.some((child) => child.type === "text" && child.value.startsWith("Failure case")) ? "failure-case" : undefined}>{children}</h2>,
             a: ({ href, children }) => {
               const safe = documentHref(href, document.document_links)
               if (!safe) return <span>{children}</span>

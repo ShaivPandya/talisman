@@ -17,6 +17,8 @@ import { fmtUtc } from "@/lib/format"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
 import { EvidenceExcerptView } from "@/components/shared/EvidencePanel"
 import { RuleReview } from "./RuleReview"
+import { useTourDraftGuard } from "@/lib/tourContext"
+import { TourTarget } from "@/components/tour/TourTarget"
 import type { UpdateParams } from "@/components/evidence/PassageSearch"
 
 export function ObservationReview({
@@ -60,11 +62,11 @@ export function ObservationReview({
     }
   }, [id, cutoff, attempt])
   return (
+    <TourTarget id="evidence-review" status={error ? "error" : review && excerpt ? "ready" : "loading"} message={error} onRetry={() => { setError(null); setAttempt((value) => value + 1) }}>
     <section aria-label="Selected observation" className="space-y-5">
       <SurfaceCard className="p-5">
         <div className="flex justify-between items-start gap-3 mb-4">
           <div>
-            <p className="theme-eyebrow">Evidence → review → rule</p>
             <h2 ref={heading} tabIndex={-1} className="section-title">
               Review observation
             </h2>
@@ -113,6 +115,7 @@ export function ObservationReview({
         />
       )}
     </section>
+    </TourTarget>
   )
 }
 
@@ -132,6 +135,9 @@ function ReviewForm({
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [needsReload, setNeedsReload] = useState(false)
+  const signature = JSON.stringify({ decision, draft, reviewer, rationale })
+  const cleanForm = useRef(signature)
+  useTourDraftGuard(busy || signature !== cleanForm.current, "observation review edits")
   async function submit(event: FormEvent) {
     event.preventDefault()
     if (lock.current || needsReload) return
@@ -154,6 +160,7 @@ function ReviewForm({
       })
       saved = true
       const data = await getReview(review.observation.id)
+      cleanForm.current = JSON.stringify({ decision, draft: correctionDraft(data), reviewer, rationale: "" })
       onSaved(data)
       setDraft(correctionDraft(data))
       setRationale("")

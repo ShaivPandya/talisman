@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom"
 
 import { AppShell } from "@/components/layout/AppShell"
 import { EvaluationPage } from "@/pages/EvaluationPage"
+import { GuidePage } from "@/pages/GuidePage"
 import { NotFoundPage } from "@/pages/NotFoundPage"
 import { ReplayPage } from "@/pages/ReplayPage"
 import { RunDetailPage } from "@/pages/RunDetailPage"
@@ -15,7 +16,8 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/runs" replace />} />
+          <Route path="/" element={<Navigate to="/guide" replace />} />
+          <Route path="/guide" element={<GuidePage />} />
           <Route path="/runs" element={<RunsPage />} />
           <Route path="/runs/:runId" element={<RunDetailPage />} />
           <Route path="/state" element={<StatePage />} />

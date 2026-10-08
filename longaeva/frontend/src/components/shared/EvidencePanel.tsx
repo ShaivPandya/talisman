@@ -6,6 +6,7 @@ import {
 } from "@/lib/api"
 import { fmtUtc } from "@/lib/format"
 import { errorMessage } from "@/lib/scenarios"
+import { useTour } from "@/lib/tourContext"
 
 export interface EvidenceSelection {
   title: string
@@ -21,6 +22,7 @@ export function EvidencePanel({
   selection: EvidenceSelection
   onClose: () => void
 }) {
+  const tour = useTour()
   const dialog = useRef<HTMLDialogElement>(null)
   const [data, setData] = useState<ParameterEvidenceRead | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -54,18 +56,21 @@ export function EvidencePanel({
     >
       <header className="flex items-start justify-between gap-4 mb-4">
         <div>
-          <p className="theme-eyebrow">Source evidence</p>
           <h2 id="evidence-title" className="text-lg font-semibold">
             {selection.title}
           </h2>
         </div>
+        <div className="flex flex-wrap gap-2 justify-end">
+        {tour.state.mode !== "closed" && <button className="theme-button-base theme-button-secondary" onClick={() => { tour.exit(); dialog.current?.querySelector<HTMLButtonElement>("[data-evidence-close]")?.focus() }}>Exit tour</button>}
         <button
           className="theme-button-base theme-button-secondary shrink-0"
           onClick={onClose}
+          data-evidence-close
           autoFocus
         >
           Close
         </button>
+        </div>
       </header>
       {error && (
         <p role="alert" className="theme-notice theme-notice-error">

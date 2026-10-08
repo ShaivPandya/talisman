@@ -21,11 +21,18 @@ the Vite-built web app.
 - API health: http://127.0.0.1:8000/health
 - OpenAPI UI: http://127.0.0.1:8000/docs
 - OpenAPI JSON: http://127.0.0.1:8000/openapi.json (snapshot also at `docs/openapi.json`)
-- Web app: http://127.0.0.1:3000/ (run list at `/runs`)
+- Web app: http://127.0.0.1:3000/ (how-to guide at `/guide`; run list at `/runs`)
 - Postgres (host): `127.0.0.1:55432` user/pass/db `longaeva`
 
 Optional: copy `.env.example` to `.env` and set `SEC_USER_AGENT` for live EDGAR fetches
 (LON-1). Compose does not require a `.env` file.
+
+Start with **How to use** for a task-oriented guide and a five-to-seven-minute
+**Product tour**. The tour follows the saved July 23, 2024 mix-shift example through
+evidence, scenario definition, comparison, valuation, evaluation, the prospective
+registration, and replay. Launch it from any page, exit without leaving your current
+page, and return to resume or restart. A new simulation and replay are optional,
+explicit actions. Progress is remembered in this browser; a reload keeps the tour closed.
 
 Open **State & Evidence** to inspect the two bundled starting states, then
 **Scenarios** to submit a calibrated baseline and an editable variant. Both pages

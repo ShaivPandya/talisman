@@ -72,7 +72,6 @@ export function RunsPage() {
     <div>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Saved runs</p>
           <h1 className="theme-page-title">Runs</h1>
           <p className="theme-page-subtitle">
             Saved Monte Carlo runs. Open a run for its quantiles or a paired

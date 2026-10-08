@@ -24,6 +24,8 @@ import {
   type EvidenceSelection,
 } from "@/components/shared/EvidencePanel"
 import { SavedComparison } from "@/components/scenario/SavedComparison"
+import { TourTarget } from "@/components/tour/TourTarget"
+import { useTourDraftGuard } from "@/lib/tourContext"
 
 export function ScenariosPage() {
   const [params] = useSearchParams()
@@ -39,11 +41,13 @@ function ScenarioWorkspace() {
   const [workspace, setWorkspace] = useState<WorkspaceState | null>(null)
   const [base, setBase] = useState<ParameterSetRead | null>(null)
   const [draft, setDraft] = useState<ScenarioDraft>(defaultDraft)
+  const cleanDraft = useRef(JSON.stringify(defaultDraft()))
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const submitLock = useRef(false)
   const [evidence, setEvidence] = useState<EvidenceSelection | null>(null)
   const [attempt, setAttempt] = useState(0)
+  useTourDraftGuard(submitting || JSON.stringify(draft) !== cleanDraft.current, "scenario edits")
   useEffect(() => {
     let cancelled = false
     Promise.all([listOrigins(), getWorkspace(origin), prepareOrigin(origin)])
@@ -92,6 +96,7 @@ function ScenarioWorkspace() {
         throw new Error(
           "Paired submission did not return both run IDs. Check Runs before retrying.",
         )
+      cleanDraft.current = JSON.stringify(draft)
       setParams({ origin, baseline_run_id: baseline.id, run_id: variant.id })
     } catch (err) {
       setError(errorMessage(err))
@@ -101,10 +106,9 @@ function ScenarioWorkspace() {
     }
   }
   return (
-    <div>
+    <TourTarget id="scenario-definition" status={error && !ready ? "error" : ready ? "ready" : "loading"} message={error} onRetry={() => { setError(null); setAttempt((value) => value + 1) }}>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Visa · four-quarter simulation</p>
           <h1 className="theme-page-title">Scenarios</h1>
           <p className="theme-page-subtitle">
             Change an assumption. Compare it with the calibrated baseline using
@@ -187,9 +191,8 @@ function ScenarioWorkspace() {
             <fieldset disabled={submitting} className="min-w-0">
               <div className="grid gap-4 lg:grid-cols-2 mb-5">
                 <SurfaceCard className="p-5">
-                  <p className="theme-eyebrow">Baseline</p>
                   <h2 className="text-lg font-semibold mb-2">
-                    Calibrated Visa
+                    Calibrated Visa baseline
                   </h2>
                   <p className="body-copy">
                     Saved parameter values and ranges at {workspace.label}. No
@@ -350,7 +353,7 @@ function ScenarioWorkspace() {
       {evidence && (
         <EvidencePanel selection={evidence} onClose={() => setEvidence(null)} />
       )}
-    </div>
+    </TourTarget>
   )
 }
 

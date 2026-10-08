@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Link, useSearchParams } from "react-router-dom"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
+import { TourTarget } from "@/components/tour/TourTarget"
 import { SavedRunPicker } from "@/components/shared/SavedRunPicker"
 import { useSelectedRun } from "@/lib/useSelectedRun"
 import { fmtNumber, fmtRatioPct, fmtUtc } from "@/lib/format"
@@ -105,10 +106,9 @@ export function ValuationPage() {
   ]
   const error = runError ?? current?.error
   return (
-    <div>
+    <TourTarget id="valuation-results" status={error ? "error" : run && run.status !== "succeeded" ? "empty" : actions ? "ready" : "loading"} message={error} onRetry={() => { setState({ id: "", actions: null, multiples: null, error: null }); setRevision((n) => n + 1) }}>
       <header className="theme-page-header">
         <div>
-          <p className="theme-eyebrow">Saved-run inspection</p>
           <h1 className="theme-page-title">Valuation & Actions</h1>
           <p className="theme-page-subtitle">
             Forward earnings, multiple assumptions and illustrative action
@@ -414,6 +414,6 @@ export function ValuationPage() {
           )}
         </>
       )}
-    </div>
+    </TourTarget>
   )
 }
