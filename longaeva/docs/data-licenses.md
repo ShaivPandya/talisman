@@ -3,8 +3,9 @@
 LON-28 implements the decisions and terms review dated October 2, 2026 in
 [`gates/benchmarks.md`](gates/benchmarks.md) and
 [`data/manifest/benchmarks.yaml`](../data/manifest/benchmarks.yaml).
-This inventory covers the benchmark evaluation; other dataset inventories remain
-in their respective gate documents for the final submission review.
+The table below covers benchmark evaluation. The complete per-file inventory below
+and the source gate documents cover every bundled data file. Final export validation
+checks inventory coverage and SHA-256 values; it does not grant additional source rights.
 
 | Input | Retained / exported | Method |
 | --- | --- | --- |

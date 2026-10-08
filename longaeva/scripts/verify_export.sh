@@ -8,12 +8,13 @@ LOG=""
 NO_CACHE=0
 KEEP=0
 SKIP_TESTS=0
+FINAL=0
 API_PORT="${API_PORT:-18000}"
 WEB_PORT="${WEB_PORT:-13000}"
 DB_PORT="${DB_PORT:-15432}"
 
 usage() {
-  echo "Usage: $0 --zip PATH [--log PATH] [--no-cache] [--keep] [--skip-tests]"
+  echo "Usage: $0 --zip PATH [--log PATH] [--no-cache] [--keep] [--skip-tests] [--final]"
 }
 
 while [ $# -gt 0 ]; do
@@ -38,6 +39,10 @@ while [ $# -gt 0 ]; do
       SKIP_TESTS=1
       shift
       ;;
+    --final)
+      FINAL=1
+      shift
+      ;;
     --help|-h)
       usage
       exit 0
@@ -49,6 +54,17 @@ while [ $# -gt 0 ]; do
       ;;
   esac
 done
+
+if [ "$FINAL" -eq 1 ] && [ "$SKIP_TESTS" -eq 1 ]; then
+  echo "--final cannot be combined with --skip-tests" >&2
+  exit 2
+fi
+
+# An exported demo must work without the invoking shell's collection/provider setup.
+export SEC_USER_AGENT= LLM_PROVIDER= LLM_MODEL= LLM_BASE_URL=
+export ANTHROPIC_API_KEY= OPENAI_API_KEY= GEMINI_API_KEY=
+# Do not inherit another Compose project's files or profiles.
+unset COMPOSE_FILE COMPOSE_PROFILES COMPOSE_ENV_FILES
 
 if [ -z "$ZIP" ]; then
   echo "--zip is required" >&2
@@ -163,11 +179,16 @@ write_log() {
   zip_bytes="$(wc -c < "$ZIP" | tr -d ' ')"
   zip_sha="$(sha256_file "$ZIP")"
   {
-    echo "# Early export rehearsal"
+    if [ "$FINAL" -eq 1 ]; then
+      echo "# Final export validation (LON-38)"
+    else
+      echo "# Early export rehearsal"
+    fi
     echo
     echo "- Started (UTC): $STARTED_UTC"
     echo "- Finished (UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo "- Result: **$FINAL_STATUS**"
+    echo "- Final mode: $FINAL; tests skipped: $SKIP_TESTS; provider credentials cleared"
     if [ -n "$FAILED_STEP" ]; then
       echo "- Failed step: $FAILED_STEP"
     fi
@@ -205,8 +226,8 @@ write_log() {
     echo "## Notes"
     echo
     echo "- Developer stack on ports 8000/3000/55432 is not used."
-    echo "- Browser UF-01/UF-03 flows are not automated here (LON-34 / LON-36)."
-    echo "- Replay is expected to be \`exact_match\` inside Compose (same BLAS)."
+    echo "- Browser evidence is recorded separately; this script verifies API flows."
+    echo "- New runs require exact replay; bundled runs retain the documented 1e-9 cross-runtime tolerance."
     if [ -n "$KEEP_NOTE" ]; then
       echo "- $KEEP_NOTE"
     fi
@@ -386,7 +407,7 @@ begin_step "git-init"
   cd "$PKG"
   export GIT_CONFIG_GLOBAL=/dev/null
   export GIT_CONFIG_NOSYSTEM=1
-  git init -b main >/dev/null
+  git init -b hackathon >/dev/null
   git add -A
   git -c user.name="Longaeva Export" -c user.email="export@example.invalid" commit -m "Initial import from export ZIP" >/dev/null
 )
@@ -401,14 +422,15 @@ end_step PASS "fresh git init; $tracked files tracked"
 # --- 5. Test suite ---
 begin_step "tests"
 if [ "$SKIP_TESTS" -eq 1 ]; then
-  end_step PASS "skipped (--skip-tests)"
+  FINAL_STATUS="INCOMPLETE"
+  printf '%s|SKIP|0|not certified (--skip-tests)\n' "$STEP_NAME" >> "$STEPS"
 else
   if ! out="$(make_in COMPOSE_BUILD_ARGS=$build_args WEB_CHECK_BUILD_ARGS=$web_args check 2>&1)"; then
     printf '\n### make check (failed)\n\n```\n%s\n```\n' "$(printf '%s\n' "$out" | tail -n 80 | redact)" >> "$EXCERPTS"
     end_step FAIL "make check"
     exit 1
   fi
-  printf '\n### make check (tail)\n\n```\n%s\n```\n' "$(printf '%s\n' "$out" | tail -n 20 | redact)" >> "$EXCERPTS"
+  printf '\n### make check\n\n```\n%s\n```\n' "$(printf '%s\n' "$out" | redact)" >> "$EXCERPTS"
   end_step PASS "make check (ruff, mypy, pytest, frontend)"
 fi
 
@@ -448,6 +470,18 @@ if ! curl -sf --max-time 10 "http://127.0.0.1:${WEB_PORT}/api/health" >/dev/null
   exit 1
 fi
 end_step PASS "API /health /openapi.json /runs; web / /runs /api/health"
+
+if [ "$FINAL" -eq 1 ]; then
+  begin_step "final-demo"
+  if ! out="$(cd "$PKG" && docker compose exec -T api python -m longaeva_app.submission --phase demo 2>&1)"; then
+    printf '\n### final demo (failed)\n\n```\n%s\n```\n' "$(printf '%s\n' "$out" | redact)" >> "$EXCERPTS"
+    end_step FAIL "final demo, inventory, report or paired runs"
+    exit 1
+  fi
+  printf '%s\n' "$out" > "$WORK/final-demo.json"
+  printf '\n### final demo\n\n```json\n%s\n```\n' "$out" >> "$EXCERPTS"
+  end_step PASS "inventory, report, seed/reseed, evidence, evaluation, valuation, paired worker runs and replay"
+fi
 
 # --- 8. Scenario execution ---
 begin_step "scenario"
@@ -538,6 +572,18 @@ if ! printf '%s\n' "$replay_a2" | grep -q "status=exact_match"; then
 fi
 end_step PASS "A and B exact_match, llm unset; A exact_match after restart"
 
+if [ "$FINAL" -eq 1 ]; then
+  begin_step "final-replay-after-restart"
+  replay_ids="$(python3 -c 'import json,sys; print(" ".join(json.load(open(sys.argv[1]))["new_run_ids"]))' "$WORK/final-demo.json")"
+  if ! out="$(cd "$PKG" && docker compose exec -T api python -m longaeva_app.submission --phase replay --run-id $replay_ids 2>&1)"; then
+    printf '\n### final replay (failed)\n\n```\n%s\n```\n' "$(printf '%s\n' "$out" | redact)" >> "$EXCERPTS"
+    end_step FAIL "saved and fresh paired runs after restart"
+    exit 1
+  fi
+  printf '\n### final replay after restart\n\n```json\n%s\n```\n' "$out" >> "$EXCERPTS"
+  end_step PASS "all bundled runs plus fresh paired runs replay after restart"
+fi
+
 # --- 10. Tree cleanliness ---
 begin_step "clean-tree"
 dirty="$(git -C "$PKG" status --porcelain)"
@@ -548,4 +594,4 @@ if [ -n "$dirty" ]; then
 fi
 end_step PASS "git status --porcelain empty"
 
-echo "All verify steps passed." >&2
+echo "Verification result: $FINAL_STATUS" >&2

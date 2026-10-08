@@ -2,7 +2,8 @@
 
 Packaging, licensing and evaluation caveats consolidated for LON-33. See the
 [evaluation report](evaluation-report.md) for measured results and the documented
-failure case. Final export verification remains LON-38.
+failure case. Final export validation is performed with `make verify-export` and
+`ARGS=--final`; its dated evidence is kept outside the package (LON-38).
 
 ## Personal data and secrets (LON-12 / PR-07)
 
@@ -252,7 +253,8 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   at zero shares; the committed fractions are 0.25.
 - **Not advice.** Every action label says illustrative. The net value gap is
   not a probability and is not a forecast of trading profit. The rule is fixed
-  configuration. Scoring is LON-28 and is not run here.
+  configuration. LON-28 retains benchmark-window aggregates; Visa strategy and
+  buy-and-hold scoring remain not run because daily Visa prices are unavailable.
 - **Hold is the no-action outcome.** An unsupported bridge, or a cutoff with no
   repurchase price and no request override, returns hold and the reason. No
   price or value is filled in to make the rule fire.
@@ -265,8 +267,9 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   Subtracting two independently summarized quantiles is not a paired effect.
 - **Metric labels are a frontend catalog** aligned with `VisaModel.metrics`. The results
   API does not send units; unknown metric keys fall back to raw numbers.
-- **Playwright is not in this package yet.** Frontend checks are ESLint, Vitest, and
-  `tsc` via `npm run build`.
+- **Browser automation is external to the package.** Frontend checks are ESLint,
+  Vitest and `tsc` via `npm run build`. Final browser evidence is recorded against
+  the exported stack separately from the scripted API checks.
 
 ## Export rehearsal (LON-24)
 
@@ -275,7 +278,8 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   not bundled in the ZIP.
 - **Early rehearsal scope.** The LON-24 rehearsal checked the original run page.
   Scenario and result pages have since been implemented and inspected; the final
-  exported application still requires the LON-38 clean-environment validation.
+  exported application is checked by LON-38 final mode plus a separate browser walkthrough.
+  Consult the dated external validation log for the exact ZIP and outcomes.
 - **Cold image builds need the network.** `--no-cache` pulls from PyPI and npm.
 - **Docker Desktop must share `/tmp`.** The verifier unpacks under `/tmp/longaeva-verify.*`
   and bind-mounts that tree into Compose. If file sharing excludes `/tmp`, `make up`

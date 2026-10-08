@@ -20,10 +20,12 @@ this package imports Talisman at runtime.
 | `frontend/vite.config.ts`, `tsconfig*.json`, `eslint.config.js` | `frontend/` counterparts | Pattern only | Vite 8 + React plugin + Tailwind 4 plugin; `@` → `src`; `/api` proxy strips the prefix to match nginx. No Sentry, axios, or TanStack Query. |
 | `frontend/src/lib/api.ts` | — | New | Plain `fetch` client. No auth, CSRF, or Sentry. |
 | `frontend/src/components/charts/FanChart.tsx` | — | New | Nested quantile bands (5–95 / 10–90 / 25–75) plus median and mean. |
-| `frontend/src/components/charts/PairedDiffChart.tsx` | — | New | Path-wise difference quantiles around a zero line. Not mounted until difference summaries exist. |
+| `frontend/src/components/charts/PairedDiffChart.tsx` | — | New | Path-wise difference quantiles around a zero line. Reads saved path-wise comparison summaries in the scenario workspace. |
 | `backend/longaeva_app/valuation/actions.py` | `portfolio/scenario_simulator.py` `_apply_delta`, `_traded_notional`, `_execution_friction` (lines 357–518); tests `tests/test_scenario_simulator.py` | Copy + adapt | Percent-of-position sizing only (hold/add/trim/exit). Costs are transaction, slippage, impact, and funding. Funding applies only to added notional over the configured holding period. Dropped the ADV cap, policy gate, ontology writeback, and scenario P&L. The rule is `config/decision_rule.yaml`, hashed with `content_hash`. |
 
-Later issues will extend this file when evidence UI is copied.
+The guide and product tour use this package’s own routes, controls and browser-local
+progress state. Submission verification uses the existing standalone APIs and does
+not import or connect to Talisman services.
 
 ## LON-35 evidence and review
 

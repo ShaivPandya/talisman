@@ -118,7 +118,7 @@ Amex / JPMorgan are out of family (stretch S6). Does not change origin eligibili
 
 ## Core read API (LON-10)
 
-Read-only list/detail endpoints (writes arrive in later issues):
+Core list/detail endpoints (write workflows are documented in the sections below):
 
 | Method | Path |
 | --- | --- |
@@ -165,7 +165,7 @@ make guard
 Runs only the isolation guard (`python -m longaeva_app.cli export-check`) against the
 export file set. On an unpacked ZIP copy, use `make guard GUARD_ARGS=--strict`.
 
-## Export and verification (LON-24)
+## Export and final verification (LON-24 / LON-38)
 
 Build a deterministic submission ZIP from the `.exportignore` file set (top-level
 `longaeva/` folder). The builder runs the isolation guard first and refuses to write
@@ -183,19 +183,43 @@ on 8000 / 3000 / 55432 is left alone.
 
 ```bash
 make verify-export ZIP=dist/longaeva-export-<file>.zip \
-  LOG=/absolute/path/outside/the/package/early-export.md \
-  ARGS='--no-cache --keep'
+  LOG=/absolute/path/outside/the/package/final-export.md \
+  ARGS='--final --no-cache --keep'
 ```
 
 Steps: checksum, unpack, listing checks (no `.git` / `.env` / `node_modules`, no
 developer home paths), `make guard GUARD_ARGS=--strict`, fresh `git init` whose
 tracked-file count equals the unpacked count, `make check`, `make up`, API and web
 smoke, worker-executed runs plus replay (including after a restart). `--keep` leaves
-the stack and temp dir; default teardown is `docker compose down -v --rmi local`.
+the stack and temp dir for browser inspection; default teardown is `docker compose down -v --rmi local`.
 
 The validation log is **not** part of the package. Write it outside `longaeva/`
 (Talisman: `docs/hackathon/planning/validation/`). Flags: `--skip-tests` (iteration
-only), `--keep`, `--no-cache`.
+only; result is INCOMPLETE), `--keep`, `--no-cache`, `--final`. Final mode refuses
+`--skip-tests` and adds complete seed counts, license-inventory checksums, report
+freshness, evidence, saved comparisons, valuation, fresh 5,000-path paired worker
+runs and replay of every bundled/new paired run before and after restart. Provider
+configuration is explicitly cleared. New runs require exact hashes; bundled runs
+may report the documented numerical equivalence within 1e-9 across runtimes.
+
+The browser walkthrough is a separate check against the verifier web port; use
+[the demo script](docs/demo-script.md), replacing port 3000 with the reported web
+port. Record evidence alongside the validation log, outside the package. This
+includes the guide and product tour, source dialogs, scenario controls, valuation,
+evaluation/failure case and replay. API checks alone do not certify rendering.
+
+The initial image build needs network access for pinned dependencies; seeded demo
+workflows need neither source downloads nor LLM credentials. A failed check stops
+certification and records the failing stage. Fix the source package, export again
+and rerun final validation; never edit the validated ZIP in place. With `--keep`,
+use the reported temporary directory and Compose project/ports to tear down only
+that verification stack (`docker compose down -v --rmi local`) after inspection.
+Do not apply volume deletion to a development stack containing user work.
+
+For a fresh local repository, unpack the verified ZIP to a new empty directory,
+initialize Git inside its `longaeva/` directory on `hackathon`, and make one initial
+commit using a submission identity. No parent history or remote is inherited.
+Keep the ZIP and checksum as the canonical artifact; Git metadata is never bundled.
 
 ## Frontend (LON-11)
 
@@ -213,7 +237,7 @@ npm run dev
 Open http://127.0.0.1:5173/ — `/api` is proxied to the API. There is no authentication.
 
 The Runs page lists saved runs and charts quantiles from `GET /runs/{id}/results`.
-Submit runs with `make submit-run`; the Scenarios page will add in-app submit later.
+Submit runs with `make submit-run` or use the Scenarios page to queue paired runs and inspect progress.
 
 See [`docs/reuse-notes.md`](docs/reuse-notes.md) for chart provenance.
 
