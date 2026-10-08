@@ -617,7 +617,16 @@ def backfill_conviction_history(
         existing = object_service.get_object(conviction_history_entry_id(entry_key))
         if existing:
             continue
-        materialize_conviction_history_entry(object_service, props, now=now, actor=actor)
+        provenance = str(props.get("provenance_event_id") or "").strip() or f"pv:conviction_history_backfill:{entry_key}"
+        materialized = dict(props)
+        materialized["provenance_event_id"] = provenance
+        materialize_conviction_history_entry(
+            object_service,
+            materialized,
+            now=now,
+            actor=actor,
+            provenance=provenance,
+        )
         written += 1
     return written
 

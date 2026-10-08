@@ -92,6 +92,7 @@ class _HistoryObjectService:
     def __init__(self, rows: list[dict[str, Any]]):
         self.rows = list(rows)
         self.written: list[tuple[str, str, dict[str, Any]]] = []
+        self.provenances: list[Any] = []
 
     def get_object(self, object_uid: str, **kwargs: Any) -> dict[str, Any] | None:
         matches = [row for row in self.rows if str(row.get("object_uid")) == str(object_uid)]
@@ -144,6 +145,7 @@ class _HistoryObjectService:
         }
         self.rows.append(row)
         self.written.append((object_type, business_key, properties))
+        self.provenances.append(kwargs.get("provenance"))
         return row
 
     def query_relations(self, **kwargs: Any) -> list[dict[str, Any]]:
@@ -318,6 +320,7 @@ def test_backfill_conviction_history_is_idempotent():
     second = backfill_conviction_history(service, ticker="MU", now="2026-06-05T12:00:00+00:00")
     assert first == 1
     assert second == 0
+    assert service.provenances == [f"pv:conviction_history_backfill:{service.written[0][1]}"]
 
 
 def test_conviction_history_returns_materialized_entries(history_reads: OntologyRuntimeReadService):
@@ -326,6 +329,43 @@ def test_conviction_history_returns_materialized_entries(history_reads: Ontology
     assert history[0]["previous_conviction"] == 3
     assert history[0]["new_conviction"] == 4
     assert history[0]["approval_id"] == "approval:101"
+
+
+def test_conviction_history_survives_backfill_write_failure():
+    class _FailingWriteService(_HistoryObjectService):
+        def __init__(self, rows: list[dict[str, Any]]):
+            super().__init__(rows)
+            self.write_attempts = 0
+
+        def write_object(self, object_type: str, business_key: str, properties: dict[str, Any], now: str, **kwargs: Any):
+            self.write_attempts += 1
+            raise RuntimeError("Ontology object write 'ConvictionHistoryEntry' requires provenance")
+
+    rows = [
+        _position_row(
+            ticker="NVDA",
+            conviction=3,
+            created_at="2026-06-01T10:00:00+00:00",
+            updated_at="2026-06-01T10:00:00+00:00",
+            version_id="version:1",
+            tx_from="2026-06-01T10:00:00+00:00",
+        ),
+        _position_row(
+            ticker="NVDA",
+            conviction=4,
+            created_at="2026-06-05T10:00:00+00:00",
+            updated_at="2026-06-05T10:00:00+00:00",
+            version_id="version:2",
+            tx_from="2026-06-05T10:00:00+00:00",
+        ),
+    ]
+    service = _FailingWriteService(rows)
+    reads = OntologyRuntimeReadService(object_service=service)
+    history = reads.conviction_history("NVDA")
+    assert service.write_attempts == 1
+    assert history
+    assert history[0]["ticker"] == "NVDA"
+    assert history[0]["new_conviction"] == 4
 
 
 def test_conviction_summary_includes_current_and_timeline(history_reads: OntologyRuntimeReadService):

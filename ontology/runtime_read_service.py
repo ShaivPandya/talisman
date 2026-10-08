@@ -290,19 +290,23 @@ class OntologyRuntimeReadService:
 
             from ontology.conviction_history import backfill_conviction_history
 
-            backfill_conviction_history(
-                self.objects,
-                ticker=normalized,
-                now=datetime.now(UTC).isoformat(),
-            )
-            rows = [
-                object_props(row)
-                for row in self.objects.query_objects(
-                    "ConvictionHistoryEntry",
-                    filters=filters or None,
-                    limit=500,
+            try:
+                backfill_conviction_history(
+                    self.objects,
+                    ticker=normalized,
+                    now=datetime.now(UTC).isoformat(),
                 )
-            ]
+            except Exception:
+                logger.exception("Conviction history backfill failed for %s", normalized)
+            else:
+                rows = [
+                    object_props(row)
+                    for row in self.objects.query_objects(
+                        "ConvictionHistoryEntry",
+                        filters=filters or None,
+                        limit=500,
+                    )
+                ]
 
         history = [compact_conviction_history_entry(row, entry_id=index + 1) for index, row in enumerate(rows)]
         if not history:
