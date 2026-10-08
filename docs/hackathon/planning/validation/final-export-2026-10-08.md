@@ -1,5 +1,19 @@
 # Final export validation (LON-38)
 
+## README revision — October 8, 2026
+
+The canonical ZIP was rebuilt after the full validation recorded below to replace
+its README with a product description, concise setup instructions and a walkthrough.
+Internal issue references and parent-project context were removed from the README.
+
+- Current ZIP SHA-256: `9123cec3824399a7dda1a63808c456c08ac7df8eb6d214a7914169bce6b15bfc`.
+- Current ZIP bytes: 43793509; files: 526.
+- The standard export builder and its isolation guard passed. The checksum sidecar matches.
+- A comparison of all archive entries found only `longaeva/README.md` changed; every other file's contents and all executable permissions are identical to the fully tested archive below.
+- All archive contents match the source package. All 10 local README documentation links resolve.
+- The retained standalone repository matches all 526 files and permissions, remains on `hackathon`, has no remotes and is clean after documentation commit `c63da43e514718f6ba2e38fb27c741c1deeed39a`. Its original neutral initial commit is preserved.
+- Runtime tests and browser checks were not repeated for this documentation-only revision. The results below refer to the original checksum and the unchanged application code and data.
+
 ## Acceptance summary
 
 Final scripted validation and the subsequent browser walkthrough passed against the exact ZIP below. No application APIs, schemas, model inputs or saved forecast artifacts were changed for LON-38.
