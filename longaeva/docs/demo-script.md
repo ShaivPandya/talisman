@@ -1,6 +1,6 @@
 # Offline demo (LON-37)
 
-Start Docker Desktop, then run `make up` from the package directory. Migrations and the validated seed finish before API health becomes ready. No provider credentials or collection command are needed. `make seed` explicitly repeats the same import.
+Start the app with Docker (`make up`, with Docker Desktop running) or without Docker (`make up-local` on macOS or Linux, or `.\scripts\up-local.ps1` on Windows, with Python 3.12+ and Node.js 20.19+). Migrations and the validated seed finish before the app is ready. No provider credentials or collection command are needed. `make seed` explicitly repeats the same import when the Docker database is already running.
 
 The demo contains two historical origins, six completed historical runs (baseline, mix shift and spending reduction for each), 40 retrospective forecast rows, and the original 20-row prospective archive. Historical examples use 5,000 paths, four quarters and seed 22. Mix shift changes cross-border share by −10%; spending reduction is 5%, both from quarter 1. These are illustrative interventions.
 

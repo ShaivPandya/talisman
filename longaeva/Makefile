@@ -34,10 +34,12 @@ COMPOSE_BUILD_ARGS ?=
 WEB_CHECK_BUILD_ARGS ?=
 GUARD_ARGS ?=
 
-.PHONY: help up down logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction
+.PHONY: help up down up-local down-local logs check check-web check-local seed lock build openapi guard collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction
+
+LOCAL_PYTHON := $(shell if command -v python3.12 >/dev/null 2>&1; then echo python3.12; elif command -v python3 >/dev/null 2>&1; then echo python3; fi)
 
 help:
-	@echo "Targets: up down logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction evaluate-llm-baseline capture-llm-baseline evaluation-report"
+	@echo "Targets: up down up-local down-local logs check check-web check-local guard seed lock build openapi collect engine-benchmark calibrate submit-run pair-run replay extract export verify-export apply-rules evaluate evaluate-portfolio valuation-multiples evaluate-extraction capture-extraction evaluate-llm-baseline capture-llm-baseline evaluation-report"
 
 # Offline: no database, provider, or API key required. Capture is an explicit separate command.
 evaluate-extraction:
@@ -51,6 +53,14 @@ up:
 
 down:
 	$(COMPOSE) down
+
+up-local:
+	@if [ -z "$(LOCAL_PYTHON)" ]; then echo "Python 3.12 or newer is required."; exit 1; fi
+	$(LOCAL_PYTHON) scripts/up_local.py
+
+down-local:
+	@if [ -z "$(LOCAL_PYTHON)" ]; then echo "Python 3.12 or newer is required."; exit 1; fi
+	$(LOCAL_PYTHON) scripts/up_local.py --down
 
 logs:
 	$(COMPOSE) logs -f --tail=200

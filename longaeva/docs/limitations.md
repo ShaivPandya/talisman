@@ -289,6 +289,23 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Replay after restart** keeps named volumes (`make down` without `-v`) so artifacts
   and Postgres survive. Final teardown uses `down -v --rmi local`.
 
+## Local startup without Docker
+
+- **Python and Node are prerequisites.** `make up-local` (macOS and Linux) and
+  `scripts/up-local.ps1` (Windows) require Python 3.12 or newer and Node.js 20.19
+  or newer. They do not install those runtimes.
+- **The first run needs a network.** It installs locked Python and npm packages
+  and downloads PostgreSQL 16.10.0 server binaries (PostgreSQL license, packaged
+  by Zonky) into `var/`. Later runs reuse that download. The binaries are not
+  part of the submission ZIP.
+- **Windows on ARM and musl/Alpine are unsupported.** Those machines should use
+  `make up` with Docker. The downloaded Linux binaries require glibc.
+- **`make verify-export` still requires Docker.** The no-Docker command is a
+  second way to start the demo, not a replacement for the image-based check.
+- **`make down` and `make down-local` stop different stacks.** The local command
+  stops only processes it started, including its private Postgres data directory.
+  It does not stop a Compose database that was already listening on port 55432.
+
 ## Search (LON-17)
 
 - **Lexical only.** Search is Postgres english `tsvector` / `websearch_to_tsquery`

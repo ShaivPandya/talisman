@@ -80,7 +80,7 @@ export function GuidePage() {
           </section>
           <details className="guide-troubleshooting">
             <summary>Setup and troubleshooting</summary>
-            <p className="body-copy mt-3">With Docker Desktop running, use <code>make up</code> from the Longaeva package directory. It starts the app and imports the offline demo. Open the web app on port 3000.</p>
+            <p className="body-copy mt-3">With Docker Desktop running, use <code>make up</code> from the Longaeva package directory. Without Docker, install Python 3.12+ and Node.js 20.19+, then use <code>make up-local</code> on macOS or Linux, or <code>.\scripts\up-local.ps1</code> on Windows. Either command starts the app and imports the offline demo. Open the web app on port 3000.</p>
             <p className="body-copy mt-3">If a saved example is missing, <code>make seed</code> repeats the validated import and preserves later review decisions and user scenarios. Investigate any conflicting or corrupt record reported by startup.</p>
             <p className="body-copy mt-3">Use the page’s Retry control or the tour’s Retry step for loading errors. You can skip unavailable content and exit throughout. After a failed or ambiguous scenario submission, check Runs before retrying.</p>
           </details>

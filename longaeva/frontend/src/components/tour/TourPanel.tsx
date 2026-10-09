@@ -94,7 +94,7 @@ export function TourPanel() {
           {step.optional && <p className="caption mt-4">{step.optional}</p>}
           {!onRoute ? <div className="theme-notice mt-4" role="status">Tour paused while you explore. Return to this step when you’re ready.</div> : current.status === "loading" ? <p role="status" className="caption mt-4">Waiting for this page’s content… You can skip or exit.</p> : unavailable ? <div className="theme-notice theme-notice-warning mt-4" role="status">
             <p>{current.message || (current.status === "empty" ? "This example’s content is unavailable in the current dataset." : current.status === "delayed" ? "This section is taking longer to load or its tour target is unavailable." : "This section could not load.")}</p>
-            <p className="caption mt-2">The packaged demo is loaded by make up. Retry this step, skip it, or exit.</p>
+            <p className="caption mt-2">The packaged demo is loaded at startup. Retry this step, skip it, or exit.</p>
           </div> : null}
         </>}
       </div>

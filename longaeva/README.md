@@ -31,19 +31,23 @@ the calculation.
 
 ## Run locally
 
+The app binds to localhost and has no login. After either startup below, open
+**http://127.0.0.1:3000**. Start with **How to use**, or launch the
+five-to-seven-minute **Product tour**.
+
+Startup loads two historical starting states, seven saved runs, historical
+evaluations, and a saved forecast awaiting results. You can explore them
+immediately or run new scenarios. No API keys are required.
+
+### With Docker
+
 Install Docker Desktop with Docker Compose and start Docker. From this directory:
 
 ```bash
 make up
 ```
 
-Open **http://127.0.0.1:3000**. Start with **How to use**, or launch the
-five-to-seven-minute **Product tour**.
-
-The first build downloads dependencies. The included demo then runs without API
-keys or further data downloads. Startup creates the database and loads two
-historical starting states, seven saved runs, historical evaluations and a saved
-forecast awaiting results. You can explore them immediately or run new scenarios.
+The first build downloads dependencies. After that, the demo does not download data.
 
 To stop:
 
@@ -53,7 +57,38 @@ make down
 
 Saved data remains in Docker volumes. Run `make up` to resume; startup preserves
 existing records and reviews. Use `make logs` to inspect a startup or worker error.
-The app is intended for local use and binds to localhost; it has no login system.
+
+### Without Docker
+
+Install Python 3.12 or newer and Node.js 20.19 or newer. From this directory on
+macOS or Linux:
+
+```bash
+make up-local
+```
+
+On Windows PowerShell:
+
+```powershell
+.\scripts\up-local.ps1
+```
+
+The command creates a virtualenv, installs the locked Python packages and web
+dependencies, and on first run downloads PostgreSQL 16 into `var/`. That download
+needs a network connection. Later runs reuse the virtualenv, `node_modules`, and
+the downloaded database server.
+
+To stop:
+
+```bash
+make down-local
+```
+
+On Windows: `.\scripts\up-local.ps1 -Down`
+
+`make down` stops only the Docker stack. `make down-local` stops only the
+no-Docker stack. Windows on ARM and Alpine Linux are not supported for this path;
+use Docker there.
 
 ## Try a comparison
 

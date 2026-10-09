@@ -94,6 +94,7 @@ TEXT_SUFFIXES: frozenset[str] = frozenset(
         ".mjs",
         ".cjs",
         ".sh",
+        ".ps1",
         ".ini",
         ".conf",
         ".example",
