@@ -1,6 +1,6 @@
 # Census MARTS archived releases and vintage series
 
-LON-15. Parsed vintage table for every archived advance retail release from
+Parsed vintage table for every archived advance retail release from
 `adv1611` through `adv2606`, with revision links and an as-of query that never
 returns a print published after the cutoff.
 
@@ -55,7 +55,7 @@ still chain.
 
 ## Sample originals
 
-Seven PDFs are committed. `adv2406` and `adv2506` are the LON-5 gate files.
+Seven PDFs are committed. `adv2406` and `adv2506` are the Census evidence gate files.
 The other five were chosen with seed 15 from the remaining 114 releases, then
 sorted:
 
@@ -108,7 +108,7 @@ back to the newest release flagged `ok`. For the December 2018 total, the
 only print available by `2019-02-20` is `adv1812`, so the strict query returns
 nothing. The November 2018 total falls back to an `ok` release.
 
-## Quarterly mapping and evaluation (LON-31)
+## Quarterly mapping and evaluation
 
 `extract/census_quarters.py` selects the latest print available by each cutoff
 for SA retail-and-food-services `yoy_3m_pct` ending March, June, September or

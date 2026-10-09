@@ -1,4 +1,4 @@
-# Extraction evaluation (LON-18)
+# Extraction evaluation
 
 This sample evaluates the passage-only extractor independently of operating
 forecasts. It contains 85 assistant-curated observation labels in 19 short,

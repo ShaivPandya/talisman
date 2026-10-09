@@ -1,6 +1,6 @@
 # Visa model specification
 
-Consolidated for LON-33 on October 7, 2026. Engine and calibration definitions
+Methods documented on October 7, 2026. Engine and calibration definitions
 remain those used by the retained evaluation runs.
 
 This document describes the Visa quarterly operating model implemented in
@@ -14,15 +14,15 @@ the activity step below; with none active, this arithmetic is unchanged.
 Each simulation starts from a dated starting state built by the Visa parser from
 cutoff-filtered observations, draws seeded correlated factor shocks, and advances four fiscal
 quarters. Company code never generates random numbers. All randomness arrives through
-factor draws so paired runs (LON-22) can share them exactly.
+factor draws so paired runs can share them exactly.
 
-**Decisions locked in LON-19:**
+**Decisions locked in **
 
-1. **Six factors.** Demand, travel and FX are correlated (MR-08). Pricing, incentives and
+1. **Six factors.** Demand, travel and FX are correlated. Pricing, incentives and
    costs are independent factors with their own volatilities.
 2. **Cross-border as a share of payments volume.** The origin share is an explicit
    analyst-assumption parameter (`cross_border_share_at_origin`). Domestic + cross-border
-   equals total payments volume by construction (MR-05).
+   equals total payments volume by construction.
 
 Defaults are **uncalibrated placeholders**. A run on defaults is not a forecast.
 
@@ -46,8 +46,8 @@ Carried path-wise between quarters. Built from a starting-state map by
 | `operating_expenses_ex_special_items` | usd_millions | Recurring opex baseline (ex special items) |
 
 Yield *levels* come from the starting state (or are derived from it using the share
-assumption). There is no yield-level or fee parameter (MR-06). Teaching-fee constants from
-the Stage 1 proposal are not inputs anywhere.
+assumption). There is no yield-level or fee parameter. The model uses disclosed revenue and activity levels rather than assumed
+contract fees.
 
 ## 3. Sampler contract
 
@@ -59,7 +59,7 @@ Module: `engine/sampler.py`.
 - Correlation: Cholesky root of the company's factor correlation matrix. A singular but
   positive-semidefinite matrix uses a symmetric eigendecomposition root. Non-PSD matrices
   are rejected.
-- Raw draws never depend on parameter values (paired-run safety for LON-22).
+- Raw draws never depend on parameter values (shared draws for paired runs).
 
 Visa factors (order): `demand`, `travel`, `fx`, `pricing`, `incentives`, `costs`.
 
@@ -70,7 +70,7 @@ are independent (identity block).
 ## 4. Transition rules
 
 Module: `companies/visa/transitions.py`. Numbered list mirrored by the hand-walked unit
-test (MR-02). Annual rates convert to quarterly via `(1+r)^(1/4) − 1`. Seasonal ratio sets
+test. Annual rates convert to quarterly via `(1+r)^(1/4) − 1`. Seasonal ratio sets
 are geo-mean normalized to 1 at use time so annual growth comes only from growth
 parameters.
 
@@ -98,7 +98,7 @@ The first simulated period is the quarter *after* the origin fiscal period.
 
 ## 5. Revenue rules, identities and switches
 
-### Revenue (MR-03)
+### Revenue
 
 | Category | Driver | Timing |
 | --- | --- | --- |
@@ -107,7 +107,7 @@ The first simulated period is the quarter *after* the origin fiscal period.
 | International | yield × (share × current PV) | current quarter |
 | Other | other-revenue run-rate | current quarter |
 
-### Identities (MR-04, relative tolerance ≤ 1e-9 on every path/quarter)
+### Identities (relative tolerance ≤ 1e-9 on every path/quarter)
 
 1. `service + data_processing + international + other − client_incentives = net_revenue`
 2. `net_revenue − operating_expenses_ex_special_items = operating_profit_ex_special_items`
@@ -116,14 +116,14 @@ The first simulated period is the quarter *after* the origin fiscal period.
 Only the **ex-special-items** operating-profit basis is simulated. GAAP operating profit
 remains a reporting field on fixtures, not a path metric.
 
-### Switches (MR-11)
+### Switches
 
 | Switch | Default | Effect |
 | --- | --- | --- |
 | `service_lag` | `true` | When `false`, service revenue uses current-basis yield × same-quarter PV. A spend reduction then moves service revenue in the start quarter instead of one quarter later. |
 | `pool_mix` | `false` | When `true`, freeze the cross-border share so domestic and cross-border share one growth driver. Travel draws are still consumed so paired runs stay aligned. |
 
-### Interventions (FR-10, MR-11)
+### Interventions
 
 Applied only when the quarter's list is non-empty, after the activity update and
 before pricing. See [`docs/scenarios.md`](scenarios.md).
@@ -135,7 +135,7 @@ before pricing. See [`docs/scenarios.md`](scenarios.md).
 
 ## 6. Parameters
 
-32 parameters: 8 free (MR-09), 22 estimated, 2 assumption. Defaults are uncalibrated.
+32 parameters: 8 free, 22 estimated, 2 assumption. Defaults are uncalibrated.
 
 | name | role | unit | lower | upper | default | description |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -169,10 +169,10 @@ before pricing. See [`docs/scenarios.md`](scenarios.md).
 | `corr_demand_travel` | estimated | correlation | -1.0 | 1.0 | 0.4 | Correlation of demand and travel factors. |
 | `corr_demand_fx` | estimated | correlation | -1.0 | 1.0 | 0.2 | Correlation of demand and FX factors. |
 | `corr_travel_fx` | estimated | correlation | -1.0 | 1.0 | 0.15 | Correlation of travel and FX factors. |
-| `cross_border_share_at_origin` | assumption | ratio | 0.05 | 0.35 | 0.2 | Analyst-assumption share of payments volume that is cross-border ex-intra-Europe at the origin quarter. Midpoint of the allowed range; not an estimate (LON-3: no disclosed CB level). |
+| `cross_border_share_at_origin` | assumption | ratio | 0.05 | 0.35 | 0.2 | Analyst-assumption share of payments volume that is cross-border ex-intra-Europe at the origin quarter. Midpoint of the allowed range; not an estimate (no disclosed CB level). |
 | `international_fx_sensitivity` | assumption | ratio | -1.0 | 1.0 | 0.0 | Additional FX sensitivity on the international yield (0 = pricing shock only). |
 
-### 6.1 Calibration (LON-20)
+### 6.1 Calibration
 
 Implementation: `companies/visa/calibration.py`. Artifacts:
 `data/calibration/visa_<origin-date>.json`. CLI: `python -m longaeva_app.cli calibrate`
@@ -208,11 +208,11 @@ intervals clipped to `ParameterSpec` bounds.
 history from FY2018Q2. Weights are inverse MSE of one-step pseudo-OOS errors over the
 last four eligible quarters (Bates–Granger), normalized to sum to 1. The pooled set is
 a weight-average (geo-mean for seasonals; PSD projection for correlations). Runs use
-the pooled set; each evaluation row (LON-27) also records ensemble members and weights.
+the pooled set; each evaluation row also records ensemble members and weights.
 
 **Evidence.** Each parameter links to deterministic observation UUIDs
 (`observation_uuid_for` in `extract/visa_tables.py`) or `assumption=true` with a
-rationale. Artifacts carry an `evidence_index`; LON-37 loads rows under the same IDs.
+rationale. Artifacts carry an `evidence_index`; demo seeding loads rows under the same IDs.
 
 **Calibrated pooled values (committed artifacts).**
 
@@ -234,14 +234,14 @@ switches and parameters.
 
 `engine/summary.summarize_paths` reports, per metric and quarter:
 
-- mean, sample standard deviation, Monte Carlo SE of the mean (`std / √n`)
-- quantiles keyed `"0.05"`, `"0.1"`, `"0.25"`, `"0.5"`, `"0.75"`, `"0.9"`, `"0.95"`
+- Mean, sample standard deviation, Monte Carlo SE of the mean (`std / √n`)
+- Quantiles keyed `"0.05"`, `"0.1"`, `"0.25"`, `"0.5"`, `"0.75"`, `"0.9"`, `"0.95"`
   (same style as `RunResultSummary` / forecast rows)
-- batch-means SE per quantile
+- Batch-means SE per quantile
 
-Default `n_paths` is 5,000 (MR-08).
+Default `n_paths` is 5,000.
 
-## 8. Performance (NR-01)
+## 8. Performance
 
 Target: 5,000 paths × 4 quarters ≤ 60 s on a laptop (CPU-only NumPy).
 
@@ -329,7 +329,7 @@ report-only code change does not invalidate historical outputs. The generator
 checks source hashes and aggregates from exported score rows without fitting,
 replaying simulations, capturing provider responses or rewriting the forecast.
 
-## 11. Prospective registration and remaining package work
+## 11. Prospective registration and data gaps
 
 The frozen FY2026Q4 registration contains its actual October creation timestamp,
 July evidence cutoff, inputs, hashes and paths. It forecasts unpublished results
@@ -339,6 +339,6 @@ later actuals must be recorded and scored separately without changing the archiv
 
 The result pages read packaged reports without running scoring. The final report,
 model specification and failure case are available through the saved-document API.
-Bundled saved runs/demo seeding remain LON-37; final clean-environment export
-validation remains LON-38. Recovering the two excluded extension origins requires
+Startup seeds the bundled saved runs. Export verification checks a fresh
+application environment. Recovering the two excluded extension origins requires
 additional FY2020/FY2021 10-K volume parsing; this report does not fill those gaps.

@@ -1,4 +1,4 @@
-"""Company-agnostic Monte Carlo engine (LON-19)."""
+"""Company-agnostic Monte Carlo engine."""
 
 from __future__ import annotations
 

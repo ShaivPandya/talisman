@@ -1,4 +1,4 @@
-"""Visa IR CDN PDF fetch helpers (LON-13 / ER-07 / DR-04)."""
+"""Visa IR CDN PDF fetch helpers."""
 
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ def fetch_ir_pdf(
     """Fetch an IR deck/transcript PDF.
 
     ``publication_ts`` is the HTTP ``Last-Modified`` header. Missing
-    Last-Modified refuses ingestion (DR-04). Timing checks against the
+    Last-Modified refuses ingestion. Timing checks against the
     ``visa_ir.yaml`` event-window rules flag mismatches but still ingest.
     """
     result = client.get(url)

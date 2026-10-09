@@ -1,4 +1,4 @@
-"""Tests for Visa definitions (LON-2)."""
+"""Tests for Visa definitions."""
 
 from __future__ import annotations
 
@@ -102,19 +102,13 @@ def test_definitions_md_field_table_matches_fields() -> None:
     )
 
 
-def test_teaching_fees_only_in_not_an_input_section() -> None:
+def test_no_invented_teaching_fees_in_package() -> None:
     doc = DEFINITIONS_MD.read_text(encoding="utf-8")
-    assert "## 8. Teaching fees — not an input" in doc
-    # Split: everything outside section 8 must be clean; section 8 may mention the example.
-    before, rest = doc.split("## 8. Teaching fees — not an input", 1)
-    section8, after = rest.split("## 9.", 1)
+    assert "## 8. Yield inputs" in doc
     for pattern in TEACHING_PATTERNS:
-        assert not pattern.search(before), f"teaching pattern outside §8 (before): {pattern.pattern}"
-        assert not pattern.search(after), f"teaching pattern outside §8 (after): {pattern.pattern}"
-        assert pattern.search(section8) or "teaching" in section8.lower()
+        assert not pattern.search(doc), f"invented fee in definitions: {pattern.pattern}"
 
-    # Package scan: no teaching patterns outside definitions.md section 8.
-    # We allow the string "teaching" as a label, but not the $1/$3 constants.
+    # The model must not use the illustrative $1/$3 fee constants.
     offenders: list[str] = []
     for root in SCAN_ROOTS:
         for path in root.rglob("*"):
@@ -123,7 +117,7 @@ def test_teaching_fees_only_in_not_an_input_section() -> None:
             if "node_modules" in path.parts or "__pycache__" in path.parts:
                 continue
             # Skip the OpenAPI snapshot (huge, unrelated) and the definitions doc itself
-            # (checked above with section gating).
+            # (checked above).
             if path.name == "openapi.json":
                 continue
             if path.resolve() == DEFINITIONS_MD.resolve():
@@ -170,7 +164,7 @@ def test_definitions_md_required_sections() -> None:
         "## 5. Nominal versus constant-dollar",
         "## 6. GAAP versus identified special items",
         "## 7. Yields",
-        "## 8. Teaching fees — not an input",
+        "## 8. Yield inputs",
         "## 9. Observation basis vocabulary",
         "## 10. Disclosure change log",
         "## 11. Stability verdict",
@@ -182,4 +176,4 @@ def test_definitions_md_required_sections() -> None:
     assert "**28**" in text
     assert "**39**" in text
     assert "**1**" in text
-    assert "Origins excluded by LON-2 definition instability | **0**" in text
+    assert "Origins excluded by definition instability | **0**" in text

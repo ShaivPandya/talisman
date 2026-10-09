@@ -1,4 +1,4 @@
-"""Replay comparison of a saved run against a fresh simulation (LON-23 / ER-03)."""
+"""Replay comparison of a saved run against a fresh simulation."""
 
 from __future__ import annotations
 

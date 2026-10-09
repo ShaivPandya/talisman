@@ -1,7 +1,6 @@
 """Visa company package.
 
-Definitions (LON-2), starting-state fixtures (LON-3) and the quarterly engine
-(LON-19) live here. ``register_company`` is invoked via
+Definitions, starting-state fixtures and the quarterly engine live here. ``register_company`` is invoked via
 ``companies.register_default_companies``.
 """
 

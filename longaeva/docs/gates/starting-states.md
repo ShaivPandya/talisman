@@ -1,10 +1,10 @@
 # Gate: reconstruct two historical Visa starting states
 
-LON-3 · planning v1 · settled October 2, 2026.
+Source review dated October 2, 2026.
 
 ## Question
 
-Can release-only inputs plus the previous 10-Q produce a complete starting state under the cutoff convention (data plan §2.3)?
+Can release-only inputs plus the previous 10-Q produce a complete starting state under the cutoff convention?
 
 ## Answer
 
@@ -92,7 +92,7 @@ Units follow [`docs/definitions.md`](../definitions.md). Status: `measured` | `d
 | net_interest_other | 75 | FY2025Q4 | gaap | measured |
 | diluted_shares | 1,945 | FY2025Q4 | gaap | measured |
 
-Unavailable at both origins: `cross_border_ex_intra_europe_index_nominal`, `effective_yield_international` (no disclosed CB level; MR-01).
+Unavailable at both origins: `cross_border_ex_intra_europe_index_nominal`, `effective_yield_international` (no disclosed CB level).
 
 ## Identity residuals
 
@@ -131,7 +131,7 @@ Rounding band = year-ago × 0.005 (whole-percent growth).
 | B | FY2025Q3 (q−1) | 3,627.52 | 3,617 | +10.52 | yes (±16.6) | FY2025 10-K TTM − prior 9M |
 | B | FY2025Q4 (q) | 3,716.9 | 3,732 | −15.1 | yes (±17.1) | FY2026Q1 10-Q |
 
-Vintage note: later 10-Qs restate year-ago PV columns by a few billions. That is expected under DR-04 (use the first print available at the cutoff; link later revisions without substituting them into earlier origins).
+Vintage note: later 10-Qs restate year-ago PV columns by a few billions. That follows the publication-cutoff rule (use the first print available at the cutoff; link later revisions without substituting them into earlier origins).
 
 ## Alternative cutoff assessment
 
@@ -145,7 +145,7 @@ Same-quarter forms never publish current-quarter PV levels (service-revenue lag)
 
 ## Eligible-origin impact (exact)
 
-LON-3 does **not** lower the LON-1 inventory counts. Both reconstructed origins are complete under §2.3 with eligible-family inputs:
+Starting-state reconstruction does **not** lower the origin inventory counts. Both reconstructed origins are complete under §2.3 with eligible-family inputs:
 
 | Count | Value |
 | --- | --- |
@@ -153,21 +153,21 @@ LON-3 does **not** lower the LON-1 inventory counts. Both reconstructed origins 
 | Calibration FY2017–FY2023 | **28** |
 | Candidate origins | **18** |
 | Prospective | **1** |
-| Origins excluded by LON-3 incompleteness | **0** |
+| Origins excluded by incomplete starting states | **0** |
 
-Census timing (LON-5) can still lower the count.
+Census timing is checked separately in [the Census source review](census.md).
 
-## Definitions note (LON-2 follow-up)
+## Definitions note
 
 `tax_rate` and `net_interest_other` field `source` tags were corrected from `form_10q` to `earnings_release` (both appear in the release at the cutoff). Field **names** are unchanged.
 
-## LON-14 span correction (Origin B nominal growth)
+## Parser span correction (Origin B nominal growth)
 
 In `visa_2025-10-28.json`, three FY2025Q4 entries originally cited the Key Business
 Drivers **Constant** cell (`char_start` 112485, quote `9%`) for **nominal** growth:
 `payments_volume_growth_nominal` and the supporting spans on derived
 `payments_volume_nominal_us` and `payments_volume_index_nominal`. Values were already
-9% on both columns. LON-14 repoints those spans to the **Nominal** cell at 112729
+9% on both columns. The parser points those spans to the **Nominal** cell at 112729
 with an anchor that `locate_span` resolves there. Constant-dollar growth remains at
 112485.
 
@@ -187,11 +187,11 @@ Re-checked against live EDGAR HTML on October 2, 2026:
 
 Thirteen unique filings retained under [`data/fixtures/states/sources/`](../../data/fixtures/states/sources/) as deterministic `.htm.gz` (mtime=0) with SHA-256 in `manifest.json` (~1.2 MB compressed). Fetch: `python -m longaeva_app.collect.state_sources fetch`. Locate spans: `… locate data/fixtures/states/visa_YYYY-MM-DD.json`.
 
-## Handoff
+## Integration
 
-- **LON-14:** Done — structured parser in `extract/visa_tables.py` reproduces both
+- The structured parser in `extract/visa_tables.py` reproduces both
   fixtures (measured values and spans; derived values via fixture formulas). See
   [`docs/visa-parser.md`](../visa-parser.md).
-- **LON-19:** `to_starting_state()` returns the numeric map; service lag uses PV(t−1); no teaching-fee constants; CB index remains unavailable until a level source exists or an analyst assumption is reviewed.
-- **LON-20:** use derived PV series with rounding bands; do not substitute post-cutoff restatements into earlier cutoffs.
-- **LON-25:** valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`, `operating_profit_*`.
+- `to_starting_state()` returns the numeric map; service lag uses PV(t−1); no teaching-fee constants; CB index remains unavailable until a level source exists or an analyst assumption is reviewed.
+- Use derived PV series with rounding bands; do not substitute post-cutoff restatements into earlier cutoffs.
+- Valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`, `operating_profit_*`.

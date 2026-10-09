@@ -1,4 +1,4 @@
-"""Mapping-rule registry, analyst ranges, and the estimated-rule fitter (LON-21)."""
+"""Mapping-rule registry, analyst ranges, and the estimated-rule fitter."""
 
 from __future__ import annotations
 

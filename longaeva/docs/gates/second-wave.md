@@ -1,11 +1,11 @@
 # Gate: Second-wave disclosure families
 
-LON-8 · planning v1 · settled October 2, 2026.
+Source review dated October 2, 2026.
 
 ## Question
 
 Which airline, retailer and payment processor EDGAR earnings releases provide a
-dated metric tied to a named Visa driver under DR-03?
+dated metric tied to a named Visa driver under the evidence-mapping criteria?
 
 ## Answer
 
@@ -15,16 +15,16 @@ there) covers all 19 Visa candidate/prospective origins. Selection used, in
 order: metric present at the most origins → next-quarter guidance covering the
 Visa target → lower median age → stronger driver link. **Strict processor
 scope:** card networks and bank issuers (Mastercard, Amex, JPMorgan) are
-out-of-family and reserved for stretch DRAFT-S6.
+outside this disclosure sample.
 
 ## Recommendation
 
-All three families start as **context** (data plan §3.2). Rule estimation is
-out of scope for LON-8.
+All three families are retained as **context**. Their metrics are not estimated
+coefficients in the operating model.
 
 | Family | Company | Visa driver | Stance | Note |
 | --- | --- | --- | --- | --- |
-| Airline | United | `cross_border_ex_intra_europe_growth_constant` | context | Atlantic / Pacific / Latin America tables. Ex. 99.2 investor-update guidance may become an analyst-ranged rule in LON-21 only where it covers the Visa target quarter. |
+| Airline | United | `cross_border_ex_intra_europe_growth_constant` | context | Atlantic / Pacific / Latin America tables. Ex. 99.2 investor-update guidance may become an analyst-ranged rule in mapping rules only where it covers the Visa target quarter. |
 | Retailer | Costco | `payments_volume_growth_constant`, `processed_transactions_growth` | context | U.S. / Other International comps; traffic and ticket on Ex. 99.2. No next-quarter guidance. |
 | Processor | PayPal | `payments_volume_growth_constant` | context | TPV (FXN) and payment transactions as a PV cross-check. Same-day at 5 origins. |
 
@@ -69,7 +69,7 @@ United and PayPal show guidance language at every origin; Costco shows none.
 
 ## Retained cutoffs
 
-Same Visa origins as Booking / LON-3 starting states.
+Uses the same Visa origins as the Booking evidence and bundled starting states.
 
 | | Origin A | Origin B |
 | --- | --- | --- |
@@ -104,8 +104,8 @@ with hash manifest
 | 2024-07-17 | Capacity +8.3%; Atlantic passenger revenue +2.9% | Premium-mix commentary; Ex. 99.2 investor-update guidance presence |
 | 2025-10-15 | Capacity +7.2%; Atlantic passenger revenue +1.3% | Atlantic expansion commentary; Ex. 99.2 guidance presence |
 
-Numeric Ex. 99.2 guidance ranges are deferred to LON-16; fixtures record
-presence as qualitative so FR-03 validation stays value-safe.
+Numeric Ex. 99.2 guidance ranges are deferred to LLM extraction; fixtures record
+presence as qualitative rather than inventing numeric values.
 
 ### Costco
 
@@ -150,15 +150,14 @@ python -m longaeva_app.collect.second_wave locate data/fixtures/observations/uni
 
 Manifest: [`data/manifest/second_wave.yaml`](../../data/manifest/second_wave.yaml).
 
-## Handoff
+## Integration
 
-- **LON-13:** ingest retained Ex. 99.1 / 99.2 originals from the sources manifest.
-- **LON-16:** LLM extraction over retained passages; extract numeric Ex. 99.2
-  guidance ranges; statement types already FR-03.
-- **LON-18:** second-wave passages enter the extraction evaluation set.
-- **LON-21:** mapping rules start as context; promote airline guidance only with
+- Ingest retained Ex. 99.1 / 99.2 originals from the sources manifest.
+- LLM extraction over retained passages; extract numeric Ex. 99.2
+  guidance ranges; statement types follow the extraction schema.
+- Second-wave passages enter the extraction evaluation set.
+- Mapping rules start as context; promote airline guidance only with
   a documented rationale where `guidance_covers_target` would be true.
-- **LON-27 / LON-31:** ablation (a) rebuilds without second-wave updates.
-- **DRAFT-S6:** Mastercard / Amex / JPMorgan screen after evaluation.
-- **Origin eligibility (DR-05):** unchanged — second-wave families are
+- **Forecast evaluation:** ablation (a) rebuilds without second-wave updates.
+- **Origin eligibility:** unchanged — second-wave families are
   context-first and do not add columns to `origins.csv`.

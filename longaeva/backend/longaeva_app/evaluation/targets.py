@@ -1,4 +1,4 @@
-"""Actuals and forecast-side transforms for evaluation scoring (LON-27)."""
+"""Actuals and forecast-side transforms for evaluation scoring."""
 
 from __future__ import annotations
 

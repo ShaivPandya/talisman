@@ -1,4 +1,4 @@
-"""Booking Holdings family-gate tests (LON-4 / DR-03 / DR-04 / FR-03)."""
+"""Booking Holdings family-gate tests."""
 
 from __future__ import annotations
 

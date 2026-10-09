@@ -1,4 +1,4 @@
-"""Read contracts for the browser workspace (LON-34)."""
+"""Read contracts for the browser workspace."""
 
 from __future__ import annotations
 

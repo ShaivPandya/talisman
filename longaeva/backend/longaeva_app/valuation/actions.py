@@ -1,4 +1,4 @@
-"""Illustrative hold/add/trim/exit actions with explicit costs (LON-26 / FR-13).
+"""Illustrative hold/add/trim/exit actions with explicit costs.
 
 Sizing and cost arithmetic are adapted from Talisman's
 ``portfolio/scenario_simulator.py`` (``_apply_delta``, ``_traded_notional``,

@@ -1,4 +1,4 @@
-"""Manifest loader and builder tests (LON-13)."""
+"""Manifest loader and builder tests."""
 
 from __future__ import annotations
 

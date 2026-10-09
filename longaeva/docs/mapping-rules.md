@@ -1,4 +1,4 @@
-# Mapping rules (LON-21)
+# Mapping rules
 
 Reviewed observations become a child parameter set only through a rule in the code
 registry. The registry is `longaeva_app.review.rules.REGISTRY`. `sync_registry` inserts
@@ -113,4 +113,4 @@ Context reasons:
   not a parsed US share.
 - Guidance half-width widens the recorded range. It is not a probability.
 - No transform carries a `confidence` or `probability` field. A qualitative input
-  cannot be an estimated rule (MR-12).
+  cannot be an estimated rule.

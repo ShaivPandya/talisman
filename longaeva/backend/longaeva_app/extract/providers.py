@@ -1,4 +1,4 @@
-"""LLM provider adapters for passage extraction (LON-16).
+"""LLM provider adapters for passage extraction.
 
 Three httpx adapters follow Talisman's provider call shapes (Anthropic Messages
 with a forced tool, OpenAI Responses with a strict JSON schema, Gemini

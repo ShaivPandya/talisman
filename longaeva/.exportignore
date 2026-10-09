@@ -1,6 +1,6 @@
-# Exclusion manifest for the submission export (LON-12 / PR-07).
+# Exclusion manifest for the submission export.
 # Gitignore syntax, applied by longaeva_app.isolation_guard and later
-# by scripts/export_submission.sh (LON-24).
+# by scripts/export_submission.sh.
 
 # Secrets and local environment (keep the committed example)
 .env

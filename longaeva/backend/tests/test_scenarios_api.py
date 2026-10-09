@@ -1,4 +1,4 @@
-"""Scenario creation, paired runs, comparison, attribution, and replay (LON-22)."""
+"""Scenario creation, paired runs, comparison, attribution, and replay."""
 
 from __future__ import annotations
 

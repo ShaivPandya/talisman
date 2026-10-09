@@ -1,12 +1,12 @@
-"""Visa engine parameter specifications (LON-19).
+"""Visa engine parameter specifications.
 
 Roles:
-- ``free`` (8): transition growth/drift parameters fitted by LON-20 (MR-09).
+- ``free`` (8): transition growth/drift parameters fitted by calibration.
 - ``estimated`` (22): seasonal ratios, residual volatilities/correlations, other-revenue growth.
 - ``assumption`` (2): undisclosed levels flagged as assumptions (cross-border share).
 
 Defaults are uncalibrated placeholders. A run on defaults is not a forecast.
-Yield *levels* come from the starting state, never from parameters (MR-06).
+Yield *levels* come from the starting state, never from parameters.
 """
 
 from __future__ import annotations

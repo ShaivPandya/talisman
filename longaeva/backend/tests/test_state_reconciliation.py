@@ -1,4 +1,4 @@
-"""Starting-state reconciliation tests (LON-3 / ER-02 / DR-04)."""
+"""Starting-state reconciliation tests."""
 
 from __future__ import annotations
 

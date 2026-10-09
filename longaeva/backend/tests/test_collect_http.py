@@ -1,4 +1,4 @@
-"""PoliteClient rate limiting and access-control handling (LON-13)."""
+"""PoliteClient rate limiting and access-control handling."""
 
 from __future__ import annotations
 

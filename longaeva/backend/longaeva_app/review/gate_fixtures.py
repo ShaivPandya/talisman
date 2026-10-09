@@ -1,4 +1,4 @@
-"""Load LON-4, LON-5 and LON-8 gate fixtures as source and observation rows.
+"""Load Booking evidence, Census evidence and second-wave evidence gate fixtures as source and observation rows.
 
 Idempotent by source content hash and ``attributes.fixture_observation_id``.
 Accept decisions are recorded only when requested, and only while the row is pending.

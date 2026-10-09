@@ -105,7 +105,7 @@ def cmd_export_openapi(args: argparse.Namespace) -> int:
 
 
 def cmd_export_check(args: argparse.Namespace) -> int:
-    """Run the isolation guard (LON-12) or list the export file set."""
+    """Run the isolation guard or list the export file set."""
     from longaeva_app.isolation_guard import format_findings, list_export_paths, scan
 
     root = Path(args.root).resolve() if args.root else None
@@ -119,7 +119,7 @@ def cmd_export_check(args: argparse.Namespace) -> int:
 
 
 def cmd_export_zip(args: argparse.Namespace) -> int:
-    """Build the submission ZIP (LON-24). Guard findings abort with no ZIP written."""
+    """Build the submission ZIP. Guard findings abort with no ZIP written."""
     from longaeva_app.export_bundle import ExportBundleError, build_export_zip, load_forbid_file, summary_payload
     from longaeva_app.isolation_guard import format_findings, resolve_root
 
@@ -148,7 +148,7 @@ def cmd_build_manifests(args: argparse.Namespace) -> int:
 
 
 def cmd_collect(args: argparse.Namespace) -> int:
-    """Fetch curated manifests into the artifact store and database (LON-13)."""
+    """Fetch curated manifests into the artifact store and database."""
     from longaeva_app.collect.collector import collect, summarize_report
 
     manifests = list(args.manifest) if args.manifest else None
@@ -164,7 +164,7 @@ def cmd_collect(args: argparse.Namespace) -> int:
 
 
 def cmd_engine_benchmark(args: argparse.Namespace) -> int:
-    """Time a Visa 5,000-path × 4-quarter run (LON-19 / NR-01)."""
+    """Time a Visa 5,000-path × 4-quarter run."""
     import platform
     import time
     from datetime import UTC, datetime
@@ -220,7 +220,7 @@ def cmd_engine_benchmark(args: argparse.Namespace) -> int:
 
 
 def cmd_parse_visa(args: argparse.Namespace) -> int:
-    """Offline Visa table parser (LON-14)."""
+    """Offline Visa table parser."""
     from collections import Counter
 
     from longaeva_app.extract.visa_tables import iter_origin_parses, write_outputs
@@ -239,7 +239,7 @@ def cmd_parse_visa(args: argparse.Namespace) -> int:
 
 
 def cmd_calibrate(args: argparse.Namespace) -> int:
-    """Chronological Visa calibration (LON-20). Prefer the host venv for --write."""
+    """Chronological Visa calibration. Prefer the host venv for --write."""
     from longaeva_app.companies.visa.calibration import (
         calibrate,
         default_origin_dates,
@@ -300,7 +300,7 @@ def _parse_switch(raw: str) -> tuple[str, bool]:
 
 
 def cmd_submit_run(args: argparse.Namespace) -> int:
-    """Submit a Visa run; optionally execute inline or wait for the worker (LON-23)."""
+    """Submit a Visa run; optionally execute inline or wait for the worker."""
     import json
     import time
     import uuid
@@ -374,7 +374,7 @@ def cmd_submit_run(args: argparse.Namespace) -> int:
 
 
 def cmd_evaluate(args: argparse.Namespace) -> int:
-    """Run the Visa evaluation harness, or a LON-29 baseline, across origins."""
+    """Run the Visa evaluation harness, or a comparison baseline, across origins."""
     import json
     from pathlib import Path
 
@@ -487,7 +487,7 @@ def cmd_evaluate(args: argparse.Namespace) -> int:
 
 
 def cmd_extract(args: argparse.Namespace) -> int:
-    """Extract observations from selected passages (LON-16)."""
+    """Extract observations from selected passages."""
     import time
     from typing import Any
 
@@ -619,7 +619,7 @@ def _select_passages(session: Session, args: argparse.Namespace) -> list[uuid.UU
 
 
 def cmd_replay(args: argparse.Namespace) -> int:
-    """Replay a saved run and compare output hashes (LON-23 / UF-06)."""
+    """Replay a saved run and compare output hashes."""
     import json
     import uuid
 
@@ -654,7 +654,7 @@ def cmd_replay(args: argparse.Namespace) -> int:
 
 
 def cmd_pair_run(args: argparse.Namespace) -> int:
-    """Run a calibrated baseline against mix-shift and spend-reduction variants (LON-22)."""
+    """Run a calibrated baseline against mix-shift and spend-reduction variants."""
     from typing import Any
 
     from longaeva_app.api.deps import get_artifact_store
@@ -843,7 +843,7 @@ def cmd_rules_list(_args: argparse.Namespace) -> int:
 
 
 def cmd_apply_rules(args: argparse.Namespace) -> int:
-    """Preview or apply mapping rules for one Visa origin (LON-21)."""
+    """Preview or apply mapping rules for one Visa origin."""
     from sqlalchemy import select
 
     from longaeva_app.db.models import ParameterSet, Scenario
@@ -911,7 +911,7 @@ def cmd_apply_rules(args: argparse.Namespace) -> int:
 
 
 def cmd_valuation_multiples(args: argparse.Namespace) -> int:
-    """Rebuild the trailing P/E history from bundled SEC originals (LON-25)."""
+    """Rebuild the trailing P/E history from bundled SEC originals."""
     from datetime import UTC, datetime
 
     from longaeva_app.valuation.multiples import FIXTURE_PATH, PeHistoryError, build_history, pe_band, write_history
@@ -1105,9 +1105,7 @@ def build_parser() -> argparse.ArgumentParser:
     build_demo.add_argument("--registration-records", default=str(PACKAGE_ROOT / "data/demo/prospective-records.json"))
     build_demo.set_defaults(func=cmd_build_demo)
 
-    portfolio = sub.add_parser(
-        "evaluate-portfolio", help="Independent benchmark windows; real Visa scoring not run (LON-28)"
-    )
+    portfolio = sub.add_parser("evaluate-portfolio", help="Independent benchmark windows; real Visa scoring not run")
     portfolio.add_argument("--window", choices=["all", "primary", "extension"], default="all")
     portfolio.add_argument("--origin", action="append", default=[], help="Origin date YYYY-MM-DD (repeatable)")
     portfolio.add_argument("--output", default=None, help="Write aggregate-only report JSON")
@@ -1124,7 +1122,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     guard = sub.add_parser(
         "export-check",
-        help="Run the isolation guard over the export set (LON-12)",
+        help="Run the isolation guard over the export set",
     )
     guard.add_argument(
         "--root",
@@ -1145,7 +1143,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     export_zip = sub.add_parser(
         "export-zip",
-        help="Build the submission ZIP from the isolation-guard export set (LON-24)",
+        help="Build the submission ZIP from the isolation-guard export set",
     )
     export_zip.add_argument(
         "--root",
@@ -1166,7 +1164,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     manifests = sub.add_parser(
         "build-manifests",
-        help="Regenerate visa/booking/census manifests from committed fixtures (LON-13)",
+        help="Regenerate visa/booking/census manifests from committed fixtures",
     )
     manifests.add_argument(
         "--output",
@@ -1177,7 +1175,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     collect_p = sub.add_parser(
         "collect",
-        help="Fetch curated source manifests into artifacts + database (LON-13)",
+        help="Fetch curated source manifests into artifacts + database",
     )
     collect_p.add_argument(
         "--manifest",
@@ -1205,7 +1203,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     bench = sub.add_parser(
         "engine-benchmark",
-        help="Time Visa Monte Carlo paths for NR-01 (LON-19)",
+        help="Time Visa Monte Carlo performance",
     )
     bench.add_argument(
         "--fixture",
@@ -1219,7 +1217,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     parse_visa = sub.add_parser(
         "parse-visa",
-        help="Parse retained Visa releases and 10-Q/10-K tables (LON-14, offline)",
+        help="Parse retained Visa releases and 10-Q/10-K tables (offline)",
     )
     parse_visa.add_argument(
         "--write",
@@ -1230,13 +1228,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     calibrate_p = sub.add_parser(
         "calibrate",
-        help="Fit Visa parameters as-of an origin cutoff (LON-20)",
+        help="Fit Visa parameters as-of an origin cutoff",
     )
     calibrate_p.add_argument(
         "--origin",
         action="append",
         default=[],
-        help="Origin date YYYY-MM-DD (repeatable; default: both LON-3 fixture origins)",
+        help="Origin date YYYY-MM-DD (repeatable; default: both bundled historical origins)",
     )
     calibrate_p.add_argument(
         "--write",
@@ -1256,13 +1254,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
     calibrate_p.set_defaults(func=cmd_calibrate)
 
-    prospective = sub.add_parser("register-prospective", help="Freeze or replay the Q4 FY2026 registration (LON-32)")
+    prospective = sub.add_parser("register-prospective", help="Freeze or replay the Q4 FY2026 registration")
     prospective.add_argument("--publication-check", help="Fresh JSON capture of Visa's rendered earnings-release row")
     prospective.add_argument("--output-dir", default=str(PACKAGE_ROOT / "data/demo/forecasts"))
     prospective.add_argument("--replay-bundle", help="Offline replay of a frozen registration JSON (no database)")
     prospective.set_defaults(func=cmd_register_prospective)
 
-    submit = sub.add_parser("submit-run", help="Submit a Visa simulation run (LON-23)")
+    submit = sub.add_parser("submit-run", help="Submit a Visa simulation run")
     submit.add_argument(
         "--origin",
         required=True,
@@ -1283,7 +1281,7 @@ def build_parser() -> argparse.ArgumentParser:
     submit.add_argument("--wait", type=float, default=None, help="Seconds to wait for the worker")
     submit.set_defaults(func=cmd_submit_run)
 
-    pair = sub.add_parser("pair-run", help="Paired mix-shift and spend-reduction runs (LON-22)")
+    pair = sub.add_parser("pair-run", help="Paired mix-shift and spend-reduction runs")
     pair.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD with a calibration artifact")
     pair.add_argument("--seed", type=int, default=22, help="Shared RNG seed")
     pair.add_argument("--n-paths", type=int, default=5000, help="Monte Carlo paths")
@@ -1295,7 +1293,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     evaluate_p = sub.add_parser(
         "evaluate",
-        help="Score the full Visa model or a baseline across eligible origins (LON-27, LON-29)",
+        help="Score the full Visa model or a baseline across eligible origins",
     )
     evaluate_p.add_argument(
         "--origin",
@@ -1344,7 +1342,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     evaluate_p.set_defaults(func=cmd_evaluate)
 
-    llm_capture = sub.add_parser("capture-llm-baseline", help="Explicit, bounded forecast capture (LON-30)")
+    llm_capture = sub.add_parser("capture-llm-baseline", help="Explicit, bounded forecast capture")
     llm_capture.add_argument("--origin", action="append", default=[])
     llm_capture.add_argument("--window", choices=("all", "primary", "extension"), default="all")
     llm_capture.add_argument("--provider", choices=("openai", "anthropic", "gemini", "stub"), default="openai")
@@ -1357,7 +1355,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     llm_capture.set_defaults(func=cmd_capture_llm_baseline)
 
-    extract_p = sub.add_parser("extract", help="Extract observations from selected passages (LON-16)")
+    extract_p = sub.add_parser("extract", help="Extract observations from selected passages")
     extract_p.add_argument("--passage", action="append", default=[], help="document_text UUID (repeatable)")
     extract_p.add_argument("--source-key", default=None, help="Collected manifest key")
     extract_p.add_argument("--contains", default=None, help="Substring that selects passages of --source-key")
@@ -1368,15 +1366,15 @@ def build_parser() -> argparse.ArgumentParser:
     extract_p.add_argument("--status", action="store_true", help="Print whether extraction is configured and exit")
     extract_p.set_defaults(func=cmd_extract)
 
-    replay = sub.add_parser("replay", help="Replay a saved run and compare hashes (LON-23)")
+    replay = sub.add_parser("replay", help="Replay a saved run and compare hashes")
     replay.add_argument("run_id", help="Run UUID")
     replay.add_argument("--json", action="store_true", help="Print the full replay report as JSON")
     replay.set_defaults(func=cmd_replay)
 
-    rules_list = sub.add_parser("rules-list", help="Print the mapping-rule registry (LON-21)")
+    rules_list = sub.add_parser("rules-list", help="Print the mapping-rule registry")
     rules_list.set_defaults(func=cmd_rules_list)
 
-    apply_p = sub.add_parser("apply-rules", help="Apply mapping rules to a Visa parameter set (LON-21)")
+    apply_p = sub.add_parser("apply-rules", help="Apply mapping rules to a Visa parameter set")
     apply_p.add_argument("--origin", required=True, help="Origin date YYYY-MM-DD")
     apply_p.add_argument(
         "--parameter-set-id", default=None, help="Parameter set UUID (default: calibrated or baseline)"
@@ -1384,7 +1382,7 @@ def build_parser() -> argparse.ArgumentParser:
     apply_p.add_argument(
         "--load-gate-fixtures",
         action="store_true",
-        help="Load and accept LON-4/LON-5/LON-8 fixtures before applying",
+        help="Load and accept Booking, Census and second-wave fixtures before applying",
     )
     apply_p.add_argument("--families", action="append", default=[], help="Source family filter (repeatable)")
     apply_p.add_argument("--dry-run", action="store_true", help="Preview only; do not write a child set")
@@ -1398,7 +1396,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     multiples = sub.add_parser(
         "valuation-multiples",
-        help="Rebuild the SEC trailing P/E history used by the valuation bridge (LON-25)",
+        help="Rebuild the SEC trailing P/E history used by the valuation bridge",
     )
     multiples.add_argument(
         "--write",

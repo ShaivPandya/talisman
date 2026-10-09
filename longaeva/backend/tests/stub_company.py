@@ -25,7 +25,7 @@ from longaeva_app.companies.base import (
 
 
 class StubCompany(CompanyModel):
-    """Minimal second-company implementation for FR-18 interface conformance."""
+    """Minimal second-company implementation for interface conformance."""
 
     key = "stubco"
     calendar = FiscalCalendar(fiscal_year_end_month=12)

@@ -1,4 +1,4 @@
-"""Extraction-call cache and failure rows (LON-16 / NR-02).
+"""Extraction-call cache and failure rows.
 
 Succeeded rows are the cache, keyed by provider, model, and prompt hash.
 Failed rows stay in the table and are never reused as a hit.

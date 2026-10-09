@@ -1,4 +1,4 @@
-"""Download and locate spans in Visa starting-state source filings (LON-3).
+"""Download and locate spans in Visa starting-state source filings.
 
 CLI:
 

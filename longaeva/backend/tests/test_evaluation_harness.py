@@ -1,4 +1,4 @@
-"""Database tests for the evaluation harness (LON-27)."""
+"""Database tests for the evaluation harness."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""API → worker → result, replay, and forecast-archive integration tests (LON-23)."""
+"""API → worker → result, replay, and forecast-archive integration tests."""
 
 from __future__ import annotations
 

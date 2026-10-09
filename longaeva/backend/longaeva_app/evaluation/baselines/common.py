@@ -1,4 +1,4 @@
-"""Shared seasonal/trend math for the LON-29 baselines.
+"""Shared seasonal/trend math for the comparison baselines.
 
 Levels use a seasonal naive with drift: the year-ago level times one plus the mean
 year-over-year change of the last four eligible quarters. Drivers persist the last

@@ -1,6 +1,6 @@
-"""Second-wave observation fixtures for the LON-8 family gate.
+"""Second-wave observation fixtures for the second-wave disclosure review.
 
-Pydantic models validate against ``ObservationCreate`` (FR-03). Each observation
+Pydantic models validate against ``ObservationCreate``. Each observation
 names a Visa driver from ``companies.visa.definitions.FIELDS``. Company-specific
 bases (``fx_neutral``, ``ex_fuel``, ``ex_gas_fx``) are never relabeled as Visa
 ``constant_dollar``.

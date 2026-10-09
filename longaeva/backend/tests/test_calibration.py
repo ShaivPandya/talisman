@@ -1,4 +1,4 @@
-"""Visa chronological calibration structure and golden artifacts (LON-20)."""
+"""Visa chronological calibration structure and golden artifacts."""
 
 from __future__ import annotations
 

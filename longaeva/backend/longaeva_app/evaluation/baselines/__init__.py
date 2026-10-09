@@ -1,4 +1,4 @@
-"""Baselines scored on the LON-27 harness origin set (LON-29)."""
+"""Baselines scored on the forecast evaluation harness origin set."""
 
 from __future__ import annotations
 

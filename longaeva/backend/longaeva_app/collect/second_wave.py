@@ -1,4 +1,4 @@
-"""Second-wave disclosure family gate (LON-8).
+"""Second-wave disclosure family gate.
 
 CLI:
 

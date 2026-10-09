@@ -1,4 +1,4 @@
-"""Attribution decomposition, support flags, and provenance (LON-22 / FR-11)."""
+"""Attribution decomposition, support flags, and provenance."""
 
 from __future__ import annotations
 

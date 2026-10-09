@@ -1,4 +1,4 @@
-"""Isolation guard tests (LON-12).
+"""Isolation guard tests.
 
 Negative fixtures live under ``tmp_path`` so deliberate bad strings never enter the
 real package export set. Bad literals in this file are split across concatenations

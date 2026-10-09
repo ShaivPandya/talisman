@@ -1,4 +1,4 @@
-"""Guidance availability gate tests (LON-7 / FR-15 / ER-07 / DR-01 / DR-09)."""
+"""Guidance availability gate tests."""
 
 from __future__ import annotations
 

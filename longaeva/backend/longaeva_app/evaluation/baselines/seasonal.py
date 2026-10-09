@@ -1,4 +1,4 @@
-"""Seasonal/trend baseline (LON-29).
+"""Seasonal/trend baseline.
 
 Levels: year-ago value times one plus the mean YoY of the last four eligible
 quarters. Drivers: the last reported YoY. Uncertainty is a normal draw around

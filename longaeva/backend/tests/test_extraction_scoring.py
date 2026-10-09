@@ -1,4 +1,4 @@
-"""LON-18: source provenance, evidence assignment, denominators, and capture bounds."""
+"""source provenance, evidence assignment, denominators, and capture bounds."""
 
 from __future__ import annotations
 

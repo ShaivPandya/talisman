@@ -1,4 +1,4 @@
-# LLM extraction and review (LON-16)
+# LLM extraction and review
 
 Passage-only structured extraction. A model reads one selected `document_text`
 row and returns observations that match a fixed schema. Nothing here is a
@@ -13,8 +13,8 @@ Provider setup lives in this file. The quickstart stays runnable with
 `disabled_reason` when:
 
 - `LLM_PROVIDER` is unset (fresh extraction returns **503**)
-- the named provider is not `anthropic`, `openai`, `gemini`, or `stub`
-- the named provider's API key is unset (an explicit `provider` on
+- The named provider is not `anthropic`, `openai`, `gemini`, or `stub`
+- The named provider's API key is unset (an explicit `provider` on
   `POST /observations/extract` returns **422**; the default unset provider
   returns **503**)
 
@@ -92,7 +92,7 @@ Budget: at most `EXTRACTION_MAX_PASSAGES` (25) passages, each at most
 before any call.
 
 Each run writes `reports/extraction/<stamp>.json` with calls made, cache hits,
-hit rate, failures by status, and observations created (NR-02).
+hit rate, failures by status, and observations created.
 
 ## Review
 

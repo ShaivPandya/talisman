@@ -1,4 +1,4 @@
-"""Review decision endpoints (LON-16 / FR-05)."""
+"""Review decision endpoints."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Census MARTS advance-PDF fetch helpers (LON-13 / DR-04)."""
+"""Census MARTS advance-PDF fetch helpers."""
 
 from __future__ import annotations
 

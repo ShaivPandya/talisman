@@ -1,4 +1,4 @@
-"""Frozen, portable prospective registration and offline replay (LON-32)."""
+"""Frozen, portable prospective registration and offline replay."""
 
 from __future__ import annotations
 

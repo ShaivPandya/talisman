@@ -1,4 +1,4 @@
-"""One verified Census trailing-three-month print per Visa quarter (LON-31)."""
+"""One verified Census trailing-three-month print per Visa quarter."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Extraction item rules, schema conversion, and quote location (LON-16)."""
+"""Extraction item rules, schema conversion, and quote location."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Leakage guard tests for evaluation (LON-27 / ER-04)."""
+"""Leakage guard tests for evaluation."""
 
 from __future__ import annotations
 

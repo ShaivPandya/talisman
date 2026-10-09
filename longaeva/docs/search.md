@@ -1,12 +1,10 @@
 # Passage search
 
-LON-17 / FR-02.
-
 `GET /search/passages` searches stored `document_text` with Postgres full-text.
 It is lexical search over the english `tsvector` already stored on each passage.
 It does not embed text and it does not call a model.
 
-The GIN index `ix_document_text_tsv` was created with the core schema (LON-10).
+The GIN index `ix_document_text_tsv` was created with the core schema.
 This endpoint adds no migration.
 
 ## Query

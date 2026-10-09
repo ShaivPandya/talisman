@@ -1,4 +1,4 @@
-"""Starting-state fixtures, document manifests, and parameter-set verification (LON-23)."""
+"""Starting-state fixtures, document manifests, and parameter-set verification."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ def load_origin_fixtures() -> list[StartingStateFixture]:
 
 
 def resolve_fixture(cutoff_ts: datetime) -> StartingStateFixture:
-    """Pick a LON-3 fixture by exact cutoff, then UTC date, else build (LON-27)."""
+    """Pick a starting-state reconstruction fixture by exact cutoff, then UTC date, else build."""
     cutoff = cutoff_ts.astimezone(UTC) if cutoff_ts.tzinfo else cutoff_ts.replace(tzinfo=UTC)
     fixtures = load_origin_fixtures()
     for fixture in fixtures:

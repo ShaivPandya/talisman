@@ -1,1 +1,1 @@
-"""Review decisions and the parameter-set evidence guard (LON-16)."""
+"""Review decisions and the parameter-set evidence guard."""

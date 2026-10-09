@@ -1,4 +1,4 @@
-# Offline demo (LON-37)
+# Offline demo
 
 Start the app with Docker (`make up`, with Docker Desktop running) or without Docker (`make up-local` on macOS or Linux, or `.\scripts\up-local.ps1` on Windows, with Python 3.12+ and Node.js 20.19+). Migrations and the validated seed finish before the app is ready. No provider credentials or collection command are needed. `make seed` explicitly repeats the same import when the Docker database is already running.
 
@@ -36,7 +36,7 @@ Escape closes the dialog first, or exits the tour when no dialog is open.
 5. Open [Evaluation](http://127.0.0.1:3000/evaluation). Inspect 16 scored origins and two exclusions, matched baselines, ablations, extraction scores, benchmark labels and the failure case under Report & model. These are saved evaluation snapshots; the six demonstration paths are separate illustrative runs and do not replace their original evaluation run IDs.
 6. Open [Replay](http://127.0.0.1:3000/replay), select any of the seven seeded runs, and click Replay. Expect `exact_match` with matching hashes in the recorded runtime. Across platforms, the existing engine may report `numerically_equivalent` within its 1e-9 tolerance; both hashes and runtime differences remain visible. Replay uses no LLM provider. The prospective Q4 FY2026 registration remains unscored with its original creation time.
 
-CLI replay example:
+CLI replay examples for the Docker stack:
 
 ```bash
 make replay RUN=cc0aa8c5-539c-5fd1-85d5-ea87bfe6175d
@@ -49,9 +49,9 @@ Restarting with `make up` or running `make seed` again reports reused rows. Late
 
 The seed is offline even if a provider is configured. It never queues jobs, recalibrates, captures model responses, scores outcomes or re-registers the prospective forecast. Completed runs have no active job reference.
 
-## Curator rebuild
+## Rebuilding the example data
 
-The packaged `data/demo/prospective-records.json` is the dependency closure captured from the original LON-32 archive. Its frozen run and forecast IDs/timestamps are checked against the unchanged registration. To rebuild historical examples, use an empty, migrated disposable PostgreSQL database and a separate artifact directory:
+The packaged `data/demo/prospective-records.json` is the dependency closure captured from the original prospective forecast archive. Its frozen run and forecast IDs/timestamps are checked against the unchanged registration. To rebuild historical examples, use an empty, migrated disposable PostgreSQL database and a separate artifact directory:
 
 ```bash
 cd backend

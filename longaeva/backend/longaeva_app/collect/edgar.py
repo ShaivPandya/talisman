@@ -1,4 +1,4 @@
-"""EDGAR document resolution and fetch helpers (LON-13 / DR-02)."""
+"""EDGAR document resolution and fetch helpers."""
 
 from __future__ import annotations
 
@@ -112,7 +112,7 @@ def fetch_edgar_document(
     )
     url = document_url(cik_int, accession, resolved)
 
-    # Prefer the filing index "Accepted" field for publication_ts (DR-04).
+    # Prefer the filing index "Accepted" field for publication_ts.
     index_url = accession_to_index_url(cik_int, accession)
     index_accepted_raw: str | None = None
     publication_ts: datetime | None = None

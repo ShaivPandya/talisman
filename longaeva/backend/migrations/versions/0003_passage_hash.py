@@ -1,4 +1,4 @@
-"""Add normalized passage hash for DR-08 dedup (LON-13).
+"""Add normalized passage hash for deduplication.
 
 Revision ID: 0003_passage_hash
 Revises: 0002_core

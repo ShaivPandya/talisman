@@ -1,4 +1,4 @@
-"""Vintage table for archived Census MARTS advance releases (LON-15 / DR-04).
+"""Vintage table for archived Census MARTS advance releases.
 
 Each row is one cell from one advance PDF: a selected series, a measure, and the
 period that cell describes. ``supersedes_release_id`` points at the previous

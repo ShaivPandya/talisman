@@ -1,4 +1,4 @@
-"""Visa eligible-origin inventory from EDGAR acceptance timestamps (LON-1).
+"""Visa eligible-origin inventory from EDGAR acceptance timestamps.
 
 Standard-library only. Two CLI modes:
 
@@ -697,7 +697,7 @@ def build_origins(
         else:
             reasons.append("no Booking earnings 8-K accepted ≤ cutoff")
 
-        # Census: newest MARTS advance release with publication_ts ≤ cutoff (LON-5).
+        # Census: newest MARTS advance release with publication_ts ≤ cutoff.
         # Lazy import avoids a circular dependency with census_sources.
         from longaeva_app.collect.census_sources import latest_release_at_or_before
 

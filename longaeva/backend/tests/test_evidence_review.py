@@ -1,4 +1,4 @@
-"""LON-35 browser read contracts and review-to-rule integration."""
+"""evidence review browser read contracts and review-to-rule integration."""
 
 from __future__ import annotations
 

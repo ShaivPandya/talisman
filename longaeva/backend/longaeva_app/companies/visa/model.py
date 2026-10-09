@@ -1,4 +1,4 @@
-"""Visa ``CompanyModel`` implementation (LON-19)."""
+"""Visa ``CompanyModel`` implementation."""
 
 from __future__ import annotations
 

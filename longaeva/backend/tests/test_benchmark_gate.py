@@ -1,4 +1,4 @@
-"""Benchmark gate tests (LON-6 / DR-01 / DR-07 / FR-14)."""
+"""Benchmark gate tests."""
 
 from __future__ import annotations
 

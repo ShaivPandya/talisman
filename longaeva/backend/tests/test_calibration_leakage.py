@@ -1,4 +1,4 @@
-"""Chronological leakage guards for Visa calibration (LON-20 / MR-10)."""
+"""Chronological leakage guards for Visa calibration."""
 
 from __future__ import annotations
 

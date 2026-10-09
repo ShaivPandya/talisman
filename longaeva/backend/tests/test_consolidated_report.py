@@ -1,4 +1,4 @@
-"""Evidence integrity, denominator safety and offline reproduction for LON-33."""
+"""Evidence integrity, denominator safety and offline reproduction for evaluation report."""
 
 from __future__ import annotations
 
@@ -57,6 +57,7 @@ def test_bundled_report_repeats_offline_and_preserves_inputs(monkeypatch: pytest
     assert {path: path.read_bytes() for path in inputs} == before
     assert "2024-10-29" in first and "9,510.000" in first
     assert "Not yet scored" in first
+    assert "LON-" not in first
     portfolio = json.loads((report.PACKAGE_ROOT / "data/evaluation/visa_portfolio.json").read_text())
     assert portfolio["labels"]["primary"] in first
     assert portfolio["labels"]["secondary"] in first

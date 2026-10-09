@@ -1,4 +1,4 @@
-"""Company-guidance baseline (LON-29).
+"""Company-guidance baseline.
 
 The point forecast is the midpoint of Visa's own next-quarter outlook, applied
 to the year-ago actual. Operating profit is derived from guided revenue and
@@ -177,7 +177,7 @@ def load_statements(path: Path | None = None) -> list[GuidanceStatement]:
 
 
 def lexicon_range(statement: GuidanceStatement) -> tuple[float, float]:
-    """Parse ``statement.phrase`` with the LON-7 lexicon and check the stored range."""
+    """Parse ``statement.phrase`` with the guidance availability review lexicon and check the stored range."""
     parsed = parse_guidance_phrase(statement.phrase)
     if statement.range_low is None or statement.range_high is None:
         return parsed

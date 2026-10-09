@@ -1,4 +1,4 @@
-# Runs and replay (LON-23)
+# Runs and replay
 
 Submit a Visa Monte Carlo run, execute it on the Postgres-backed worker, persist
 path outputs and hashes, replay without an LLM, and optionally archive immutable
@@ -29,9 +29,9 @@ make replay RUN=<run-uuid>
 worker. With no `--scenario`, an all-assumption uncalibrated baseline is created
 and reused by content hash.
 
-## Starting state (decision 1a)
+## Starting state
 
-Only the two LON-3 fixtures are runnable:
+Two historical starting-state fixtures are bundled:
 
 | Origin date | Cutoff (UTC) | Label |
 | --- | --- | --- |
@@ -40,8 +40,8 @@ Only the two LON-3 fixtures are runnable:
 
 `cutoff_ts` may match the exact cutoff or that UTC date. Committed fixtures take
 precedence; other `origins.csv` candidate/prospective cutoffs are built by
-`companies/visa/state_builder.py` (LON-27). Unknown cutoffs still return 422.
-A scenario may carry interventions (LON-22). Submit parses them, rejects an
+`companies/visa/state_builder.py`. Unknown cutoffs still return 422.
+A scenario may carry interventions. Submit parses them, rejects an
 unknown type or a `start_quarter` past `n_quarters`, and pins `run.interventions`
 plus `run.interventions_hash`. Replay adds `interventions_hash` to the
 `inputs_changed` differences when the scenario list no longer matches that pin.
@@ -51,7 +51,7 @@ The source manifest lists fixture **input** documents as
 `{document_key, content_hash, publication_ts, source_id?}`; `source_id` is linked
 when a collected `source` row exists and is **omitted from the hash**.
 
-## Record fields (FR-09)
+## Record fields
 
 | Field | Meaning |
 | --- | --- |
@@ -76,7 +76,7 @@ names, dtype `float64`, shapes) followed by little-endian float64 bytes of
 every metric array then every state array, each prefixed with its name.
 Dict order does not matter. The compressed npz is a convenience artifact only.
 
-## Replay statuses (ER-03 / UF-06)
+## Replay statuses
 
 Replay never calls an LLM (`LLM_PROVIDER` may be unset). Statuses:
 
@@ -97,7 +97,7 @@ run replayed from the host virtualenv was `numerically_equivalent`
 (max relative difference ~1.9e-16) with `lib_versions.blas` differing
 (`scipy-openblas` in the container vs macOS `accelerate`).
 
-## Forecast archive (decision 2a / FR-17)
+## Forecast archive
 
 `POST /runs/{id}/forecasts` requires a succeeded run, an empty intervention list
 on both the scenario and the pinned run, and a
@@ -109,16 +109,16 @@ written for net revenue, operating profit ex special items, and the three
 driver growth metrics across the horizon (20 rows for four quarters). A second
 archive of the same run returns 409. Forecast rows cannot be updated or deleted.
 
-## Handoffs
+## Integration
 
-- **LON-11:** `GET /runs` and `GET /runs/{id}/results` are the minimal run-page contract.
-- **LON-22 (done):** interventions are runnable. Comparison and attribution live
+- `GET /runs` and `GET /runs/{id}/results` are the minimal run-page contract.
+- **Scenario comparison:** interventions are runnable. Comparison and attribution live
   under `/scenarios`; see [`docs/scenarios.md`](scenarios.md). The archive still
   refuses them.
-- **LON-24:** `make submit-run` / `make replay` work from an empty database with
+- `make submit-run` / `make replay` work from an empty database with
   the two bundled fixtures (no collector required).
-- **LON-27 (done):** state builder + evaluation harness reuse `submit_run` /
+- **Forecast evaluation:** state builder + evaluation harness reuse `submit_run` /
   `execute_run`; see [`docs/evaluation.md`](evaluation.md).
-- **LON-32:** the builder produces the FY2026Q3 prospective starting state at
+- The builder produces the FY2026Q3 prospective starting state at
   2026-07-28.
-- **LON-37:** bundle run rows plus `paths.npz`.
+- Demo seeding restores run records and their `paths.npz` artifacts.

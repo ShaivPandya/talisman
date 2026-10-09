@@ -1,4 +1,4 @@
-"""Download and calendar Booking Holdings Ex. 99.1 releases (LON-4).
+"""Download and calendar Booking Holdings Ex. 99.1 releases.
 
 CLI:
 

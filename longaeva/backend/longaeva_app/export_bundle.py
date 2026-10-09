@@ -1,4 +1,4 @@
-"""Deterministic submission ZIP builder (LON-24 / PR-06, PR-07).
+"""Deterministic submission ZIP builder.
 
 The isolation guard's ``.exportignore`` walk is the only definition of what ships.
 A finding from :func:`longaeva_app.isolation_guard.scan` aborts the build and leaves

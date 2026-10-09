@@ -1,4 +1,4 @@
-"""Starting-state builder tests (LON-27)."""
+"""Starting-state builder tests."""
 
 from __future__ import annotations
 

@@ -1,0 +1,337 @@
+{
+  "result": "PASS",
+  "python": "3.12.2",
+  "node": "v25.8.0",
+  "seeded_runs": 7,
+  "origins": 2,
+  "retrospective_forecasts": 40,
+  "prospective_forecasts": 20,
+  "new_run_ids": [
+    "0107c96f-83d6-4c2f-a1b7-666b79ac83dd",
+    "570abc77-c9e7-4633-8ac5-1b6723895ce0"
+  ],
+  "shared_seed": 923,
+  "paths": 5000,
+  "quarters": 4,
+  "proxy_and_routes": "PASS",
+  "worker": "PASS",
+  "mix_conserves_volume": true,
+  "valuation_and_evaluation": "PASS",
+  "replays": [
+    {
+      "run_id": "db0ff361-957b-5148-8299-6c71d0313f57",
+      "status": "exact_match",
+      "recorded_outputs_hash": "98dba6f33fb6603e8f4561aeeae34ff6583af5963d2aca77099fffa82bbe075c",
+      "recomputed_outputs_hash": "98dba6f33fb6603e8f4561aeeae34ff6583af5963d2aca77099fffa82bbe075c",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "20673695-fcda-54a8-8020-3d670ee80847",
+      "status": "exact_match",
+      "recorded_outputs_hash": "a9663464147616255f391896b450513809a174744df5ef360bb83aa0542bacf7",
+      "recomputed_outputs_hash": "a9663464147616255f391896b450513809a174744df5ef360bb83aa0542bacf7",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "846c4e0b-a634-5bed-996d-3785bb899846",
+      "status": "exact_match",
+      "recorded_outputs_hash": "7d1a0038211fe48e5baaca8f478163fc4f189248db80dc8460f624f681b52bc7",
+      "recomputed_outputs_hash": "7d1a0038211fe48e5baaca8f478163fc4f189248db80dc8460f624f681b52bc7",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "ab595be3-2964-5845-b6f3-4d8d4fce6bf3",
+      "status": "exact_match",
+      "recorded_outputs_hash": "04a0ff13875572e677cd36a0694a6d616aadfe79e2b06b19e1c9b63862d13c1f",
+      "recomputed_outputs_hash": "04a0ff13875572e677cd36a0694a6d616aadfe79e2b06b19e1c9b63862d13c1f",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "3752b7df-c114-5fa4-b312-efe5a5908c38",
+      "status": "exact_match",
+      "recorded_outputs_hash": "361799585560f720b65f7108b1d0bc4c04fd94ca7ab78ce6965a39d032ddc15f",
+      "recomputed_outputs_hash": "361799585560f720b65f7108b1d0bc4c04fd94ca7ab78ce6965a39d032ddc15f",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "cc0aa8c5-539c-5fd1-85d5-ea87bfe6175d",
+      "status": "exact_match",
+      "recorded_outputs_hash": "1259b6e2c777488cb487f105cd403eb3697e1c0fea9f5fb19a3e8801e27eff61",
+      "recomputed_outputs_hash": "1259b6e2c777488cb487f105cd403eb3697e1c0fea9f5fb19a3e8801e27eff61",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "fbbad1df-6531-4a41-86e0-32dda8a482c2",
+      "status": "exact_match",
+      "recorded_outputs_hash": "88105420099244c4504aab3641ec9ecaca8c2c6090cb8a8cce42172a72c6448a",
+      "recomputed_outputs_hash": "88105420099244c4504aab3641ec9ecaca8c2c6090cb8a8cce42172a72c6448a",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+cf93263a1d638ffa",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "0107c96f-83d6-4c2f-a1b7-666b79ac83dd",
+      "status": "exact_match",
+      "recorded_outputs_hash": "b840c4f93a467d9f5e93a331e3968df622709150a1203b6aae82d8f9c0cbd8d4",
+      "recomputed_outputs_hash": "b840c4f93a467d9f5e93a331e3968df622709150a1203b6aae82d8f9c0cbd8d4",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "570abc77-c9e7-4633-8ac5-1b6723895ce0",
+      "status": "exact_match",
+      "recorded_outputs_hash": "be8caf618fcd11fb1bb2f2b518fea0e1aab8b201d0ccaa3cb10387c71b90dd87",
+      "recomputed_outputs_hash": "be8caf618fcd11fb1bb2f2b518fea0e1aab8b201d0ccaa3cb10387c71b90dd87",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    }
+  ],
+  "zip_sha256": "9598514fadb57dce103b1a06df50072e2cc85159951c5c73c8bae268781d2870",
+  "zip_files": 530,
+  "fresh_unpacked_copy": true,
+  "initial_venv_node_modules_and_postgres_absent": true,
+  "postgres_version": "16.10",
+  "database_port": 55439,
+  "provider_credentials_cleared": true,
+  "restart_preserves_nine_runs": true,
+  "new_run_replays_after_restart": [
+    {
+      "run_id": "0107c96f-83d6-4c2f-a1b7-666b79ac83dd",
+      "status": "exact_match",
+      "recorded_outputs_hash": "b840c4f93a467d9f5e93a331e3968df622709150a1203b6aae82d8f9c0cbd8d4",
+      "recomputed_outputs_hash": "b840c4f93a467d9f5e93a331e3968df622709150a1203b6aae82d8f9c0cbd8d4",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    },
+    {
+      "run_id": "570abc77-c9e7-4633-8ac5-1b6723895ce0",
+      "status": "exact_match",
+      "recorded_outputs_hash": "be8caf618fcd11fb1bb2f2b518fea0e1aab8b201d0ccaa3cb10387c71b90dd87",
+      "recomputed_outputs_hash": "be8caf618fcd11fb1bb2f2b518fea0e1aab8b201d0ccaa3cb10387c71b90dd87",
+      "max_relative_difference": 0.0,
+      "recorded_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recomputed_code_version": "0.1.0+9a009e5f7519b7f6",
+      "recorded_lib_versions": {
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "blas": "accelerate",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4",
+        "numpy": "2.5.3",
+        "python": "3.12.2",
+        "machine": "arm64"
+      },
+      "recomputed_lib_versions": {
+        "python": "3.12.2",
+        "numpy": "2.5.3",
+        "blas": "accelerate",
+        "os": "macOS-26.5.1-arm64-arm-64bit",
+        "machine": "arm64",
+        "simd": "ASIMD,ASIMDDP,ASIMDHP,FPHP,NEON,NEON_FP16,NEON_VFPV4"
+      },
+      "differences": [],
+      "llm_provider": ""
+    }
+  ],
+  "exported_working_tree_clean": true,
+  "restart_reuses_downloaded_dependencies": true,
+  "test_stack_stopped": true,
+  "existing_development_database_preserved": true,
+  "frontend_tests": {
+    "passed": 44,
+    "skipped": 0
+  }
+}

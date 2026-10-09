@@ -1,4 +1,4 @@
-"""Pin run interventions and record paired baseline runs (LON-22).
+"""Pin run interventions and record paired baseline runs.
 
 Revision ID: 0006_scenario_pairs
 Revises: 0005_extraction_review

@@ -1,4 +1,4 @@
-"""Benchmark and price-data probe (LON-6).
+"""Benchmark and price-data probe.
 
 CLI:
 
@@ -6,7 +6,7 @@ CLI:
            process in memory only; write metadata-only probe.json. Also parse
            Visa dividend declarations from retained SEC Ex. 99.1 releases.
 
-No raw vendor payloads are written to disk (DR-01 / DR-07).
+No raw vendor payloads are written to disk.
 """
 
 from __future__ import annotations

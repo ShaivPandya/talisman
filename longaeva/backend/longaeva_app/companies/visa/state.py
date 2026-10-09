@@ -1,4 +1,4 @@
-"""Visa path-state construction from starting-state maps (LON-19)."""
+"""Visa path-state construction from starting-state maps."""
 
 from __future__ import annotations
 
@@ -130,7 +130,7 @@ def synthetic_starting_state(
     operating_expenses_ex_special_items: float = 3000.0,
     prior_quarter_pv_billions: float | None = None,
 ) -> dict[str, float]:
-    """Build a minimal starting-state map for property tests (not a LON-3 fixture)."""
+    """Build a minimal starting-state map for property tests (not a starting-state reconstruction fixture)."""
     prior = prior_quarter_pv_billions if prior_quarter_pv_billions is not None else payments_volume_nominal_us / 1.05
     yield_service = service_revenue / (prior * BILLIONS_TO_MILLIONS)
     yield_dp = data_processing_revenue / processed_transactions_count

@@ -1,4 +1,4 @@
-"""Hand-computed metric tests for the evaluation harness (LON-27)."""
+"""Hand-computed metric tests for the evaluation harness."""
 
 from __future__ import annotations
 

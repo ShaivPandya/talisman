@@ -1,4 +1,4 @@
-"""Census MARTS advance-release PDF parser (LON-5 gate; LON-15 extends).
+"""Census MARTS advance-release PDF parser (Census evidence gate; Census vintage parser extends).
 
 Parses archived ``advYYMM.pdf`` files into long-format observation rows with
 publication timestamps, SA/NSA flags, and estimate-status tags.

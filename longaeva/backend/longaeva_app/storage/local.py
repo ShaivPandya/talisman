@@ -17,7 +17,7 @@ class LocalArtifactStore:
     """Filesystem artifact store with content-addressed originals and explicit keys.
 
     Keys are relative POSIX paths only. Absolute paths and ``..`` segments are rejected
-    so database rows never store host-specific absolute paths (PR-02).
+    so database rows never store host-specific absolute paths.
     """
 
     def __init__(self, root: Path) -> None:

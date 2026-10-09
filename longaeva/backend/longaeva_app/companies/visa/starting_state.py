@@ -1,4 +1,4 @@
-"""Visa starting-state fixtures and reconciliation helpers (LON-3).
+"""Visa starting-state fixtures and reconciliation helpers.
 
 Fixtures live under ``data/fixtures/states/visa_YYYY-MM-DD.json``. Every measured
 or derived value carries a source span into a retained original. Identities and
@@ -258,7 +258,7 @@ def _get(values: dict[str, StateValue], name: str) -> float:
 
 
 def identity_residuals(fixture: StartingStateFixture) -> list[IdentityResidual]:
-    """Compute the four identity checks required by LON-3 / MR-04."""
+    """Compute the four accounting identity checks."""
     v = fixture.values
     out: list[IdentityResidual] = []
 
@@ -323,7 +323,7 @@ def identity_residuals(fixture: StartingStateFixture) -> list[IdentityResidual]:
 def recompute_derived(fixture: StartingStateFixture) -> dict[str, float]:
     """Recompute every derived value from its ``derivation.inputs`` and ``formula``.
 
-    Supported formulas (LON-3 roll-forward):
+    Supported formulas (starting-state reconstruction roll-forward):
       - ``year_ago * (1 + growth_pct/100)``
       - ``(ttm - nine_month) * (1 + growth_pct/100)``
       - ``(ttm - nine_month)``  (year-ago quarter as residual of TTM)
@@ -371,7 +371,7 @@ def _eval_formula(formula: str, inputs: dict[str, float]) -> float:
 
 
 def to_starting_state(fixture: StartingStateFixture) -> StartingState:
-    """Map fixture values to the engine ``StartingState`` mapping (LON-19).
+    """Map fixture values to the engine ``StartingState`` mapping.
 
     Only fields with a numeric value are included. Indices that are unavailable
     stay out of the map (engine will require them later once calibrated).

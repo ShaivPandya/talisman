@@ -1,7 +1,7 @@
-"""Company-model interface and fiscal calendar (FR-18).
+"""Company-model interface and fiscal calendar.
 
-Visa economics land in LON-19; this module declares the shared boundary so a stub
-second company can pass conformance tests without engine changes.
+Visa economics are defined in the Visa company module. This shared boundary lets
+a second company pass conformance tests without engine changes.
 """
 
 from __future__ import annotations
@@ -151,10 +151,10 @@ def _month_end(year: int, month: int) -> date:
 
 
 class CompanyModel(ABC):
-    """Company-agnostic simulation boundary (FR-18).
+    """Company-agnostic simulation boundary.
 
     Company modules never generate random numbers. All randomness arrives through
-    ``shocks`` so paired runs share draws (FR-10) and replay is exact (FR-09).
+    ``shocks`` so paired runs share draws and replay is exact.
     """
 
     key: ClassVar[str]

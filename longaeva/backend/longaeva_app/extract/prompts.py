@@ -1,4 +1,4 @@
-"""Passage-only extraction prompt (LON-16 / C29).
+"""Passage-only extraction prompt (LLM extraction / C29).
 
 The user message carries one passage. It does not include other passages,
 publication timestamps, or anything the model would have to know from outside

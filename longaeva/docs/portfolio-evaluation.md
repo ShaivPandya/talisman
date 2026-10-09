@@ -1,7 +1,7 @@
 # Benchmark and portfolio evaluation
 
-LON-28 / FR-14 / ER-11 / DR-07. This implements the approved
-[LON-6 gate](gates/benchmarks.md) with **Visa prices still blocked**.
+Benchmark evaluation follows the [source availability review](gates/benchmarks.md).
+Daily Visa prices are unavailable, so Visa strategy results remain unscored.
 
 ## Run and outputs
 
@@ -41,8 +41,7 @@ suite `lon28-v1`. Its contract contains:
 - `visa_strategy` and `visa_buy_and_hold`: `not_run`, reason, `n_scored: 0`,
   and `metrics: null`. Their per-origin metrics and excess returns are also null.
 
-No new API or database schema is introduced. LON-36 can consume this report when
-building the evaluation page; LON-33 can use it for the written evaluation.
+The Evaluation page and written evaluation report read this saved report.
 
 ## Dates, coverage, and benchmarks
 
@@ -74,7 +73,7 @@ including missing RF, are unavailable rather than zero.
 
 These are latest-vintage **outcome benchmarks**, not information supplied to the
 forecast at its historical cutoff. The primary is an approximation; Ken French is
-US total market. Exact labels and the primary footnote come from the LON-6 manifest.
+US total market. Exact labels and the primary footnote come from the benchmark data review manifest.
 Benchmark returns are gross reference returns; they do not incur strategy fees.
 
 The drift diagnostic compares monthly percentage changes in the average daily
@@ -140,5 +139,5 @@ The JSON contains the precise values and source hashes.
 
 Only four SEC dividend declarations are retained by the existing parser. They
 have source references and hashes but do not establish complete coverage.
-Ex-dates use the LON-6 convention and are not exchange-verified. Real Visa returns,
+Ex-dates use the benchmark data review convention and are not exchange-verified. Real Visa returns,
 strategy performance, and excess returns therefore remain explicitly **not run**.

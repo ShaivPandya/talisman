@@ -1,7 +1,7 @@
-# Scenario workspace (LON-34)
+# Scenario workspace
 
 Valuation, evaluation and replay pages are documented in
-[`result-pages.md`](result-pages.md) (LON-36).
+[`result-pages.md`](result-pages.md).
 
 Start with `make up`, then open the web app on port 3000. State & Evidence and
 Scenarios work on an empty database, without collector commands, internet data
@@ -73,39 +73,15 @@ horizon net revenue, including when operating-profit contributions are inspected
 Preparation uses a transaction-scoped PostgreSQL advisory lock and the existing
 content hash; it does not recalibrate or change existing scenario pair groups.
 The existing scenario, paired-run, comparison and attribution contracts remain
-in use. Full demo seeding is LON-37; review editing is LON-35.
+in use. Startup loads the demo records; the Evidence & Review tab supports review edits.
 
-## Validation record
-
-LON-34 was checked from a standalone ZIP extracted outside the parent repository,
-using a separate PostgreSQL database and worker with no collector or LLM setup.
-
-- Backend lint, formatting, mypy and PostgreSQL suite: 434 tests passed.
-- Frontend lint, TypeScript/production build and Vitest: 19 tests passed.
-- Strict isolation guard: zero findings.
-- Playwright UF-01/UF-03: both origins, retained source highlights, explicit
-  unavailable evidence, required override rationale, queued-to-succeeded pairs,
-  saved chart/attribution reload, and parameter rationale drilldown passed.
-- Submitted mix-only, spend-only, and combined interventions with a parameter
-  override. All three pairs used 5,000 paths and reported exact verification.
-- Saved-path assertions confirmed that mix shift preserves payments volume on
-  all paths and quarters. Spending reduction preserves first-quarter service
-  revenue and processed transactions, with lower service revenue thereafter.
-- Inspected desktop and 390-pixel layouts, negative difference bands, and mobile
-  tables; no page-level horizontal overflow or browser console errors occurred.
-
-The container registry stalled while resolving the nginx runtime image. The
-exported frontend was therefore built and served with the already installed
-nginx image as its build context; application sources, checks and assets came
-from the export. No container configuration was changed for this workaround.
-
-## Evidence & Review (LON-35)
+## Evidence & Review
 
 Open **State & Evidence → Evidence & Review**. The observation queue reads the
 local database and can be filtered by company, review status, or a search result's
 source. It shows 20 observations per page. Queue cards show original extracted
 values; the detail view distinguishes originals from effective reviewed values.
-An empty database has a clear empty state; full demo seeding remains LON-37.
+An empty database has a clear empty state. Normal startup loads the demo records.
 This page does not collect documents or start an LLM extraction.
 
 Search accepts company (exact stored name), source reporting-period bounds and
@@ -161,25 +137,3 @@ selected base (`parameter_set_id`, or the origin default), and saved result
   returns the shared `EvidenceExcerpt` contract, or 404 for an unknown observation.
 
 Review and mapping writes use the existing contracts. No migration is needed.
-
-### LON-35 validation record — October 6, 2026
-
-- Backend ruff, format check, mypy, and PostgreSQL suite: **468 tests passed**.
-- Frontend lint, Vitest (**24 tests**), and TypeScript/production build passed,
-  including a build from the exported source with cached, unchanged dependencies.
-- Standalone ZIP extracted outside the repository; strict isolation guard:
-  **zero findings**. API and production nginx frontend used that export with a
-  separate disposable PostgreSQL container and no LLM provider.
-- Playwright verified search-to-source navigation, exact cutoff exclusion,
-  Unicode highlights, escaped source HTML, original/effective values, accept /
-  adjust / reject history after reload, preview without writes, preview
-  invalidation, explicit child application, and saved result/ranges after reload.
-- Context-only application preserved parameters; post-cutoff application was
-  refused. A simulated failed review save retained its draft and made one request.
-- Read failures recovered when resubmitting unchanged search/queue filters.
-  Twenty-three tied-timestamp observations paginated as 20 + 3 without duplicates,
-  and the selected page survived reload.
-- Desktop (1440px) and mobile (390px) reviewed visually; no page-level horizontal
-  overflow in detail or adjustment forms. Keyboard focus moves from the selected
-  observation heading to Close review. Intentional HTTP-error checks produced
-  expected browser network errors; no unexpected browser errors were observed.

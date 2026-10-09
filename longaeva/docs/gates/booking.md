@@ -1,6 +1,6 @@
 # Gate: Booking Holdings family
 
-LON-4 · planning v1 · settled October 2, 2026.
+Source review dated October 2, 2026.
 
 ## Question
 
@@ -20,19 +20,18 @@ remarks on Booking's IR site (not EDGAR) and are out of scope here.
 
 ## Recommendation
 
-**Required external family (DR-03) for the cross-border prior, with constraints:**
+**Required external family for the cross-border prior, with constraints:**
 
 - **Measured** room-nights / constant-currency gross-bookings growth at every
-  origin is a candidate for an **estimated, lagged** mapping rule in LON-21
+  origin is a candidate for an **estimated, lagged** mapping rule in mapping rules
   (Booking's reported quarter is typically the calendar quarter before Visa's
   reported quarter, except on same-day origins).
 - **Guidance** counts only at the three origins where
   `booking_guidance_covers_target=true` (FY2025Q3, FY2025Q4, FY2026Q2), as an
   **analyst-ranged** rule. Elsewhere guidance is absent or covers a different
   quarter and stays context.
-- **Qualitative** CEO / quarter-to-date commentary remains **context only**
-  (MR-12); it does not become a precise parameter change.
-- Evaluation (LON-27 / LON-31) must also report a **same-day fallback variant**
+- **Qualitative** CEO / quarter-to-date commentary remains **context only**; it does not become a precise parameter change.
+- Evaluation must also report a **same-day fallback variant**
   that substitutes `booking_fallback_accession` whenever `booking_same_day=true`,
   so results do not silently depend on a few-minute EDGAR margin.
 - Geography: Booking is global (domestic + cross-border + intra-Europe). Attribute
@@ -142,7 +141,7 @@ FY{Y}Q2→{Y}Q1, FY{Y}Q3→{Y}Q2, FY{Y}Q4→{Y}Q3.
 | Prospective Visa cutoff | `2026-07-28T20:05:26Z` |
 | Eligible Booking release | `0001075531-26-000024` (2026-04-28), **13.00 weeks** old |
 | Ineligible Booking release | `0001075531-26-000036` (2026-08-04), accepted ~7 days **after** cutoff |
-| Why it matters | The 2026-08-04 Ex. 99.1 has Q3 2026 guidance covering Visa's target FY2026Q4, but using it would be look-ahead bias (DR-04) |
+| Why it matters | The 2026-08-04 Ex. 99.1 has Q3 2026 guidance covering Visa's target FY2026Q4, but using it would be look-ahead bias |
 
 Retained original: [`sources/0001075531-26-000036/`](../../data/fixtures/booking/sources/0001075531-26-000036/)
 (role `post_cutoff_check`). `origins.csv` never selects it.
@@ -160,7 +159,7 @@ Re-checked against retained EDGAR HTML on October 2, 2026:
 | 5 | 2025-10-28 | Q4 room nights guidance | `Room Nights Growth` → `4% - 6%` | same |
 | 6 | 2025-10-28 | acceptance vs Visa | Booking `2025-10-28T20:02:19Z` ≤ Visa `2025-10-28T20:06:03Z` (224 s) | EDGAR index pages |
 
-Index-page `Accepted` timestamps match the LON-1 snapshot for all three retained
+Index-page `Accepted` timestamps match the origin inventory snapshot for all three retained
 accessions (see `manifest.json`).
 
 ## Originals and commands
@@ -175,17 +174,17 @@ python -m longaeva_app.collect.edgar_index build          # refresh Booking colu
 
 Manifest: [`data/fixtures/booking/sources/manifest.json`](../../data/fixtures/booking/sources/manifest.json).
 
-## Handoff
+## Integration
 
-- **LON-21:** map lagged measured Booking growth → travel / cross-border
+- Map lagged measured Booking growth → travel / cross-border
   ex-intra-Europe prior (estimated if ≥ 12 aligned quarters support a
   coefficient; otherwise analyst-ranged). Guidance → ranged rule only where
   `booking_guidance_covers_target=true`. Qualitative stays context.
-- **LON-27 / LON-31:** report the same-day fallback ablation alongside the
+- **Forecast evaluation:** report the same-day fallback ablation alongside the
   primary run; do not claim Booking is always 10–12 weeks stale.
-- **LON-32:** prospective origin uses the 2026-04-28 Booking release; do not
+- Prospective origin uses the 2026-04-28 Booking release; do not
   wait for or include 2026-08-04.
-- **LON-13 / LON-16:** collector and LLM extraction should ingest the retained
-  originals and fixture observation shapes; statement types already match FR-03.
-- **LON-1 inventory:** Booking timing/guidance columns filled; 0 origins
+- **Source collection:** collector and LLM extraction should ingest the retained
+  originals and fixture observation shapes; statement types follow the extraction schema.
+- **Origin inventory:** Booking timing/guidance columns filled; 0 origins
   excluded by missing Booking release.

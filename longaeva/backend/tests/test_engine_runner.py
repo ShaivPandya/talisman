@@ -1,4 +1,4 @@
-"""Engine sampler, runner and summary tests (LON-19)."""
+"""Engine sampler, runner and summary tests."""
 
 from __future__ import annotations
 

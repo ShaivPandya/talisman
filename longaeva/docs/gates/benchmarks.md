@@ -1,6 +1,6 @@
 # Gate: Benchmark and price data decision
 
-LON-6 · planning v1 · settled October 2, 2026.
+Source review dated October 2, 2026.
 
 ## Question
 
@@ -14,7 +14,7 @@ return built from the FRED `SP500` daily price index plus Shiller monthly
 dividends accrued evenly across trading days. Ken French daily `Mkt-RF + RF` is
 the secondary reference and is never relabeled as the S&P 500. Visa daily prices
 have no license-compliant free source without a key, so Visa buy-and-hold and
-portfolio scoring (LON-28) are recorded as **not run**. Visa dividends remain
+portfolio scoring are recorded as **not run**. Visa dividends remain
 available from SEC Ex. 99.1 declarations (public domain).
 
 ## Decision
@@ -90,10 +90,10 @@ Both FRED and Ken French appear in the hackathon dataset catalog (pp. 5–6).
 | Tiingo option A | Requires a free key; user chose no-key path |
 | Alpha Vantage | Free tier: 100 daily bars; adjusted daily is premium; personal license |
 | S&P DJI direct | 403 to scripted requests |
-| Stooq | JavaScript challenge; not bypassed (DR-09) |
-| Nasdaq API | Timed out during planning checks |
+| Stooq | JavaScript challenge; not bypassed |
+| Nasdaq API | Timed out during the source review |
 | yfinance | Unofficial; not allowed in the package |
-| Visa 10-Q repurchase average | Monthly averages; too coarse for daily scoring (note for LON-25) |
+| Visa 10-Q repurchase average | Monthly averages; too coarse for daily scoring (note for valuation bridge) |
 
 ## Redistribution policy
 
@@ -107,7 +107,7 @@ Both FRED and Ken French appear in the hackathon dataset catalog (pp. 5–6).
 ## Visa prices: blocked and unblock path
 
 **Blocked.** No license-compliant free daily Visa price series works without a
-key. LON-28 must mark Visa buy-and-hold and strategy scoring as
+key. Benchmark evaluation marks Visa buy-and-hold and strategy scoring as
 `not run` with the Visa label above.
 
 **Unblock (later):** register a free Tiingo Individual key with a **personal**
@@ -160,16 +160,16 @@ Artifacts:
 - Manifest: [`data/manifest/benchmarks.yaml`](../../data/manifest/benchmarks.yaml)
 - Probe metadata: [`data/fixtures/benchmarks/probe.json`](../../data/fixtures/benchmarks/probe.json)
 
-## Handoff
+## Integration
 
-- **LON-28:** Build B and C series from the manifest. Mark Visa buy-and-hold and
+- Build B and C series from the manifest. Mark Visa buy-and-hold and
   strategy scoring `not run` with the Visa label. Measure how far the B
   approximation drifts from Shiller's own total-return column when available.
-- **LON-25 / LON-26:** Multiple range and value-versus-price need Visa prices.
+- **Valuation bridge:** Multiple range and value-versus-price need Visa prices.
   Use a clearly labeled analyst range / price assumption, or the 10-Q
   "Average Purchase Price per Share" as a coarse historical input — never as a
   silent daily price substitute.
-- **LON-36 / LON-33:** Use the exact label strings; never chart raw index levels.
-- **LON-37 / LON-38:** No FRED, Shiller or Ken French files in the ZIP.
-- **LON-13:** Extend the `data/manifest/*.yaml` collector format; this file is
+- **Result pages:** Use the exact label strings; never chart raw index levels.
+- **Demo seeding:** No FRED, Shiller or Ken French files in the ZIP.
+- Extend the `data/manifest/*.yaml` collector format; this file is
   the first manifest entry.

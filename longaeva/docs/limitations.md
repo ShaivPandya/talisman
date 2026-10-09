@@ -1,63 +1,16 @@
 # Limitations
 
-Packaging, licensing and evaluation caveats consolidated for LON-33. See the
-[evaluation report](evaluation-report.md) for measured results and the documented
-failure case. Final export validation is performed with `make verify-export` and
-`ARGS=--final`; its dated evidence is kept outside the package (LON-38).
+The model is a research tool whose results depend on its assumptions and retained
+evidence. See the [evaluation report](evaluation-report.md) for measured results
+and the documented failure case.
 
-## Personal data and secrets (LON-12 / PR-07)
-
-### What the isolation guard automates
-
-`python -m longaeva_app.cli export-check` (also `make guard` / `make check`) scans the
-would-be-exported file set defined by [`.exportignore`](../.exportignore) and fails on:
-
-- Imports outside `longaeva_app`, the Python standard library, pinned third-party
-  distributions in `backend/requirements.lock`, or local test helpers
-- Symlinks and non-regular files in the export set
-- Absolute developer paths (`/Users/…`, `/home/…`, `C:\Users\…`, macOS `/var/folders/…`)
-- Path literals that resolve above the package root
-- `.env` / `.env.*` files other than `.env.example` when they would ship
-- Secret-shaped strings (cloud/provider keys, private-key blocks, JWTs, non-placeholder
-  URL credentials, generic `*_KEY` / `*_TOKEN` / `*_SECRET` / `*PASSWORD` assignments)
-- **Local-secret leak check:** values of secret-like keys from the package `.env` and
-  the process environment (and any email embedded in `SEC_USER_AGENT`) must not appear
-  in any exported file. Findings name the key only; values are never printed.
-
-`--strict` additionally fails when an excluded path (for example a local `.env`) is
-still present on disk. Use that mode on the unpacked export copy (LON-24), not on the
-developer working tree.
-
-**PDF limitation:** retained PDF originals are scanned as raw bytes only. Compressed
-PDF streams are not inflated, so a secret placed only inside a compressed stream would
-not be detected. Do not embed credentials in PDFs.
-
-### Manual pre-export checklist
-
-Complete before building the submission ZIP (LON-24 / LON-38):
-
-1. `SEC_USER_AGENT` and any provider keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
-   `GEMINI_API_KEY`, future Tiingo keys, etc.) live only in `.env` or the process
-   environment — never in manifests, docs, fixtures or committed source.
-2. No personal names, personal emails or account IDs appear in the package.
-3. Issuer IR / corporate emails inside retained public SEC filings are expected and
-   allowed (they are not personal data of the builder).
-4. No Talisman portfolio state, account data or internal identifiers are included.
-5. The export contains no `.git` directory. A fresh repository created from the export
-   uses the identity chosen at submission time, not a developer machine identity
-   copied from Talisman.
-6. Screenshots and demo recordings show no local filesystem paths or browser profiles.
-7. Validation logs for export rehearsals stay under Talisman's
-   `docs/hackathon/planning/validation/` directory and are **not** bundled in the
-   package export.
-
-## Engine caveats (LON-19)
+## Engine caveats
 
 - **Uncalibrated defaults.** Parameter defaults in `companies/visa/parameters.py` are
-  placeholders. A run on defaults is not a forecast. Prefer a LON-20 calibrated
+  placeholders. A run on defaults is not a forecast. Prefer a calibrated
   parameter set (`make calibrate ARGS='--persist'`, scenario name `calibrated`).
 - **Cross-border share is an assumption.** Visa does not disclose a cross-border volume
-  level at the earnings cutoff (LON-3). `cross_border_share_at_origin` is an
+  level at the earnings cutoff. `cross_border_share_at_origin` is an
   analyst-assumption parameter (range midpoint 0.20). International yield is scaled by
   that share so next-quarter international revenue is nearly share-insensitive when the
   growth premium and travel shock are zero.
@@ -66,9 +19,9 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   operating profit remains on fixtures for reporting, not as a simulated path.
 - **One shared pricing shock.** The three category yields share a single pricing factor.
   Category-specific yield uncertainty is only through separate drift parameters; residual
-  pricing scale is pooled across service and data-processing yields in LON-20.
+  pricing scale is pooled across service and data-processing yields in calibration.
 
-## Calibration caveats (LON-20)
+## Calibration caveats
 
 - **Short post-pandemic history.** FY2020Q2–FY2021Q4 (and YoY bases through FY2022Q4)
   have zero estimation weight, so early origins lean on FY2018Q2–FY2020Q1 growth rates
@@ -78,35 +31,35 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Cross-border seasonals assumed.** Only YoY cross-border growth is disclosed, so
   `cross_border_seasonal_q*` stay at 1.0 with `assumption=true`.
 - **Pooled set in runs.** Submitted runs use the pooled parameter set. Evaluation
-  rows (LON-27) also record ensemble members and weights in `details`.
+  rows also record ensemble members and weights in `details`.
 
-## Collector caveats (LON-13)
+## Collector caveats
 
 - **IR publication timestamps** come from the CDN `Last-Modified` header, not an
   EDGAR acceptance field. Decks are checked against a one-hour event window around
   the origin cutoff; mismatches are flagged in `source.attributes` but still stored.
-  Missing `Last-Modified` refuses ingest (DR-04).
+  Missing `Last-Modified` refuses ingest.
 - **Census integrity:** some archived MARTS PDFs are flagged `possibly_replaced` in
   the release calendar; the collector carries the flag into `source.attributes` and
   still uses the printed release line as `publication_ts`.
 - **Excluded vintages:** the revised Census XLSX (`mrtssales92-present.xlsx`) and
   EDGAR XBRL `companyfacts` feeds are not collected here — they lack a single
-  immutable publication vintage suitable for DR-04.
+  immutable publication vintage suitable for historical cutoffs.
 - **IR redistribution:** Visa IR decks/transcripts are fetch-by-script only and must
   not be bundled in the export ZIP (see `visa_ir.yaml` terms).
-- **Visa parser (LON-14):** FY2018Q1–FY2021Q2 releases are page images. The hidden
+- **Visa parser:** FY2018Q1–FY2021Q2 releases are page images. The hidden
   text layer is incomplete for some Key Business Drivers tables; those quarters stay
   `partial` rather than fabricating growth rates. Operational Performance Data volume
-  *levels* in older releases are out of scope (LON-20 / LON-16).
+  *levels* in older releases are out of scope.
 
-## Runs and replay (LON-23)
+## Runs and replay
 
 - **Bit-exact replay** holds only in the same numerical environment (same NumPy /
   BLAS). Across macOS Accelerate and the container OpenBLAS, replay may return
   `numerically_equivalent` (max relative difference ≤ 1e-9) instead of `exact_match`.
 - **Runs on uncalibrated defaults are not forecasts.** `POST /runs/{id}/forecasts`
   refuses all-assumption parameter sets.
-- **Buildable origins.** Committed LON-3 fixtures cover 2024-07-23 and 2025-10-28;
+- **Buildable origins.** Bundled starting-state fixtures cover 2024-07-23 and 2025-10-28;
   other candidate/prospective cutoffs are built from as-of observations. FY2022Q3
   and FY2022Q4 cannot be built (missing FY2021Q3 payments-volume level in the
   parsed 10-K tables).
@@ -115,7 +68,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Prospective vs retrospective** archive checks use the static
   `data/fixtures/origins.csv` target-release timestamps, not a live EDGAR fetch.
 
-## Evaluation (LON-27)
+## Evaluation
 
 - **Small n.** Sixteen scored origins (10 primary + 6 extension); report `n` with
   every aggregate. Two extension origins are excluded for the FY2021Q3 volume gap.
@@ -128,7 +81,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   before the history-anchored YoY transform; do not treat path
   `payments_volume_growth_constant` as true YoY.
 
-## Baselines (LON-29)
+## Baselines
 
 - **External effects are conditional.** The full model now applies reviewed Booking
   and Census mapping rules; financial-only matches the no-external-commentary
@@ -152,7 +105,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Guided operating profit is derived**, not a company outlook for profit.
   FY2023Q1 and FY2023Q2 resolve a relative opex phrase against reported growth.
 
-## Extraction (LON-16)
+## Extraction
 
 - **Passage-only prompts do not remove hindsight.** The model still has pretrained
   knowledge. The prompt forbids outside knowledge and requires a verbatim quote,
@@ -171,7 +124,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Disabled by default.** With `LLM_PROVIDER` unset, fresh extraction returns
   503. Keys belong in `.env` only.
 
-## Scenarios and attribution (LON-22)
+## Scenarios and attribution
 
 - **Persistent shifts only.** A mix shift or spend reduction is applied once and then
   carried by state. There is no pulse, ramp, or path-dependent rule.
@@ -194,7 +147,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   `paths.npz`. Attribution re-simulates and returns 409 if the recomputed hash does
   not match the saved run.
 
-## Mapping rules (LON-21)
+## Mapping rules
 
 - **Anchors and betas are analyst assumptions.** Booking uses an 8% room-nights anchor
   and betas 0.2–0.4, which discount Booking's global mix. Census uses a 3% retail
@@ -214,11 +167,11 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **Context is not a coefficient.** Airline, retailer, and processor observations, plus
   Booking gross bookings and qualitative statements, do not change the parameter set.
 
-## Valuation (LON-25)
+## Valuation
 
 - **Buyback average, not a close.** The multiple uses the quarterly average
   price Visa paid to repurchase shares (Issuer Purchases of Equity Securities),
-  not a market close. Visa daily prices remain blocked (LON-6). The notes'
+  not a market close. Visa daily prices remain blocked. The notes'
   "average repurchase cost" can differ by about a dollar from that Item 2
   average; the bridge uses Item 2.
 - **GAAP tax rate on an ex-special-items profit.** `tax_rate` is the GAAP
@@ -237,14 +190,14 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   low multiple and the EPS p90 by the high multiple. Earnings-driven and
   multiple-driven spreads are the separated pieces.
 
-## Illustrative actions (LON-26)
+## Illustrative actions
 
 - **Buyback average, and circular with the multiple.** The reference price is
   the latest quarterly average repurchase price accepted by the cutoff, the
   same series as the trailing P/E numerator. Value per share is forward EPS
   times the median of those trailing multiples. The margin compares that value
   with the latest buyback average. It is not a discount to a market close.
-  Visa daily prices remain blocked (LON-6).
+  Visa daily prices remain blocked.
 - **Flat basis-point costs.** Transaction, slippage, and impact do not depend
   on volume or volatility. Funding is off in the committed rule. If it is set,
   it applies only to added notional over the 63-day holding period.
@@ -253,13 +206,13 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   at zero shares; the committed fractions are 0.25.
 - **Not advice.** Every action label says illustrative. The net value gap is
   not a probability and is not a forecast of trading profit. The rule is fixed
-  configuration. LON-28 retains benchmark-window aggregates; Visa strategy and
+  configuration. Benchmark evaluation retains benchmark-window aggregates; Visa strategy and
   buy-and-hold scoring remain not run because daily Visa prices are unavailable.
 - **Hold is the no-action outcome.** An unsupported bridge, or a cutoff with no
   repurchase price and no request override, returns hold and the reason. No
   price or value is filled in to make the rule fire.
 
-## Frontend (LON-11)
+## Frontend
 
 - **No authentication.** The web app is local-review only; `/api` is proxied without
   credentials. Do not expose Compose ports beyond `127.0.0.1`.
@@ -271,23 +224,13 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   Vitest and `tsc` via `npm run build`. Final browser evidence is recorded against
   the exported stack separately from the scripted API checks.
 
-## Export rehearsal (LON-24)
+## Verification coverage
 
-- **Log lives outside the package.** Validation logs belong in Talisman's
-  `docs/hackathon/planning/validation/` and are attached to the Linear issue; they are
-  not bundled in the ZIP.
-- **Early rehearsal scope.** The LON-24 rehearsal checked the original run page.
-  Scenario and result pages have since been implemented and inspected; the final
-  exported application is checked by LON-38 final mode plus a separate browser walkthrough.
-  Consult the dated external validation log for the exact ZIP and outcomes.
-- **Cold image builds need the network.** `--no-cache` pulls from PyPI and npm.
-- **Docker Desktop must share `/tmp`.** The verifier unpacks under `/tmp/longaeva-verify.*`
-  and bind-mounts that tree into Compose. If file sharing excludes `/tmp`, `make up`
-  from the unpacked copy will fail.
-- **Ports.** The verifier defaults to API 18000, web 13000, Postgres 15432 so it does
-  not collide with a developer stack on 8000 / 3000 / 55432.
-- **Replay after restart** keeps named volumes (`make down` without `-v`) so artifacts
-  and Postgres survive. Final teardown uses `down -v --rmi local`.
+`make verify-export` validates the Docker startup path in a fresh temporary
+Compose project. It checks the archive, tests, seeded records, application API
+flows and replay. Browser rendering and startup without Docker require separate
+checks. A validation report identifies the archive checksum and tested runtime;
+it does not establish compatibility with every operating system.
 
 ## Local startup without Docker
 
@@ -306,7 +249,7 @@ Complete before building the submission ZIP (LON-24 / LON-38):
   stops only processes it started, including its private Postgres data directory.
   It does not stop a Compose database that was already listening on port 55432.
 
-## Search (LON-17)
+## Search
 
 - **Lexical only.** Search is Postgres english `tsvector` / `websearch_to_tsquery`
   over stored passage text. There is no embedding index and no semantic search.
@@ -319,11 +262,10 @@ Complete before building the submission ZIP (LON-24 / LON-38):
 - **A date-only cutoff is midnight UTC.** `cutoff_ts=2024-07-23` means
   `2024-07-23T00:00:00Z`, so a release later that calendar day is excluded.
 - **Latency check is a fixture, not the demo seed.** Tests time a filtered
-  search over 5,000 synthetic passages. The demo seed is LON-37. The corpus
-  collected in development is smaller than that fixture.
+  search over 5,000 synthetic passages. The included demo corpus is
+  smaller than that fixture.
 
-
-## Consolidated evidence (LON-33)
+## Consolidated evidence
 
 - **Retrospective development.** Publication cutoffs prevent later supplied inputs;
   they cannot remove retrospective source selection, review or model choices.

@@ -1,4 +1,4 @@
-"""Passage extraction, cache, and span checks against Booking Q3 2025 (LON-16)."""
+"""Passage extraction, cache, and span checks against Booking Q3 2025."""
 
 from __future__ import annotations
 

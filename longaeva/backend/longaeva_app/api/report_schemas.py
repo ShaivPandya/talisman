@@ -1,4 +1,4 @@
-"""Read-only, bounded projections of saved evaluation artifacts (LON-36)."""
+"""Read-only, bounded projections of saved evaluation artifacts."""
 
 from typing import Any, Literal
 

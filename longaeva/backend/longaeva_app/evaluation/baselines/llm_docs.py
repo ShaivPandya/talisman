@@ -1,4 +1,4 @@
-"""One frozen prompt, explicit capture, and offline quantile scoring (LON-30)."""
+"""One frozen prompt, explicit capture, and offline quantile scoring."""
 
 from __future__ import annotations
 

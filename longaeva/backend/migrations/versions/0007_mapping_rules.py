@@ -1,4 +1,4 @@
-"""Mapping-rule kind and parameter-set context rows (LON-21).
+"""Mapping-rule kind and parameter-set context rows.
 
 Revision ID: 0007_mapping_rules
 Revises: 0006_scenario_pairs

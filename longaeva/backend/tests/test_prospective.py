@@ -1,4 +1,4 @@
-"""Publication gating, frozen registration, recovery and offline replay (LON-32)."""
+"""Publication gating, frozen registration, recovery and offline replay."""
 
 from __future__ import annotations
 

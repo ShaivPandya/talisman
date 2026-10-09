@@ -1,4 +1,4 @@
-"""Worker handler for passage extraction (LON-16)."""
+"""Worker handler for passage extraction."""
 
 from __future__ import annotations
 

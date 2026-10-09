@@ -1,4 +1,4 @@
-"""Driver transforms and actuals loader tests (LON-27)."""
+"""Driver transforms and actuals loader tests."""
 
 from __future__ import annotations
 

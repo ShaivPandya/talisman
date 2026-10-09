@@ -1,6 +1,6 @@
-"""Build Visa starting-state fixtures from as-of observations (LON-27).
+"""Build Visa starting-state fixtures from as-of observations.
 
-Applies the LON-3 roll-forward rules at any origins.csv cutoff. Committed LON-3
+Applies the starting-state reconstruction roll-forward rules at any origins.csv cutoff. Committed starting-state reconstruction
 fixtures stay authoritative when present; this builder covers the remaining
 candidate and prospective origins.
 """

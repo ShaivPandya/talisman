@@ -1,4 +1,4 @@
-"""Eligible evaluation origins from origins.csv (LON-27)."""
+"""Eligible evaluation origins from origins.csv."""
 
 from __future__ import annotations
 

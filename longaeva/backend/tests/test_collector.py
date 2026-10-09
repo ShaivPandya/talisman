@@ -1,4 +1,4 @@
-"""Collector integration tests against three cached fixtures (LON-13)."""
+"""Collector integration tests against three cached fixtures."""
 
 from __future__ import annotations
 

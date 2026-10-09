@@ -1,4 +1,4 @@
-"""Browser-ready origins and span-resolved evidence (LON-34)."""
+"""Browser-ready origins and span-resolved evidence."""
 
 from __future__ import annotations
 

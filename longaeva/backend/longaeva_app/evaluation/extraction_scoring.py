@@ -1,4 +1,4 @@
-"""Offline, evidence-anchored evaluation of original extraction responses (LON-18)."""
+"""Offline, evidence-anchored evaluation of original extraction responses."""
 
 from __future__ import annotations
 

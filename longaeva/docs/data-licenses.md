@@ -1,6 +1,6 @@
 # Benchmark data handling
 
-LON-28 implements the decisions and terms review dated October 2, 2026 in
+Benchmark handling follows the decisions and terms review dated October 2, 2026 in
 [`gates/benchmarks.md`](gates/benchmarks.md) and
 [`data/manifest/benchmarks.yaml`](../data/manifest/benchmarks.yaml).
 The table below covers benchmark evaluation. The complete per-file inventory below
@@ -24,7 +24,7 @@ returns and aggregate statistics only; never chart raw index levels. Tiingo,
 Alpha Vantage, and alternative Visa daily sources are not fetched by this issue.
 The Visa gate remains blocked and its performance rows stay `not_run`.
 
-## Offline demo inputs (LON-37)
+## Offline demo inputs
 
 [data-license-inventory.csv](data-license-inventory.csv) lists every bundled data file,
 its checksum, authorship, retention decision and provenance/terms reference. It includes
@@ -46,5 +46,5 @@ are bundled. See the individual gate documents for source decisions and limitati
 The seed performs no network requests, provider calls or vendor fetching. It restores
 content-addressed originals and run paths to the local artifact volume and inserts
 curated database records. The exact replay proof covers the historical demo runs
-and the original LON-32 registration; evaluation snapshots retain their original
+and the original prospective registration registration; evaluation snapshots retain their original
 config hashes and run references.

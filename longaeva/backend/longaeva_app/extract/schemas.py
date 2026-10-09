@@ -1,4 +1,4 @@
-"""Pydantic schemas for passage-only LLM extraction (LON-16 / FR-04 / MR-12).
+"""Pydantic schemas for passage-only LLM extraction.
 
 Schema converters follow the JSON-schema shaping in Talisman's ``llm_utils.py``.
 They are copied here and are not imported from Talisman.

@@ -1,4 +1,4 @@
-"""Company-agnostic path runner with per-path identity checks (LON-19)."""
+"""Company-agnostic path runner with per-path identity checks."""
 
 from __future__ import annotations
 

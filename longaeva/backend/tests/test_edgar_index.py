@@ -1,4 +1,4 @@
-"""Tests for Visa origin inventory eligibility and builders (LON-1)."""
+"""Tests for Visa origin inventory eligibility and builders."""
 
 from __future__ import annotations
 

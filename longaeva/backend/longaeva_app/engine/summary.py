@@ -1,4 +1,4 @@
-"""Path summaries: mean, Monte Carlo SE, and quantiles (LON-19 / MR-08)."""
+"""Path summaries: mean, Monte Carlo SE, and quantiles."""
 
 from __future__ import annotations
 

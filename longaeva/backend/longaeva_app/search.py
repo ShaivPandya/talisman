@@ -1,4 +1,4 @@
-"""Postgres full-text search over stored document passages (LON-17 / FR-02).
+"""Postgres full-text search over stored document passages.
 
 Matches use the stored ``document_text.tsv`` column (``to_tsvector('english', text)``)
 and the GIN index ``ix_document_text_tsv`` created with the core schema. Callers

@@ -1,4 +1,4 @@
-"""Code-defined mapping rules (LON-21 / FR-07).
+"""Code-defined mapping rules.
 
 Rules live in this module and are synced into ``mapping_rule`` by
 ``(rule_key, version)``. A definition change without a version bump is refused.
@@ -71,7 +71,7 @@ class RuleRegistryError(Exception):
 
 
 def reject_probability_fields(payload: Any) -> None:
-    """MR-12: extractor confidence is never a probability or a transform input."""
+    """extractor confidence is never a probability or a transform input."""
     if isinstance(payload, Mapping):
         for key, value in payload.items():
             if str(key) in _BANNED_FIELDS:

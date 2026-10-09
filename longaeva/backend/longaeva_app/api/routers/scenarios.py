@@ -1,4 +1,4 @@
-"""Scenario definitions, paired runs, comparison, and attribution (LON-22)."""
+"""Scenario definitions, paired runs, comparison, and attribution."""
 
 from __future__ import annotations
 

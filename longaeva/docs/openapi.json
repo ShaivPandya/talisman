@@ -3887,7 +3887,7 @@
         "type": "object"
       },
       "PassageSearchHitRead": {
-        "description": "One document_text passage matching a full-text query (LON-17).",
+        "description": "One document_text passage matching a full-text query.",
         "properties": {
           "char_end": {
             "title": "Char End",

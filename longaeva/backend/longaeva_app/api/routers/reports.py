@@ -1,4 +1,4 @@
-"""Read-only packaged evaluation and document endpoints (LON-36)."""
+"""Read-only packaged evaluation and document endpoints."""
 
 from fastapi import APIRouter
 

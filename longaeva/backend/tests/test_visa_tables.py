@@ -1,4 +1,4 @@
-"""Visa structured table parser tests (LON-14)."""
+"""Visa structured table parser tests."""
 
 from __future__ import annotations
 

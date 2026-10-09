@@ -1,4 +1,4 @@
-"""Simulation code version and library fingerprints (LON-23 / FR-09)."""
+"""Simulation code version and library fingerprints."""
 
 from __future__ import annotations
 

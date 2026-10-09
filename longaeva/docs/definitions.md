@@ -1,12 +1,11 @@
 # Visa driver and accounting definitions
 
-LON-2 · planning v1 · settled October 1, 2026.
+Source review dated October 1, 2026.
 
 This document fixes the definitions the model uses for FY2017–FY2026. Every definition
 cites a primary SEC filing. Canonical field names live in
 `backend/longaeva_app/companies/visa/definitions.py` and are listed in the
-[Field table](#field-table) below. LON-14 (parser), LON-3 (starting states) and LON-19
-(engine) must import those names rather than inventing synonyms.
+[Field table](#field-table) below. The parser, starting-state builder and simulation engine must import those names rather than inventing synonyms.
 
 ## 1. Fiscal calendar
 
@@ -78,7 +77,7 @@ Visa, Visa Electron, V PAY, Interlink and PLUS brands processed on Visa’s netw
 **Role:** Primary driver of data processing revenue (`processed_transactions_count`,
 `processed_transactions_index`).
 
-### 2.5 Coverage difference (MR-05)
+### 2.5 Coverage difference
 
 Payments volume and processed transactions have **different coverage**:
 
@@ -108,10 +107,10 @@ not an observed APV.
   within Europe, which have revenue yields similar to Europe’s domestic volume, growth was
   9% in the quarter.”
 
-### 3.2 Overlap with payments volume (MR-05)
+### 3.2 Overlap with payments volume
 
 Cross-border volume is a **share / sub-index of payments volume**, not an amount added on
-top of it. Mix-shift interventions must conserve total spending (MR-11). Independently
+top of it. Mix-shift interventions must conserve total spending. Independently
 sampling a cross-border shock that increases total spending is forbidden.
 
 International transaction revenue is earned for “cross-border transaction processing and
@@ -140,14 +139,14 @@ currency conversion activities” (FY2025 10-K Item 1).
   payments volume in the prior quarter. All other revenue categories are recognized based
   on current quarter activity.” Stable across the window.
 
-### 4.2 Value-added services (MR-05)
+### 4.2 Value-added services
 
 Value-added services are **already recognized within the reported categories** (chiefly
 other revenue and portions of service / data processing). They are **not** a fifth revenue
 bucket and must not be added again as a separate activity stream. They may inform category
 yields as context.
 
-### 4.3 Identities (MR-04)
+### 4.3 Identities
 
 On every path and quarter (relative tolerance ≤ 1e-9):
 
@@ -166,7 +165,7 @@ On every path and quarter (relative tolerance ≤ 1e-9):
 Constant-dollar growth “excludes the impact of foreign currency fluctuations against the
 U.S. dollar” (FY2025 10-K Item 7 footnote 7).
 
-At earnings cutoff q (LON-1 convention = EDGAR acceptance of the quarter-q 8-K):
+At earnings cutoff q (defined as EDGAR acceptance of the quarter-q 8-K):
 
 - The same-quarter 10-Q is **not** eligible (accepted hours later; see
   `docs/origins-inventory.md`).
@@ -175,10 +174,10 @@ At earnings cutoff q (LON-1 convention = EDGAR acceptance of the quarter-q 8-K):
 - Release q reports growth for periods q−1 and q (constant in the summary; constant and
   usually nominal in the detailed table).
 
-### 5.2 Decision (choice 2a)
+### 5.2 Index construction
 
 1. **Activity indices stay nominal** (`payments_volume_index_nominal`,
-   `cross_border_ex_intra_europe_index_nominal`), matching MR-01 and keeping yields in
+   `cross_border_ex_intra_europe_index_nominal`), keeping yields in
    reported USD.
 2. **Anchor** each index on the newest eligible `payments_volume_nominal_us` (or analogous)
    level from a 10-Q/10-K with `publication_ts ≤ cutoff`.
@@ -215,7 +214,7 @@ reconciliations across eras), non-GAAP operating expenses / net income exclude:
 Earlier eras labeled the same idea “adjusted” rather than “non-GAAP”; the economic split
 (recurring vs identified items) is continuous.
 
-### 6.2 Declared scoring basis (confirms planning D-05)
+### 6.2 Declared scoring basis
 
 | Metric | Primary scoring basis | Also reported |
 | --- | --- | --- |
@@ -230,7 +229,7 @@ severance noise as forecast error. Amortization and acquisition-related costs ar
 in the “ex_special_items” operating-expense field because Visa’s own non-GAAP bridge
 treats them as non-core; both fields remain labeled so a reader can recover GAAP.
 
-## 7. Yields (MR-06)
+## 7. Yields
 
 Effective yields are **derived** quantities, not contract fees:
 
@@ -244,17 +243,15 @@ Effective yields are **derived** quantities, not contract fees:
 They absorb customer mix, pricing and value-added services. They are never presented as
 observed contract fees.
 
-## 8. Teaching fees — not an input
+## 8. Yield inputs
 
-The Stage 1 proposal’s simplified example that a network “earns $1 for every $100 of
-domestic spending and $3 for every $100 of cross-border spending” is an **invented teaching
-illustration**. Those constants are **not an input** anywhere in this package: not in
-parameter defaults, not in fixtures, not in the engine, and not in evaluation. Only the
-derived effective yields in §7 are used.
+The model uses the effective yields derived in §7. Revenue follows reported
+activity and revenue levels; assumed per-transaction or per-dollar fee constants
+are not used in calibration or evaluation.
 
 ## 9. Observation basis vocabulary
 
-`observation.basis` (LON-10) is free text. LON-2 fixes the vocabulary the Visa parser and
+`observation.basis` is free text. This document fixes the vocabulary the Visa parser and
 review UI must use:
 
 | Token | Meaning |
@@ -284,8 +281,8 @@ Full structured records: `CHANGES` in `definitions.py`.
 
 ## 11. Stability verdict and eligible-origin impact
 
-**Question:** Are the definitions stable enough across FY2017–FY2026 for the LON-1
-inventory to remain eligible?
+**Question:** Are the definitions stable enough across FY2017–FY2026 for the inventoried origins
+to remain eligible?
 
 **Verdict:** **Yes.** Core definitions (four revenue categories, client incentives as
 contra-revenue, service-revenue lag on prior-quarter payments volume, payments volume vs
@@ -293,23 +290,22 @@ processed-transactions coverage, constant-dollar vs nominal, fiscal calendar) ho
 FY2017Q1 through FY2026Q3. Changes in §10 are label/format changes, new series
 presentations, or named comparability breaks — not redefinitions that invalidate an origin.
 
-**Exact counts (unchanged by LON-2; LON-2 does not lower the LON-1 inventory):**
+**Source inventory counts:**
 
 | Count | Value |
 | --- | --- |
 | Inventory rows FY2017Q1–FY2026Q3 | **39** |
 | Calibration quarters FY2017–FY2023 with timestamps | **28** |
-| Candidate origins (LON-1 timestamp + prior-10-Q checks) | **18** |
+| Candidate origins (release timestamp + prior-10-Q checks) | **18** |
 | Prospective origins | **1** (`2026-07-28` → FY2026Q4) |
-| Origins excluded by LON-2 definition instability | **0** |
+| Origins excluded by definition instability | **0** |
 
-LON-3 (starting-state reconstruction) and LON-5 (Census timing) can still lower the
-eligible count. Parser status for FY2017–FY2019 formats is deferred to LON-14 (best-effort
+Starting-state reconstruction and Census timing are separate eligibility checks. FY2017–FY2019 formats use the structured parser (best-effort
 with per-quarter status), not treated as a definition failure here.
 
 ## 12. Field table
 
-Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
+Canonical names used by the structured parser and simulation engine. Keep in sync with `FIELDS` in
 `backend/longaeva_app/companies/visa/definitions.py`.
 
 | name | unit | basis | period_rule | source | first | last | role |
@@ -348,32 +344,32 @@ Canonical names imported by LON-14 / LON-19. Keep in sync with `FIELDS` in
 | `net_interest_other` | usd_millions | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | valuation |
 | `diluted_shares` | shares_millions | gaap | current_quarter | earnings_release | FY2017Q1 | FY2026Q3 | valuation |
 
-## 13. Handoff notes
+## 13. Component integration
 
-- **LON-3:** Reconstruct starting states using these field names; nominal PV levels from the
-  prior-quarter 10-Q (period q−2 at cutoff q); apply §5.2 roll-forward. Done — see
+- Reconstruct starting states using these field names; nominal PV levels from the
+  prior-quarter 10-Q (period q−2 at cutoff q); apply §5.2 roll-forward. See
   `docs/gates/starting-states.md` and `data/fixtures/states/visa_*.json`.
   `tax_rate` / `net_interest_other` source tags corrected to `earnings_release`.
-- **LON-8:** Second-wave families should map into
+- Second-wave families should map into
   `cross_border_ex_intra_europe_*` or `payments_volume_*` drivers under these definitions.
-- **LON-14:** Done — see [`docs/visa-parser.md`](visa-parser.md). Parser field names =
+- See [`docs/visa-parser.md`](visa-parser.md). Parser field names =
   `FIELDS` plus observation-only `REPORTED_FIELDS` in §14; unit/basis tokens = §9.
   Structured HTML/table extraction for 39 releases and prior 10-Q/10-Ks; the two
-  LON-3 fixtures reproduce on measured values, spans and derived formulas.
-- **LON-16:** LLM extraction for fields the structured parser cannot locate (prose-only
+  starting-state fixtures reproduce on measured values, spans and derived formulas.
+- LLM extraction for fields the structured parser cannot locate (prose-only
   operational performance data in FY2017–FY2021Q2) can consume `parse_status.csv`
   missing-field reasons.
-- **LON-19:** Done — see [`docs/model-spec.md`](model-spec.md). `VisaModel` implements
+- See [`docs/model-spec.md`](model-spec.md). `VisaModel` implements
   `CompanyModel` with these field names; six factors (demand/travel/FX correlated;
   pricing/incentives/costs independent); cross-border as a share of payments volume
   (`cross_border_share_at_origin` assumption); service lag on PV(t−1);
   `service_lag` / `pool_mix` switches; no teaching-fee constants.
-- **LON-25:** Valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`
+- Valuation bridge consumes `tax_rate`, `net_interest_other`, `diluted_shares`
   and `operating_profit_*` on the bases in §6.
 
-## 14. Observation-only reported fields (LON-14)
+## 14. Observation-only reported fields
 
-These names live in `REPORTED_FIELDS`, not `FIELDS`, so the LON-3 starting-state
+These names live in `REPORTED_FIELDS`, not `FIELDS`, so the bundled starting-state
 fixtures keep their original key set. The parser still emits them as typed observations.
 
 | Field | Unit | Basis | Period | Source | First | Last | Role |
@@ -384,4 +380,4 @@ fixtures keep their original key set. The parser still emits them as typed obser
 
 `special_item_operating_expense` is one row per three-month operating-expense bridge
 line; the item label is stored in `attributes.item`. The unit `usd_per_share` is added
-to the LON-2 unit vocabulary for EPS.
+to the unit vocabulary for EPS.

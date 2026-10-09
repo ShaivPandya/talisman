@@ -1,4 +1,4 @@
-"""Operating-profit paths to forward earnings and an earnings/multiple value grid (LON-25).
+"""Operating-profit paths to forward earnings and an earnings/multiple value grid.
 
 Forward earnings hold the origin tax rate, net interest/other, and diluted share
 count flat across the first four simulated quarters:

@@ -1,4 +1,4 @@
-"""LON-28 independent-window arithmetic and aggregate-only report contract."""
+"""benchmark evaluation independent-window arithmetic and aggregate-only report contract."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Full-text passage search (LON-17 / FR-02)."""
+"""Full-text passage search."""
 
 from __future__ import annotations
 

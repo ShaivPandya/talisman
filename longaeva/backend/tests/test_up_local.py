@@ -10,7 +10,9 @@ from typing import Any
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "up_local.py"
+from longaeva_app.isolation_guard import resolve_root
+
+SCRIPT = resolve_root() / "scripts" / "up_local.py"
 
 
 def load_up_local() -> Any:
@@ -65,6 +67,22 @@ def test_node_version(up_local: Any) -> None:
     assert "20.19.0" in old
     with pytest.raises(up_local.SetupError):
         up_local.parse_node_version("not-node")
+
+
+def test_database_port_override(up_local: Any, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(up_local, "bring_up", lambda: None)
+    assert up_local.main(["--db-port", "55439"]) == 0
+    assert up_local.DB_PORT == 55439
+    assert up_local.DATABASE_URL.endswith(":55439/longaeva")
+    assert up_local.ADMIN_DATABASE_URL.endswith(":55439/postgres")
+    assert up_local.main([]) == 0
+    assert up_local.DB_PORT == 55432
+
+
+@pytest.mark.parametrize("port", ["0", "65536", "not-a-port"])
+def test_invalid_database_port(up_local: Any, port: str) -> None:
+    with pytest.raises(SystemExit):
+        up_local.parse_args(["--db-port", port])
 
 
 def test_verify_sha256_rejects_mismatch(up_local: Any, tmp_path: Path) -> None:

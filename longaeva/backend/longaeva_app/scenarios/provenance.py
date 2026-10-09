@@ -1,4 +1,4 @@
-"""Rule, observation, and source references for an attribution row (LON-22 / FR-11)."""
+"""Rule, observation, and source references for an attribution row."""
 
 from __future__ import annotations
 

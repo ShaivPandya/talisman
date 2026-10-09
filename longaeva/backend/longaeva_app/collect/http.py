@@ -1,4 +1,4 @@
-"""Polite HTTP client for the LON-13 collector (DR-09).
+"""Polite HTTP client for the source collection collector.
 
 Declared User-Agent, per-host minimum intervals, exponential backoff with
 ``Retry-After``, and no bypass of 403 / JavaScript challenges.

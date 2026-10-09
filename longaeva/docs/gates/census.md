@@ -1,6 +1,6 @@
 # Gate: Census MARTS vintage integrity
 
-LON-5 · planning v1 · settled October 2, 2026.
+Source review dated October 2, 2026.
 
 ## Question
 
@@ -19,15 +19,15 @@ one-year-later advance reprint (692,922).
 
 ## Recommendation
 
-**Required external family (DR-03), with constraints:**
+**Required external family, with constraints:**
 
-- Use archived advance PDFs only; never the revised XLSX for historical cutoffs (DR-04).
+- Use archived advance PDFs only; never the revised XLSX for historical cutoffs.
 - Prefer growth rates computed **within a single release** over level comparisons across
   vintages (levels revise).
 - Attribute Census-driven parameter updates to the **US** component of Visa payments
   volume only (Census is US retail; Visa is global).
 - Treat `possibly_replaced` calendar rows (HTTP Last-Modified more than 2 days after the
-  printed release) with caution in LON-15; do not silently substitute them for earlier
+  printed release) with caution in Census vintage parser; do not silently substitute them for earlier
   first prints when a cleaner neighbor exists.
 
 ## Vintages retained
@@ -81,7 +81,7 @@ be look-ahead bias.
 | Department stores | **code change** | `4521` (2024) → `4522` (2025); same `series_key=naics_452_dept`, **level break** |
 | Other general merchandise | **code change** | `4529`/`45291`/`45299` → `4523`/`452311`/`452319` |
 
-LON-15 should key on `series_key` plus NAICS era, not raw NAICS alone.
+The Census vintage parser keys on `series_key` plus NAICS era, not raw NAICS alone.
 
 ## Timing against Visa origins
 
@@ -96,14 +96,14 @@ max **42.3**.
 
 | Visa cutoff | Census release | Reference month | Age (days) | Note |
 | --- | --- | --- | --- | --- |
-| 2024-07-23 (LON-3 origin A) | `adv2406` | 2024-06 | 7.3 | Fresh June advance |
+| 2024-07-23 (July 2024 origin) | `adv2406` | 2024-06 | 7.3 | Fresh June advance |
 | 2025-07-29 | `adv2506` | 2025-06 | 12.3 | Fresh June advance |
-| 2025-10-28 (LON-3 origin B) | `adv2508` | 2025-08 | 42.3 | **2025 shutdown**: `adv2509` released 2025-11-25 |
+| 2025-10-28 (October 2025 origin) | `adv2508` | 2025-08 | 42.3 | **2025 shutdown**: `adv2509` released 2025-11-25 |
 | 2019-01-30 | `adv1811` | 2018-11 | 47.3 | **2018–19 shutdown**: `adv1812` released 2019-02-14 (after cutoff) |
 | 2026-07-28 (prospective) | `adv2606` | 2026-06 | 12.3 | |
 
 `adv1812` is flagged `possibly_replaced` (Last-Modified ~2 months after its delayed
-printed release). LON-15 should prefer neighboring first prints when hashing originals.
+printed release). Original-file validation prefers neighboring first prints when hashing originals.
 
 ## Three-cell manual check
 
@@ -127,13 +127,13 @@ python -m longaeva_app.collect.edgar_index build         # refresh origins Censu
 
 Manifest: [`data/fixtures/census/sources/manifest.json`](../../data/fixtures/census/sources/manifest.json).
 
-## Handoff
+## Integration
 
-- **LON-15 (done):** archived parser and vintage table in
+- **Census vintage parser:** archived parser and vintage table in
   [`docs/census-vintages.md`](../census-vintages.md). `as_of` returns the newest print
   published at or before the cutoff, so an early cutoff still sees the first print.
-  Wiring those vintages into the payments-volume rule is LON-31.
-- **LON-21:** map Census SA growth (within-release) → US domestic payments-volume prior;
+  The payments-volume rule uses the archived vintages in ablation evaluation.
+- Map Census SA growth (within-release) → US domestic payments-volume prior;
   keep qualitative/category-mix as context until a ranged rule is reviewed; never feed
   XLSX cells into parameters.
-- **LON-1 inventory:** Census timing filled; 0 origins excluded by missing Census release.
+- **Origin inventory:** Census timing filled; 0 origins excluded by missing Census release.

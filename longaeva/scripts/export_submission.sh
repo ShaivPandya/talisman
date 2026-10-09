@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the Longaeva submission ZIP (LON-24).
+# Build the Longaeva submission ZIP.
 # Compatible with macOS /bin/bash 3.2.
 set -euo pipefail
 

@@ -1,4 +1,4 @@
-"""Packaged result projections, availability, and database-free reads (LON-36)."""
+"""Packaged result projections, availability, and database-free reads."""
 
 from __future__ import annotations
 

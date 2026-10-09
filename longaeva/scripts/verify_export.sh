@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Unpack a Longaeva submission ZIP in /tmp and validate it (LON-24 / PR-06).
+# Unpack a Longaeva submission ZIP in /tmp and validate it.
 # Compatible with macOS /bin/bash 3.2.
 set -euo pipefail
 
@@ -180,7 +180,7 @@ write_log() {
   zip_sha="$(sha256_file "$ZIP")"
   {
     if [ "$FINAL" -eq 1 ]; then
-      echo "# Final export validation (LON-38)"
+      echo "# Final export validation"
     else
       echo "# Early export rehearsal"
     fi

@@ -1,4 +1,4 @@
-"""Offset-preserving HTML table and prose reader for LON-14.
+"""Offset-preserving HTML table and prose reader for structured parser.
 
 Character offsets are into the UTF-8-decoded original document, so
 ``html[char_start:char_end] == quote`` for every emitted span.
@@ -346,7 +346,7 @@ def map_joined_index(runs: list[TextRun], joined_index: int) -> int | None:
 
 
 def locate_after_anchor(html: str, anchor: str, quote: str) -> tuple[int, int]:
-    """Find ``quote`` after the first ``anchor`` (LON-3 locate_span semantics)."""
+    """Find ``quote`` after the first ``anchor`` (starting-state reconstruction locate_span semantics)."""
     if not anchor:
         raise ValueError("anchor must be non-empty")
     if not quote:

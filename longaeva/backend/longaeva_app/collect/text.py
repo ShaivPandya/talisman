@@ -1,4 +1,4 @@
-"""Page-preserving text extraction for HTML and PDF originals (LON-13).
+"""Page-preserving text extraction for HTML and PDF originals.
 
 HTML is split on CSS page breaks; PDFs use pdfminer.six ``extract_pages`` with
 no page or character caps. Paragraph passages carry page-local

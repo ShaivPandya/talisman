@@ -1,4 +1,4 @@
-"""Provider adapters with httpx.MockTransport. No network (LON-16)."""
+"""Provider adapters with httpx.MockTransport. No network."""
 
 from __future__ import annotations
 

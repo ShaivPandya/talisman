@@ -1,4 +1,4 @@
-"""Path-wise differences between two saved simulations (LON-22 / FR-10)."""
+"""Path-wise differences between two saved simulations."""
 
 from __future__ import annotations
 

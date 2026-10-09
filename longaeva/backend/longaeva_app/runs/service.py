@@ -1,4 +1,4 @@
-"""Submit, execute, and replay Visa simulation runs (LON-23)."""
+"""Submit, execute, and replay Visa simulation runs."""
 
 from __future__ import annotations
 

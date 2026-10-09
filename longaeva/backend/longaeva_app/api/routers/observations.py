@@ -1,4 +1,4 @@
-"""Observation reads plus extraction enqueue (LON-16)."""
+"""Observation reads plus extraction enqueue."""
 
 from __future__ import annotations
 

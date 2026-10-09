@@ -1,8 +1,8 @@
-# Evaluation harness (LON-27)
+# Evaluation harness
 
 Benchmark holding-period results and the explicitly unrun Visa portfolio
 comparisons are documented separately in
-[`portfolio-evaluation.md`](portfolio-evaluation.md) (LON-28).
+[`portfolio-evaluation.md`](portfolio-evaluation.md).
 
 Scores the full Visa model at each eligible origin in `data/fixtures/origins.csv`.
 Results are `evaluation_result` rows under one frozen `config_hash`, plus a compact
@@ -21,15 +21,15 @@ payments-volume level is missing from parsed observations (FY2020/FY2021 10-K
 12-month tables were not extracted). FY2022Q2 is scored, but its payments-volume
 driver is skipped for the same data gap on the year-ago base.
 
-## Leakage (ER-04 / MR-10)
+## Leakage
 
 Before calibration, simulation and scoring, every used input must be published at
 or before the cutoff:
 
-- starting-state sources
-- calibration evidence index
-- run source manifest
-- driver-history observations
+- Starting-state sources
+- Calibration evidence index
+- Run source manifest
+- Driver-history observations
 
 Actuals must be published **after** the cutoff. A deliberately late input raises
 `LeakageError`.
@@ -59,7 +59,7 @@ quarterly rates are recovered as `(1+g)^(1/4)−1`.
 - Cross-border: same chain; QoQ(q−3) from the calibrated model (persistence
   fallback). Flagged approximate.
 
-**Four quarters (ER-13).** Separate table with its own `n`, for origins whose four
+**Four quarters.** Separate table with its own `n`, for origins whose four
 post-origin quarters are all released. Scores four-quarter sums of net revenue and
 operating profit, plus quarter-4 YoY drivers from simulated levels.
 
@@ -105,7 +105,7 @@ snapshots, mapping-rule hashes and parameter-range settings before scoring.
 A `baseline` object is stored on the config and enters the hash only when it is
 non-empty, so an empty baseline does not change the full-model hash.
 
-## Baselines (LON-29)
+## Baselines
 
 Same 16 scored origins and the same two exclusions (FY2022Q3, FY2022Q4) as the
 full model. Same actuals, base seed and scoring. Variants:
@@ -166,7 +166,7 @@ is the 80% interval):
 Seasonal drivers are scored at all 16 origins. Guidance has no driver or
 four-quarter scores. The JSON files are the source for unrounded values.
 
-## Ablations and persistence (LON-31)
+## Ablations and persistence
 
 ```bash
 make evaluate ARGS='--variant ablations --output-dir /out'

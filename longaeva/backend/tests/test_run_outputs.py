@@ -1,4 +1,4 @@
-"""Unit tests for run output hashing, provenance, fixtures, and archive kind (LON-23)."""
+"""Unit tests for run output hashing, provenance, fixtures, and archive kind."""
 
 from __future__ import annotations
 

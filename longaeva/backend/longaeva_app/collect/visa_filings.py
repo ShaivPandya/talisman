@@ -1,4 +1,4 @@
-"""Download Visa earnings-release and 10-Q/10-K originals for LON-14.
+"""Download Visa earnings-release and 10-Q/10-K originals for structured parser.
 
 CLI:
 
@@ -148,7 +148,7 @@ def local_gz_path(accession: str, document: str) -> Path:
 
 
 def locate_original(accession: str, document: str) -> Path:
-    """Return the gzip path, preferring the LON-14 store then LON-3 originals."""
+    """Return the gzip path, preferring the structured parser store then starting-state reconstruction originals."""
     local = local_gz_path(accession, document)
     if local.exists():
         return local

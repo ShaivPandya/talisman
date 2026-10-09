@@ -1,1 +1,1 @@
-"""Scenario definitions, paired runs, and attribution (LON-22)."""
+"""Scenario definitions, paired runs, and attribution."""

@@ -696,11 +696,19 @@ def stop_all() -> None:
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Start Longaeva without Docker.")
     parser.add_argument("--down", action="store_true", help="Stop the processes started by this command.")
-    return parser.parse_args(argv)
+    parser.add_argument("--db-port", type=int, default=55432, help="Local PostgreSQL port (default: 55432).")
+    args = parser.parse_args(argv)
+    if not 1 <= args.db_port <= 65535:
+        parser.error("--db-port must be between 1 and 65535")
+    return args
 
 
 def main(argv: list[str] | None = None) -> int:
+    global DB_PORT, DATABASE_URL, ADMIN_DATABASE_URL
     args = parse_args(argv)
+    DB_PORT = args.db_port
+    DATABASE_URL = f"postgresql://longaeva:longaeva@127.0.0.1:{DB_PORT}/longaeva"
+    ADMIN_DATABASE_URL = f"postgresql://longaeva@127.0.0.1:{DB_PORT}/postgres"
     try:
         version_error = python_version_error(tuple(sys.version_info))
         if version_error:

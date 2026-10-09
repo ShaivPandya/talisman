@@ -1,4 +1,4 @@
-"""Evaluation harness: calibrate, run, score, persist (LON-27)."""
+"""Evaluation harness: calibrate, run, score, persist."""
 
 from __future__ import annotations
 

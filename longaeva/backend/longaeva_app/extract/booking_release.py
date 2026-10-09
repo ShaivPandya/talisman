@@ -1,8 +1,8 @@
-"""Booking Holdings Ex. 99.1 helpers for the LON-4 family gate.
+"""Booking Holdings Ex. 99.1 helpers for the Booking disclosure review.
 
 Provides guidance-table detection for the release calendar, quote parsers for
 measured/guidance percentages, and Pydantic models for observation fixtures that
-validate against ``ObservationCreate`` (FR-03).
+validate against ``ObservationCreate``.
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ BOOKING_CIK = 1075531
 EXTRACTOR_ID = "manual_gate"
 EXTRACTOR_VERSION = "lon-4-v1"
 
-# Stable namespace for provisional source UUIDs until LON-13 persists sources.
+# Stable namespace for fixture source UUIDs.
 SOURCE_UUID_NAMESPACE = uuid.UUID("6ba7b810-9dad-11d1-80b4-00c04fd430c8")
 
 BasisToken = Literal["units", "as_reported", "constant_currency"]
@@ -46,7 +46,7 @@ _QUARTER_WORD = {
 
 
 def source_uuid_for_url(url: str) -> UUID:
-    """Deterministic UUIDv5 for a source URL (provisional until LON-13)."""
+    """Deterministic UUIDv5 for a fixture source URL."""
     return uuid.uuid5(SOURCE_UUID_NAMESPACE, url)
 
 
@@ -267,7 +267,7 @@ class BookingObservationFixture(BaseModel):
 
 
 def to_observation_create(entry: BookingObservation, source_url: str) -> ObservationCreate:
-    """Validate a fixture observation against the API contract (FR-03)."""
+    """Validate a fixture observation against the API contract."""
     return ObservationCreate(
         company="booking",
         source_id=source_uuid_for_url(source_url),

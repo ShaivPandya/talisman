@@ -1,4 +1,4 @@
-"""Worker handler that executes a queued simulation run (LON-23)."""
+"""Worker handler that executes a queued simulation run."""
 
 from __future__ import annotations
 

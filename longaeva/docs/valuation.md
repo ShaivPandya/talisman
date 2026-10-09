@@ -1,10 +1,7 @@
 # Earnings/multiple valuation bridge
 
-LON-25 / FR-12.
-
 The bridge turns a saved run's operating-profit paths into forward earnings and a
-value range. It does not discount cash flows and it does not ingest prices
-(LON-28). Visa daily closes stay blocked (LON-6), so the multiple is a trailing
+value range. It does not discount cash flows and it does not ingest prices. Visa daily closes stay blocked, so the multiple is a trailing
 P/E built from filings already in the package.
 
 ## Forward earnings
@@ -120,21 +117,21 @@ A run that has not succeeded is HTTP 409. An unknown run id is HTTP 404.
 | --- | --- |
 | POST | `/valuation/bridge` `{run_id, tax_rate?, net_interest_other?, diluted_shares?, multiple_range?}` |
 | GET | `/valuation/multiples?cutoff_ts=` |
-| POST | `/valuation/actions` (LON-26; see [`actions.md`](actions.md)) |
+| POST | `/valuation/actions` (illustrative actions; see [`actions.md`](actions.md)) |
 | GET | `/valuation/decision-rule` |
 
 `GET /valuation/multiples` without a cutoff returns the full FY2023Q1–FY2026Q2
 history and the band over all 14 quarters. With `cutoff_ts`, both the rows and
 the band are limited to filings accepted at or before that time.
 
-## Handoffs
+## Integration
 
-- **LON-26 (done).** `POST /valuation/actions` consumes this per-share value and
+- **Illustrative actions.** `POST /valuation/actions` consumes this per-share value and
   the separated spreads. The reference price is the latest buyback average
   accepted by the cutoff, not a market close. If the bridge is unsupported,
   the decision is hold and the reason is the bridge reason. The outer envelope
   is not a probability. See [`actions.md`](actions.md).
-- **LON-36.** The Valuation page calls `POST /valuation/bridge` once per saved
+- **Result pages.** The Valuation page calls `POST /valuation/bridge` once per saved
   run and `GET /valuation/multiples` for the window. Draw earnings-driven and
   multiple-driven spreads as separate bars. Keep the buyback-average label.
   The actions table calls `POST /valuation/actions`.

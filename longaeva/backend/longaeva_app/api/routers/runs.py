@@ -1,4 +1,4 @@
-"""Run submit, status, results, replay, and forecast-archive endpoints (LON-23)."""
+"""Run submit, status, results, replay, and forecast-archive endpoints."""
 
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 # Visa eligible-origin and vintage inventory
 
-Generated for LON-1 · snapshot retrieved `2026-10-01T17:42:45Z` · cutoff convention: EDGAR acceptance timestamp of Visa's quarter-q earnings 8-K (data plan §2.3).
+Snapshot retrieved `2026-10-01T17:42:45Z` · cutoff convention: EDGAR acceptance timestamp of Visa's quarter-q earnings 8-K.
 
 ## Method
 
@@ -8,7 +8,7 @@ Generated for LON-1 · snapshot retrieved `2026-10-01T17:42:45Z` · cutoff conve
 - A contact User-Agent was declared for all live requests (value not recorded here). Rate ≤ 2 requests/s.
 - Documents are eligible for an origin only when `acceptance_ts ≤ cutoff_ts` (timezone-aware UTC comparison).
 - Fiscal quarters: Visa FY ends 30 September. Release dates map to the latest quarter-end before the release; cross-checked against `period_of_report` when present.
-- Census MARTS timing uses the LON-5 release calendar (`data/fixtures/census/release_calendar.csv`): newest advance PDF with printed `publication_ts` ≤ cutoff.
+- Census MARTS timing uses the Census release calendar (`data/fixtures/census/release_calendar.csv`): newest advance PDF with printed `publication_ts` ≤ cutoff.
 
 ## Counts (exact; not rounded up)
 
@@ -21,7 +21,7 @@ Generated for LON-1 · snapshot retrieved `2026-10-01T17:42:45Z` · cutoff conve
 - Excluded rows: **0**
 - Census-eligible origins (advance release ≤ cutoff): **39**
 
-These counts reflect EDGAR timestamp, prior-10-Q availability and Census release timing. Definition stability (LON-2) and starting-state reconstruction (LON-3) are settled separately and did not lower the count.
+These counts reflect EDGAR timestamp, prior-10-Q availability and Census release timing. Definition stability and starting-state reconstruction are settled separately and did not lower the count.
 
 ## Exclusion reasons
 
@@ -51,7 +51,7 @@ These counts reflect EDGAR timestamp, prior-10-Q availability and Census release
 | FY2026Q2 | 10-Q | 2.09 | false |
 | FY2026Q3 | 10-Q | 2.05 | false |
 
-Under the §2.3 cutoff convention the same-quarter 10-Q is typically accepted hours after the earnings 8-K and is therefore **not** eligible as an input for that origin. LON-3 should use the prior-quarter 10-Q for nominal payments-volume levels.
+Under the cutoff convention above the same-quarter 10-Q is typically accepted hours after the earnings 8-K and is therefore **not** eligible as an input for that origin. Starting-state reconstruction uses the prior-quarter 10-Q for nominal payments-volume levels.
 
 ## Booking release age at Visa cutoffs
 
@@ -122,12 +122,12 @@ Five earnings 8-K timestamps were compared to the `Accepted` field on the EDGAR 
 | `0001403161-24-000013` | 2024-01-25 | `2024-01-25T21:05:41Z` | `2024-01-25 16:05:41` | `2024-01-25T21:05:41Z` | yes |
 | `0001403161-26-000044` | 2026-01-29 | `2026-01-29T21:05:49Z` | `2026-01-29 16:05:49` | `2026-01-29T21:05:49Z` | yes |
 
-## Pending checks (can only lower the count)
+## Source eligibility checks
 
-- LON-2: Visa driver and accounting definition stability across the window. **Done — 0 exclusions.**
-- LON-3: reconstructable starting state from release + prior 10-Q under the cutoff convention. **Done — complete with eligible-family inputs; 0 exclusions. See `docs/gates/starting-states.md`.**
-- LON-5: Census MARTS vintage timing relative to each Visa cutoff. **Done — every inventory origin has a Census advance release ≤ cutoff; 0 exclusions from timing. See `docs/gates/census.md`.**
-- LON-4: Booking Holdings family gate (measured + qualitative/guidance passages, staleness in weeks, same-day margin). **Done — required family with lagged measured rules and guidance only where it covers the Visa target quarter; same-day fallback variant required. See `docs/gates/booking.md`.**
-- LON-7: Visa IR guidance availability (earnings deck / transcript outlook) and analyst-estimate confirmation. **Done — guidance is a comparison baseline only (never a model input), so gaps do not change origin eligibility. 16/19 origins have next-quarter company guidance; consensus unavailable (no licensed free historical source). See `docs/gates/guidance.md`.**
-- LON-8: Second-wave disclosure families (one airline, one retailer, one pure payment processor). **Done — context-first families; selection and timing live in `docs/gates/second-wave.md` and do not change origin eligibility.**
+- Visa driver and accounting definition stability across the window. **0 exclusions.**
+- Reconstructable starting state from release + prior 10-Q under the cutoff convention. **complete with eligible-family inputs; 0 exclusions. See `docs/gates/starting-states.md`.**
+- Census MARTS vintage timing relative to each Visa cutoff. **every inventory origin has a Census advance release ≤ cutoff; 0 exclusions from timing. See `docs/gates/census.md`.**
+- Booking Holdings family gate (measured + qualitative/guidance passages, staleness in weeks, same-day margin). **required family with lagged measured rules and guidance only where it covers the Visa target quarter; same-day fallback variant required. See `docs/gates/booking.md`.**
+- Visa IR guidance availability (earnings deck / transcript outlook) and analyst-estimate confirmation. **guidance is a comparison baseline only (never a model input), so gaps do not change origin eligibility. 16/19 origins have next-quarter company guidance; consensus unavailable (no licensed free historical source). See `docs/gates/guidance.md`.**
+- Second-wave disclosure families (one airline, one retailer, one pure payment processor). **context-first families; selection and timing live in `docs/gates/second-wave.md` and do not change origin eligibility.**
 

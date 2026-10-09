@@ -1,4 +1,4 @@
-"""Model-conditional attribution of paired scenario differences (LON-22 / FR-11).
+"""Model-conditional attribution of paired scenario differences.
 
 Sequential contributions follow a fixed order and sum to the total difference.
 One-at-a-time contributions need not. The joint residual is the gap. Every

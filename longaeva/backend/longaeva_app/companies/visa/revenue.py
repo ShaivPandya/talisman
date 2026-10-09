@@ -1,4 +1,4 @@
-"""Pure Visa category-revenue and incentive rules (LON-19 / MR-03)."""
+"""Pure Visa category-revenue and incentive rules."""
 
 from __future__ import annotations
 

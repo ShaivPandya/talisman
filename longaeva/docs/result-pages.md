@@ -1,4 +1,4 @@
-# Valuation, evaluation and replay pages (LON-36)
+# Valuation, evaluation and replay pages
 
 Start the package with `make up`. These pages work without an LLM provider.
 Valuation and Replay inspect saved successful runs; create a pair in Scenarios
@@ -67,13 +67,12 @@ HTML disabled. Registered document links navigate within the viewer; other local
 file links remain text. External HTTP(S) links are retained. Selection survives
 reload. Missing documents have explicit availability messages.
 
-### Completed report content (LON-33)
+### Completed report content
 
 Extraction, the LLM baseline, prospective registration and the consolidated report
 are available. **Report & model** opens the final report by default, including its
 failure case; the model specification and limitations remain selectable. Legacy
-`section=pending` links open the final report. LON-37 still owns saved demo runs
-and seeding.
+`section=pending` links open the final report. Startup loads the saved demo runs.
 
 `failure_case` remains a valid report key. Its metadata uses `kind=document` and
 `document_key=evaluation-report`, with availability inherited from the saved
@@ -107,30 +106,3 @@ not fall back to another report. Reads open no database connection. Cached repor
 projections are invalidated by file modification time and size. Existing
 `/evaluation-results` and run/valuation contracts remain compatible. No migration
 is required. The OpenAPI contract is updated in `docs/openapi.json`.
-
-## Validation — October 6, 2026 (America/New_York)
-
-- Backend ruff, formatting checks, mypy and a separate PostgreSQL test database:
-  **481 tests passed**, including 13 new database-free report/API checks.
-- Frontend lint, TypeScript/production build and Vitest: **31 tests passed**,
-  including score units/counts, uncertainty separation, pending ownership,
-  document-link controls and replay outcomes.
-- A standalone ZIP was extracted outside Talisman. Strict isolation guard:
-  **zero findings**. The exported frontend built using its locked dependencies.
-  Exported API sources and production frontend assets ran with a disposable
-  PostgreSQL container, an isolated artifact volume and an empty LLM provider.
-  Cached Python and nginx images supplied the runtimes; application sources,
-  configuration, data and documents came from the export.
-- Playwright verified supported valuation, independent ranges, cutoff-valid
-  multiple history, all four action/cost rows, and a real two-quarter unsupported
-  run with no fabricated EPS/ranges/gaps. Direct runs absent from the recent list
-  still resolved; simulated failed reads recovered through Retry.
-- Verified next-quarter/four-quarter counts and URL reloads, three ablations and
-  13 profiles, exact benchmark labels, `not_run` Visa comparisons, Markdown
-  tables, model-document reload and all four pending content owners.
-- A real saved run replayed as **exact_match** without an LLM provider. The
-  in-flight button disabled and made one request. Simulated replay responses
-  verified numerical equivalence, mismatch and changed-input display states.
-- Desktop (1440px) and mobile (390px) layouts reviewed. Tables scroll within
-  cards; page-level horizontal overflow was absent. Intentional failed-read
-  checks produced expected HTTP errors. No unexpected browser errors observed.

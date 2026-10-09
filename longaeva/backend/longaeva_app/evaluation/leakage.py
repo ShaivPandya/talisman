@@ -1,4 +1,4 @@
-"""Leakage guards for evaluation inputs and outcomes (LON-27 / ER-04 / MR-10)."""
+"""Leakage guards for evaluation inputs and outcomes."""
 
 from __future__ import annotations
 

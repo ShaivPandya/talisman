@@ -1,4 +1,4 @@
-"""Visa quarterly transition rules (LON-19 / MR-02).
+"""Visa quarterly transition rules.
 
 Numbered rule list (mirrored in ``docs/model-spec.md``):
 
@@ -154,7 +154,7 @@ def transition_quarter(
         ratio = (1.0 + g_cb) / np.maximum(1.0 + g_cd, _EPS)
         share_new = _sigmoid(_logit(share) + np.log(np.maximum(ratio, _EPS)))
 
-    # Level shifts (LON-22). Skipped entirely when this quarter has no intervention,
+    # Level shifts. Skipped entirely when this quarter has no intervention,
     # so the unshifted arithmetic below is unchanged.
     if active:
         typed: list[MixShiftConservingTotal | TotalSpendReduction] = []

@@ -1,6 +1,6 @@
-"""Independent benchmark windows and synthetic long/cash scoring (LON-28).
+"""Independent benchmark windows and synthetic long/cash scoring.
 
-Real Visa prices remain blocked by LON-6. No live strategy adapter is provided.
+Real Visa prices remain blocked by benchmark data review. No live strategy adapter is provided.
 Only the explicit report projection below may be written to disk.
 """
 

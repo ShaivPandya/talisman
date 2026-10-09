@@ -1,4 +1,4 @@
-"""Pydantic API schemas (job queue + core domain contracts for LON-10)."""
+"""Pydantic API schemas (job queue + core domain contracts for core schema)."""
 
 from __future__ import annotations
 
@@ -128,7 +128,7 @@ class DocumentTextRead(BaseModel):
 
 
 class PassageSearchHitRead(BaseModel):
-    """One document_text passage matching a full-text query (LON-17)."""
+    """One document_text passage matching a full-text query."""
 
     document_text_id: uuid.UUID
     source_id: uuid.UUID

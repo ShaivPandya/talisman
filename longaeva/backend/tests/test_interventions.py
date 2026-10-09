@@ -1,4 +1,4 @@
-"""Visa interventions: conserved mix shift, spend reduction, and shared draws (LON-22)."""
+"""Visa interventions: conserved mix shift, spend reduction, and shared draws."""
 
 from __future__ import annotations
 

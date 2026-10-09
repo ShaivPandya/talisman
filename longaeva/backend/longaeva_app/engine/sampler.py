@@ -1,4 +1,4 @@
-"""Seeded path-major correlated factor sampler (LON-19 / MR-08)."""
+"""Seeded path-major correlated factor sampler."""
 
 from __future__ import annotations
 

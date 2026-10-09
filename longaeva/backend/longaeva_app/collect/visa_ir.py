@@ -1,4 +1,4 @@
-"""Visa IR guidance probe (LON-7).
+"""Visa IR guidance probe.
 
 CLI:
 
@@ -9,7 +9,7 @@ CLI:
 
   verify  — re-hash cached PDFs and re-check sample fixture spans offline.
 
-Originals are never committed (DR-01); fixtures carry metadata and short quotes.
+Originals are never committed; fixtures carry metadata and short quotes.
 """
 
 from __future__ import annotations

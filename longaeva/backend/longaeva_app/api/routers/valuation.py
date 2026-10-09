@@ -1,4 +1,4 @@
-"""Earnings/multiple valuation bridge (LON-25) and illustrative actions (LON-26)."""
+"""Earnings/multiple valuation bridge and illustrative actions."""
 
 from __future__ import annotations
 

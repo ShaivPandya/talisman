@@ -1,4 +1,4 @@
-"""Scoring metrics for the evaluation harness (LON-27 / ER-05 / ER-06)."""
+"""Scoring metrics for the evaluation harness."""
 
 from __future__ import annotations
 

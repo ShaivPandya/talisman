@@ -1,4 +1,4 @@
-"""Census MARTS vintage table tests (LON-15 / DR-03 / DR-04)."""
+"""Census MARTS vintage table tests."""
 
 from __future__ import annotations
 

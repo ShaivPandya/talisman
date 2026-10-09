@@ -1,4 +1,4 @@
-"""Immutable forecast archive writes (LON-23 / FR-17)."""
+"""Immutable forecast archive writes."""
 
 from __future__ import annotations
 

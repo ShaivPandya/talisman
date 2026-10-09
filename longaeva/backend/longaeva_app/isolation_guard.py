@@ -1,4 +1,4 @@
-"""Static isolation guard for the Longaeva package export set (LON-12 / PR-02, PR-07).
+"""Static isolation guard for the Longaeva package export set.
 
 Scans the would-be-exported file set (everything under the package root that is not
 matched by ``.exportignore``) for:
@@ -1185,7 +1185,7 @@ def format_findings(findings: Sequence[Finding]) -> str:
 
 
 def list_export_paths(root: Path | None = None) -> list[str]:
-    """Return relative POSIX paths in the export set (for LON-24 ZIP builders)."""
+    """Return relative POSIX paths in the export set (for export verification ZIP builders)."""
     resolved = resolve_root(root)
     return [_rel_posix(resolved, path) for path in iter_export_files(resolved)]
 

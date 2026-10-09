@@ -1,6 +1,6 @@
-"""Chronological Visa calibration, parameter ranges and ensemble weighting (LON-20).
+"""Chronological Visa calibration, parameter ranges and ensemble weighting.
 
-Loads LON-14 observations as-of a cutoff, fits free parameters and residual scales
+Loads structured parser observations as-of a cutoff, fits free parameters and residual scales
 through the engine's own transitions, retains a three-member ensemble with
 inverse-MSE weights, and emits a pooled ``ParameterSetCreate`` with evidence links.
 """

@@ -1,10 +1,11 @@
-"""Deterministic, offline synthesis of retained evaluation rows (LON-33)."""
+"""Deterministic, offline synthesis of retained evaluation rows."""
 
 from __future__ import annotations
 
 import csv
 import json
 import math
+import re
 from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
@@ -516,7 +517,7 @@ def generate(root: Path = PACKAGE_ROOT) -> str:
             "Source: `visa_ablation_persistence.json`, `profiles.central.summary` and `robustness`, "
             "keys `<variant>.overall.<horizon>.<target>.<score>`. Profile direction counts are sensitivity cases, "
             "not additional independent forecasts. Detailed per-origin and per-window comparisons remain in the "
-            "[ablation persistence document](ablation_persistence.md).",
+            "[ablation persistence document](../data/evaluation/ablation_persistence.md).",
         ]
     )
     ablation_rows = []
@@ -646,7 +647,12 @@ def generate(root: Path = PACKAGE_ROOT) -> str:
             table(
                 ["Comparison", "Status", "Scored n", "Reason"],
                 (
-                    [key, portfolio[key]["status"], portfolio[key].get("n_scored", 0), portfolio[key]["reason"]]
+                    [
+                        key,
+                        portfolio[key]["status"],
+                        portfolio[key].get("n_scored", 0),
+                        re.sub(r"; LON-\d+ gate remains blocked\.?", "", portfolio[key]["reason"]),
+                    ]
                     for key in ("visa_strategy", "visa_buy_and_hold")
                 ),
             ),

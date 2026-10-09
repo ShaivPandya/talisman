@@ -1,4 +1,4 @@
-"""Versioned accept / reject / correct decisions (LON-16 / FR-05).
+"""Versioned accept / reject / correct decisions.
 
 The original observation row is never rewritten except for ``review_status``.
 Corrections live on ``review_decision`` rows. Pending and rejected observations

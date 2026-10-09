@@ -1,6 +1,6 @@
 """Passage-only extraction: cache, validate, locate quotes, persist pending observations.
 
-LON-16. A pending observation is the only write. Parameter sets are not touched.
+A pending observation is the only write. Parameter sets are not touched.
 """
 
 from __future__ import annotations

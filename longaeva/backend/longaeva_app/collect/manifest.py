@@ -1,4 +1,4 @@
-"""Curated source manifests for the LON-13 collector (DR-09)."""
+"""Curated source manifests for the source collection collector."""
 
 from __future__ import annotations
 

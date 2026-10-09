@@ -1,18 +1,16 @@
 # Illustrative actions
 
-LON-26 / FR-13. LON-28's benchmark results and synthetic scoring conventions are
+Benchmark results and synthetic scoring conventions are
 documented in [portfolio-evaluation.md](portfolio-evaluation.md). Real Visa
-strategy scoring remains not run under the LON-6 data gate.
+strategy scoring remains not run under the data availability review.
 
 The action table turns one saved run's valuation into four labeled choices for a
 demo long position: hold, add, trim, and exit. Hold is the no-action outcome.
 Nothing here is a recommendation, a probability, or a market price.
 
-Sizing and costs are adapted from Talisman's `portfolio/scenario_simulator.py`
-(`_apply_delta`, `_traded_notional`, `_execution_friction`, lines 357–518).
-See [`reuse-notes.md`](reuse-notes.md). The ADV cap, policy gate, ontology
-writeback, and scenario P&L were not copied. Funding, when it is on, applies
-only to added notional.
+Sizing uses fractions of a demonstration position. Funding, when enabled, applies
+only to added notional. See [component origins](reuse-notes.md) for source
+attribution and adaptations.
 
 ## Decision rule
 
@@ -27,7 +25,7 @@ rule_hash = d93e2e052b7dbc75f00c4691e8afa464ac54c8d5a9bde602037767ec9dbd3039
 
 `tests/test_valuation_actions.py` pins that digest as `EXPECTED_RULE_HASH`.
 Editing the YAML fails the test until the pin and this line move together.
-LON-28 must record this hash before a scoring run and assert it was frozen.
+The benchmark evaluator records this hash before a scoring run and assert it was frozen.
 
 | Field | Value |
 | --- | --- |
@@ -46,12 +44,12 @@ value_p50 = p50 forward EPS × mid multiple
 margin = value_p50 / reference_price − 1
 ```
 
-`value_p50` is the earnings-driven p50 from the LON-25 bridge (the mid
+`value_p50` is the earnings-driven p50 from the valuation bridge (the mid
 multiple). It is the same number as multiple-driven mid.
 
 ## Reference price
 
-Visa daily closes are blocked (LON-6). The default price is the latest fiscal
+Visa daily closes are blocked. The default price is the latest fiscal
 period whose **Average Purchase Price per Share** filing was accepted at or
 before the run cutoff. That is the same Item 2 / Item 5 table the trailing P/E
 uses. At the 2024-07-23 origin (`2024-07-23T20:05:38Z`) the FY2024Q3 10-Q is
@@ -131,13 +129,13 @@ non-positive `shares` or `reference_price` is HTTP 422.
 a second request to see why the value was refused. `GET /valuation/decision-rule`
 returns the config and `rule_hash` with no run.
 
-## Handoffs
+## Integration
 
-- **LON-28.** Read `rule_hash` and `holding_period_trading_days` from
+- **Benchmark evaluation.** Read `rule_hash` and `holding_period_trading_days` from
   `GET /valuation/decision-rule` before scoring. Assert the hash matches the
   frozen value. Do not refit thresholds on the scored sample. Visa buy-and-hold
-  stays not run until a daily price exists (LON-6).
-- **LON-36.** The actions table calls `POST /valuation/actions` once per saved
+  stays not run until a daily price exists.
+- **Result pages.** The actions table calls `POST /valuation/actions` once per saved
   run. Show four rows, the cost components, the no-action row, and the
   illustrative label. If status is `unsupported`, show the reason and do not
   draw a gap. Keep the buyback-average label on the reference price.

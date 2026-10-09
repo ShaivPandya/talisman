@@ -1,4 +1,4 @@
-"""Visa engine interventions (LON-22 / FR-10, MR-11).
+"""Visa engine interventions.
 
 Both interventions are persistent level shifts. They are applied once, in the
 quarter named by ``start_quarter`` (1-based within the simulated horizon), after

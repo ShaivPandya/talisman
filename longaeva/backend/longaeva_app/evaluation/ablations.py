@@ -1,4 +1,4 @@
-"""Matched ablations and predefined parameter-range persistence (LON-31 / ER-08)."""
+"""Matched ablations and predefined parameter-range persistence."""
 
 from __future__ import annotations
 

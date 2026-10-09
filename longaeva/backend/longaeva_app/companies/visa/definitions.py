@@ -1,6 +1,6 @@
-"""Visa driver and accounting definitions (LON-2).
+"""Visa driver and accounting definitions.
 
-Canonical field names for the LON-14 parser and LON-19 engine. No dynamics and no
+Canonical field names for the structured parser and simulation engine. No dynamics and no
 ``register_company`` call live here.
 """
 
@@ -12,7 +12,7 @@ from longaeva_app.companies.base import FiscalCalendar
 
 VISA_FISCAL_CALENDAR = FiscalCalendar(fiscal_year_end_month=9)
 
-# Fixed vocabulary for observation.basis (LON-10 column is free text; no migration).
+# Fixed vocabulary for observation.basis (core schema column is free text; no migration).
 BASIS_VOCABULARY: frozenset[str] = frozenset(
     {
         "nominal",
@@ -848,8 +848,8 @@ FIELDS: tuple[FieldDefinition, ...] = (
     ),
 )
 
-# Observation-only fields emitted by the LON-14 parser. Kept out of FIELDS so
-# LON-3 starting-state fixtures keep their original key set.
+# Observation-only fields emitted by the structured parser parser. Kept out of FIELDS so
+# bundled starting-state fixtures keep their original key set.
 REPORTED_FIELDS: tuple[FieldDefinition, ...] = (
     FieldDefinition(
         name="eps_diluted_gaap",

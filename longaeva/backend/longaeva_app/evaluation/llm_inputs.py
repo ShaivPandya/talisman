@@ -1,4 +1,4 @@
-"""Cutoff-frozen, source-verified excerpts for the LON-30 forecast baseline."""
+"""Cutoff-frozen, source-verified excerpts for the LLM forecast baseline forecast baseline."""
 
 from __future__ import annotations
 

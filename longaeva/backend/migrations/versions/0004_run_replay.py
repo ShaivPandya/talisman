@@ -1,4 +1,4 @@
-"""Run replay columns, succeeded-output CHECK, forecast uniqueness (LON-23).
+"""Run replay columns, succeeded-output CHECK, forecast uniqueness.
 
 Revision ID: 0004_run_replay
 Revises: 0003_passage_hash

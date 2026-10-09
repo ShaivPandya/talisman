@@ -1,4 +1,4 @@
-"""Illustrative actions, costs, and the decision rule (LON-26 / FR-13)."""
+"""Illustrative actions, costs, and the decision rule."""
 
 from __future__ import annotations
 

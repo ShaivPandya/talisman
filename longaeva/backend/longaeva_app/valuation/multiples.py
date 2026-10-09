@@ -1,4 +1,4 @@
-"""Trailing P/E band from Visa's SEC repurchase prices and EPS (LON-25).
+"""Trailing P/E band from Visa's SEC repurchase prices and EPS.
 
 The price is the quarterly "Average Purchase Price per Share" on the Total row of
 the Issuer Purchases of Equity Securities table (10-Q Item 2, 10-K Item 5). That

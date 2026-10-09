@@ -1,4 +1,4 @@
-"""Financial-only driver-model baseline (LON-29).
+"""Financial-only driver-model baseline.
 
 Same harness path as ``full_model``, with no external mapping rules applied.
 Booking, Census and the second-wave families are recorded as excluded. It matches the

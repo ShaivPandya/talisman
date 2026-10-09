@@ -1,11 +1,11 @@
-"""Visa IR guidance helpers for the LON-7 availability gate.
+"""Visa IR guidance helpers for the guidance availability review availability gate.
 
 Provides:
 
 * phrase-to-range lexicon (analyst assumption) for verbal growth outlooks
 * word-layout parser for earnings-deck outlook / reconciliation slides
 * transcript next-quarter outlook sentence finder
-* Pydantic fixture models validated against ``ObservationCreate`` (FR-03 / FR-15)
+* Pydantic fixture models validated against ``ObservationCreate``
 """
 
 from __future__ import annotations
@@ -147,7 +147,7 @@ _TRANSCRIPT_OPEX_ABS = re.compile(
 
 
 def source_uuid_for_url(url: str) -> UUID:
-    """Deterministic UUIDv5 for a source URL (provisional until LON-13)."""
+    """Deterministic UUIDv5 for a fixture source URL."""
     return uuid.uuid5(SOURCE_UUID_NAMESPACE, url)
 
 
@@ -634,7 +634,7 @@ class VisaGuidanceFixture(BaseModel):
 
 
 def to_observation_create(entry: VisaGuidanceObservation, source_url: str) -> ObservationCreate:
-    """Validate a fixture observation against the API contract (FR-03 / FR-15)."""
+    """Validate a fixture observation against the API contract."""
     return ObservationCreate(
         company="visa",
         source_id=source_uuid_for_url(source_url),

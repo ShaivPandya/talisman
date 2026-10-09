@@ -78,6 +78,9 @@ dependencies, and on first run downloads PostgreSQL 16 into `var/`. That downloa
 needs a network connection. Later runs reuse the virtualenv, `node_modules`, and
 the downloaded database server.
 
+If port 55432 is occupied, choose another database port with
+`make up-local ARGS='--db-port 55439'`.
+
 To stop:
 
 ```bash

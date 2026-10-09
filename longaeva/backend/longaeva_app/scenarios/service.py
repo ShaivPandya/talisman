@@ -1,4 +1,4 @@
-"""Create scenarios, submit paired runs, compare saved paths, and attribute (LON-22)."""
+"""Create scenarios, submit paired runs, compare saved paths, and attribute."""
 
 from __future__ import annotations
 

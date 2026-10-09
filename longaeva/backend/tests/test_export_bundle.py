@@ -1,4 +1,4 @@
-"""Tests for the submission ZIP builder (LON-24).
+"""Tests for the submission ZIP builder.
 
 Negative fixtures live under ``tmp_path`` so deliberate bad strings never enter the
 real package export set. Forbidden literals in this file are split across concatenations

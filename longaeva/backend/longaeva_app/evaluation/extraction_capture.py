@@ -1,4 +1,4 @@
-"""Explicit, bounded capture using the LON-16 provider and database cache.
+"""Explicit, bounded capture using the LLM extraction provider and database cache.
 
 Evaluation calls use stable fixture IDs in the exported artifact; their DB
 document_text_id is null. They never create or correct production observations.

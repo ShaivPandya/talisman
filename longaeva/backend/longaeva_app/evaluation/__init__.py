@@ -1,4 +1,4 @@
-"""Evaluation harness for Visa origins (LON-27)."""
+"""Evaluation harness for Visa origins."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Matched inputs, cutoff safety, numerical removal and persistence (LON-31)."""
+"""Matched inputs, cutoff safety, numerical removal and persistence."""
 
 from __future__ import annotations
 

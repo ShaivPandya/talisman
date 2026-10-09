@@ -1,4 +1,4 @@
-# LLM same-document forecast baseline (LON-30)
+# LLM same-document forecast baseline
 
 This retrospective baseline asks OpenAI `gpt-5.4` for next-quarter predictive
 quantiles across the same 16 eligible origins as the full model. The two existing

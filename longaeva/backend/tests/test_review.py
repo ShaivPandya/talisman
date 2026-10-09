@@ -1,4 +1,4 @@
-"""Versioned review decisions and the run guard (LON-16 / FR-05)."""
+"""Versioned review decisions and the run guard."""
 
 from __future__ import annotations
 

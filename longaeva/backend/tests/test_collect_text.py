@@ -1,4 +1,4 @@
-"""Page-preserving text extraction tests (LON-13)."""
+"""Page-preserving text extraction tests."""
 
 from __future__ import annotations
 

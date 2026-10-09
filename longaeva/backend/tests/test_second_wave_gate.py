@@ -1,4 +1,4 @@
-"""Second-wave disclosure family gate tests (LON-8 / DR-03 / FR-03)."""
+"""Second-wave disclosure family gate tests."""
 
 from __future__ import annotations
 
@@ -218,7 +218,7 @@ def test_period_dates_are_ordered(fixtures: list[SecondWaveObservationFixture]) 
 def test_gate_doc_and_scan_counts(scan: list[dict[str, str]], yaml_manifest: dict[str, Any]) -> None:
     assert GATE_MD.is_file()
     text = GATE_MD.read_text(encoding="utf-8")
-    assert "LON-8" in text
+    assert "Second-wave disclosure families" in text
     assert "united" in text.lower() or "United" in text
     assert "Costco" in text
     assert "PayPal" in text

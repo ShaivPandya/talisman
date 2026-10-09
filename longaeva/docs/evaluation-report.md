@@ -490,7 +490,7 @@ Positive delta = baseline error minus full-model error: positive favors the full
 
 central plus one-at-a-time calibrated low/high before external updates; no retuning. ablated minus full; positive means lower error for full model
 
-Source: `visa_ablation_persistence.json`, `profiles.central.summary` and `robustness`, keys `<variant>.overall.<horizon>.<target>.<score>`. Profile direction counts are sensitivity cases, not additional independent forecasts. Detailed per-origin and per-window comparisons remain in the [ablation persistence document](ablation_persistence.md).
+Source: `visa_ablation_persistence.json`, `profiles.central.summary` and `robustness`, keys `<variant>.overall.<horizon>.<target>.<score>`. Profile direction counts are sensitivity cases, not additional independent forecasts. Detailed per-origin and per-window comparisons remain in the [ablation persistence document](../data/evaluation/ablation_persistence.md).
 
 | Ablation | Horizon | Target | n | Full / ablated wins / ties | Δ MAE | Full coverage | Ablated coverage | Profiles favor full / ablated / tied |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -585,8 +585,8 @@ Overlapping pairs: 9; windows with overlap: 14.
 
 | Comparison | Status | Scored n | Reason |
 | --- | --- | --- | --- |
-| visa_strategy | not_run | 0 | No license-compliant free daily Visa price source; LON-6 gate remains blocked. |
-| visa_buy_and_hold | not_run | 0 | No license-compliant free daily Visa price source; LON-6 gate remains blocked. |
+| visa_strategy | not_run | 0 | No license-compliant free daily Visa price source |
+| visa_buy_and_hold | not_run | 0 | No license-compliant free daily Visa price source |
 
 ## Failure case — largest next-quarter revenue error
 

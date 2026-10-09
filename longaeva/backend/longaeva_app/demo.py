@@ -1,4 +1,4 @@
-"""Validated, offline, transactional import of the curated LON-37 demo."""
+"""Validated, offline, transactional import of the curated demo seeding demo."""
 
 from __future__ import annotations
 

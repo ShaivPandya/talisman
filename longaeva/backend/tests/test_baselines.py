@@ -1,4 +1,4 @@
-"""Baselines scored through the evaluation harness (LON-29)."""
+"""Baselines scored through the evaluation harness."""
 
 from __future__ import annotations
 

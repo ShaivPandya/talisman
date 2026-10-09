@@ -1,4 +1,4 @@
-"""Download and calendar Census MARTS advance releases (LON-5, LON-15).
+"""Download and calendar Census MARTS advance releases.
 
 CLI:
 
@@ -40,7 +40,7 @@ MANIFEST_PATH = SOURCES_DIR / "manifest.json"
 CALENDAR_PATH = CENSUS_DIR / "release_calendar.csv"
 CACHE_DIR = PACKAGE_ROOT / "var" / "cache" / "census"
 
-# Five committed parse fixtures besides the two LON-5 gate PDFs (LON-15).
+# Five committed parse fixtures besides the two Census evidence gate PDFs.
 SAMPLE_SEED = 15
 SAMPLE_COUNT = 5
 SAMPLE_EXCLUDED = frozenset({"adv2406", "adv2506"})

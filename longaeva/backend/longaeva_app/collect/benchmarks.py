@@ -1,6 +1,6 @@
-"""Numeric benchmark inputs, kept exclusively in volatile memory (LON-28).
+"""Numeric benchmark inputs, kept exclusively in volatile memory.
 
-The LON-6 probe remains metadata-only. These readers deliberately have no cache
+The benchmark data review probe remains metadata-only. These readers deliberately have no cache
 or writer; callers may serialize only explicit aggregate report fields.
 """
 

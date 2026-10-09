@@ -1,4 +1,4 @@
-"""Parameter-set reads and mapping-rule application (LON-21)."""
+"""Parameter-set reads and mapping-rule application."""
 
 from __future__ import annotations
 

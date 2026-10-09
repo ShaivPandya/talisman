@@ -1,4 +1,4 @@
-"""Freeze the retained reviewed corpus before evaluating any outcomes (LON-31)."""
+"""Freeze the retained reviewed corpus before evaluating any outcomes."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Canonical path-output hashing, npz artifacts, and summary payloads (LON-23)."""
+"""Canonical path-output hashing, npz artifacts, and summary payloads."""
 
 from __future__ import annotations
 

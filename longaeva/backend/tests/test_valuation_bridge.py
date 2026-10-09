@@ -1,4 +1,4 @@
-"""Earnings/multiple valuation bridge (LON-25 / FR-12)."""
+"""Earnings/multiple valuation bridge."""
 
 from __future__ import annotations
 

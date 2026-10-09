@@ -1,4 +1,4 @@
-"""Keep ``docs/model-spec.md`` tables in sync with the Visa engine (LON-19)."""
+"""Keep ``docs/model-spec.md`` tables in sync with the Visa engine."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def test_model_spec_state_table_matches_code() -> None:
 def test_model_spec_parameter_table_matches_code() -> None:
     text = MODEL_SPEC.read_text(encoding="utf-8")
     section = _section(text, "## 6. Parameters")
-    # Only the first markdown table in §6 is the parameter inventory (LON-20 adds more).
+    # Only the first markdown table in §6 is the parameter inventory (calibration adds more).
     table = section.split("\n\n### ", 1)[0]
     names = _ROW_NAME.findall(table)
     assert names == [spec.name for spec in VISA_PARAMETERS]
@@ -55,10 +55,10 @@ def test_model_spec_required_sections() -> None:
         "## 5. Revenue rules, identities and switches",
         "## 6. Parameters",
         "## 7. Outputs",
-        "## 8. Performance (NR-01)",
+        "## 8. Performance",
         "## 9. Evidence and rule provenance",
         "## 10. Evaluation definitions and retained evidence",
-        "## 11. Prospective registration and remaining package work",
+        "## 11. Prospective registration and data gaps",
     ):
         assert heading in text, heading
     model = VisaModel()

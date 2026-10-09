@@ -1,4 +1,4 @@
-"""Extraction call cache and versioned review decisions (LON-16).
+"""Extraction call cache and versioned review decisions.
 
 Revision ID: 0005_extraction_review
 Revises: 0004_run_replay

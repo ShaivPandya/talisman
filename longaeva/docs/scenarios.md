@@ -1,12 +1,10 @@
 # Paired scenarios, interventions and attribution
 
-LON-22 / FR-10, FR-11, MR-11.
-
 Two Visa runs that share a seed share the raw factor draws. An intervention is a
 persistent level shift applied once inside the transition. Comparison reads the
 saved path files. Attribution re-simulates from the pinned inputs, checks the
 saved hashes, and reports model-conditional contributions, a sensitivity ranking,
-and provenance. The browser workspace (LON-34) consumes these endpoints; see [workspace.md](workspace.md).
+and provenance. The browser workspace consumes these endpoints; see [workspace.md](workspace.md).
 
 ## Interventions
 
@@ -14,7 +12,7 @@ Both interventions are persistent level shifts. `start_quarter` is 1-based withi
 the simulated horizon (default 1, at most 8, and not past `n_quarters`). The
 shift runs once, after the activity step of that quarter, and later quarters
 inherit it through state. An empty list skips the hook, so a run with no
-interventions is the same arithmetic as before LON-22.
+interventions uses the unchanged baseline arithmetic.
 
 | Type | Fields | What changes |
 | --- | --- | --- |
@@ -143,10 +141,10 @@ empty even though those parameters rank first.
 
 Each changed or ranked parameter lists:
 
-- observation ids from `evidence_links`
-- rule id, key and version from `parameter_update` joined to `mapping_rule` on
+- Observation ids from `evidence_links`
+- Rule id, key and version from `parameter_update` joined to `mapping_rule` on
   the variant set (`rule_id` is null for an override)
-- source id, passage id and character span from the observation row
+- Source id, passage id and character span from the observation row
 
 When a linked id is not in the database, attribution falls back to
 `data/calibration/visa_<origin>.json` `evidence_index` (document key and

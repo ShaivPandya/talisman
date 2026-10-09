@@ -1,4 +1,4 @@
-"""Visa engine identity, lag, ablation and teaching-fee tests (LON-19)."""
+"""Visa engine identity, lag, ablation and teaching-fee tests."""
 
 from __future__ import annotations
 

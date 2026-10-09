@@ -1,4 +1,4 @@
-"""Forecast capture, leakage/integrity guards and quantile scoring (LON-30)."""
+"""Forecast capture, leakage/integrity guards and quantile scoring."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""Extraction API and internal extract job (LON-16 / UF-07 / NR-02)."""
+"""Extraction API and internal extract job."""
 
 from __future__ import annotations
 

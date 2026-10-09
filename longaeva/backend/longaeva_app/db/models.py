@@ -1,4 +1,4 @@
-"""SQLAlchemy models: job queue (LON-9) plus core domain records (LON-10)."""
+"""SQLAlchemy models: job queue plus core domain records."""
 
 from __future__ import annotations
 
@@ -436,7 +436,7 @@ class ParameterUpdate(Base):
 
 
 class ParameterSetContext(Base):
-    """An observation that was considered and did not change the parameter set (LON-21)."""
+    """An observation that was considered and did not change the parameter set."""
 
     __tablename__ = "parameter_set_context"
     __table_args__ = (
