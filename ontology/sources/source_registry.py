@@ -35,6 +35,7 @@ KNOWN_DATASET_DOMAINS = frozenset(
         "retrieval",
         "risk",
         "snapshots",
+        "alternative",
     }
 )
 
@@ -55,6 +56,7 @@ class SourceRegistryEntry:
     freshness_max_age_days: int | None = None
     raw_module: str | None = None
     raw_function: str | None = None
+    alternative_data: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         from ontology.sources.reliability import derive_reliability_tier
@@ -391,6 +393,22 @@ def _build_source_registry() -> dict[str, SourceRegistryEntry]:
             raw_function="index_document/search",
         ),
     ]
+    from ontology.sources.alternative_catalog import catalog_specs
+
+    entries.extend(
+        SourceRegistryEntry(
+            source_id=spec["source_id"],
+            vendor_name=spec["name"],
+            dataset_domain="alternative",
+            authority_rank=spec["authority_rank"],
+            freshness_sla_seconds=spec["freshness_days"] * 86400,
+            required=False,
+            raw_module="api.alternative_data_adapters",
+            raw_function=spec["adapter"],
+            alternative_data=spec,
+        )
+        for spec in catalog_specs()
+    )
     return {entry.source_id: entry for entry in entries}
 
 

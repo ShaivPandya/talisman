@@ -12,6 +12,13 @@ fi
 # shellcheck disable=SC1091
 source "${_here}/config.sh"
 
+# Optional vendor bindings are shared by the API and durable workers.
+for _alternative_binding in "${ALTERNATIVE_DATA_SECRETS[@]:-}"; do
+  [[ -n "${_alternative_binding}" ]] || continue
+  API_SECRETS+=("${_alternative_binding}")
+  WORKER_SECRETS+=("${_alternative_binding}")
+done
+
 # Default IMAGE_TAG to the current short git SHA when the caller didn't set one.
 # config.sh's own default of "latest" is preserved as a fallback for environments
 # without git (e.g. running from a tarball). Setting IMAGE_TAG=<value> beforehand

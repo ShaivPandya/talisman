@@ -2156,6 +2156,34 @@ def _dispatch(
         top_k = int(args.get("top_k", 8))
         return search_agent_capabilities(query, top_k=top_k), {"cache": "n/a"}
 
+    if name in {"search_alternative_data_catalog", "fetch_alternative_data"}:
+        from api import alternative_data
+        from ontology.policy import actor_to_dict
+
+        if name == "search_alternative_data_catalog":
+            catalog = alternative_data.search_catalog(
+                str(args.get("query") or ""),
+                group=args.get("group"),
+                ticker=args.get("ticker"),
+                suggest_sites=bool(args.get("suggest_sites")),
+                actor=actor,
+            )
+            # Keep the parameter schemas intact under the agent's tool-output budget.
+            catalog["sources"] = catalog["sources"][:8]
+            catalog["returned_count"] = len(catalog["sources"])
+            return catalog, {"cache": "n/a"}
+        if args.get("job_id"):
+            return alternative_data.poll_job(str(args["job_id"]), source_id=str(args["source_id"])), {"cache": "job"}
+        return alternative_data.enqueue_fetch(
+            alternative_data.FetchRequest(
+                source_id=args["source_id"],
+                parameters=args.get("parameters") or {},
+                ticker=args.get("ticker"),
+                force_refresh=force_refresh,
+                actor=actor_to_dict(actor),
+            )
+        ), {"cache": "shared_catalog"}
+
     if name in {"list_source_artifacts", "get_source_artifact", "summarize_extracted_observations"}:
         from ontology.source_ingestion import SourceIngestionService, require_multimodal_ingestion_enabled
 

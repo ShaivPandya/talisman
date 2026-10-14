@@ -33,6 +33,7 @@ interface RouteEntry {
 }
 
 const ROUTE_PAGE_MAP: Record<string, RouteEntry> = {
+  "/alternative-data": { pageName: "Alternative Data", tools: ["search_alternative_data_catalog", "fetch_alternative_data"] },
   // Command Portfolio
   "/": { pageName: "Portfolio Dashboard", tools: ["get_portfolio"] },
   "/portfolio/edit": {

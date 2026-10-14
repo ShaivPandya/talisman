@@ -85,6 +85,39 @@ def completed_ttl_for_request(spec: JobSpec, req: Any) -> int:
 
 
 JOB_SPECS: dict[str, JobSpec] = {
+    "alternative_data_fetch": JobSpec(
+        job_type="alternative_data_fetch",
+        request_model="api.alternative_data.FetchRequest",
+        compute_func="api.alternative_data.query_source",
+        cache_key_func="api.alternative_data.cache_key",
+        timeout_s=1200,
+        completed_ttl_s=21600,
+        error_message="Alternative-data fetch failed",
+    ),
+    "alternative_data_sites": JobSpec(
+        job_type="alternative_data_sites",
+        request_model="api.alternative_data.CompanyEvidenceRequest",
+        compute_func="api.alternative_data.run_site_suggestions",
+        cache_key_func=None,
+        timeout_s=600,
+        error_message="Company site research failed",
+    ),
+    "alternative_data_evidence": JobSpec(
+        job_type="alternative_data_evidence",
+        request_model="api.alternative_data.CompanyEvidenceRequest",
+        compute_func="api.alternative_data.run_company_evidence",
+        cache_key_func=None,
+        timeout_s=600,
+        error_message="Company alternative-data evaluation failed",
+    ),
+    "analyzer_enriched_brief": JobSpec(
+        job_type="analyzer_enriched_brief",
+        request_model="api.routers.analyzer.EnrichedAnalyzerBriefRequest",
+        compute_func="api.routers.analyzer.run_enriched_analyzer_brief",
+        cache_key_func=None,
+        timeout_s=600,
+        error_message="Analyzer evidence brief failed",
+    ),
     "analyzer": JobSpec(
         job_type="analyzer",
         request_model="api.routers.analyzer.AnalyzerRequest",

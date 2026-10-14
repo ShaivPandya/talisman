@@ -165,6 +165,7 @@ pure_eval==0.2.3
 py-serializable==2.1.0
 py-walk==0.3.3
 pyarrow==23.0.1
+pyproj==3.7.2
 pyasn1==0.6.3
 pyasn1_modules==0.4.2
 pycparser==2.22

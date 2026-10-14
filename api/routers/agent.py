@@ -1331,6 +1331,8 @@ def _select_tool_names(user_text: str) -> list[str]:
                 break
     if ticker_candidates:
         add(
+            "search_alternative_data_catalog",
+            "fetch_alternative_data",
             "get_portfolio",
             "get_dossier",
             "get_thesis",

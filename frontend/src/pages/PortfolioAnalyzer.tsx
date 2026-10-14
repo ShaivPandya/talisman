@@ -15,7 +15,7 @@ import {
   fetchOptimizationAlerts,
   fetchOptimizationMissions,
   fetchOptimizationRuns,
-  generatePortfolioAnalyzerBrief,
+  generatePortfolioAnalyzerEvidenceBrief,
   generatePortfolioAnalyzerRecommendedScenarioBrief,
   fetchPortfolioAnalyzerRecommendedScenario,
   createDomainActionProposal,
@@ -30,6 +30,7 @@ import {
   type AnalyzerRecommendedScenarioResponse,
   type AnalyzerScenarioRequest,
   type AnalyzerUniverseMode,
+  type CompanyAlternativeEvidence,
   type LLMSettings,
   type OptimizationAlert,
   type OptimizationMission,
@@ -914,6 +915,7 @@ function ActionDetail({
   action,
   llmReady,
   brief,
+  alternativeEvidence,
   briefLoading,
   briefError,
   workspaceProposal,
@@ -925,6 +927,7 @@ function ActionDetail({
   action: AnalyzerCourseAction | null
   llmReady: boolean
   brief: string | null
+  alternativeEvidence: CompanyAlternativeEvidence | null
   briefLoading: boolean
   briefError: string | null
   workspaceProposal: StagedMutationResponse | null
@@ -1044,6 +1047,19 @@ function ActionDetail({
               {brief && (
                 <div className="mt-3 rounded-lg border border-app bg-card-muted p-3 text-sm text-muted">
                   <MarkdownRenderer content={brief} />
+                  {alternativeEvidence && <div className="mt-4 space-y-3 border-t border-app pt-4 text-xs">
+                    <p className="font-medium">Alternative-data coverage</p>
+                    {alternativeEvidence.coverage_warnings.length > 0 && <ul className="space-y-1 text-muted">
+                      {[...new Set(alternativeEvidence.coverage_warnings)].map((warning, index) => <li key={index}>{warning}</li>)}
+                    </ul>}
+                    <ul className="space-y-2">{alternativeEvidence.evidence.map((evidence, index) => <li key={`${evidence.source_id}-${index}`}>
+                      <Link className="text-accent underline" to={evidence.result_url || `/alternative-data?source=${encodeURIComponent(evidence.source_id)}&ticker=${encodeURIComponent(action.ticker)}`}>
+                        {evidence.attribution || evidence.source_id.replace("alternative_", "").replace(/_/g, " ")}
+                      </Link>
+                      <span className="ml-2 text-subtle">{evidence.status.replace(/_/g, " ")} · observed {evidence.as_of?.slice(0, 10) || "date unknown"}</span>
+                    </li>)}</ul>
+                  </div>}
+                  <Link className="mt-3 inline-block text-xs text-accent underline" to={`/alternative-data?ticker=${encodeURIComponent(action.ticker)}`}>Inspect alternative-data evidence</Link>
                 </div>
               )}
             </div>
@@ -1283,7 +1299,7 @@ export function AnalyzerWorkbench({
   )
 
   const briefMutation = useMutation({
-    mutationFn: generatePortfolioAnalyzerBrief,
+    mutationFn: generatePortfolioAnalyzerEvidenceBrief,
     onSuccess: () => undefined,
   })
 
@@ -1831,6 +1847,7 @@ export function AnalyzerWorkbench({
             action={selectedAction}
             llmReady={llmReady}
             brief={visibleBrief}
+            alternativeEvidence={briefTicker === selectedAction?.ticker ? briefMutation.data?.alternative_data ?? null : null}
             briefLoading={briefTicker === selectedAction?.ticker && briefMutation.isPending}
             briefError={briefError}
             workspaceProposal={visibleWorkspaceProposal}
