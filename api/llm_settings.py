@@ -26,11 +26,12 @@ LEGACY_LLM_PROVIDERS = {"local"}
 MODEL_TIERS = {"low", "mid", "high"}
 REASONING_EFFORTS = {"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 DEFAULT_REASONING_EFFORTS = {
-    "anthropic": {"low": "medium", "mid": "high", "high": "max"},
+    "anthropic": {"low": "medium", "mid": "high", "high": "xhigh"},
     "openai": {"low": "low", "mid": "medium", "high": "xhigh"},
-    "gemini": {"low": "low", "mid": "medium", "high": "high"},
+    "gemini": {"low": "low", "mid": "medium", "high": "medium"},
     "talisman": {"low": "none", "mid": "none", "high": "none"},
 }
+FRONTIER_REASONING_MIGRATION_KEY = "llm.reasoning_effort.frontier_defaults_v2"
 LIFECYCLE_STATES = {"draft", "enabled", "deprecated", "disabled"}
 DATA_SENSITIVITIES = {
     "public_market",
@@ -361,7 +362,39 @@ def _normalize_reasoning_effort(effort: str) -> str:
     return normalized
 
 
+def migrate_frontier_reasoning_defaults(rows: dict[str, dict[str, Any]] | None = None) -> bool:
+    """Rewrite retired frontier reasoning defaults once.
+
+    Returns True when this call persists the migration flag. A later explicit
+    ``max`` or Gemini ``high`` is left in place.
+    """
+    if rows is not None:
+        if FRONTIER_REASONING_MIGRATION_KEY in rows:
+            return False
+        stored = rows
+    else:
+        if get_setting(FRONTIER_REASONING_MIGRATION_KEY):
+            return False
+        stored = {}
+        for key in (_reasoning_key("anthropic", "high"), _reasoning_key("gemini", "high")):
+            row = get_setting(key)
+            if row:
+                stored[key] = row
+
+    anthropic_key = _reasoning_key("anthropic", "high")
+    gemini_key = _reasoning_key("gemini", "high")
+    anthropic_effort = str((stored.get(anthropic_key) or {}).get("value") or "").strip().lower()
+    gemini_effort = str((stored.get(gemini_key) or {}).get("value") or "").strip().lower()
+    if anthropic_effort == "max":
+        set_setting(anthropic_key, "xhigh")
+    if gemini_effort == "high":
+        set_setting(gemini_key, "medium")
+    set_setting(FRONTIER_REASONING_MIGRATION_KEY, "1")
+    return True
+
+
 def get_llm_reasoning_effort_setting(provider: str, tier: str) -> str:
+    migrate_frontier_reasoning_defaults()
     normalized_provider = _normalize_reasoning_provider(provider)
     normalized_tier = _normalize_reasoning_tier(tier)
     default_effort = DEFAULT_REASONING_EFFORTS[normalized_provider][normalized_tier]

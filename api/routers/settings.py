@@ -18,6 +18,7 @@ from api.financial_policy_settings import (
 )
 from api.llm_settings import (
     ALLOWED_LLM_PROVIDERS,
+    FRONTIER_REASONING_MIGRATION_KEY,
     LLM_GATEWAY_POLICY_KEY,
     LLM_PROVIDER_BY_TIER_KEY,
     LLM_PROVIDER_KEY,
@@ -30,6 +31,7 @@ from api.llm_settings import (
     get_llm_provider_mode_setting,
     get_setting,
     get_settings,
+    migrate_frontier_reasoning_defaults,
     normalize_gateway_policy,
     normalize_llm_provider_by_tier,
     set_gateway_policy_setting,
@@ -270,6 +272,7 @@ def _llm_settings_keys() -> list[str]:
         LLM_PROVIDER_BY_TIER_KEY,
         LLM_GATEWAY_POLICY_KEY,
         *(_reasoning_key(provider, tier) for provider in SETTINGS_PROVIDERS for tier in tiers),
+        FRONTIER_REASONING_MIGRATION_KEY,
     ]
 
 
@@ -308,6 +311,8 @@ def _reasoning_effort_from_settings(rows: dict[str, dict], provider: str, tier: 
 
 def _settings_response() -> dict:
     rows = get_settings(_llm_settings_keys())
+    if migrate_frontier_reasoning_defaults(rows):
+        rows = get_settings(_llm_settings_keys())
     provider = _provider_from_settings(rows)
     provider_mode = _provider_mode_from_settings(rows)
     provider_by_tier = _provider_by_tier_from_settings(rows, provider, provider_mode)

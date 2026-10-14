@@ -59,17 +59,20 @@ def test_get_llm_settings_returns_env_fallback(temp_llm_settings, auth_client, m
     }
     assert payload["models"]["low"] == "claude-haiku-4-5"
     assert payload["models_by_provider"]["openai"]["mid"] == "gpt-5.4"
-    assert payload["models_by_provider"]["gemini"]["mid"] == "gemini-3.1-pro-preview-customtools"
+    assert payload["models_by_provider"]["gemini"]["mid"] == "gemini-4-argon"
+    assert payload["models_by_provider"]["gemini"]["high"] == "gemini-4-argon"
+    assert payload["models_by_provider"]["openai"]["high"] == "gpt-6.1-sol"
+    assert payload["models_by_provider"]["anthropic"]["high"] == "claude-opus-5-5"
     assert "local" not in payload["models_by_provider"]
     assert payload["reasoning_efforts"]["anthropic"] == {
         "low": "medium",
         "mid": "high",
-        "high": "max",
+        "high": "xhigh",
     }
     assert payload["reasoning_efforts"]["gemini"] == {
         "low": "low",
         "mid": "medium",
-        "high": "high",
+        "high": "medium",
     }
     assert [item["effort"] for item in payload["reasoning_options"]["anthropic"]["high"]] == [
         "none",
@@ -81,6 +84,12 @@ def test_get_llm_settings_returns_env_fallback(temp_llm_settings, auth_client, m
     ]
     assert [item["effort"] for item in payload["reasoning_options"]["openai"]["mid"]] == [
         "none",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+    ]
+    assert [item["effort"] for item in payload["reasoning_options"]["openai"]["high"]] == [
         "low",
         "medium",
         "high",
@@ -149,7 +158,7 @@ def test_get_llm_settings_uses_bulk_settings_fetch(auth_client, monkeypatch):
 
     def fake_get_settings(keys):
         calls.append(list(keys))
-        return {}
+        return {"llm.reasoning_effort.frontier_defaults_v2": {"value": "1"}}
 
     def fail_get_setting(_key):
         raise AssertionError("GET /settings/llm should not call individual get_setting")
@@ -179,7 +188,36 @@ def test_get_llm_settings_uses_bulk_settings_fetch(auth_client, monkeypatch):
         "llm.reasoning_effort.talisman.low",
         "llm.reasoning_effort.talisman.mid",
         "llm.reasoning_effort.talisman.high",
+        "llm.reasoning_effort.frontier_defaults_v2",
     ]
+
+
+def test_frontier_reasoning_defaults_migrate_once(temp_llm_settings, auth_client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("GEMINI_API_KEY", "AIza-test-key-12345678901234567890")
+    temp_llm_settings.set_setting("llm.reasoning_effort.anthropic.high", "max")
+    temp_llm_settings.set_setting("llm.reasoning_effort.gemini.high", "high")
+
+    response = auth_client.get("/api/settings/llm")
+
+    assert response.status_code == 200
+    assert response.json()["reasoning_efforts"]["anthropic"]["high"] == "xhigh"
+    assert response.json()["reasoning_efforts"]["gemini"]["high"] == "medium"
+    assert temp_llm_settings.get_setting("llm.reasoning_effort.anthropic.high")["value"] == "xhigh"
+    assert temp_llm_settings.get_setting("llm.reasoning_effort.gemini.high")["value"] == "medium"
+    assert temp_llm_settings.get_setting("llm.reasoning_effort.frontier_defaults_v2")["value"] == "1"
+
+    temp_llm_settings.set_llm_reasoning_effort_setting("anthropic", "high", "max")
+    temp_llm_settings.set_llm_reasoning_effort_setting("gemini", "high", "high")
+
+    kept = auth_client.get("/api/settings/llm")
+
+    assert kept.status_code == 200
+    assert kept.json()["reasoning_efforts"]["anthropic"]["high"] == "max"
+    assert kept.json()["reasoning_efforts"]["gemini"]["high"] == "high"
+    assert temp_llm_settings.get_llm_reasoning_effort_setting("anthropic", "high") == "max"
+    assert temp_llm_settings.get_llm_reasoning_effort_setting("gemini", "high") == "high"
 
 
 def test_get_settings_returns_rows_without_creating_missing_sqlite_db(temp_llm_settings):
@@ -255,7 +293,7 @@ def test_put_llm_settings_persists_gemini_provider(temp_llm_settings, auth_clien
 
     assert response.status_code == 200
     assert response.json()["provider"] == "gemini"
-    assert response.json()["models_by_provider"]["gemini"]["high"] == "gemini-3.1-pro-preview-customtools"
+    assert response.json()["models_by_provider"]["gemini"]["high"] == "gemini-4-argon"
     assert response.json()["reasoning_efforts"]["gemini"] == {
         "low": "minimal",
         "mid": "high",
@@ -306,8 +344,8 @@ def test_put_llm_settings_persists_custom_provider_by_tier(temp_llm_settings, au
     }
     assert payload["models"] == {
         "low": "gemini-3.1-flash-lite",
-        "mid": "gemini-3.1-pro-preview-customtools",
-        "high": "gpt-5.5",
+        "mid": "gemini-4-argon",
+        "high": "gpt-6.1-sol",
     }
     assert payload["reasoning_efforts"]["gemini"]["mid"] == "medium"
     assert payload["reasoning_efforts"]["openai"]["high"] == "xhigh"
@@ -333,8 +371,8 @@ def test_custom_provider_by_tier_routes_model_helpers(temp_llm_settings, monkeyp
     assert llm_utils.selected_provider() == "gemini"
     assert llm_utils.selected_provider_for_tier(llm_utils.MODEL_MID) == "gemini"
     assert llm_utils.selected_provider_for_tier(llm_utils.MODEL_HIGH) == "openai"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_MID) == "gemini-3.1-pro-preview-customtools"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH) == "gpt-5.5"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_MID) == "gemini-4-argon"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH) == "gpt-6.1-sol"
     assert not llm_utils.has_llm_api_key()
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
@@ -366,7 +404,7 @@ def test_custom_provider_by_tier_routes_call_llm_text(temp_llm_settings, monkeyp
 
     assert text == "answer"
     assert captured["provider"] == "openai"
-    assert captured["model"] == "gpt-5.5"
+    assert captured["model"] == "gpt-6.1-sol"
 
 
 def test_put_llm_settings_rejects_invalid_provider(temp_llm_settings, auth_client):
@@ -641,7 +679,7 @@ def test_put_llm_settings_rejects_unsupported_gemini_reasoning_effort(temp_llm_s
     )
 
     assert response.status_code == 422
-    assert "gemini-3.1-pro-preview-customtools" in response.text
+    assert "gemini-4-argon" in response.text
 
 
 def test_get_agent_response_preferences_returns_defaults(temp_llm_settings, auth_client):
