@@ -27,6 +27,10 @@ def main() -> None:
             )
         ),
         "other/cache.json": json.dumps({"request_key": fingerprint, "key": series}),
+        "longaeva/backend/tests/test_llm_baseline.py": (
+            'settings(openai_api_key="test-key", anthropic_api_key="test-key", gemini_api_key="test-key")\n'
+            f'anthropic_api_key = "{fingerprint}"\n'
+        ),
     }
     with tempfile.TemporaryDirectory(prefix="talisman-gitleaks-") as directory:
         root = Path(directory)
@@ -64,11 +68,12 @@ def main() -> None:
             ("longaeva/data/fixtures/llm_baseline/cached.json", 2),
             ("longaeva/data/fixtures/llm_baseline/cached.json", 3),
             ("other/cache.json", 1),
+            ("longaeva/backend/tests/test_llm_baseline.py", 2),
         }
         # Two independently detected fields share the line in other/cache.json.
-        if actual != expected or len(findings) != 6:
+        if actual != expected or len(findings) != 7:
             raise RuntimeError(f"Public-data exceptions changed credential detection: {actual}")
-    print("Gitleaks scoped exceptions passed; all six synthetic findings detected")
+    print("Gitleaks scoped exceptions passed; all seven synthetic findings detected")
 
 
 if __name__ == "__main__":

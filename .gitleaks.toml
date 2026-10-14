@@ -38,3 +38,9 @@ id = "generic-api-key"
     paths = ['''^longaeva/data/(evaluation/visa_llm_baseline|fixtures/llm_baseline/(cached|schema-validation-rejected|[0-9]{4}-[0-9]{2}-[0-9]{2}))\.json$''']
     regexTarget = "match"
     regexes = ['''^request_key["']?\s*[:=]\s*["'][0-9a-f]{64}["']$''']
+
+    [[rules.allowlists]]
+    description = "Public mock-provider argument name misparsed after a synthetic test-key literal (reviewed 2026-10-14; recheck by 2027-01-12)"
+    condition = "AND"
+    paths = ['''^longaeva/backend/tests/test_llm_baseline\.py$''']
+    regexes = ['''^anthropic_api_key=$''']
