@@ -17,3 +17,24 @@ id = "generic-api-key"
     regexes = [
         '''^AIza-test-key-12345678901234567890$''',
     ]
+
+    [[rules.allowlists]]
+    description = "Public settings migration identifier (reviewed 2026-10-14; recheck by 2027-01-12)"
+    condition = "AND"
+    paths = ['''^api/llm_settings\.py$''']
+    regexes = ['''^llm\.reasoning_effort\.frontier_defaults_v2$''']
+
+    [[rules.allowlists]]
+    description = "Exact public financial series identifiers in historical Longaeva fixtures (reviewed 2026-10-14; recheck by 2027-01-12)"
+    condition = "AND"
+    paths = ['''^longaeva/(data/.*\.json|backend/longaeva_app/extract/census_marts\.py|backend/tests/test_census_marts\.py|docs/gates/census\.md)$''']
+    regexes = [
+        '''^(bkng_2024q1_ceo_qualitative|bkng_2025q4_qtd_demand_qualitative|cost_2024q3_ecommerce_comp_yoy|cost_2024q3_ticket_yoy|cost_2025q4_ecommerce_comp_yoy|cost_2025q4_ticket_yoy|growth_q_minus_1_nominal|naics_452_dept|pv_nine_month_mar_2023|pv_nine_month_mar_2024|pv_year_ago_q_minus_1|pypl_2024q1_tpv_fxn_yoy|pypl_2025_raises_fy_guidance|pypl_2025q3_tpv_fxn_yoy|ual_2024q2_atlantic_passenger_revenue_yoy|ual_2024q2_capacity_yoy|ual_2024q2_premium_qualitative|ual_2025q3_atlantic_expansion_qualitative|ual_2025q3_atlantic_passenger_revenue_yoy|ual_2025q3_capacity_yoy)$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "SHA-256 request cache fingerprints in historical LLM evaluation fixtures (reviewed 2026-10-14; recheck by 2027-01-12)"
+    condition = "AND"
+    paths = ['''^longaeva/data/(evaluation/visa_llm_baseline|fixtures/llm_baseline/(cached|schema-validation-rejected|[0-9]{4}-[0-9]{2}-[0-9]{2}))\.json$''']
+    regexTarget = "match"
+    regexes = ['''^request_key["']?\s*[:=]\s*["'][0-9a-f]{64}["']$''']

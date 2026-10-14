@@ -55,7 +55,22 @@ Suppressions go in `.gitleaks.toml` at the repo root.
 
 | Rule ID / Pattern | File / Scope | Reason | Owner | Added | Expiry |
 |-------------------|-------------|--------|-------|-------|--------|
-| `generic-api-key` / public metric identifiers | `frontend/src/pages/{PortfolioAnalyzer,YieldCurve,MarketTechnicals,SectorMetrics}.tsx`, `macro/country_dashboard/country_dashboard.py` | False positives for frontend field names and public macro data-series identifiers, not credentials. Exact-token allowlist only. | @ShaivPandya | 2026-05-15 | 2026-08-13 |
+| `generic-api-key` / public metric identifiers | `frontend/src/pages/{PortfolioAnalyzer,YieldCurve,MarketTechnicals,SectorMetrics}.tsx`, `macro/country_dashboard/country_dashboard.py` | Rechecked: frontend field names and public macro data-series identifiers. Exact-token allowlist only. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / synthetic Gemini key | Test fixtures | Rechecked: literal `AIza-test-key-12345678901234567890` is a synthetic credential used only in tests. Exact-token allowlist only. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / `llm.reasoning_effort.frontier_defaults_v2` | `api/llm_settings.py` | Public settings migration marker, read and written through `settings_store`; it is not authentication material. Exact token AND exact path. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / 20 exact financial series identifiers | Historical `longaeva/data/*.json`, Census extractor, test, and gate document | Public evidence keys for earnings metrics and Census series. Each token was reviewed; exact-token matching AND bounded historical paths. No whole-file exclusion. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / `request_key` SHA-256 fingerprints | Historical `longaeva/data/evaluation/visa_llm_baseline.json` and `longaeva/data/fixtures/llm_baseline/{cached,schema-validation-rejected,YYYY-MM-DD}.json` | Deterministic LLM request cache fingerprints, not provider credentials. Require exact field, 64 lowercase hex characters, AND these fixture paths. Other credential fields and other files remain scanned. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+
+The TL-161 repair removes the unused `python-jose` runtime dependency (including
+its vulnerable `ecdsa` dependency), updates the affected Python pins and both
+JavaScript lockfiles, and retains all dependency audit gates without CVE ignores.
+The historical secret findings were all `generic-api-key` false positives.
+The full-history scan and a synthetic credential detection check must pass before
+release. PR #422 records the suppression review required below.
+
+The root Firebase package still pins the affected gRPC client to the 1.9 minor
+series. Its `@grpc/grpc-js` override selects the patched 1.x API (at least 1.14.5)
+without downgrading Firebase. Both root and frontend lockfiles are audited.
 
 ### bandit Allowlist
 

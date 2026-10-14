@@ -4,5 +4,8 @@
     "@statsig/session-replay": "^3.33.2",
     "@statsig/web-analytics": "^3.33.2",
     "firebase": "^12.12.1"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.5"
   }
 }
