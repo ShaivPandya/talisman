@@ -1304,6 +1304,65 @@ export const saveThesisContent = (ticker: string, content: string, options?: Sta
     .put(`/thesis/${encodeURIComponent(ticker)}`, { content, ...options })
     .then(r => r.data as StagedMutationResponse)
 
+export type CompanyResearchKind = "overview" | "management_quality"
+
+export interface CompanyResearchSettings {
+  overview_prompt: string
+  management_quality_prompt: string
+  updated_at: string | null
+  model: string
+  configured: boolean
+}
+
+export interface CompanyResearchReportStatus {
+  job_id?: string
+  status: "idle" | "queued" | "running" | "done" | "error" | "cancelled"
+  error?: string | null
+  report_available?: boolean
+  progress?: { phase?: string; report_available?: boolean }
+  result?: {
+    application_status: string
+    generated_at: string
+    source_count: number
+    report_available: boolean
+  }
+}
+
+export interface CompanyResearchStatus {
+  ticker: string
+  reports: Record<CompanyResearchKind, CompanyResearchReportStatus>
+}
+
+export interface CompanyResearchReport {
+  ticker: string
+  kind: CompanyResearchKind
+  job_id: string
+  content: string
+  sources: { title: string; url: string }[]
+  generated_at: string
+  model: string
+  summary_applied: boolean
+}
+
+export const fetchCompanyResearchSettings = () =>
+  client.get<CompanyResearchSettings>("/settings/company-research").then(r => r.data)
+
+export const updateCompanyResearchSettings = (prompts: Pick<CompanyResearchSettings, "overview_prompt" | "management_quality_prompt">) =>
+  client.put<CompanyResearchSettings>("/settings/company-research", prompts).then(r => r.data)
+
+export const fetchCompanyResearchStatus = (ticker: string) =>
+  client.get<CompanyResearchStatus>(`/company-research/${encodeURIComponent(ticker)}`).then(r => r.data)
+
+export const startCompanyResearch = (ticker: string, kinds: CompanyResearchKind[]) =>
+  client.post<{ ticker: string; reports: Partial<CompanyResearchStatus["reports"]> }>(
+    `/company-research/${encodeURIComponent(ticker)}`, { kinds },
+  ).then(r => r.data)
+
+export const fetchCompanyResearchReport = (ticker: string, kind: CompanyResearchKind, jobId?: string) =>
+  client.get<CompanyResearchReport>(`/company-research/${encodeURIComponent(ticker)}/reports/${kind}`, {
+    params: jobId ? { job_id: jobId } : undefined,
+  }).then(r => r.data)
+
 export type DocumentGenerationKind = "thesis" | "overview" | "management_quality"
 
 type DocumentGenerationJobBase = { job_id: string; timeout_s?: number }

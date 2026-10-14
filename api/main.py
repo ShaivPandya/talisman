@@ -74,6 +74,7 @@ _RELEASE_META_SAFE = {
 # Core routers (must succeed)
 from api.routers import (
     agent,
+    company_research,
     document_generation,
     management_quality,
     memory,
@@ -432,6 +433,7 @@ app.include_router(thesis.router, prefix=_API_PREFIX, dependencies=_auth_dep, ta
 app.include_router(overview.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["portfolio"])
 app.include_router(management_quality.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["portfolio"])
 app.include_router(document_generation.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["portfolio"])
+app.include_router(company_research.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["portfolio"])
 app.include_router(memory.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(agent.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(settings.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["settings"])

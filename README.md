@@ -129,6 +129,7 @@ Core portfolio and research workflows:
 - Portfolio dashboard, position editing, hedge positions, and performance analytics.
 - Portfolio analyzer, optimizer, hedging tool, and portfolio sizer with async execution paths for heavier jobs.
 - Thesis and overview generation from uploaded PDFs, editable thesis/overview storage, thesis status tracking, and position dossiers.
+- One-click company overview and management-quality research on equity Dossier and Ideas pages. The two web-grounded jobs run independently, automatically save through the governed action path, and retain full cited reports alongside structured summaries. Edit Research Prompts saves global templates containing `{ticker}`; running jobs keep their starting prompts. Failed reports can be retried individually, and Markdown/PDF uploads remain available.
 - Workspace entities: catalysts, kill conditions, approvals, actions, triggers, recommendations, and workflow runs.
 - Agent chat and memory for cross-cutting research questions over portfolio data, theses, market data, materialized ontology risk snapshots, and workflow artifacts.
 
@@ -201,6 +202,7 @@ State backends:
 
 - Normal development, CI, and production runtime paths use `STATE_DB_BACKEND=postgres` and `DATABASE_URL`; a few isolated tests still exercise explicit SQLite compatibility paths.
 - Production additionally uses `STATE_STORAGE_BACKEND=gcs` and `GCS_STATE_BUCKET`.
+- Company research uses `OPENAI_API_KEY` and `COMPANY_RESEARCH_MODEL=gpt-6.1-sol` independently of regular LLM settings. Prompts persist in `app_settings`; reports and phase checkpoints use local `tmp/company_research/` or GCS `live/company_research/`. The research deadline defaults to 55 minutes within the generic Cloud Run Job's 60-minute limit.
 - Async work runs locally unless `ASYNC_JOB_BACKEND=cloud_run_jobs` or `CLOUD_RUN_JOBS_ENABLED=true` opts into dispatching the generic Cloud Run Job configured by `ASYNC_CLOUD_RUN_JOB=talisman-async-job`.
 
 ## Observability (optional Sentry)
