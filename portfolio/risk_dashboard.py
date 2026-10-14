@@ -118,7 +118,7 @@ def load_market_inputs(holdings: list[dict[str, Any]], *, now: datetime) -> dict
     for benchmark in BENCHMARKS:
         symbols.add(benchmark)
         currencies[benchmark] = "USD"
-    fx_symbols = set()
+    fx_symbols: set[str] = set()
     for currency in currencies.values():
         unit = currency_lookup_and_unit_scale(currency)
         if unit and unit[0] != "USD":
@@ -142,8 +142,9 @@ def load_market_inputs(holdings: list[dict[str, Any]], *, now: datetime) -> dict
     close = _price_panel(raw, ordered, "Close")
     adjusted = _price_panel(raw, ordered, "Adj Close")
     # Some Yahoo instruments (notably futures) have no adjusted-close column.
+    unadjusted_symbols = fx_symbols | {quote_symbol(row) for row in holdings if row.get("instrument_type") == "future"}
     for symbol in ordered:
-        if symbol not in adjusted or adjusted[symbol].dropna().empty:
+        if symbol in unadjusted_symbols and (symbol not in adjusted or adjusted[symbol].dropna().empty):
             if symbol in close:
                 adjusted[symbol] = close[symbol]
     return {"close": close, "adjusted": adjusted, "metadata": metadata, "currencies": currencies}
@@ -203,7 +204,9 @@ def measured_betas(inputs: dict[str, Any], holdings: Sequence[Mapping[str, Any]]
         returns = prices.pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
         estimates: dict[str, Any] = {}
         for benchmark in BENCHMARKS:
-            market = _usd_series(panel, benchmark, "USD").pct_change(fill_method=None)
+            market = (
+                _usd_series(panel, benchmark, "USD").pct_change(fill_method=None).replace([np.inf, -np.inf], np.nan)
+            )
             pairs = pd.concat([returns.rename("position"), market.rename(benchmark)], axis=1).dropna()
             observations = len(pairs)
             beta = None
@@ -231,7 +234,7 @@ def build_rows(
         option = instrument == "option"
         exposure = resolve_economic_exposure(holding)
         symbol = quote_symbol(holding)
-        underlying = exposure.underlying_ticker
+        underlying = chart_price_symbol(holding) if instrument == "future" else exposure.underlying_ticker
         role = "hedge" if holding.get("role") == "hedge" else "position"
         metadata = inputs["metadata"].get(underlying, {})
         currency = holding.get("currency") or inputs["currencies"].get(symbol)
@@ -271,7 +274,7 @@ def build_rows(
         estimates = betas.get(beta_symbol(holding), {}) if eligible else {}
         risk = stress_by_ticker.get(str(holding.get("ticker") or "").upper(), {}) if role == "position" else {}
         row = {
-            "position_id": f"{role}:{holding.get('id') or position_row_id(holding) or index}",
+            "position_id": f"{role}:{holding.get('id') or f'{position_row_id(holding)}:{index}'}",
             "ticker": display_ticker(holding),
             "underlying_ticker": underlying,
             "price_symbol": symbol,

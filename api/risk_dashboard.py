@@ -218,6 +218,7 @@ def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
             }
         )
         stress_error = None
+        stress: dict[str, Any] | None = None
         try:
             stress = refresh_portfolio_risk()
         except Exception as exc:

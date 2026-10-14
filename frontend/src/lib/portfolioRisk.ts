@@ -1,4 +1,4 @@
-import type { PortfolioRiskSnapshot } from "@/lib/api"
+import type { PositionRiskSourceStatus } from "@/lib/api"
 
 export interface RiskDashboardPosition {
   position_id: string
@@ -93,7 +93,16 @@ export interface PortfolioRiskDashboard {
   quality: "ok" | "degraded"
   positions: RiskDashboardPosition[]
   views: { all_holdings: RiskDashboardView; primary_positions: RiskDashboardView }
-  stress: PortfolioRiskSnapshot | null
+  stress: {
+    as_of?: string | null
+    computed_at?: string
+    position_count?: number
+    average_risk_score?: number | null
+    max_risk_score?: number | null
+    quality?: string
+    risk_buckets?: { high?: number; medium?: number; low?: number }
+    source_status?: Record<string, PositionRiskSourceStatus>
+  } | null
   source_status: Record<string, { provider?: string; basis?: string; as_of?: string | null; error?: string | null; quality?: string }>
   beta_method: {
     method: string
