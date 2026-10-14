@@ -269,8 +269,6 @@ class UpdatePortfolioPositionsInput(BaseModel):
 
     @model_validator(mode="after")
     def _validate_positions(self) -> UpdatePortfolioPositionsInput:
-        if not self.positions:
-            raise ValueError("At least one position is required.")
         position_ids = [position_row_id(position.model_dump()) for position in self.positions]
         if len(set(position_ids)) != len(position_ids):
             duplicate = next(pid for pid in position_ids if position_ids.count(pid) > 1)

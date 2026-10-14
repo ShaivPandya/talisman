@@ -98,3 +98,25 @@ def test_portfolio_update_payload_rejects_duplicate_position_ids():
                 PortfolioPositionInput(**row),
             ]
         )
+
+
+def test_portfolio_update_accepts_empty_position_list():
+    request = PortfolioUpdateRequest(positions=[])
+    proposal = UpdatePortfolioPositionsInput(positions=[])
+
+    assert request.positions == []
+    assert proposal.positions == []
+
+
+def test_portfolio_update_payload_rejects_group_without_conviction():
+    with pytest.raises(ValueError, match="requires a group conviction"):
+        UpdatePortfolioPositionsInput(
+            positions=[
+                PortfolioPositionInput(
+                    ticker="MU",
+                    asset="equity",
+                    direction="long",
+                    group_name="Memory",
+                )
+            ]
+        )
