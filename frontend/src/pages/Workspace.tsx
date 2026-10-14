@@ -826,7 +826,7 @@ function WorkspaceRiskCard({ risk }: { risk: PortfolioRisk }) {
     <section className="theme-surface flex flex-col rounded-xl p-4">
       <div className="mb-4 flex items-center gap-2">
         <Shield size={15} className={degraded ? "text-amber-500" : "text-blue-500"} />
-        <h2 className="text-sm font-semibold text-app">Portfolio risk</h2>
+        <h2 className="text-sm font-semibold text-app"><Link to="/risk" className="hover:underline">Portfolio risk</Link></h2>
         <span className="ml-auto"><QualityStateBadge state={risk.quality || "missing"} /></span>
       </div>
       <div className="mb-4 flex items-end gap-6">
