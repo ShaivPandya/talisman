@@ -89,7 +89,7 @@ DEFAULT_REASONING_EFFORT_BY_PROVIDER_TIER = {
     PROVIDER_ANTHROPIC: {
         MODEL_LOW: REASONING_MEDIUM,
         MODEL_MID: REASONING_HIGH,
-        MODEL_HIGH: REASONING_MAX,
+        MODEL_HIGH: REASONING_XHIGH,
     },
     PROVIDER_OPENAI: {
         MODEL_LOW: REASONING_LOW,
@@ -99,7 +99,7 @@ DEFAULT_REASONING_EFFORT_BY_PROVIDER_TIER = {
     PROVIDER_GEMINI: {
         MODEL_LOW: REASONING_LOW,
         MODEL_MID: REASONING_MEDIUM,
-        MODEL_HIGH: REASONING_HIGH,
+        MODEL_HIGH: REASONING_MEDIUM,
     },
     PROVIDER_TALISMAN: {
         MODEL_LOW: REASONING_NONE,
@@ -111,17 +111,17 @@ DEFAULT_REASONING_EFFORT_BY_PROVIDER_TIER = {
 ANTHROPIC_DEFAULT_MODELS = {
     MODEL_LOW: "claude-haiku-4-5",
     MODEL_MID: "claude-sonnet-4-6",
-    MODEL_HIGH: "claude-opus-4-8",
+    MODEL_HIGH: "claude-opus-5-5",
 }
 OPENAI_DEFAULT_MODELS = {
     MODEL_LOW: "gpt-5.4-mini",
     MODEL_MID: "gpt-5.4",
-    MODEL_HIGH: "gpt-5.5",
+    MODEL_HIGH: "gpt-6.1-sol",
 }
 GEMINI_DEFAULT_MODELS = {
     MODEL_LOW: "gemini-3.1-flash-lite",
-    MODEL_MID: "gemini-3.1-pro-preview-customtools",
-    MODEL_HIGH: "gemini-3.1-pro-preview-customtools",
+    MODEL_MID: "gemini-4-argon",
+    MODEL_HIGH: "gemini-4-argon",
 }
 TALISMAN_DEFAULT_MODELS = {
     MODEL_LOW: "talisman-low",
@@ -191,6 +191,7 @@ _ANTHROPIC_ESTIMATED_OUTPUT_TOKENS_PER_HOUR = 128_000
 _ANTHROPIC_GENERIC_NONSTREAMING_TOKEN_LIMIT = (
     _ANTHROPIC_ESTIMATED_OUTPUT_TOKENS_PER_HOUR * _ANTHROPIC_MAX_NONSTREAMING_SECONDS // _ANTHROPIC_MAX_REQUEST_SECONDS
 )
+ANTHROPIC_OPUS_5_MAX_TOKENS = 64_000
 
 
 def _obj_get(value: Any, key: str, default: Any = None) -> Any:
@@ -375,7 +376,7 @@ def reasoning_effort_options(provider: str, model: str | None = None) -> list[st
     if resolved_provider == PROVIDER_TALISMAN:
         return [REASONING_NONE]
     if resolved_provider == PROVIDER_OPENAI:
-        return list(OPENAI_REASONING_EFFORTS)
+        return list(_openai_reasoning_efforts_for_model(model))
     if resolved_provider == PROVIDER_GEMINI:
         return list(_gemini_reasoning_efforts_for_model(model))
 
@@ -1089,6 +1090,7 @@ def _call_anthropic_messages(
 ) -> Any:
     client = get_llm_client(PROVIDER_ANTHROPIC, api_key=api_key)
     resolved_model = resolve_model(model, PROVIDER_ANTHROPIC)
+    max_tokens = anthropic_request_max_tokens(resolved_model, max_tokens)
     kwargs: dict[str, Any] = {
         "model": resolved_model,
         "max_tokens": max_tokens,
@@ -1335,7 +1337,7 @@ def _normalize_reasoning_effort(
         return None
     options: Sequence[str]
     if resolved_provider == PROVIDER_OPENAI:
-        options = OPENAI_REASONING_EFFORTS
+        options = tuple(_openai_reasoning_efforts_for_model(model))
     elif resolved_provider == PROVIDER_GEMINI:
         if normalized == REASONING_NONE:
             return None
@@ -1346,6 +1348,28 @@ def _normalize_reasoning_effort(
         allowed = "', '".join(options)
         raise ValueError(f"reasoning_effort must be one of '{allowed}'")
     return normalized
+
+
+def anthropic_request_max_tokens(model: str, max_tokens: int) -> int:
+    if _is_claude_opus_5_5(model):
+        return max(max_tokens, ANTHROPIC_OPUS_5_MAX_TOKENS)
+    return max_tokens
+
+
+def _openai_reasoning_efforts_for_model(model: str | None = None) -> tuple[str, ...]:
+    if _openai_model_rejects_none_and_minimal(model):
+        return tuple(effort for effort in OPENAI_REASONING_EFFORTS if effort not in {REASONING_NONE, REASONING_MINIMAL})
+    return OPENAI_REASONING_EFFORTS
+
+
+def _openai_model_rejects_none_and_minimal(model: str | None) -> bool:
+    normalized = (model or "").strip().lower()
+    return normalized == "gpt-6.1-sol" or normalized.startswith("gpt-6.1-sol-")
+
+
+def _is_claude_opus_5_5(model: str | None) -> bool:
+    normalized = (model or "").strip().lower()
+    return normalized == "claude-opus-5-5" or normalized.startswith("claude-opus-5-5-")
 
 
 def _gemini_reasoning_efforts_for_model(model: str | None = None) -> tuple[str, ...]:
@@ -1359,7 +1383,7 @@ def _anthropic_reasoning_efforts_for_model(model: str | None = None) -> tuple[st
     normalized = (model or "").strip().lower()
     efforts = [REASONING_NONE, REASONING_LOW, REASONING_MEDIUM, REASONING_HIGH]
     family_minor = _anthropic_claude_4_family_minor(normalized)
-    if family_minor and family_minor[0] == "opus" and family_minor[1] >= 7:
+    if _is_claude_opus_5_5(normalized) or (family_minor and family_minor[0] == "opus" and family_minor[1] >= 7):
         efforts.append(REASONING_XHIGH)
     if "claude-mythos-preview" in normalized or _anthropic_supports_adaptive_thinking(normalized):
         efforts.append(REASONING_MAX)
@@ -1375,7 +1399,7 @@ def _anthropic_claude_4_family_minor(model: str) -> tuple[str, int] | None:
 
 def _anthropic_supports_adaptive_thinking(model: str) -> bool:
     normalized = (model or "").strip().lower()
-    if "claude-mythos-preview" in normalized:
+    if "claude-mythos-preview" in normalized or _is_claude_opus_5_5(normalized):
         return True
     family_minor = _anthropic_claude_4_family_minor(normalized)
     if not family_minor:

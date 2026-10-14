@@ -5,6 +5,7 @@ import { csrfHeaders, setCsrfToken } from "@/lib/csrfToken"
 import type { DecisionState, DecisionStateFields, EffectScope } from "@/lib/decisionState"
 import type { ManagementQualityAssessment, ParsedManagementQuality } from "@/lib/managementQualityTypes"
 import type { ParsedOverview } from "@/lib/overviewTypes"
+import type { PortfolioRiskDashboard, RiskDashboardJob } from "@/lib/portfolioRisk"
 
 const client = axios.create({
   baseURL: (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, ""),
@@ -1868,6 +1869,21 @@ export const fetchPortfolioRiskLatest = async () => {
     throw err
   }
 }
+
+export const fetchPortfolioRiskDashboard = async (): Promise<PortfolioRiskDashboard | null> => {
+  try {
+    return (await client.get<PortfolioRiskDashboard>("/risk/dashboard/latest")).data
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 404) return null
+    throw error
+  }
+}
+
+export const refreshPortfolioRiskDashboard = async (): Promise<RiskDashboardJob> =>
+  (await client.post<RiskDashboardJob>("/risk/dashboard/refresh")).data
+
+export const fetchPortfolioRiskDashboardJob = async (jobId: string): Promise<RiskDashboardJob> =>
+  (await client.get<RiskDashboardJob>(`/risk/dashboard/async/${encodeURIComponent(jobId)}`)).data
 
 export const refreshPortfolioRisk = () =>
   client
