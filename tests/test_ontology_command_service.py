@@ -532,6 +532,38 @@ def test_position_replacement_apply_expires_removed_positions():
     assert repo.objects["position:OKLO"]["tx_to"] is not None
 
 
+def test_empty_position_list_apply_expires_existing_positions():
+    repo = NormalizingTemporalRepo()
+    service = OntologyCommandService(OntologyObjectService(repository=repo))  # type: ignore[arg-type]
+    context = OntologyCommandContext(actor=admin_actor(source="test"), source_type="test", source_id="unit")
+
+    initial = service.propose_action(
+        "update_portfolio_positions",
+        {
+            "positions": [
+                {"ticker": "MU", "asset": "equity", "direction": "long", "shares": 10},
+                {"ticker": "OKLO", "asset": "equity", "direction": "short", "shares": 5},
+            ]
+        },
+        context,
+        reason="initial book",
+    )
+    service.resolve_approval(initial["id"], "approved", "apply", context)
+
+    cleared = service.propose_action(
+        "update_portfolio_positions",
+        {"positions": []},
+        context,
+        reason="clear book",
+    )
+    applied = service.resolve_approval(cleared["id"], "approved", "apply", context)
+
+    assert applied["application_status"] == "applied"
+    assert service.objects.query_objects("Position") == []
+    assert repo.objects["position:MU"]["tx_to"] is not None
+    assert repo.objects["position:OKLO"]["tx_to"] is not None
+
+
 def test_hedge_update_apply_accepts_enriched_payload_fields():
     repo = NormalizingTemporalRepo()
     service = OntologyCommandService(OntologyObjectService(repository=repo))  # type: ignore[arg-type]
