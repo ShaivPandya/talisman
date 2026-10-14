@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import copy
+import json
+import re
 from datetime import UTC, datetime
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -110,6 +113,44 @@ def test_same_underlying_offsets_preserve_gross_and_distinct_legs():
     assert view["summary"]["net_usd"] == 0
     assert view["breakdowns"]["underlying"][0]["gross_usd"] == 20_000
     assert view["betas"]["SPY"]["combined"] == pytest.approx(0)
+
+
+def test_future_contract_legs_roll_up_to_the_continuous_underlying():
+    rows = build_rows(
+        [
+            holding("ESZ26", price_symbol="ES=F", instrument_type="future", contract_multiplier=50, quantity=1),
+            holding(
+                "ESH27",
+                price_symbol="ES=F",
+                instrument_type="future",
+                contract_multiplier=50,
+                quantity=1,
+                direction="short",
+                role="hedge",
+            ),
+        ],
+        market_inputs(),
+        100_000,
+        None,
+    )
+    view = aggregate_view(rows, 100_000)
+    assert [row["ticker"] for row in rows] == ["ESZ26", "ESH27"]
+    assert view["breakdowns"]["underlying"] == [
+        {"name": "ES=F", "gross_usd": 500_000, "net_usd": 0, "position_count": 2, "gross_share_pct": 100}
+    ]
+
+
+def test_firebase_risk_deep_link_rewrites_and_disables_html_caching():
+    hosting = json.loads(Path("firebase.json").read_text())["hosting"]
+    rewrites = [rule for rule in hosting["rewrites"] if rule.get("destination") == "/index.html"]
+    assert any(re.fullmatch(rule["regex"], "/risk") for rule in rewrites)
+    headers = [rule for rule in hosting["headers"] if rule.get("regex") and re.fullmatch(rule["regex"], "/risk")]
+    assert any(
+        header["key"] == "Cache-Control" and "no-store" in header["value"]
+        for rule in headers
+        for header in rule["headers"]
+    )
+    assert not any(re.fullmatch(rule["regex"], "/api/risk/dashboard/latest") for rule in rewrites)
 
 
 def test_futures_fx_and_minor_currency_notional():
