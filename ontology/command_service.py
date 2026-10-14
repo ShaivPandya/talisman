@@ -3989,8 +3989,6 @@ def _target_for_action(action_id: str, payload: Mapping[str, Any]) -> tuple[str 
 def _validate_governed_action(action_id: str, payload: Mapping[str, Any]) -> None:
     if action_id not in FINANCIAL_ACTION_IDS | RESEARCH_ACTION_IDS:
         raise OntologyCommandValidationError(f"Unsupported ontology-primary action: {action_id}")
-    if action_id == "update_portfolio_positions" and not _list(payload.get("positions")):
-        raise OntologyCommandValidationError("At least one position is required.")
     if action_id in {"save_management_quality_content", "save_overview_content", "save_thesis_content"}:
         _non_blank(payload.get("ticker"), "ticker")
         _non_blank(payload.get("content"), "content")

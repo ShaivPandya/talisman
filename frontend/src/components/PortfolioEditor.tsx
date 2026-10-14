@@ -1497,10 +1497,6 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
       setPositionValidationError("Option rows require expiration, strike, type, or a valid OCC contract symbol.")
       return
     }
-    if (positionRows.length === 0) {
-      setPositionValidationError("At least one position is required.")
-      return
-    }
     if (positionRows.some(r => rowInstrumentType(r) === "spot_fx" && !canonicalSpotFxSymbol(r.price_symbol || r.ticker))) {
       setPositionValidationError("Spot FX rows must use a pair like EURUSD=X, EURUSD, EUR/USD, or EUR-USD.")
       return
