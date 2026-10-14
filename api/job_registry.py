@@ -118,6 +118,15 @@ JOB_SPECS: dict[str, JobSpec] = {
         timeout_s=600,
         error_message="Analyzer evidence brief failed",
     ),
+    "portfolio_risk_dashboard": JobSpec(
+        job_type="portfolio_risk_dashboard",
+        request_model=None,
+        compute_func="api.risk_dashboard.compute_dashboard",
+        cache_key_func="api.risk_dashboard.dashboard_cache_key",
+        timeout_s=600,
+        completed_ttl_s=300,
+        error_message="Portfolio risk dashboard refresh failed",
+    ),
     "analyzer": JobSpec(
         job_type="analyzer",
         request_model="api.routers.analyzer.AnalyzerRequest",

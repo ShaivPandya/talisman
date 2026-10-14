@@ -365,6 +365,8 @@ def test_agent_stream_gemini_function_call_roundtrip(auth_client, monkeypatch):
     )
 
     assert resp.status_code == 200
+    assert fake_client.models.kwargs_history[0]["model"] == "gemini-4-argon"
+    assert fake_client.models.kwargs_history[1]["model"] == "gemini-4-argon"
     first_config = fake_client.models.kwargs_history[0]["config"]
     second_config = fake_client.models.kwargs_history[1]["config"]
     assert first_config["tool_config"]["function_calling_config"]["mode"] == "ANY"
@@ -405,7 +407,7 @@ def test_agent_gemini_v2_conversation_conversion_and_kwargs():
         reasoning_effort="high",
     )
 
-    assert kwargs["model"] == "gemini-3.1-pro-preview-customtools"
+    assert kwargs["model"] == "gemini-4-argon"
     assert kwargs["contents"] == conversation
     assert kwargs["config"]["max_output_tokens"] == 123
     assert kwargs["config"]["system_instruction"] == "instructions"

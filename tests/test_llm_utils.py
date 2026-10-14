@@ -14,8 +14,16 @@ def test_provider_and_model_resolution_defaults(monkeypatch):
     assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "anthropic") == "claude-haiku-4-5"
     assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "openai") == "gpt-5.4"
     assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "gemini") == "gemini-3.1-flash-lite"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "gemini") == "gemini-3.1-pro-preview-customtools"
-    assert llm_utils.resolve_model("claude-opus-4-7", "openai") == "gpt-5.5"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "gemini") == "gemini-4-argon"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "gemini") == "gemini-4-argon"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "openai") == "gpt-6.1-sol"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "anthropic") == "claude-opus-5-5"
+    assert llm_utils.default_reasoning_effort("anthropic", "high") == "xhigh"
+    assert llm_utils.default_reasoning_effort("gemini", "high") == "medium"
+    assert llm_utils.resolve_model("claude-opus-4-7", "openai") == "gpt-6.1-sol"
+    assert llm_utils.reasoning_effort_options("openai", "gpt-6.1-sol") == ["low", "medium", "high", "xhigh"]
+    assert "none" in llm_utils.reasoning_effort_options("openai", "gpt-5.4")
+    assert "none" in llm_utils.reasoning_effort_options("openai", "gpt-5.4-mini")
 
 
 def test_provider_model_overrides(monkeypatch):
@@ -225,8 +233,8 @@ def test_anthropic_long_text_request_streams_automatically(monkeypatch):
 
     assert text == "auto streamed"
     assert fake_messages.create_called is False
-    assert fake_messages.kwargs["model"] == "claude-opus-4-8"
-    assert fake_messages.kwargs["max_tokens"] == 24576
+    assert fake_messages.kwargs["model"] == "claude-opus-5-5"
+    assert fake_messages.kwargs["max_tokens"] == 64_000
     assert fake_messages.kwargs["thinking"] == {"type": "adaptive", "display": "omitted"}
 
 
@@ -500,7 +508,7 @@ def test_gemini_text_request_shape_reasoning_and_citations(monkeypatch):
 
     assert text == "gemini answer"
     assert citations == [("Gemini Source", "https://example.com/g")]
-    assert fake_models.kwargs["model"] == "gemini-3.1-pro-preview-customtools"
+    assert fake_models.kwargs["model"] == "gemini-4-argon"
     assert fake_models.kwargs["contents"] == [{"role": "user", "parts": [{"text": "hello"}]}]
     assert fake_models.kwargs["config"] == {
         "max_output_tokens": 789,
@@ -613,7 +621,7 @@ def test_openai_reasoning_effort_request_shape(monkeypatch):
     )
 
     assert text == "reasoned"
-    assert fake_responses.kwargs["model"] == "gpt-5.5"
+    assert fake_responses.kwargs["model"] == "gpt-6.1-sol"
     assert fake_responses.kwargs["reasoning"] == {"effort": "xhigh"}
 
 
@@ -650,6 +658,35 @@ def test_openai_none_reasoning_effort_request_shape(monkeypatch):
     assert fake_responses.kwargs["reasoning"] == {"effort": "none"}
 
 
+def test_gpt_61_sol_rejects_none_and_minimal_reasoning():
+    kwargs: dict[str, object] = {}
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        llm_utils.apply_reasoning_config(
+            kwargs,
+            provider="openai",
+            model="gpt-6.1-sol",
+            max_tokens=64,
+            reasoning_effort="none",
+        )
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        llm_utils.apply_reasoning_config(
+            kwargs,
+            provider="openai",
+            model="gpt-6.1-sol",
+            max_tokens=64,
+            reasoning_effort="minimal",
+        )
+
+    llm_utils.apply_reasoning_config(
+        kwargs,
+        provider="openai",
+        model="gpt-5.4",
+        max_tokens=64,
+        reasoning_effort="none",
+    )
+    assert kwargs["reasoning"] == {"effort": "none"}
+
+
 def test_anthropic_adaptive_thinking_request_shape(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
@@ -684,17 +721,32 @@ def test_anthropic_adaptive_thinking_request_shape(monkeypatch):
     assert fake_messages.kwargs["output_config"] == {"effort": "high"}
 
 
-def test_anthropic_opus_4_8_uses_adaptive_thinking(monkeypatch):
+def test_anthropic_opus_5_5_uses_adaptive_thinking(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+
+    class FakeStream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def get_final_message(self):
+            return SimpleNamespace(content=[SimpleNamespace(type="text", text="reasoned")], stop_reason="end_turn")
 
     class FakeMessages:
         def __init__(self):
             self.kwargs = None
+            self.create_called = False
 
         def create(self, **kwargs):
+            self.create_called = True
+            raise AssertionError("Opus 5.5 requests must stream")
+
+        def stream(self, **kwargs):
             self.kwargs = kwargs
-            return SimpleNamespace(content=[SimpleNamespace(type="text", text="reasoned")], stop_reason="end_turn")
+            return FakeStream()
 
     fake_messages = FakeMessages()
 
@@ -709,13 +761,16 @@ def test_anthropic_opus_4_8_uses_adaptive_thinking(monkeypatch):
         model=llm_utils.MODEL_HIGH,
         api_key=None,
         max_tokens=4096,
-        reasoning_effort=llm_utils.REASONING_MAX,
+        reasoning_effort=llm_utils.REASONING_XHIGH,
     )
 
     assert text == "reasoned"
-    assert fake_messages.kwargs["model"] == "claude-opus-4-8"
+    assert fake_messages.create_called is False
+    assert fake_messages.kwargs["model"] == "claude-opus-5-5"
+    assert fake_messages.kwargs["max_tokens"] == 64_000
     assert fake_messages.kwargs["thinking"] == {"type": "adaptive", "display": "omitted"}
-    assert fake_messages.kwargs["output_config"] == {"effort": "max"}
+    assert "budget_tokens" not in fake_messages.kwargs["thinking"]
+    assert fake_messages.kwargs["output_config"] == {"effort": "xhigh"}
 
 
 def test_anthropic_manual_thinking_request_shape(monkeypatch):

@@ -14,6 +14,7 @@ SNAPSHOT_ECONOMIC_GROWTH = "economic_growth:current:v1"
 SNAPSHOT_LABOR_MARKET = "labor_market:current:v1"
 SNAPSHOT_MOMENTUM = "momentum:portfolio:5y"
 SNAPSHOT_SIGNAL_AGGREGATOR = "signal_aggregator:current:v1"
+SNAPSHOT_PORTFOLIO_RISK_DASHBOARD = "portfolio_risk_dashboard:current:v1"
 
 # Daily after-close data should be considered stale if a weekday refresh was
 # missed. Stale snapshots are still served; callers surface the metadata.

@@ -41,7 +41,7 @@ const DEFAULT_REASONING_EFFORTS_BY_PROVIDER: Record<LLMProvider, LLMReasoningEff
   anthropic: {
     low: "medium",
     mid: "high",
-    high: "max",
+    high: "xhigh",
   },
   openai: {
     low: "low",
@@ -51,7 +51,7 @@ const DEFAULT_REASONING_EFFORTS_BY_PROVIDER: Record<LLMProvider, LLMReasoningEff
   gemini: {
     low: "low",
     mid: "medium",
-    high: "high",
+    high: "medium",
   },
   talisman: {
     low: "none",
@@ -70,15 +70,19 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "claude-haiku-4-5": "Claude Haiku 4.5",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
   "claude-opus-4-7": "Claude Opus 4.7",
+  "claude-opus-5-5": "Claude Opus 5.5",
   "gpt-5.4-mini": "GPT 5.4 Mini",
   "gpt-5.4": "GPT 5.4",
   "gpt-5.5": "GPT 5.5",
+  "gpt-6.1-sol": "GPT 6.1 Sol",
   "gemini-3.1-flash-lite": "Gemini 3.1 Flash-Lite",
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
   "gemini-3.1-pro-preview-customtools": "Gemini 3.1 Pro Preview (Custom Tools)",
+  "gemini-4-argon": "Gemini 4 Argon",
 }
 const MODEL_DISPLAY_TOKEN_NAMES: Record<string, string> = {
   api: "API",
+  argon: "Argon",
   chatgpt: "ChatGPT",
   claude: "Claude",
   customtools: "Custom Tools",
@@ -95,6 +99,7 @@ const MODEL_DISPLAY_TOKEN_NAMES: Record<string, string> = {
   opus: "Opus",
   preview: "Preview",
   pro: "Pro",
+  sol: "Sol",
   sonnet: "Sonnet",
 }
 const LIFECYCLE_STATES: ToolLifecycleState[] = ["draft", "enabled", "deprecated", "disabled"]

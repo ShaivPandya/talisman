@@ -90,6 +90,7 @@ from llm_utils import (
     PROVIDER_GEMINI,
     PROVIDER_OPENAI,
     PROVIDER_TALISMAN,
+    anthropic_request_max_tokens,
     api_key_env,
     apply_reasoning_config,
     call_llm_json,
@@ -2521,6 +2522,7 @@ def _model_stream_kwargs(
 ) -> dict[str, object]:
     if provider == PROVIDER_ANTHROPIC:
         resolved_model = resolve_model(MODEL_MID, PROVIDER_ANTHROPIC)
+        max_tokens = anthropic_request_max_tokens(resolved_model, max_tokens)
         kwargs: dict[str, object] = {
             "model": resolved_model,
             "max_tokens": max_tokens,

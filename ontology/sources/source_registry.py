@@ -13,6 +13,7 @@ from api.snapshot_keys import (
     SNAPSHOT_LIQUIDITY,
     SNAPSHOT_MARKET_BREADTH,
     SNAPSHOT_MOMENTUM,
+    SNAPSHOT_PORTFOLIO_RISK_DASHBOARD,
     SNAPSHOT_POSITIONING_SUMMARY,
     SNAPSHOT_SECTOR_METRICS,
     SNAPSHOT_SENTIMENT,
@@ -103,6 +104,17 @@ def _entry(
 
 def _build_source_registry() -> dict[str, SourceRegistryEntry]:
     entries = [
+        _entry(
+            "portfolio_risk_dashboard",
+            "yfinance",
+            "risk",
+            1,
+            DEFAULT_SNAPSHOT_MAX_AGE_SECONDS,
+            False,
+            snapshot_key=SNAPSHOT_PORTFOLIO_RISK_DASHBOARD,
+            freshness_policy="market_session",
+            freshness_calendar_id="XNYS",
+        ),
         _entry(
             "portfolio",
             "yfinance",

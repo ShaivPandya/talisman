@@ -105,6 +105,7 @@ function RouteLoadBoundary({ children }: { children: ReactNode }) {
 
 const LoginPage = lazyPage(() => import("@/pages/LoginPage"), "LoginPage")
 const PortfolioDashboard = lazyPage(() => import("@/pages/PortfolioDashboard"), "PortfolioDashboard")
+const PortfolioRisk = lazyPage(() => import("@/pages/PortfolioRisk"), "PortfolioRisk")
 const PortfolioEditorPage = lazyPage(() => import("@/pages/PortfolioEditorPage"), "PortfolioEditorPage")
 const PortfolioAnalyzer = lazyPage(() => import("@/pages/PortfolioAnalyzer"), "PortfolioAnalyzer")
 const HedgingTool = lazyPage(() => import("@/pages/HedgingTool"), "HedgingTool")
@@ -189,6 +190,7 @@ function AppRoutes() {
             <Route element={<Layout />}>
               <Route index element={<PortfolioDashboard />} />
               <Route path="/portfolio/edit" element={<PortfolioEditorPage />} />
+              <Route path="/risk" element={<PortfolioRisk />} />
               <Route path="/portfolio" element={<Navigate to="/" replace />} />
               <Route path="/workspace" element={<Workspace />} />
               <Route path="/dossier/:ticker" element={<PositionDossier />} />
