@@ -74,6 +74,8 @@ def test_settings_are_global_persisted_and_do_not_change_regular_models(auth_cli
     original = auth_client.get("/api/settings/company-research").json()
     assert original["model"] == "gpt-6.1-sol"
     assert "last 20 fiscal quarters" in original["management_quality_prompt"]
+    assert llm_settings.get_setting(research.PROMPTS_KEY)["value"] == research.ResearchPrompts().model_dump_json()
+    assert original["updated_at"]
     llm_settings.set_llm_provider_setting("anthropic")
     prompts = {
         "overview_prompt": 'Overview {ticker}, literal JSON {"x": 1}',
@@ -86,6 +88,8 @@ def test_settings_are_global_persisted_and_do_not_change_regular_models(auth_cli
     assert loaded["overview_prompt"] == prompts["overview_prompt"]
     assert loaded["management_quality_prompt"] == prompts["management_quality_prompt"]
     assert loaded["updated_at"]
+    llm_settings.ensure_setting(research.PROMPTS_KEY, research.ResearchPrompts().model_dump_json())
+    assert auth_client.get("/api/settings/company-research").json()["overview_prompt"] == prompts["overview_prompt"]
     assert llm_settings.get_setting(llm_settings.LLM_PROVIDER_KEY)["value"] == "anthropic"
 
 
@@ -270,7 +274,8 @@ def test_worker_uses_live_search_archives_report_and_applies_as_requesting_actor
     assert calls[0].kwargs["tools"][0]["type"] == "web_search"
     assert calls[1].kwargs["previous_response_id"] == "sources"
     assert calls[2].kwargs["max_output_tokens"] == 64_000
-    assert calls[0].kwargs["reasoning"] == {"effort": "xhigh"}
+    assert all(call.kwargs["reasoning"] == {"effort": "xhigh"} for call in calls[:3])
+    assert calls[3].kwargs["reasoning"] == {"effort": "high"}
     assert all(call["actor"].actor_id == "researcher" for call in egress)
     assert saves[0][0] == "save_overview_content"
     assert saves[0][2]["apply"] is True and saves[0][2]["approval_note"]

@@ -20,7 +20,7 @@ from api.company_research_prompts import MANAGEMENT_QUALITY_PROMPT, OVERVIEW_PRO
 from api.exceptions import AppError, ConfigurationError, NotFoundError, ValidationError
 from api.job_queue import get_job, update_job_progress
 from api.job_registry import get_job_spec
-from api.llm_settings import get_setting, set_setting
+from api.llm_settings import ensure_setting, get_setting, set_setting
 from api.state_storage import exists_text, read_text, write_text
 from llm_utils import extract_citations, extract_text, get_llm_client, is_provider_configured, require_api_key
 from ontology.policy import actor_from_dict
@@ -77,13 +77,15 @@ def research_model() -> str:
 
 def research_settings() -> dict[str, Any]:
     row = get_setting(PROMPTS_KEY)
+    if row is None:
+        row = ensure_setting(PROMPTS_KEY, ResearchPrompts().model_dump_json())
     try:
-        prompts = ResearchPrompts.model_validate(json.loads(row["value"])) if row else ResearchPrompts()
+        prompts = ResearchPrompts.model_validate(json.loads(row["value"]))
     except (ValueError, TypeError, KeyError) as exc:
         raise ConfigurationError("company_research.prompts") from exc
     return {
         **prompts.model_dump(),
-        "updated_at": row["updated_at"] if row else None,
+        "updated_at": row["updated_at"],
         "model": research_model(),
         "configured": is_provider_configured("openai"),
     }
@@ -222,7 +224,7 @@ def _phase_response(
             "instructions": instructions,
             "background": True,
             "store": True,
-            "reasoning": {"effort": "xhigh" if web_search else "high"},
+            "reasoning": {"effort": "high" if phase == "formatting" else "xhigh"},
             "max_output_tokens": 64_000 if phase == "report" else 24_000,
         }
         if previous_response_id:
