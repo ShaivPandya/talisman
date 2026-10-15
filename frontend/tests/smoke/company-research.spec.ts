@@ -107,6 +107,7 @@ test("starts both reports, recovers after reload, refreshes summaries and displa
   await expect(controls.getByRole("cell", { name: "FY2022 Q1" })).toBeVisible()
   await expect(controls.getByRole("cell", { name: "FY2026 Q4" })).toBeVisible()
   await expect(controls.getByRole("row")).toHaveCount(21)
+  expect(research.getDossierReads() - reads).toBe(1)
   await page.screenshot({ path: test.info().outputPath("company-research.png"), fullPage: true })
 })
 
