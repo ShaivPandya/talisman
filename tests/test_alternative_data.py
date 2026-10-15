@@ -103,6 +103,20 @@ def test_raw_coordinates_cannot_override_confirmed_site(monkeypatch):
         service.normalize_parameters(req)
 
 
+def test_sentinel_one_cannot_be_presented_as_spectral_index_measurements(monkeypatch):
+    monkeypatch.setattr(
+        service, "get_site", lambda _: {"ticker": "MSFT", "status": "confirmed", "bbox": [0, 0, 0.001, 0.001]}
+    )
+    with pytest.raises(ValueError, match="Sentinel-1 supports scene discovery only"):
+        service.normalize_parameters(
+            service.FetchRequest(
+                source_id="alternative_copernicus",
+                ticker="MSFT",
+                parameters={"site_id": "site", "operation": "indices", "mission": "SENTINEL-1"},
+            )
+        )
+
+
 def test_cache_reuse_and_failed_refresh_preserve_observation_and_retrieval_dates(monkeypatch):
     calls = []
     day = datetime.now(UTC).date().isoformat()

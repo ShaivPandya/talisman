@@ -86,6 +86,11 @@ class CompanyEvidenceRequest(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict)
     actor: dict[str, Any] | None = None
 
+    @field_validator("ticker")
+    @classmethod
+    def ticker_valid(cls, value: str) -> str:
+        return _ticker(value)
+
 
 def safe_citation(item: dict[str, Any]) -> dict[str, str]:
     url = str(item.get("url", ""))
@@ -269,6 +274,8 @@ def normalize_parameters(req: FetchRequest) -> dict[str, Any]:
         raise ValueError("Invalid PortWatch ID.")
     if req.source_id == "alternative_copernicus" and p["operation"] == "indices" and not p.get("site_id"):
         raise ValueError("Imagery calculations require a confirmed site.")
+    if req.source_id == "alternative_copernicus" and p["operation"] == "indices" and p["mission"] != "SENTINEL-2":
+        raise ValueError("Sentinel-1 supports scene discovery only; indices require Sentinel-2.")
     return p
 
 
@@ -740,6 +747,10 @@ def build_company_evidence(
             seen.add(source_id)
             parameters = choice.get("parameters", {})
             mappings = context.get("alternative_data_mappings", {})
+            if not isinstance(parameters, dict):
+                result["coverage_warnings"].append("A selected source had invalid parameters and was skipped.")
+                continue
+            mappings = mappings if isinstance(mappings, dict) else {}
             if parameters.get("employer") and parameters["employer"] != mappings.get("employer"):
                 result["coverage_warnings"].append(
                     "The company-to-employer legal-entity mapping is unresolved; LCA evidence was skipped."

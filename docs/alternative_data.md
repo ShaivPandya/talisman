@@ -58,6 +58,10 @@ Agents discover sources with `search_alternative_data_catalog`, then call
 also accepts its `job_id` to poll. Research/evaluation code can call
 `build_company_evidence(ticker, question, context, actor=...)`; selection is
 limited to three relevant, available sources and validated parameters.
+The helper skips unresolved employer legal names and labels unresolved product
+relationships as sector proxies. Callers with reviewed mappings may supply
+`context.alternative_data_mappings` with an `employer` legal name and `products`
+codes; a model's proposed name alone never establishes a company relationship.
 
 Results include observations or a snapshot, units, citations, attribution,
 observation and retrieval timestamps, freshness, coverage warnings, and a link
