@@ -114,63 +114,87 @@ const debtCols: ColumnDef[] = [
   { key: "maturity", header: "Maturity" },
 ]
 
+function financialsSnapshotQueryKey(ticker: string) {
+  return ["financials-overview-v13", ticker] as const
+}
+
+function FinancialMetricCards({ metrics }: { metrics: Record<string, unknown> }) {
+  const marketCurrency = typeof metrics.market_cap_currency === "string" ? metrics.market_cap_currency : "USD"
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <MetricCard title="3Y Revenue CAGR" value={formatPct(metrics.revenue_cagr_3y)} />
+      <MetricCard title="3Y EPS CAGR" value={formatPct(metrics.eps_cagr_3y)} />
+      <MetricCard title="Avg YoY Revenue (3Q)" value={formatPct(metrics.avg_yoy_revenue_growth_3q)} />
+      <MetricCard title="Avg YoY EPS (3Q)" value={formatPct(metrics.avg_yoy_eps_growth_3q)} />
+      <MetricCard title="Market Cap" value={formatMarketCap(metrics.market_cap, marketCurrency)} />
+      <MetricCard
+        title="Interest Coverage"
+        value={formatCoverage(metrics.interest_coverage)}
+        subtitle={metricBasisLabel(metrics.interest_coverage_basis, metrics.interest_coverage_period_end)}
+        signal={metrics.interest_coverage_flag === true ? "error" : null}
+        signalLabel={interestCoverageSignalLabel(metrics)}
+      />
+      <MetricCard
+        title="Operating Margin"
+        value={formatPct(metrics.operating_margin)}
+        subtitle={metricBasisLabel(metrics.operating_margin_basis, metrics.operating_margin_period_end)}
+      />
+      <MetricCard
+        title="Net Income Margin"
+        value={formatPct(metrics.net_income_margin)}
+        subtitle={metricBasisLabel(metrics.net_income_margin_basis, metrics.net_income_margin_period_end)}
+      />
+    </div>
+  )
+}
+
+export function FinancialsSnapshot({ ticker }: { ticker: string }) {
+  const { data: rawData, isLoading, error } = useApiQuery<Record<string, unknown>>(
+    financialsSnapshotQueryKey(ticker),
+    () => runFinancials({ ticker }),
+    300_000,
+  )
+  const metrics = (rawData?.metrics ?? {}) as Record<string, unknown>
+  const dataSource = typeof rawData?.data_source === "string" ? rawData.data_source : "sec_edgar"
+
+  return (
+    <div className="space-y-3">
+      {isLoading && <LoadingSpinner message="Loading live financials..." />}
+      {error && <p className="text-xs text-red-500">Live financials unavailable: {String(error)}</p>}
+      {rawData && dataSource === "yfinance" && (
+        <p className="text-xs text-subtle">
+          Yahoo Finance fallback. Filing breakdown is unavailable.
+        </p>
+      )}
+      {rawData && <FinancialMetricCards metrics={metrics} />}
+    </div>
+  )
+}
+
 function FinancialsSection({ ticker, parsed }: { ticker: string; parsed: ParsedFinancials | null }) {
   const [view, setView] = useState<FinancialViewMode>("annual")
 
-  const { data: rawData, isLoading, error } = useApiQuery<Record<string, unknown>>(
-    ["financials-overview-v13", ticker],
+  const { data: rawData, isLoading } = useApiQuery<Record<string, unknown>>(
+    financialsSnapshotQueryKey(ticker),
     () => runFinancials({ ticker }),
     300_000,
   )
 
-  const metrics = (rawData?.metrics ?? {}) as Record<string, unknown>
   const annual = (rawData?.annual ?? {}) as Record<string, unknown>
   const quarterly = (rawData?.quarterly ?? {}) as Record<string, unknown>
   const revenueRows = (view === "annual" ? annual.revenue : quarterly.revenue) as FinancialRow[] | undefined
   const epsRows = (view === "annual" ? annual.eps : quarterly.eps) as FinancialRow[] | undefined
-  const dataSource = typeof rawData?.data_source === "string" ? rawData.data_source : "sec_edgar"
   const financialCurrency = typeof rawData?.financial_currency === "string" ? rawData.financial_currency : "USD"
-  const marketCurrency = typeof metrics.market_cap_currency === "string" ? metrics.market_cap_currency : "USD"
   const revenueFormatter = (v: unknown) => formatRevenue(v, financialCurrency)
 
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold uppercase tracking-wide text-app">Financials</h3>
 
-      {isLoading && <LoadingSpinner message="Loading live financials..." />}
-      {error && <p className="text-xs text-red-500">Live financials unavailable: {String(error)}</p>}
+      <FinancialsSnapshot ticker={ticker} />
       {rawData && (
         <>
-          {dataSource === "yfinance" && (
-            <p className="text-xs text-subtle">
-              Yahoo Finance fallback. Filing breakdown is unavailable.
-            </p>
-          )}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <MetricCard title="3Y Revenue CAGR" value={formatPct(metrics.revenue_cagr_3y)} />
-            <MetricCard title="3Y EPS CAGR" value={formatPct(metrics.eps_cagr_3y)} />
-            <MetricCard title="Avg YoY Revenue (3Q)" value={formatPct(metrics.avg_yoy_revenue_growth_3q)} />
-            <MetricCard title="Avg YoY EPS (3Q)" value={formatPct(metrics.avg_yoy_eps_growth_3q)} />
-            <MetricCard title="Market Cap" value={formatMarketCap(metrics.market_cap, marketCurrency)} />
-            <MetricCard
-              title="Interest Coverage"
-              value={formatCoverage(metrics.interest_coverage)}
-              subtitle={metricBasisLabel(metrics.interest_coverage_basis, metrics.interest_coverage_period_end)}
-              signal={metrics.interest_coverage_flag === true ? "error" : null}
-              signalLabel={interestCoverageSignalLabel(metrics)}
-            />
-            <MetricCard
-              title="Operating Margin"
-              value={formatPct(metrics.operating_margin)}
-              subtitle={metricBasisLabel(metrics.operating_margin_basis, metrics.operating_margin_period_end)}
-            />
-            <MetricCard
-              title="Net Income Margin"
-              value={formatPct(metrics.net_income_margin)}
-              subtitle={metricBasisLabel(metrics.net_income_margin_basis, metrics.net_income_margin_period_end)}
-            />
-          </div>
-
           <div className="flex items-center gap-3">
             <span className="text-xs text-subtle">History</span>
             <SegmentedControl
@@ -659,15 +683,17 @@ export function EquityOverviewReadView({
   content,
   parsed,
   ticker,
+  includeFinancials = true,
 }: {
   content: string | null
   parsed: ParsedOverview | null
   ticker: string
+  includeFinancials?: boolean
 }) {
   if (parsed) {
     return (
       <div className="space-y-8">
-        <FinancialsSection ticker={ticker} parsed={parsed.financials} />
+        {includeFinancials && <FinancialsSection ticker={ticker} parsed={parsed.financials} />}
         {parsed.porters_five_forces && <PortersForcesSection forces={parsed.porters_five_forces} />}
         <SupplyChainSection supplyChain={parsed.supply_chain} ticker={ticker} />
         {(parsed.supply_outlook || parsed.demand_outlook) && (
