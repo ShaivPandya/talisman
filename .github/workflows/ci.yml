@@ -136,7 +136,7 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
             | tar xz -C /usr/local/bin gitleaks
       - name: Run gitleaks
-        run: gitleaks detect --source . --no-banner -v
+        run: gitleaks detect --source . --no-banner --redact -v
 
   # Python static analysis security (bandit)
   security-python-sast:
