@@ -20,7 +20,7 @@ const ACTIVE_JOB_KEY = "portfolio-risk-dashboard:active-job:v1"
 const CHART_COLOR = "#3b82f6"
 const HEDGE_COLOR = "#a78bfa"
 const COMBINED_COLOR = "#06b6d4"
-const AXIS_COLOR = "var(--color-text-muted)"
+const AXIS_COLOR = "hsl(var(--foreground-tertiary))"
 
 function readActiveJob(): string | null {
   try { return sessionStorage.getItem(ACTIVE_JOB_KEY) } catch { return null }
@@ -46,12 +46,12 @@ function ConcentrationChart({ title, rows }: { title: string; rows: RiskExposure
       <p className="mt-1 text-xs text-subtle">Share of measured gross linear exposure{rows.length > 8 ? ` · top 8 of ${rows.length}` : ""}</p>
       {hasShares ? (
         <div className="mt-4 h-64" role="img" aria-label={`${title} as shares of measured gross exposure`}>
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 320, height: 256 }}>
             <BarChart data={visible} layout="vertical" margin={{ top: 4, right: 18, bottom: 4, left: 0 }} accessibilityLayer>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--chart-grid))" />
               <XAxis type="number" domain={[0, 100]} tickFormatter={value => `${value}%`} tick={{ fill: AXIS_COLOR, fontSize: 11 }} />
               <YAxis type="category" dataKey="name" width={105} tick={{ fill: AXIS_COLOR, fontSize: 11 }} tickFormatter={value => String(value).length > 16 ? `${String(value).slice(0, 15)}…` : String(value)} />
-              <Tooltip contentStyle={{ background: "var(--color-bg-card)", borderColor: "var(--color-border)", color: "var(--color-text)" }} formatter={value => [riskPercent(Number(value)), "Gross share"]} />
+              <Tooltip contentStyle={{ background: "hsl(var(--chart-tooltip-bg))", borderColor: "hsl(var(--chart-grid))", color: "hsl(var(--foreground))" }} formatter={value => [riskPercent(Number(value)), "Gross share"]} />
               <Bar dataKey="gross_share_pct" fill={CHART_COLOR} radius={[0, 3, 3, 0]} maxBarSize={24} />
             </BarChart>
           </ResponsiveContainer>
@@ -82,13 +82,13 @@ function MarketBetas({ view, includeHedges }: { view: RiskDashboardView; include
       <h2 className="text-base font-semibold text-app">Equity market beta</h2>
       <p className="mt-1 text-xs leading-5 text-subtle">Sensitivity per dollar of book to each benchmark independently. Equities and equity-index futures only; option deltas are unavailable.</p>
       {hasBeta ? <div className="mt-3 h-52" role="img" aria-label="SPY and IWM beta contributions from primary holdings and held hedges">
-        <ResponsiveContainer width="100%" height="100%">
+        <ResponsiveContainer width="100%" height="100%" minWidth={0} initialDimension={{ width: 480, height: 208 }}>
           <BarChart data={chartRows} margin={{ top: 10, right: 10, bottom: 0, left: 0 }} accessibilityLayer>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-border)" />
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--chart-grid))" />
             <XAxis dataKey="benchmark" tick={{ fill: AXIS_COLOR, fontSize: 12 }} />
-            <YAxis tickFormatter={value => `${Number(value).toFixed(1)}×`} tick={{ fill: AXIS_COLOR, fontSize: 11 }} width={48} />
-            <ReferenceLine y={0} stroke="var(--color-text-muted)" />
-            <Tooltip contentStyle={{ background: "var(--color-bg-card)", borderColor: "var(--color-border)", color: "var(--color-text)" }} formatter={value => riskBeta(Number(value))} />
+            <YAxis tickFormatter={value => `${Number(value).toLocaleString("en-US", { maximumSignificantDigits: 3 })}×`} tick={{ fill: AXIS_COLOR, fontSize: 11 }} width={64} />
+            <ReferenceLine y={0} stroke="hsl(var(--foreground-tertiary))" />
+            <Tooltip contentStyle={{ background: "hsl(var(--chart-tooltip-bg))", borderColor: "hsl(var(--chart-grid))", color: "hsl(var(--foreground))" }} formatter={value => riskBeta(Number(value))} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="primary" name="Primary holdings" fill={CHART_COLOR} maxBarSize={44} />
             {includeHedges && <Bar dataKey="hedges" name="Held hedges" fill={HEDGE_COLOR} maxBarSize={44} />}
@@ -193,13 +193,20 @@ function PositionDetails({ rows }: { rows: RiskDashboardPosition[] }) {
 }
 
 function OptionPremiums({ rows }: { rows: RiskDashboardPosition[] }) {
+  const [search, setSearch] = useState("")
+  const [ascending, setAscending] = useState(false)
+  const visible = useMemo(() => rows.filter(row => `${row.ticker} ${row.price_symbol} ${row.option_type} ${row.role}`.toLowerCase().includes(search.trim().toLowerCase())).sort((a, b) => {
+    if (a.premium_usd == null) return b.premium_usd == null ? 0 : 1
+    if (b.premium_usd == null) return -1
+    return (a.premium_usd - b.premium_usd) * (ascending ? 1 : -1)
+  }), [rows, search, ascending])
   return <SurfaceCard className="min-w-0 p-4 sm:p-5">
-    <h2 className="text-base font-semibold text-app">Option premiums</h2>
+    <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="text-base font-semibold text-app">Option premiums</h2><input type="search" aria-label="Search option contracts" placeholder="Search option contracts" value={search} onChange={event => setSearch(event.target.value)} className="theme-input w-full sm:w-64" /></div>
     <p className="mt-1 text-xs leading-5 text-subtle">Premium values are separate from linear exposure and market beta. Underlying delta exposure is unavailable.</p>
     {rows.length ? <div className="mt-4 overflow-x-auto rounded-lg border border-app">
       <table className="w-full text-left text-sm" aria-label="Option premiums">
-        <thead className="bg-card-muted text-xs text-muted"><tr>{["Contract", "Role", "Direction", "Quantity", "Premium USD", "Close date", "Delta exposure"].map(label => <th key={label} scope="col" className="whitespace-nowrap px-3 py-3">{label}</th>)}</tr></thead>
-        <tbody>{rows.map(row => <tr key={row.position_id} className="border-t border-app">
+        <thead className="bg-card-muted text-xs text-muted"><tr>{["Contract", "Role", "Direction", "Quantity", "Premium USD", "Close date", "Delta exposure"].map(label => <th key={label} scope="col" className="whitespace-nowrap px-3 py-3" aria-sort={label === "Premium USD" ? ascending ? "ascending" : "descending" : undefined}>{label === "Premium USD" ? <button type="button" className="inline-flex items-center gap-1 font-semibold" onClick={() => setAscending(value => !value)}>Premium USD<ArrowDownUp size={12} aria-hidden="true" /></button> : label}</th>)}</tr></thead>
+        <tbody>{visible.map(row => <tr key={row.position_id} className="border-t border-app">
           <td className="px-3 py-3"><Link className="text-blue-600 hover:underline dark:text-blue-400" to={`/dossier/${encodeURIComponent(row.underlying_ticker || row.ticker)}`}>{row.ticker} {row.option_type} {row.option_strike}</Link><p className="mt-1 whitespace-nowrap text-xs text-subtle">{row.price_symbol || "Contract unavailable"} · {riskDate(row.option_expiration)}</p></td>
           <td className="px-3 py-3">{row.role === "hedge" ? "Hedge" : "Primary"}</td><td className="px-3 py-3 capitalize">{row.direction}</td><td className="px-3 py-3">{row.quantity ?? "Unavailable"}</td>
           <td className="whitespace-nowrap px-3 py-3 tabular-nums">{riskMoney(row.premium_usd, 2)}{row.issues.length > 0 && <p className="mt-1 text-xs text-subtle">{row.issues.map(issue => issue.replaceAll("_", " ")).join(", ")}</p>}</td>
@@ -207,6 +214,7 @@ function OptionPremiums({ rows }: { rows: RiskDashboardPosition[] }) {
         </tr>)}</tbody>
       </table>
     </div> : <p className="mt-4 text-sm text-muted">No option positions in this view.</p>}
+    {rows.length > 0 && <p className="mt-3 text-xs text-subtle">{visible.length ? `${visible.length} of ${rows.length} contracts · search and sort apply to this table` : "No option contracts match this search."}</p>}
   </SurfaceCard>
 }
 
@@ -223,16 +231,17 @@ export function PortfolioRisk() {
     refetchInterval: query => query.state.data?.status === "queued" || query.state.data?.status === "running" ? 1500 : false,
   })
   useEffect(() => {
-    const result = job.data
-    if (!result || !["done", "error", "cancelled"].includes(result.status)) return
+    if (!job.data || !["done", "error", "cancelled"].includes(job.data.status)) return
     saveActiveJob(null)
-    setJobId(null)
-    setRefreshError(result.status === "done" ? null : result.error || "Refresh failed. The prior snapshot is still available.")
     void queryClient.invalidateQueries({ queryKey: QUERY_KEY })
   }, [job.data, queryClient])
   const refresh = useMutation({
     mutationFn: refreshPortfolioRiskDashboard,
-    onMutate: () => setRefreshError(null),
+    onMutate: () => {
+      setRefreshError(null)
+      setJobId(null)
+      saveActiveJob(null)
+    },
     onSuccess: result => {
       if (result.status === "done") {
         saveActiveJob(null)
@@ -248,6 +257,7 @@ export function PortfolioRisk() {
     onError: error => setRefreshError(errorText(error)),
   })
   const refreshing = refresh.isPending || Boolean(jobId && !job.error && (!job.data || job.data.status === "queued" || job.data.status === "running"))
+  const jobFailure = job.data?.status === "error" || job.data?.status === "cancelled" ? job.data.error || "Refresh failed. The prior snapshot is still available." : null
   const data = snapshot.data
   const view = data?.views[includeHedges ? "all_holdings" : "primary_positions"]
   const selected = data?.positions.filter(row => includeHedges || row.role !== "hedge") ?? []
@@ -260,7 +270,7 @@ export function PortfolioRisk() {
       </button>
     } />
     {refreshing && <div role="status"><Notice>Risk refresh is {job.data?.status || "queued"}. The saved snapshot remains available while daily closes and betas are calculated.</Notice></div>}
-    {(refreshError || job.error) && <div role="alert"><Notice tone="error">{refreshError || errorText(job.error)} Use Refresh risk to retry.</Notice></div>}
+    {(refreshError || jobFailure || job.error) && <div role="alert"><Notice tone="error">{refreshError || jobFailure || errorText(job.error)} Use Refresh risk to retry.</Notice></div>}
     {snapshot.isLoading && <p role="status" className="text-sm text-muted">Loading risk snapshot…</p>}
     {snapshot.error && <div role="alert"><Notice tone="error">Could not load the risk snapshot. {errorText(snapshot.error)} <button type="button" className="underline" onClick={() => void snapshot.refetch()}>Retry loading</button></Notice></div>}
     {!snapshot.isLoading && !snapshot.error && !data && <SurfaceCard className="p-6"><h2 className="text-lg font-semibold text-app">No risk dashboard snapshot yet</h2><p className="mt-2 text-sm text-muted">Use Refresh risk to calculate exposures and market betas from your current holdings.</p></SurfaceCard>}
@@ -288,7 +298,7 @@ export function PortfolioRisk() {
         <p>Linear exposure = quantity × daily closing price × contract multiplier × USD FX rate × direction × economic leverage. Concentration sums absolute leg exposures before netting. Option premiums are excluded.</p>
         <p>SPY and IWM are separate market regressions, using {data.beta_method.lookback_days} calendar days of adjusted daily history, {data.beta_method.halflife_observations}-observation half-life, {data.beta_method.minimum_observations} minimum paired returns and {data.beta_method.shrink_to_one * 100}% shrinkage toward one. No assumed beta is counted as measured.</p>
         {Object.entries(data.source_status).map(([name, source]) => <p key={name}><strong className="capitalize text-app">{name}:</strong> {source.provider || source.quality || "Unavailable"} · as of {riskDate(source.as_of)}{source.error && ` · ${source.error}`}</p>)}
-        {Object.entries(data.stress?.source_status || {}).map(([name, source]) => <p key={name}>{name.replaceAll("_", " ")}: {source.status || "Unavailable"} · {riskDate(source.as_of)}{source.reason && ` · ${source.reason}`}</p>)}
+        {Object.entries(data.stress?.source_status || {}).map(([name, source]) => <p key={name}>{name.replaceAll("_", " ")}: {source.status || "Unavailable"} · {riskDate(source.as_of)}{typeof source.reason === "string" ? ` · ${source.reason}` : ""}</p>)}
       </div></details></SurfaceCard>
     </>}
   </div>
