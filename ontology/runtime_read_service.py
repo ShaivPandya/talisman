@@ -286,22 +286,13 @@ class OntologyRuntimeReadService:
             )
         ]
         if not rows and backfill:
-            from datetime import UTC, datetime
+            from ontology.conviction_history import derive_legacy_conviction_history
 
-            from ontology.conviction_history import backfill_conviction_history
-
-            backfill_conviction_history(
-                self.objects,
-                ticker=normalized,
-                now=datetime.now(UTC).isoformat(),
-            )
+            # Reading a dossier must not attempt writes without governed provenance.
             rows = [
-                object_props(row)
-                for row in self.objects.query_objects(
-                    "ConvictionHistoryEntry",
-                    filters=filters or None,
-                    limit=500,
-                )
+                row
+                for row in derive_legacy_conviction_history(self.objects, ticker=normalized)
+                if all(str(row.get(key) or "") == str(value) for key, value in filters.items())
             ]
 
         history = [compact_conviction_history_entry(row, entry_id=index + 1) for index, row in enumerate(rows)]

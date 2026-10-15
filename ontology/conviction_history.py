@@ -584,14 +584,12 @@ def record_conviction_change(
     )
 
 
-def backfill_conviction_history(
+def derive_legacy_conviction_history(
     object_service: Any,
     *,
     ticker: str | None = None,
-    now: str,
-    actor: dict[str, Any] | None = None,
-) -> int:
-    """Materialize conviction history entries from temporal versions. Returns count written."""
+) -> list[dict[str, Any]]:
+    """Derive legacy transitions without writing to the ontology."""
     specs = (
         ("Position", "position", "backfill"),
         ("HedgePosition", "hedge_position", "backfill"),
@@ -608,7 +606,18 @@ def backfill_conviction_history(
                 ticker=ticker,
             )
         )
+    return derived
 
+
+def backfill_conviction_history(
+    object_service: Any,
+    *,
+    ticker: str | None = None,
+    now: str,
+    actor: dict[str, Any] | None = None,
+) -> int:
+    """Materialize conviction history entries from temporal versions. Returns count written."""
+    derived = derive_legacy_conviction_history(object_service, ticker=ticker)
     written = 0
     for props in derived:
         entry_key = str(props.get("entry_id") or "")
