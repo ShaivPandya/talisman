@@ -127,6 +127,7 @@ npm run dev:all
 Core portfolio and research workflows:
 
 - Portfolio dashboard, position editing, hedge positions, and performance analytics.
+- Portfolio Risk dashboard (`/risk`) with measured linear exposures, underlying/sector/asset/group concentrations, SPY/IWM beta contributions, and primary-position stress scores. Exposures use daily closes in USD as a percentage of configured portfolio book size; the existing $100,000 fallback is visibly labeled. Held hedges can be included or excluded consistently. Option premiums appear separately because delta exposure is unavailable. Page loads read saved snapshots; **Refresh risk** runs a durable background job. Missing measurements and stale/failed refreshes remain visible, with prior successful values retained on refresh failure.
 - Portfolio analyzer, optimizer, hedging tool, and portfolio sizer with async execution paths for heavier jobs.
 - Thesis and overview generation from uploaded PDFs, editable thesis/overview storage, thesis status tracking, and position dossiers.
 - One-click company overview and management-quality research on equity Dossier and Ideas pages. The two web-grounded jobs run independently, automatically save through the governed action path, and retain full cited reports alongside structured summaries. Edit Research Prompts saves global templates containing `{ticker}`; running jobs keep their starting prompts. Failed reports can be retried individually, and Markdown/PDF uploads remain available.

@@ -73,7 +73,7 @@ DEFAULT_GATEWAY_POLICY: dict[str, Any] = {
 }
 DEFAULT_PROVIDER_MODE = "single"
 
-_lock = threading.Lock()
+_lock = threading.RLock()
 _conn: sqlite3.Connection | PostgresStateConnection | None = None
 
 _CREATE_APP_SETTINGS = """
@@ -91,31 +91,31 @@ def _now() -> str:
 
 def _close_conn() -> None:
     global _conn
-    if _conn is not None:
-        try:
-            _conn.close()
-        except Exception:
-            pass
-        _conn = None
+    with _lock:
+        if _conn is not None:
+            try:
+                _conn.close()
+            except Exception:
+                pass
+            _conn = None
 
 
 def _get_conn(*, probe: bool = True) -> sqlite3.Connection | PostgresStateConnection:
     global _conn
-    if probe and _conn is not None:
-        try:
-            _conn.execute("SELECT 1")
-        except Exception:
-            _close_conn()
-    if _conn is None:
-        with _lock:
-            if _conn is None:
-                if use_postgres_state():
-                    _conn = PostgresStateConnection()
-                else:
-                    _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-                    _conn.row_factory = sqlite3.Row
-                    _init_db(_conn)
-    return _conn
+    with _lock:
+        if probe and _conn is not None:
+            try:
+                _conn.execute("SELECT 1")
+            except Exception:
+                _close_conn()
+        if _conn is None:
+            if use_postgres_state():
+                _conn = PostgresStateConnection()
+            else:
+                _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+                _conn.row_factory = sqlite3.Row
+                _init_db(_conn)
+        return _conn
 
 
 def _init_db(conn: sqlite3.Connection | PostgresStateConnection) -> None:
@@ -132,8 +132,8 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
 def get_setting(key: str) -> dict[str, Any] | None:
     if not use_postgres_state() and not DB_PATH.exists():
         return None
-    conn = _get_conn()
     with _lock:
+        conn = _get_conn()
         row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row) if row else None
 
@@ -149,9 +149,9 @@ def get_settings(keys: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]
     sql = f"SELECT key, value, updated_at FROM app_settings WHERE key IN ({placeholders})"
     last_exc: Exception | None = None
     for attempt in range(2):
-        conn = _get_conn(probe=False)
         try:
             with _lock:
+                conn = _get_conn(probe=False)
                 rows = conn.execute(sql, tuple(unique_keys)).fetchall()
             return {str(row["key"]): _row_to_dict(row) for row in rows}
         except Exception as exc:
@@ -165,9 +165,9 @@ def get_settings(keys: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]
 
 
 def set_setting(key: str, value: str) -> dict[str, Any]:
-    conn = _get_conn()
     updated_at = _now()
     with _lock:
+        conn = _get_conn()
         conn.execute(
             """
             INSERT INTO app_settings (key, value, updated_at)
@@ -185,8 +185,8 @@ def set_setting(key: str, value: str) -> dict[str, Any]:
 
 def ensure_setting(key: str, default_value: str) -> dict[str, Any]:
     """Persist a default without overwriting concurrent or existing edits."""
-    conn = _get_conn()
     with _lock:
+        conn = _get_conn()
         conn.execute(
             """
             INSERT INTO app_settings (key, value, updated_at)

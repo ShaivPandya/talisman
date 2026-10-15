@@ -1732,6 +1732,8 @@ export interface PositionRiskSnapshot {
 }
 
 export interface PortfolioRiskSnapshot extends Omit<PositionRiskSnapshot, "ticker"> {
+  computed_at: string
+  as_of?: string | null
   position_count?: number
   average_risk_score?: number | null
   max_risk_score?: number | null
@@ -2518,6 +2520,11 @@ export const generatePortfolioAnalyzerBrief = (action: AnalyzerCourseAction) =>
   client
     .post("/portfolio-analyzer/course-of-action/brief", { action }, { timeout: 120_000 })
     .then(r => r.data as { brief: string })
+
+export async function generatePortfolioAnalyzerEvidenceBrief(action: AnalyzerCourseAction) {
+  const response = await client.post("/portfolio-analyzer/course-of-action/brief/async", { action })
+  return waitForAlternativeDataJob<{ brief: string; alternative_data: CompanyAlternativeEvidence }>(response.data)
+}
 
 export const fetchPortfolioAnalyzerRecommendedScenario = (params?: { force_refresh?: boolean }) =>
   client
@@ -3757,3 +3764,63 @@ export const fetchEntityProvenance = (refType: string, refId: string, maxDepth =
       params: { max_depth: maxDepth },
     })
     .then(r => r.data as ProvenanceTrace)
+
+export interface AlternativeCitation { title: string; url: string }
+export interface AlternativeSite {
+  site_id?: string; proposal_id?: string; ticker: string; name: string; bbox: number[]
+  citations: AlternativeCitation[]; status: string
+}
+export interface AlternativeAvailability { status: string; message: string; missing_credentials: string[] }
+export interface AlternativeParameter {
+  type: string; description?: string; default?: string | number; enum?: string[]
+  minimum?: number; maximum?: number; format?: string
+}
+export interface AlternativeSource {
+  source_id: string; name: string; group: string; group_label: string; question: string; coverage: string
+  cadence: string; url: string; license_url: string; attribution: string; notes: string
+  availability: AlternativeAvailability; operations?: Record<string, AlternativeAvailability>
+  parameter_schema: { properties: Record<string, AlternativeParameter>; required: string[] }
+  latest_result?: { as_of?: string | null; fetched_at?: string | null; stale: boolean } | null
+}
+export interface AlternativeResult {
+  source_id: string; status: string; data_kind?: string
+  observations: { date: string; metric: string; value: number | null; unit: string; dimensions?: Record<string, unknown> }[]
+  snapshot?: Record<string, unknown> | null; citations: AlternativeCitation[]; warnings?: string[]
+  as_of?: string | null; fetched_at?: string | null; freshness?: { stale: boolean; status: string }
+  attribution?: string; error?: string; result_url?: string; availability?: AlternativeAvailability
+}
+export interface CompanyAlternativeEvidence {
+  ticker: string; evidence: AlternativeResult[]; citations: AlternativeCitation[]
+  coverage_warnings: string[]; catalog_url: string
+}
+export interface AlternativeCatalog {
+  sources: AlternativeSource[]; groups: Record<string, string>; sites?: AlternativeSite[]; site_proposals?: AlternativeSite[]
+}
+interface AlternativeJob<T> { job_id: string; status: string; result?: T; error?: string }
+
+export const fetchAlternativeDataCatalog = (ticker?: string) =>
+  client.get("/alternative-data/catalog", { params: { ticker: ticker || undefined } }).then(r => r.data as AlternativeCatalog)
+
+export async function waitForAlternativeDataJob<T>(initial: AlternativeJob<T> | T): Promise<T> {
+  if (!(initial && typeof initial === "object" && "job_id" in initial)) return initial as T
+  let job = initial as AlternativeJob<T>
+  const deadline = Date.now() + 21 * 60_000
+  while (Date.now() < deadline) {
+    if (job.status === "done" && job.result) return job.result
+    if (["error", "failed", "cancelled", "canceled"].includes(job.status)) throw new Error(job.error || "Alternative-data job failed")
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    job = (await client.get(`/alternative-data/jobs/${encodeURIComponent(job.job_id)}`)).data as AlternativeJob<T>
+  }
+  throw new Error("The source is taking longer than expected. Return to the catalog to retry.")
+}
+export async function runAlternativeDataQuery(body: { source_id: string; parameters: Record<string, unknown>; ticker?: string; force_refresh?: boolean }) {
+  return waitForAlternativeDataJob<AlternativeResult>((await client.post("/alternative-data/fetch", body)).data)
+}
+export async function suggestAlternativeDataSites(ticker: string) {
+  return waitForAlternativeDataJob<{ proposals: AlternativeSite[] }>((await client.post("/alternative-data/sites/suggest", { ticker })).data)
+}
+export const confirmAlternativeDataSite = (site: Omit<AlternativeSite, "status" | "site_id">) =>
+  client.post("/alternative-data/sites/confirm", site).then(r => r.data as AlternativeSite)
+
+export const removeAlternativeDataSite = (siteId: string) =>
+  client.delete(`/alternative-data/sites/${encodeURIComponent(siteId)}`).then(r => r.data)

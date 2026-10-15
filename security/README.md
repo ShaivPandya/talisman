@@ -55,16 +55,27 @@ Suppressions go in `.gitleaks.toml` at the repo root.
 
 | Rule ID / Pattern | File / Scope | Reason | Owner | Added | Expiry |
 |-------------------|-------------|--------|-------|-------|--------|
-| `generic-api-key` / public metric identifiers | `frontend/src/pages/{PortfolioAnalyzer,YieldCurve,MarketTechnicals,SectorMetrics}.tsx`, `macro/country_dashboard/country_dashboard.py` | Re-reviewed public field/data-series identifiers; exact tokens remain unchanged. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
-| `generic-api-key` / synthetic Gemini key | Tests | Exact nonfunctional fixture key `AIza-test-key-12345678901234567890`; never a live credential. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
-| `generic-api-key` / `llm.reasoning_effort.frontier_defaults_v2` | `api/llm_settings.py` | Public database setting identifier introduced by the model-default migration; exact token and path must both match. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / public metric identifiers | `frontend/src/pages/{PortfolioAnalyzer,YieldCurve,MarketTechnicals,SectorMetrics}.tsx`, `macro/country_dashboard/country_dashboard.py` | Rechecked: frontend field names and public macro data-series identifiers. Exact-token allowlist only. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / synthetic Gemini key | Test fixtures | Rechecked: literal `AIza-test-key-12345678901234567890` is a synthetic credential used only in tests. Exact-token allowlist only. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / `llm.reasoning_effort.frontier_defaults_v2` | `api/llm_settings.py` | Public settings migration marker, read and written through `settings_store`; it is not authentication material. Exact token AND exact path. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
 | `generic-api-key` / 20 exact public metric identifiers | Exact historical files enumerated for each identifier in `.gitleaks.toml` | Public financial observations and Census field names. Each anchored token must match one of its exact reviewed paths; no directory wildcards. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
 | `generic-api-key` / 17 exact SHA-256 request cache digests | Exact historical fixture files enumerated for each digest in `.gitleaks.toml` | Non-authenticating cache lookups. Only the 17 reviewed digest values at their exact reviewed paths are allowed; no hash-format pattern or directory wildcards. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / `anthropic_api_key=` | Historical `longaeva/backend/tests/test_llm_baseline.py` and `scripts/check_gitleaks_allowlists.py` | Scanner misparses adjacent `test-key` literals as a key assignment and captures this public Python argument name. The historical test uses `httpx.MockTransport`; the scanner guard reproduces that fixture. Exact token AND these two test paths; credential values in either file remain detected. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
 
-The owner reviewed these false positives in PR #423 and requested exact hashes
-and file paths on 2026-10-14. The revised rules cover 38 exact public identifiers
-and cache hashes across 24 exact historical paths, including the settings key
-above. Default detection rules remain enabled.
+The TL-161 repair removes the unused `python-jose` runtime dependency (including
+its vulnerable `ecdsa` dependency), updates the affected Python pins and both
+JavaScript lockfiles, and retains all dependency audit gates without CVE ignores.
+The historical secret findings were all `generic-api-key` false positives.
+The full-history scan and a synthetic credential detection check must pass before
+release. PR #427 records the original suppression review. For TL-163, the owner
+requested exact hashes and file paths in PR #423 on 2026-10-15. The narrowed
+research-data rules cover 38 exact public identifiers and cache hashes across 24
+exact historical paths, including the settings key. Default detection rules
+remain enabled, and unreviewed hashes at those same paths remain scanned.
+
+The root Firebase package still pins the affected gRPC client to the 1.9 minor
+series. Its `@grpc/grpc-js` override selects the patched 1.x API (at least 1.14.5)
+without downgrading Firebase. Both root and frontend lockfiles are audited.
 
 ### bandit Allowlist
 

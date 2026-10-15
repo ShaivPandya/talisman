@@ -926,6 +926,21 @@ def execute_workflow(
 
     effective_actor = actor or admin_actor(source="workflow")
     synthesis_prompt, sections = runner(ticker, effective_actor, run_id)
+    if ticker:
+        from api.alternative_data import build_company_evidence
+
+        alternative = build_company_evidence(
+            ticker,
+            str(wf["description"]),
+            {"workflow_sections": sections},
+            actor=effective_actor,
+        )
+        sections.append({"tool": "fetch_alternative_data", "data": alternative, "duration_ms": 0})
+        synthesis_prompt += (
+            "\n\nAlternative-data evidence: cite supplied source links; distinguish company observations from proxies. "
+            "Missing, stale, restricted, and low-coverage sources cannot establish company facts.\n"
+            + json.dumps(alternative, default=str)[:12000]
+        )
     _record_workflow_tool_provenance(
         run_id=run_id,
         workflow_name=workflow_name,

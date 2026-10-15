@@ -1,4 +1,5 @@
 import { expect, test as base, type Page, type Route } from "@playwright/test"
+import { riskDashboardFixture } from "./risk-fixture"
 
 type JsonValue =
   | string
@@ -962,6 +963,16 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
 
   if (method === "GET" && path === "/api/portfolio") {
     return json(route, portfolioResponse(url.searchParams.get("timeframe") ?? "This Week"))
+  }
+
+  if (method === "GET" && path === "/api/risk/dashboard/latest") {
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(riskDashboardFixture) })
+  }
+  if (method === "POST" && path === "/api/risk/dashboard/refresh") {
+    return json(route, { job_id: "risk-smoke-job", status: "queued" }, 202)
+  }
+  if (method === "GET" && path === "/api/risk/dashboard/async/risk-smoke-job") {
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ job_id: "risk-smoke-job", status: "done", result: riskDashboardFixture }) })
   }
 
   if (method === "GET" && path === "/api/liquidity") return json(route, liquidityResponse)

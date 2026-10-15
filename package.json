@@ -6,6 +6,6 @@
     "firebase": "^12.12.1"
   },
   "overrides": {
-    "@grpc/grpc-js": "^1.14.6"
+    "@grpc/grpc-js": "^1.14.5"
   }
 }

@@ -92,6 +92,7 @@ from ontology.policy import PolicyDenied
 _optional_routers: dict[str, tuple] = {}
 
 _OPTIONAL_MODULES = [
+    ("api.routers.alternative_data", "alternative_data", "research"),
     ("api.routers.analyzer", "analyzer", "portfolio"),
     ("api.routers.hedging", "hedging", "portfolio"),
     ("api.routers.sizer", "sizer", "portfolio"),

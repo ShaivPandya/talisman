@@ -2866,7 +2866,54 @@ def _tool_binding(tool_name: str) -> dict[str, Any] | None:
 
 
 def _tool_specs() -> list[dict[str, Any]]:
-    specs: list[dict[str, Any]] = []
+    specs: list[dict[str, Any]] = [
+        {
+            "name": "search_alternative_data_catalog",
+            "description": "Discover company alternative-data sources by question. Returns coverage, freshness, access requirements, fetch parameter schemas and confirmed company sites. Optionally research cited site proposals for human confirmation.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "group": {"type": "string"},
+                    "ticker": {"type": "string"},
+                    "suggest_sites": {"type": "boolean"},
+                },
+                "required": [],
+            },
+            "category": "research",
+            "access_mode": "read",
+            "timeout_s": 300,
+            "data_sensitivity": "research_private",
+            "aliases": (
+                "alternative data",
+                "company site",
+                "satellite",
+                "hiring",
+                "port throughput",
+                "shipping",
+                "physical activity",
+            ),
+        },
+        {
+            "name": "fetch_alternative_data",
+            "description": "Fetch one registered alternative-data source using parameters discovered in the catalog. Company geography requires a human-confirmed site_id. Returns cited observations, freshness and warnings, or a durable job. Call again with job_id to retrieve the same job; report setup requirements without inventing data.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "source_id": {"type": "string"},
+                    "parameters": {"type": "object", "additionalProperties": True},
+                    "ticker": {"type": "string"},
+                    "job_id": {"type": "string"},
+                },
+                "required": ["source_id"],
+            },
+            "category": "research",
+            "access_mode": "read",
+            "timeout_s": 30,
+            "data_sensitivity": "research_private",
+            "aliases": ("fetch alternative data", "satellite indices", "trade flows"),
+        },
+    ]
     for line in _TOOL_EXPOSURE_SPECS_TEXT.splitlines():
         raw = line.strip()
         if not raw:

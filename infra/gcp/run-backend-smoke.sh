@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # SHA-34: Run backend smoke tests against the live Cloud Run API.
 #
-# Usage (automatic — called by deploy-backend.sh after deploy-api.sh):
+# Usage (manual — after deploy-api.sh):
 #   EXPECTED_IMAGE_TAG=abc1234 ./infra/gcp/run-backend-smoke.sh
 #
 # Usage (manual — post-rollback):
@@ -11,6 +11,8 @@
 #   API_SERVICE           Cloud Run service name (from config.sh)
 #   SMOKE_MODE            "post-deploy" (default) or "post-rollback"
 #   EXPECTED_IMAGE_TAG    Optional tag to assert against /api/health release
+#   SMOKE_AUTH_PROFILE    "admin" (default) or "viewer" permission expectations
+#   AUTH_DEFAULT_USERNAME Login username (use "smoke" for the viewer account)
 #   API_PROXY_SECRET      Fetched from Secret Manager (never printed)
 #   AUTH_SMOKE_PASSWORD   Fetched from Secret Manager (never printed)
 
@@ -23,6 +25,7 @@ require_var API_SERVICE
 log() { printf '\n[smoke] %s\n' "$*"; }
 
 SMOKE_MODE="${SMOKE_MODE:-post-deploy}"
+SMOKE_AUTH_PROFILE="${SMOKE_AUTH_PROFILE:-admin}"
 
 # ---------------------------------------------------------------------------
 # Resolve Cloud Run service URL
@@ -69,12 +72,13 @@ SMOKE_ARGS=(
   -m infra.gcp.deploy_smoke
   --service-url "${SERVICE_URL}"
   --mode "${SMOKE_MODE}"
+  --auth-profile "${SMOKE_AUTH_PROFILE}"
 )
 
 if [[ -n "${EXPECTED_IMAGE_TAG:-}" ]]; then
   SMOKE_ARGS+=(--expected-image-tag "${EXPECTED_IMAGE_TAG}")
 fi
 
-log "Running smoke checks (mode=${SMOKE_MODE})"
+log "Running smoke checks (mode=${SMOKE_MODE}, auth-profile=${SMOKE_AUTH_PROFILE})"
 PYTHON_BIN="$(python_bin)"
 "${PYTHON_BIN}" "${SMOKE_ARGS[@]}"

@@ -42,6 +42,7 @@ export const NAV_SECTIONS: NavSection[] = [
     pages: [
       { label: "Signal Aggregator", path: "/signal-aggregator" },
       { label: "Ontology Workbench", path: "/ontology" },
+      { label: "Alternative Data", path: "/alternative-data" },
       { label: "Market Technicals", path: "/market-technicals" },
       { label: "News Digests", path: "/portfolio-news" },
       { label: "Sentiment", path: "/sentiment" },
