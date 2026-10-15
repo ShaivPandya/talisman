@@ -12,17 +12,56 @@ import llm_utils
 def temp_llm_settings(tmp_path, monkeypatch):
     from api import llm_settings
 
-    if llm_settings._conn is not None:
-        llm_settings._conn.close()
-    llm_settings._conn = None
+    llm_settings._close_conn()
     monkeypatch.setenv("STATE_DB_BACKEND", "sqlite")
     monkeypatch.setattr(llm_settings, "DB_PATH", tmp_path / "app_settings.db")
 
     yield llm_settings
 
-    if llm_settings._conn is not None:
-        llm_settings._conn.close()
-    llm_settings._conn = None
+    llm_settings._close_conn()
+
+
+def test_connection_close_waits_for_an_active_settings_read(temp_llm_settings, monkeypatch):
+    from threading import Event, Thread
+
+    settings = temp_llm_settings
+    settings.set_setting("llm.provider", "openai")
+    connection = settings._conn
+    reading, release, closing, closed = Event(), Event(), Event(), Event()
+    rows = []
+
+    class BlockingConnection:
+        def execute(self, sql, *args):
+            if sql.startswith("SELECT key"):
+                reading.set()
+                assert release.wait(5)
+            return connection.execute(sql, *args)
+
+        def close(self):
+            connection.close()
+            closed.set()
+
+    monkeypatch.setattr(settings, "_conn", BlockingConnection())
+    reader = Thread(target=lambda: rows.append(settings.get_setting("llm.provider")))
+
+    def close():
+        closing.set()
+        settings._close_conn()
+
+    closer = Thread(target=close)
+    reader.start()
+    try:
+        assert reading.wait(2)
+        closer.start()
+        assert closing.wait(2)
+        assert not closed.wait(0.05)
+    finally:
+        release.set()
+        reader.join(5)
+        if closer.ident is not None:
+            closer.join(5)
+    assert not reader.is_alive() and not closer.is_alive()
+    assert closed.is_set() and rows[0]["value"] == "openai"
 
 
 def test_selected_provider_uses_env_fallback_without_persisted_setting(temp_llm_settings, monkeypatch):

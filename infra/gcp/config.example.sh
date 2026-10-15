@@ -88,6 +88,10 @@ export WORKER_SECRETS=(
   "SENTRY_DSN=SENTRY_DSN:latest"
 )
 
+# Optional alternative-data credentials, bound to both API and workers only
+# when supplied. Example: ("FIRMS_MAP_KEY=FIRMS_MAP_KEY:latest").
+export ALTERNATIVE_DATA_SECRETS=()
+
 # Optional governed inference service secrets (private GPU Cloud Run).
 export INFERENCE_SECRETS=(
   "TALISMAN_API_KEY=TALISMAN_API_KEY:latest"

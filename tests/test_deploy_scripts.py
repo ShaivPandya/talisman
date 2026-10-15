@@ -34,7 +34,7 @@ def test_firebase_hosting_spa_rewrite_does_not_capture_missing_assets() -> None:
     assert spa_rewrite["regex"] == no_cache_route_headers[0]["regex"]
 
     spa_pattern = re.compile(spa_rewrite["regex"])
-    for path in ["/", "/index.html", "/sizer", "/sizer/results", "/analyzer"]:
+    for path in ["/", "/index.html", "/sizer", "/sizer/results", "/analyzer", "/alternative-data"]:
         assert spa_pattern.fullmatch(path)
 
     for path in [

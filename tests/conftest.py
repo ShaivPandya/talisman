@@ -104,11 +104,11 @@ def _isolate_app_settings(tmp_path, monkeypatch):
     """Keep ignored local app settings out of test provider selection."""
     from api import llm_settings
 
-    if llm_settings._conn is not None:
-        llm_settings._conn.close()
-    monkeypatch.setattr(llm_settings, "_conn", None)
-    monkeypatch.setattr(llm_settings, "DB_PATH", tmp_path / "app_settings.db")
+    with llm_settings._lock:
+        llm_settings._close_conn()
+        monkeypatch.setattr(llm_settings, "_conn", None)
+        monkeypatch.setattr(llm_settings, "DB_PATH", tmp_path / "app_settings.db")
     yield
-    if llm_settings._conn is not None:
-        llm_settings._conn.close()
-    monkeypatch.setattr(llm_settings, "_conn", None)
+    with llm_settings._lock:
+        llm_settings._close_conn()
+        monkeypatch.setattr(llm_settings, "_conn", None)
