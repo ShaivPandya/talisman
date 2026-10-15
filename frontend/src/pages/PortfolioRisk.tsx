@@ -226,8 +226,6 @@ export function PortfolioRisk() {
     const result = job.data
     if (!result || !["done", "error", "cancelled"].includes(result.status)) return
     saveActiveJob(null)
-    setJobId(null)
-    setRefreshError(result.status === "done" ? null : result.error || "Refresh failed. The prior snapshot is still available.")
     void queryClient.invalidateQueries({ queryKey: QUERY_KEY })
   }, [job.data, queryClient])
   const refresh = useMutation({
@@ -247,6 +245,10 @@ export function PortfolioRisk() {
     },
     onError: error => setRefreshError(errorText(error)),
   })
+  const completedJobError = job.data?.status === "error" || job.data?.status === "cancelled"
+    ? job.data.error || "Refresh failed. The prior snapshot is still available."
+    : null
+  const visibleRefreshError = refreshError || completedJobError || (job.error ? errorText(job.error) : null)
   const refreshing = refresh.isPending || Boolean(jobId && !job.error && (!job.data || job.data.status === "queued" || job.data.status === "running"))
   const data = snapshot.data
   const view = data?.views[includeHedges ? "all_holdings" : "primary_positions"]
@@ -260,7 +262,7 @@ export function PortfolioRisk() {
       </button>
     } />
     {refreshing && <div role="status"><Notice>Risk refresh is {job.data?.status || "queued"}. The saved snapshot remains available while daily closes and betas are calculated.</Notice></div>}
-    {(refreshError || job.error) && <div role="alert"><Notice tone="error">{refreshError || errorText(job.error)} Use Refresh risk to retry.</Notice></div>}
+    {visibleRefreshError && <div role="alert"><Notice tone="error">{visibleRefreshError} Use Refresh risk to retry.</Notice></div>}
     {snapshot.isLoading && <p role="status" className="text-sm text-muted">Loading risk snapshot…</p>}
     {snapshot.error && <div role="alert"><Notice tone="error">Could not load the risk snapshot. {errorText(snapshot.error)} <button type="button" className="underline" onClick={() => void snapshot.refetch()}>Retry loading</button></Notice></div>}
     {!snapshot.isLoading && !snapshot.error && !data && <SurfaceCard className="p-6"><h2 className="text-lg font-semibold text-app">No risk dashboard snapshot yet</h2><p className="mt-2 text-sm text-muted">Use Refresh risk to calculate exposures and market betas from your current holdings.</p></SurfaceCard>}

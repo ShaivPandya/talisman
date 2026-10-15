@@ -58,8 +58,13 @@ Suppressions go in `.gitleaks.toml` at the repo root.
 | `generic-api-key` / public metric identifiers | `frontend/src/pages/{PortfolioAnalyzer,YieldCurve,MarketTechnicals,SectorMetrics}.tsx`, `macro/country_dashboard/country_dashboard.py` | Re-reviewed public field/data-series identifiers; exact tokens remain unchanged. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
 | `generic-api-key` / synthetic Gemini key | Tests | Exact nonfunctional fixture key `AIza-test-key-12345678901234567890`; never a live credential. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
 | `generic-api-key` / `llm.reasoning_effort.frontier_defaults_v2` | `api/llm_settings.py` | Public database setting identifier introduced by the model-default migration; exact token and path must both match. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
-| `generic-api-key` / 20 exact metric identifiers | Historical `longaeva/data/{evaluation,demo/forecasts,fixtures/llm_baseline}/*.json` | Reviewed JSON `key` values name public financial observations, such as revenue growth and capacity; anchored tokens and artifact paths must both match. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
-| `generic-api-key` / SHA-256 request cache digests | Historical `longaeva/data/{evaluation,demo/forecasts,fixtures/llm_baseline}/*.json` | Cache lookup hashes do not authenticate requests. Only an entire JSON `request_key` line containing exactly 64 hexadecimal characters in these paths is allowed. Credential field names and other locations remain scanned. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / 20 exact public metric identifiers | Exact historical files enumerated for each identifier in `.gitleaks.toml` | Public financial observations and Census field names. Each anchored token must match one of its exact reviewed paths; no directory wildcards. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+| `generic-api-key` / 17 exact SHA-256 request cache digests | Exact historical fixture files enumerated for each digest in `.gitleaks.toml` | Non-authenticating cache lookups. Only the 17 reviewed digest values at their exact reviewed paths are allowed; no hash-format pattern or directory wildcards. | @ShaivPandya | 2026-10-14 | 2027-01-12 |
+
+The owner reviewed these false positives in PR #423 and requested exact hashes
+and file paths on 2026-10-14. The revised rules cover 38 exact public identifiers
+and cache hashes across 24 exact historical paths, including the settings key
+above. Default detection rules remain enabled.
 
 ### bandit Allowlist
 
