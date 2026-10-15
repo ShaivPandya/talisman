@@ -219,6 +219,7 @@ def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
         )
         stress: dict[str, Any] | None
         stress_error = None
+        stress: dict[str, Any] | None = None
         try:
             stress = refresh_portfolio_risk()
         except Exception as exc:
@@ -229,10 +230,6 @@ def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
             "all_holdings": aggregate_view(rows, book),
             "primary_positions": aggregate_view([row for row in rows if row["role"] != "hedge"], book),
         }
-        if holdings and not any(row["signed_notional"] is not None or row["premium_usd"] is not None for row in rows):
-            raise ValueError(
-                "No holdings could be valued from daily closes; the prior risk snapshot has been retained."
-            )
         dates = [row[key] for row in rows for key in ("price_as_of", "fx_as_of") if row[key]]
         as_of = min(dates) if dates else expected_market_date(now).isoformat()
         incomplete = any(

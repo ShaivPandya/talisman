@@ -2,7 +2,7 @@
 # Install with: pip install -r requirements.txt -c requirements-lock.txt
 ace_tools==0.0
 aiofiles==25.1.0
-aiohappyeyeballs==2.6.1
+aiohappyeyeballs==2.6.2
 aiohttp==3.13.5
 aiosignal==1.4.0
 alembic==1.18.4
@@ -34,7 +34,7 @@ cobble==0.1.4
 Columnar==1.4.1
 contourpy==1.3.3
 croniter==6.2.2
-cryptography==50.0.0
+cryptography==50.0.2
 cssselect==1.4.0
 curl_cffi==0.15.0
 cvxpy==1.7.5
@@ -139,7 +139,7 @@ passlib==1.7.4
 pathspec==1.0.4
 patsy==1.0.1
 pdf2markdown==0.3.0
-pdfminer.six==20251230
+pdfminer.six==20260107
 pdfplumber==0.11.9
 peewee==3.18.2
 pexpect==4.9.0
