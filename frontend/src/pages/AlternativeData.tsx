@@ -20,7 +20,14 @@ function CitationLinks({ citations }: { citations: AlternativeCitation[] }) {
 }
 
 function displayDate(value?: string | null) {
-  return value ? new Date(value).toLocaleString() : "Not reported"
+  if (!value) return "Not reported"
+  return /^\d{4}-\d{2}-\d{2}$/.test(value)
+    ? new Date(`${value}T00:00:00`).toLocaleDateString()
+    : new Date(value).toLocaleString()
+}
+
+function chartDate(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T00:00:00` : value
 }
 
 function AlternativeDataResultView({ result }: { result: AlternativeResult }) {
@@ -42,7 +49,7 @@ function AlternativeDataResultView({ result }: { result: AlternativeResult }) {
     {metrics.length > 0 ? <>
       <label className="block text-sm">Measurement<select aria-label="Measurement" className={`${inputClass} mt-1`} value={metric} onChange={e => setChosenMetric(e.target.value)}>
         {metrics.map(m => <option key={m} value={m}>{m.replace(/_/g, " ")}</option>)}</select></label>
-      <TimeSeriesChart data={series.map(r => ({ date: r.date, value: r.value }))} label={metric} height={260} timeframe="1y" />
+      <TimeSeriesChart data={series.map(r => ({ date: chartDate(r.date), value: r.value }))} label={metric} height={260} timeframe="1y" />
       <div className="max-h-72 overflow-auto"><table className="w-full text-left text-xs"><thead><tr><th className="p-2">Date</th><th className="p-2">Value</th><th className="p-2">Unit</th><th className="p-2">Coverage / dimensions</th></tr></thead>
         <tbody>{series.map((r, i) => <tr key={`${r.date}-${i}`} className="border-t border-app"><td className="p-2">{r.date}</td><td className="p-2">{r.value == null ? "Insufficient data" : r.value.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td><td className="p-2">{r.unit}</td><td className="p-2">{r.dimensions ? JSON.stringify(r.dimensions) : "—"}</td></tr>)}</tbody>
       </table></div>

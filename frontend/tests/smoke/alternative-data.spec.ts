@@ -1,6 +1,8 @@
 import type { Page } from "@playwright/test"
 import { authenticate, expect, test } from "./fixtures"
 
+test.use({ timezoneId: "America/New_York" })
+
 async function installCatalog(page: Page) {
   const source = {
     source_id: "alternative_tsa", name: "TSA Checkpoint Travel Numbers", group: "demand", group_label: "Demand and traffic",
@@ -42,6 +44,9 @@ test("searches a shared catalog and displays cited observations", async ({ page 
   await expect(page.getByRole("heading", { name: "Source result" })).toBeVisible()
   await expect(page.getByRole("link", { name: "TSA official data" })).toBeVisible()
   await expect(page.getByRole("cell", { name: "2,500,000", exact: true })).toBeVisible()
+  await expect(page.locator("dl > div").filter({ hasText: "Observed through" }).locator("dd")).toHaveText("10/13/2026")
+  await page.getByRole("application").scrollIntoViewIfNeeded()
+  await expect(page.getByRole("application")).toContainText("Oct 13")
   await expect(page.getByText("Sector proxy, not company revenue.").first()).toBeVisible()
 })
 
