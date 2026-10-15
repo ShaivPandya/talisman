@@ -42,5 +42,5 @@ id = "generic-api-key"
     [[rules.allowlists]]
     description = "Public mock-provider argument name misparsed after a synthetic test-key literal (reviewed 2026-10-14; recheck by 2027-01-12)"
     condition = "AND"
-    paths = ['''^longaeva/backend/tests/test_llm_baseline\.py$''']
+    paths = ['''^(longaeva/backend/tests/test_llm_baseline|scripts/check_gitleaks_allowlists)\.py$''']
     regexes = ['''^anthropic_api_key=$''']
