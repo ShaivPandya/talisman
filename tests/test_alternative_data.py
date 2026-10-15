@@ -360,6 +360,44 @@ def test_confirmed_sites_use_ontology_write_boundary(monkeypatch):
     assert writes[0][0][2]["dataset"] == "alternative_data_sites"
 
 
+def test_confirmed_site_lookup_uses_the_canonical_normalized_identity(monkeypatch):
+    from ontology.object_service import normalize_object_payload, object_uid_for
+
+    site_id = "alt-site-" + "a" * 32
+    site = {"site_id": site_id, "ticker": "MSFT", "status": "confirmed", "bbox": [0, 0, 0.001, 0.001]}
+    uid = object_uid_for("SourceManifest", site_id)
+    row = normalize_object_payload(
+        uid,
+        "SourceManifest",
+        site_id,
+        {
+            "manifest_id": site_id,
+            "name": "Reviewed site",
+            "source_kind": "company_site",
+            "dataset": "alternative_data_sites",
+            "metadata": site,
+        },
+    )
+    assert uid == "source_manifest:alt_site_" + "a" * 32
+    monkeypatch.setattr(service, "use_postgres_state", lambda: True)
+    monkeypatch.setattr(
+        service,
+        "OntologyObjectService",
+        lambda: SimpleNamespace(
+            get_object=lambda key: row if key == uid else None,
+        ),
+    )
+    assert service.get_site(site_id) == site
+    parameters = service.normalize_parameters(
+        service.FetchRequest(
+            source_id="alternative_osm",
+            ticker="MSFT",
+            parameters={"site_id": site_id},
+        )
+    )
+    assert parameters["bbox"] == site["bbox"]
+
+
 def test_catalog_and_fetch_are_authenticated_and_schema_checked(client, auth_client):
     # client/auth_client share the same fixture object; create a separate unauthenticated session.
     from fastapi.testclient import TestClient

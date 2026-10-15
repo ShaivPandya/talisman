@@ -18,7 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from api import alternative_data_adapters as adapters
 from api import provenance, snapshot_store
 from api.postgres import use_postgres_state
-from ontology.object_service import OntologyObjectService
+from ontology.object_service import OntologyObjectService, object_uid_for
 from ontology.policy import Actor, DefaultOntologyPolicy, actor_from_dict, actor_to_dict, admin_actor, require_allowed
 from ontology.sources.alternative_catalog import GROUPS
 from ontology.sources.source_registry import all_source_registry_entries
@@ -528,7 +528,7 @@ def list_sites(ticker: str) -> list[dict[str, Any]]:
 def get_site(site_id: str) -> dict[str, Any] | None:
     if not re.fullmatch(r"alt-site-[a-f0-9]{32}", site_id) or not use_postgres_state():
         return None
-    row = OntologyObjectService().get_object("source_manifest:" + site_id)
+    row = OntologyObjectService().get_object(object_uid_for("SourceManifest", site_id))
     if not row or row["properties"].get("status") != "active":
         return None
     return dict(row["properties"]["metadata"])
@@ -594,7 +594,7 @@ def remove_site(site_id: str, actor: Actor) -> dict[str, Any]:
     if not site:
         raise ValueError("Unknown confirmed site.")
     objects = OntologyObjectService()
-    row = objects.get_object("source_manifest:" + site_id)
+    row = objects.get_object(object_uid_for("SourceManifest", site_id))
     assert row is not None
     event = provenance.start_event(
         event_type="source_site_confirmation",
