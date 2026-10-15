@@ -176,16 +176,19 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
   const running = KINDS.some(kind => isActive(query.data?.reports[kind]))
 
   useEffect(() => {
+    let completed = false
     for (const kind of KINDS) {
       const report = query.data?.reports[kind]
       const key = `${normalizedTicker}:${report?.job_id}`
       if (report?.status !== "done" || completedRef.current.has(key)) continue
       completedRef.current.add(key)
-      void qc.invalidateQueries({ queryKey: ["dossier", normalizedTicker] })
-      void qc.invalidateQueries({ queryKey: ["idea"] })
-      void qc.invalidateQueries({ queryKey: ["ideas"] })
-      void invalidateApprovalSummaries(qc)
+      completed = true
     }
+    if (!completed) return
+    void qc.invalidateQueries({ queryKey: ["dossier", normalizedTicker] }, { cancelRefetch: false })
+    void qc.invalidateQueries({ queryKey: ["idea"] }, { cancelRefetch: false })
+    void qc.invalidateQueries({ queryKey: ["ideas"] }, { cancelRefetch: false })
+    void invalidateApprovalSummaries(qc)
   }, [query.data, normalizedTicker, qc])
 
   return (
