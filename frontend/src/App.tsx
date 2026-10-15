@@ -112,6 +112,7 @@ const HedgingTool = lazyPage(() => import("@/pages/HedgingTool"), "HedgingTool")
 const PortfolioSizer = lazyPage(() => import("@/pages/PortfolioSizer"), "PortfolioSizer")
 const Momentum = lazyPage(() => import("@/pages/Momentum"), "Momentum")
 const ChartPage = lazyPage(() => import("@/pages/ChartPage"), "ChartPage")
+const CompanyExplorer = lazyPage(() => import("@/pages/CompanyExplorer"), "CompanyExplorer")
 const Screeners = lazyPage(() => import("@/pages/Screeners"), "Screeners")
 const Financials = lazyPage(() => import("@/pages/Financials"), "Financials")
 const IndexDashboard = lazyPage(() => import("@/pages/IndexDashboard"), "IndexDashboard")
@@ -204,6 +205,8 @@ function AppRoutes() {
               <Route path="/signal-aggregator" element={<SignalAggregator />} />
               <Route path="/ontology" element={<OntologyWorkbench />} />
               <Route path="/chart" element={<ChartPage />} />
+              <Route path="/explore" element={<CompanyExplorer />} />
+              <Route path="/explore/:ticker" element={<CompanyExplorer />} />
               <Route path="/screeners" element={<Screeners />} />
               <Route path="/quality" element={<Navigate to="/screeners" replace />} />
               <Route path="/short-screen" element={<Navigate to="/screeners" replace />} />
