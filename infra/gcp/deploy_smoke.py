@@ -23,7 +23,7 @@ import os
 import sys
 import time
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -127,6 +127,10 @@ def check_login(
         resp = client.post(
             "/api/auth/login",
             json={"password": smoke_password, "username": username},
+            headers={
+                "X-Request-Schema-Name": "post:/api/auth/login",
+                "X-Request-Schema-Version": "1",
+            },
         )
         if resp.status_code != 200:
             return CheckResult("login", False, f"status={resp.status_code}"), {}, {}
@@ -142,7 +146,11 @@ def check_login(
         return CheckResult("login", False, f"error: {exc}"), {}, {}
 
 
-def check_me(client: httpx.Client, cookies: dict[str, str]) -> CheckResult:
+def check_me(
+    client: httpx.Client,
+    cookies: dict[str, str],
+    auth_profile: Literal["admin", "viewer"] = "admin",
+) -> CheckResult:
     try:
         resp = client.get("/api/auth/me", cookies=cookies)
         if resp.status_code != 200:
@@ -150,6 +158,10 @@ def check_me(client: httpx.Client, cookies: dict[str, str]) -> CheckResult:
         body = resp.json()
         if "username" not in body:
             return CheckResult("me", False, "missing username")
+        if auth_profile == "viewer":
+            roles = {str(role).lower() for role in body.get("roles", [])}
+            if "viewer" not in roles or roles.intersection({"admin", "owner"}):
+                return CheckResult("me", False, "expected viewer without privileged roles")
         return CheckResult("me", True, f"username={body['username']}")
     except Exception as exc:
         return CheckResult("me", False, f"error: {exc}")
@@ -211,6 +223,15 @@ def check_admin_deploy_smoke(
         return CheckResult("admin_deploy_smoke", False, f"error: {exc}")
 
 
+def check_viewer_denied(client: httpx.Client, cookies: dict[str, str], path: str, name: str) -> CheckResult:
+    """Viewer credentials must be rejected by privileged diagnostic routes."""
+    try:
+        resp = client.get(path, cookies=cookies)
+        return CheckResult(name, resp.status_code == 403, f"status={resp.status_code} expected=403")
+    except Exception as exc:
+        return CheckResult(name, False, f"error: {exc}")
+
+
 # ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
@@ -222,9 +243,12 @@ def run_smoke(
     expected_image_tag: str | None = None,
     proxy_secret: str | None = None,
     smoke_password: str | None = None,
+    auth_profile: Literal["admin", "viewer"] = "admin",
 ) -> list[CheckResult]:
     if not smoke_password:
         raise ValueError("AUTH_SMOKE_PASSWORD is required")
+    if auth_profile not in {"admin", "viewer"}:
+        raise ValueError("auth_profile must be admin or viewer")
 
     results: list[CheckResult] = []
     client = _client(service_url, proxy_secret)
@@ -245,16 +269,19 @@ def run_smoke(
         return results
 
     # 3. /auth/me
-    results.append(check_me(client, cookies))
+    results.append(check_me(client, cookies, auth_profile))
 
     # 4. /workspace
     results.append(check_workspace(client, cookies))
 
-    # 5. /approvals/summary
-    results.append(check_approvals_summary(client, cookies))
-
-    # 6. /admin/deploy-smoke
-    results.append(check_admin_deploy_smoke(client, cookies))
+    if auth_profile == "viewer":
+        results.append(
+            check_viewer_denied(client, cookies, "/api/approvals/summary?limit=1", "approvals_viewer_denied")
+        )
+        results.append(check_viewer_denied(client, cookies, "/api/admin/deploy-smoke", "admin_viewer_denied"))
+    else:
+        results.append(check_approvals_summary(client, cookies))
+        results.append(check_admin_deploy_smoke(client, cookies))
 
     return results
 
@@ -298,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
         default="post-deploy",
     )
     parser.add_argument(
+        "--auth-profile",
+        choices=["admin", "viewer"],
+        default="admin",
+        help="Expected account privileges; viewer verifies denial of privileged routes",
+    )
+    parser.add_argument(
         "--expected-image-tag",
         default=None,
         help="Expected release image tag (optional)",
@@ -317,6 +350,7 @@ def main(argv: list[str] | None = None) -> int:
         expected_image_tag=args.expected_image_tag,
         proxy_secret=proxy_secret or None,
         smoke_password=smoke_password,
+        auth_profile=args.auth_profile,
     )
 
     passed = print_results(results, args.mode)
