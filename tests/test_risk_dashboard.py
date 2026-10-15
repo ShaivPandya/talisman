@@ -335,6 +335,30 @@ def test_empty_portfolio_does_not_download_prices(isolated_snapshots, monkeypatc
     assert risk_dashboard.compute_dashboard(payload)["views"]["all_holdings"]["summary"]["gross_usd"] == 0
 
 
+@pytest.mark.parametrize(
+    ("changes", "issue"),
+    [
+        ({"quantity": None}, "missing_quantity"),
+        ({"ticker": "NOQUOTE"}, "missing_price"),
+        ({"currency": "JPY"}, "missing_fx_rate"),
+    ],
+)
+def test_unavailable_portfolio_persists_visible_coverage(isolated_snapshots, monkeypatch, changes, issue):
+    payload = install_compute_mocks(monkeypatch)
+    payload["holdings"] = [holding(**changes)]
+    risk_dashboard.compute_dashboard(payload)
+    saved = risk_dashboard.latest_dashboard()
+    assert saved["quality"] == "degraded"
+    assert len(saved["positions"]) == 1
+    assert issue in saved["positions"][0]["issues"]
+    assert saved["positions"][0]["signed_notional"] is None
+    view = saved["views"]["all_holdings"]
+    assert view["coverage"]["linear_count"] == 1
+    assert view["coverage"]["valued_linear_count"] == 0
+    assert view["summary"]["gross_usd"] is None
+    assert view["summary"]["net_pct"] is None
+
+
 def test_fingerprint_stable_for_bookkeeping_but_tracks_legs_and_edits():
     rows = [holding(id="one"), holding(id="two", direction="short")]
     original = risk_dashboard.holdings_fingerprint(rows)
