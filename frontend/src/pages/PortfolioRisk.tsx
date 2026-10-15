@@ -107,6 +107,11 @@ function MarketBetas({ view, includeHedges }: { view: RiskDashboardView; include
   )
 }
 
+function stressAsOf(stress: PortfolioRiskDashboard["stress"]): string | null {
+  const value = stress?.as_of || stress?.computed_at
+  return typeof value === "string" ? value : null
+}
+
 function StressSummary({ data }: { data: PortfolioRiskDashboard }) {
   const stress = data.stress
   const hasStress = Boolean(stress && (stress.position_count ?? 0) > 0)
@@ -123,7 +128,7 @@ function StressSummary({ data }: { data: PortfolioRiskDashboard }) {
         <dl className="mt-5 flex flex-wrap gap-4 text-sm">
           {(["high", "medium", "low"] as const).map(level => <div key={level}><dt className="capitalize text-subtle">{level}</dt><dd className="mt-1 font-semibold text-app">{stress?.risk_buckets?.[level] ?? "Unavailable"}</dd></div>)}
         </dl>
-        <p className="mt-4 text-xs text-subtle">{stress?.position_count} primary positions · as of {riskDate(stress?.as_of || stress?.computed_at)}</p>
+        <p className="mt-4 text-xs text-subtle">{stress?.position_count} primary positions · as of {riskDate(stressAsOf(stress))}</p>
         <div className="mt-3"><StatusBadge tone={stress?.quality === "ok" ? "success" : "warning"}>{stress?.quality === "ok" ? "Sources available" : "Sources degraded"}</StatusBadge></div>
       </> : <p className="py-8 text-sm text-muted">No primary-position stress snapshot available.</p>}
       {data.source_status.stress?.error && <p className="mt-3 text-xs text-muted">Stress refresh failed; the prior stress snapshot is shown.</p>}
