@@ -320,6 +320,33 @@ def test_backfill_conviction_history_is_idempotent():
     assert second == 0
 
 
+def test_legacy_history_read_derives_transitions_without_guarded_writes(monkeypatch):
+    rows = [
+        _position_row(
+            ticker="MU",
+            conviction=conviction,
+            created_at=f"2026-06-{day}T10:00:00+00:00",
+            updated_at=f"2026-06-{day}T10:00:00+00:00",
+            version_id=f"version:{conviction}",
+            tx_from=f"2026-06-{day}T10:00:00+00:00",
+        )
+        for conviction, day in ((3, "01"), (4, "05"))
+    ]
+    service = _HistoryObjectService(rows)
+
+    def reject_write(*args, **kwargs):
+        raise AssertionError("A dossier read attempted a provenance-guarded write")
+
+    monkeypatch.setattr(service, "write_object", reject_write)
+    reads = OntologyRuntimeReadService(service)
+    history = reads.conviction_history("MU", entity_type="position", entity_id="position:MU")
+    assert len(history) == 1
+    assert history[0]["previous_conviction"] == 3
+    assert history[0]["new_conviction"] == 4
+    assert reads.conviction_history("MU", entity_type="position", entity_id="position:MU") == history
+    assert not service.written
+
+
 def test_conviction_history_returns_materialized_entries(history_reads: OntologyRuntimeReadService):
     history = history_reads.conviction_history("MU", backfill=False)
     assert len(history) == 1
