@@ -782,7 +782,7 @@ const responsePreferences = {
   custom_instructions: "",
 } satisfies JsonValue
 
-const dossierResponse = {
+export const dossierResponse = {
   ticker: "MSFT",
   position: { ticker: "MSFT", asset: "equity", instrument_type: "security", direction: "long" },
   overview_content: null,
@@ -976,6 +976,12 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
   }
 
   if (method === "GET" && path === "/api/liquidity") return json(route, liquidityResponse)
+  if (method === "GET" && /^\/api\/company-research\/[^/]+$/.test(path)) {
+    return json(route, {
+      ticker: decodeURIComponent(path.split("/").at(-1) ?? ""),
+      reports: { overview: { status: "idle" }, management_quality: { status: "idle" } },
+    })
+  }
   if (method === "GET" && path === "/api/dossier/MSFT") return json(route, dossierResponse)
   if (method === "POST" && path === "/api/scenario-simulator/evaluate") return json(route, scenarioSimulatorResponse)
   if (method === "GET" && path === "/api/thesis/status") return json(route, { MSFT: "uploaded" })

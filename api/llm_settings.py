@@ -183,6 +183,23 @@ def set_setting(key: str, value: str) -> dict[str, Any]:
     return _row_to_dict(row)
 
 
+def ensure_setting(key: str, default_value: str) -> dict[str, Any]:
+    """Persist a default without overwriting concurrent or existing edits."""
+    with _lock:
+        conn = _get_conn()
+        conn.execute(
+            """
+            INSERT INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO NOTHING
+            """,
+            (key, default_value, _now()),
+        )
+        conn.commit()
+        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+    return _row_to_dict(row)
+
+
 def default_gateway_policy() -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(json.dumps(DEFAULT_GATEWAY_POLICY)))
 

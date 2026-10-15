@@ -80,6 +80,7 @@ import {
 import { approvalDecisionState } from "@/lib/decisionState"
 import { ThesisUpload } from "@/components/ThesisUpload"
 import { OverviewUpload } from "@/components/OverviewUpload"
+import { CompanyResearchControls } from "@/components/CompanyResearchControls"
 import { ManagementQualityUpload } from "@/components/ManagementQualityUpload"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { useDecisionTrace } from "@/contexts/DecisionTraceContext"
@@ -664,6 +665,8 @@ export function PositionDossier() {
           staged for {subjectLabel(lastProposal.entity_type)}. It will not change app state until approved and applied.
         </StagedProposalNotice>
       )}
+
+      {isEquity && <CompanyResearchControls ticker={data.ticker} />}
 
       <WhatChangedPanel summary={data.what_changed} className="mb-4" from="dossier" maxItems={6} defaultExpanded={false} />
 

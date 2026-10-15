@@ -456,6 +456,24 @@ def get_job(job_id: str) -> dict[str, Any] | None:
         return dict(row) if row else None
 
 
+def latest_job_for_key(job_type: str, cache_key: str) -> dict[str, Any] | None:
+    """Find the latest ticker/report job, including terminal states for reload recovery."""
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            matches = [
+                row
+                for row in _memory_jobs.values()
+                if row.get("job_type") == job_type and row.get("cache_key") == cache_key
+            ]
+            return dict(max(matches, key=lambda row: row["created_at"])) if matches else None
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT * FROM async_jobs WHERE job_type = %s AND cache_key = %s ORDER BY created_at DESC LIMIT 1",
+            (job_type, cache_key),
+        ).fetchone()
+        return dict(row) if row else None
+
+
 def count_active_jobs() -> int:
     if not postgres_jobs_enabled():
         with _memory_lock:

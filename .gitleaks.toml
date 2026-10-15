@@ -19,28 +19,156 @@ id = "generic-api-key"
     ]
 
     [[rules.allowlists]]
-    description = "Public settings migration identifier (reviewed 2026-10-14; recheck by 2027-01-12)"
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
     condition = "AND"
-    paths = ['''^api/llm_settings\.py$''']
-    regexes = ['''^llm\.reasoning_effort\.frontier_defaults_v2$''']
-
-    [[rules.allowlists]]
-    description = "Exact public financial series identifiers in historical Longaeva fixtures (reviewed 2026-10-14; recheck by 2027-01-12)"
-    condition = "AND"
-    paths = ['''^longaeva/(data/.*\.json|backend/longaeva_app/extract/census_marts\.py|backend/tests/test_census_marts\.py|docs/gates/census\.md)$''']
+    paths = [
+        '''^api/llm_settings\.py$''',
+    ]
     regexes = [
-        '''^(bkng_2024q1_ceo_qualitative|bkng_2025q4_qtd_demand_qualitative|cost_2024q3_ecommerce_comp_yoy|cost_2024q3_ticket_yoy|cost_2025q4_ecommerce_comp_yoy|cost_2025q4_ticket_yoy|growth_q_minus_1_nominal|naics_452_dept|pv_nine_month_mar_2023|pv_nine_month_mar_2024|pv_year_ago_q_minus_1|pypl_2024q1_tpv_fxn_yoy|pypl_2025_raises_fy_guidance|pypl_2025q3_tpv_fxn_yoy|ual_2024q2_atlantic_passenger_revenue_yoy|ual_2024q2_capacity_yoy|ual_2024q2_premium_qualitative|ual_2025q3_atlantic_expansion_qualitative|ual_2025q3_atlantic_passenger_revenue_yoy|ual_2025q3_capacity_yoy)$''',
+        '''^llm\.reasoning_effort\.frontier_defaults_v2$''',
     ]
 
     [[rules.allowlists]]
-    description = "SHA-256 request cache fingerprints in historical LLM evaluation fixtures (reviewed 2026-10-14; recheck by 2027-01-12)"
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
     condition = "AND"
-    paths = ['''^longaeva/data/(evaluation/visa_llm_baseline|fixtures/llm_baseline/(cached|schema-validation-rejected|[0-9]{4}-[0-9]{2}-[0-9]{2}))\.json$''']
-    regexTarget = "match"
-    regexes = ['''^request_key["']?\s*[:=]\s*["'][0-9a-f]{64}["']$''']
+    paths = [
+        '''^longaeva/backend/longaeva_app/extract/census_marts\.py$''',
+        '''^longaeva/backend/tests/test_census_marts\.py$''',
+        '''^longaeva/docs/gates/census\.md$''',
+    ]
+    regexes = [
+        '''^naics_452_dept$''',
+    ]
 
     [[rules.allowlists]]
-    description = "Public mock-provider argument name misparsed after a synthetic test-key literal (reviewed 2026-10-14; recheck by 2027-01-12)"
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
     condition = "AND"
-    paths = ['''^(longaeva/backend/tests/test_llm_baseline|scripts/check_gitleaks_allowlists)\.py$''']
+    paths = [
+        '''^longaeva/data/demo/forecasts/prospective_fy2026q4\.json$''',
+        '''^longaeva/data/evaluation/visa_ablation_persistence\.json$''',
+        '''^longaeva/data/evaluation/visa_financial_only\.json$''',
+        '''^longaeva/data/evaluation/visa_full_model\.json$''',
+        '''^longaeva/data/evaluation/visa_no_external_commentary\.json$''',
+        '''^longaeva/data/evaluation/visa_no_service_lag\.json$''',
+        '''^longaeva/data/evaluation/visa_pooled_spending\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2024\-07\-23\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2024\-10\-29\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2025\-01\-30\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2025\-04\-29\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2025\-07\-29\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2025\-10\-28\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2026\-01\-29\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2026\-04\-28\.json$''',
+    ]
+    regexes = [
+        '''^bkng_2024q1_ceo_qualitative$''',
+        '''^cost_2024q3_ecommerce_comp_yoy$''',
+        '''^cost_2024q3_ticket_yoy$''',
+        '''^pypl_2024q1_tpv_fxn_yoy$''',
+        '''^ual_2024q2_atlantic_passenger_revenue_yoy$''',
+        '''^ual_2024q2_capacity_yoy$''',
+        '''^ual_2024q2_premium_qualitative$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/demo/forecasts/prospective_fy2026q4\.json$''',
+        '''^longaeva/data/evaluation/visa_ablation_persistence\.json$''',
+        '''^longaeva/data/evaluation/visa_financial_only\.json$''',
+        '''^longaeva/data/evaluation/visa_full_model\.json$''',
+        '''^longaeva/data/evaluation/visa_no_external_commentary\.json$''',
+        '''^longaeva/data/evaluation/visa_no_service_lag\.json$''',
+        '''^longaeva/data/evaluation/visa_pooled_spending\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2025\-10\-28\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2026\-01\-29\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/2026\-04\-28\.json$''',
+    ]
+    regexes = [
+        '''^bkng_2025q4_qtd_demand_qualitative$''',
+        '''^cost_2025q4_ecommerce_comp_yoy$''',
+        '''^cost_2025q4_ticket_yoy$''',
+        '''^pypl_2025_raises_fy_guidance$''',
+        '''^pypl_2025q3_tpv_fxn_yoy$''',
+        '''^ual_2025q3_atlantic_expansion_qualitative$''',
+        '''^ual_2025q3_atlantic_passenger_revenue_yoy$''',
+        '''^ual_2025q3_capacity_yoy$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/fixtures/states/visa_2024\-07\-23\.json$''',
+    ]
+    regexes = [
+        '''^pv_nine_month_mar_2023$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/fixtures/states/visa_2024\-07\-23\.json$''',
+        '''^longaeva/data/fixtures/states/visa_2025\-10\-28\.json$''',
+    ]
+    regexes = [
+        '''^growth_q_minus_1_nominal$''',
+        '''^pv_year_ago_q_minus_1$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed public identifiers at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/fixtures/states/visa_2025\-10\-28\.json$''',
+    ]
+    regexes = [
+        '''^pv_nine_month_mar_2024$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed request-cache hashes at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/evaluation/visa_llm_baseline\.json$''',
+        '''^longaeva/data/fixtures/llm_baseline/cached\.json$''',
+    ]
+    regexes = [
+        '''^4e2bab79d8425af0cb3a9484d4324f2be28fd2cd18ac16111839696cfa059b23$''',
+        '''^51b1bbcdc4044b41758b651f50872b5c9ecd76fb8b42c52089b7409a3c23c225$''',
+        '''^57e335f9ffcfebccd548fd74b8ba66bc73c36332e5a826a9b847c82da2889ee8$''',
+        '''^6087912a536d47720994cdd4f72d32594d54ac25d0044f16e50721b74eb7b9ea$''',
+        '''^6337de5dd2234544041304bc27ca81ea9a2614c4cbbb3d39895e355a3e2c8cde$''',
+        '''^6f3f72bb5964c3f5682f48b20b4914ea2faa06c4044c67c43813357bccf364ee$''',
+        '''^9f02eba917a03d0375e66262cb161b60257da769ff80883be0c12c14f36aa302$''',
+        '''^a732ef8f8a89947980d3a69cca3f5261cd9fcb54dc734cc76759c3c75c725f5e$''',
+        '''^acbace24ef2a087c05b88d43b76768c62a93a56dd2d9a06b8c0fa98c311f9eb4$''',
+        '''^c9315600e1e5ca08e19ec008845d167209b662dd64c3e7cf654ff6298826c9d6$''',
+        '''^d52ac655589740508cd489d1b4b71b2c922ed483c11200bbd80ec5e8a4f6fcd1$''',
+        '''^d7e39cfb5b083de5e00707b4e97ad8c59cc9198ac0bcef0731f060a321bd9d16$''',
+        '''^dd1e95598599aa968b91a14b7f26b9f0d1a5efa611f94e502d91c41509d01840$''',
+        '''^e2cddb66550f9e8f12381f63eb2429f9ff8c332b22293f6c78e0ea09a90c1813$''',
+        '''^ecd554eb0d1957de2f74f3edc93a43fc4c588008d898fed46d1cb179a7d9902c$''',
+        '''^ef35b099fc1770e92bde2d09f6f1ecf80a2fe71aeaab0f4aade6ae3e855e9ccc$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Exact reviewed request-cache hashes at exact historical paths; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/data/fixtures/llm_baseline/schema\-validation\-rejected\.json$''',
+    ]
+    regexes = [
+        '''^b371aaf7002b469de53e30bb6ca30ca69840f7eb8eecefeb87dc9c30972445cf$''',
+    ]
+
+    [[rules.allowlists]]
+    description = "Public mock-provider argument name misparsed after synthetic test-key literals; reviewed 2026-10-14, expires 2027-01-12"
+    condition = "AND"
+    paths = [
+        '''^longaeva/backend/tests/test_llm_baseline\.py$''',
+        '''^scripts/check_gitleaks_allowlists\.py$''',
+    ]
     regexes = ['''^anthropic_api_key=$''']

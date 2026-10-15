@@ -66,16 +66,19 @@ def main() -> None:
         expected = {
             ("api/llm_settings.py", 2),
             ("api/unrelated.py", 1),
+            ("longaeva/data/fixtures/llm_baseline/cached.json", 1),
             ("longaeva/data/fixtures/llm_baseline/cached.json", 2),
             ("longaeva/data/fixtures/llm_baseline/cached.json", 3),
+            ("longaeva/data/fixtures/llm_baseline/cached.json", 4),
             ("other/cache.json", 1),
             ("longaeva/backend/tests/test_llm_baseline.py", 2),
             ("scripts/check_gitleaks_allowlists.py", 2),
         }
+        # Unreviewed hashes and identifiers at unreviewed paths still trigger.
         # Two independently detected fields share the line in other/cache.json.
-        if actual != expected or len(findings) != 8:
+        if actual != expected or len(findings) != 10:
             raise RuntimeError(f"Public-data exceptions changed credential detection: {actual}")
-    print("Gitleaks scoped exceptions passed; all eight synthetic findings detected")
+    print("Gitleaks exact exceptions passed; all ten expected findings detected")
 
 
 if __name__ == "__main__":
