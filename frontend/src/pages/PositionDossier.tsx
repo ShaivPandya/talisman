@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { useParams, useNavigate, useLocation } from "react-router-dom"
+import { useParams, useNavigate, useLocation, useSearchParams } from "react-router-dom"
 import { useQueryClient, useMutation, useQuery } from "@tanstack/react-query"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import {
@@ -199,6 +199,28 @@ interface MonitorHit {
 
 const BASE_TABS = ["Thesis", "Claims", "Catalysts", "Kill Conditions", "Evaluations", "Risk", "Scenarios", "Evidence", "Learning", "Workflows"] as const
 type Tab = "Overview" | "Management Quality" | "Valuation" | typeof BASE_TABS[number]
+
+const TAB_SLUGS: Record<Tab, string> = {
+  Overview: "overview",
+  "Management Quality": "management-quality",
+  Valuation: "valuation",
+  Thesis: "thesis",
+  Claims: "claims",
+  Catalysts: "catalysts",
+  "Kill Conditions": "kill-conditions",
+  Evaluations: "evaluations",
+  Risk: "risk",
+  Scenarios: "scenarios",
+  Evidence: "evidence",
+  Learning: "learning",
+  Workflows: "workflows",
+}
+
+function tabFromSlug(value: string | null): Tab | null {
+  if (!value) return null
+  const match = (Object.entries(TAB_SLUGS) as [Tab, string][]).find(([, slug]) => slug === value)
+  return match?.[0] ?? null
+}
 type TriggerEditState =
   | { kind: "active"; trigger: Trigger }
   | { kind: "approval"; approval: ApprovalRecord; trigger: EditableWatchTrigger }
@@ -326,13 +348,14 @@ export function PositionDossier() {
   const { ticker } = useParams<{ ticker: string }>()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const tab = tabFromSlug(searchParams.get("tab")) ?? "Overview"
   const from = (location.state as { from?: string })?.from
   const backTarget = from === "theses"
     ? { path: "/theses", label: "Theses" }
     : from === "portfolio"
     ? { path: "/", label: "Portfolio" }
     : { path: "/workspace", label: "Workspace" }
-  const [tab, setTab] = useState<Tab>("Overview")
   const qc = useQueryClient()
   const [processingIds, setProcessingIds] = useState<Set<number | string>>(new Set())
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -652,7 +675,11 @@ export function PositionDossier() {
         {visibleTabs.map(t => (
           <button
             key={t}
-            onClick={() => setTab(t)}
+            onClick={() => {
+              const nextParams = new URLSearchParams(searchParams)
+              nextParams.set("tab", TAB_SLUGS[t])
+              setSearchParams(nextParams, { replace: true, state: location.state })
+            }}
             className={cn(
               "shrink-0 px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors",
               activeTab === t

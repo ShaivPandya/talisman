@@ -29,6 +29,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Portfolio Sizer", path: "/sizer" },
       { label: "Hedging Tool", path: "/hedging-tool" },
       { label: "Chart", path: "/chart" },
+      { label: "Company Explorer", path: "/explore" },
       { label: "Screeners", path: "/screeners" },
       { label: "Financials", path: "/financials" },
       { label: "DCF Model", path: "/dcf-model" },
@@ -93,6 +94,7 @@ export function getRouteLabel(pathname: string) {
     if (match) return match.label
   }
   if (pathname.startsWith("/dossier/")) return "Position Dossier"
+  if (pathname === "/explore" || pathname.startsWith("/explore/")) return "Company Explorer"
   if (pathname.startsWith("/ideas/") && pathname !== "/ideas") return "Idea Detail"
   return "Talisman"
 }
