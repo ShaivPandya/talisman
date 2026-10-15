@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import httpx
 import pytest
 
 from infra.gcp.deploy_smoke import (
@@ -13,6 +14,7 @@ from infra.gcp.deploy_smoke import (
     check_health,
     check_login,
     check_me,
+    check_viewer_denied,
     check_workspace,
     main,
     print_results,
@@ -94,6 +96,23 @@ def test_check_login_401():
     assert not headers
 
 
+def test_login_sends_production_request_schema(monkeypatch):
+    monkeypatch.setenv("AUTH_DEFAULT_USERNAME", "smoke")
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        if (
+            request.headers.get("X-Request-Schema-Name") != "post:/api/auth/login"
+            or request.headers.get("X-Request-Schema-Version") != "1"
+        ):
+            return httpx.Response(400, json={"detail": "Missing request schema headers"})
+        return httpx.Response(200, json={"csrfToken": "csrf-tok"}, headers={"set-cookie": "__session=tok; Path=/"})
+
+    with httpx.Client(base_url="https://test", transport=httpx.MockTransport(handle)) as client:
+        result, cookies, _ = check_login(client, "smoke-pw")
+    assert result.passed
+    assert cookies == {"__session": "tok"}
+
+
 # ---------------------------------------------------------------------------
 # check_me
 # ---------------------------------------------------------------------------
@@ -111,6 +130,20 @@ def test_check_me_401():
     client.get.return_value = FakeResponse(401)
     result = check_me(client, {})
     assert not result.passed
+
+
+@pytest.mark.parametrize("roles", [[], ["admin"], ["viewer", "owner"], ["viewer", "admin"]])
+def test_viewer_profile_rejects_missing_or_elevated_roles(roles):
+    client = MagicMock()
+    client.get.return_value = FakeResponse(200, {"username": "smoke", "roles": roles})
+    assert not check_me(client, {"__session": "tok"}, "viewer").passed
+
+
+@pytest.mark.parametrize("status", [200, 401, 500])
+def test_viewer_denial_requires_authenticated_403(status):
+    client = MagicMock()
+    client.get.return_value = FakeResponse(status)
+    assert not check_viewer_denied(client, {}, "/api/admin/deploy-smoke", "admin_viewer_denied").passed
 
 
 # ---------------------------------------------------------------------------
@@ -213,6 +246,34 @@ def test_run_smoke_all_pass():
         assert all(r.passed for r in results), [r for r in results if not r.passed]
 
 
+def test_run_smoke_viewer_verifies_privilege_boundaries():
+    responses = {
+        "/api/health": FakeResponse(200, {"status": "ok", "release": {"image_tag": "abc"}}),
+        "/api/auth/me": FakeResponse(200, {"username": "smoke", "roles": ["smoke", "viewer"]}),
+        "/api/workspace": FakeResponse(200, {"regime": None, "portfolio": None, "pending_approvals": {}}),
+        "/api/approvals/summary?limit=1": FakeResponse(403),
+        "/api/admin/deploy-smoke": FakeResponse(403),
+    }
+    with patch("infra.gcp.deploy_smoke._client") as mock_client_fn:
+        client = mock_client_fn.return_value
+        client.get.side_effect = lambda path, **kw: responses[path]
+        client.post.return_value = FakeResponse(200, cookies={"__session": "tok"})
+        results = run_smoke("http://test", "post-deploy", "abc", smoke_password="smoke-pw", auth_profile="viewer")
+    assert len(results) == 6
+    assert all(result.passed and result.required for result in results)
+    assert {result.name for result in results} >= {"approvals_viewer_denied", "admin_viewer_denied"}
+
+
+def test_default_admin_profile_rejects_privileged_denials():
+    with patch("infra.gcp.deploy_smoke._client") as mock_client_fn:
+        client = mock_client_fn.return_value
+        client.post.return_value = FakeResponse(200, cookies={"__session": "tok"})
+        client.get.return_value = FakeResponse(403)
+        results = run_smoke("http://test", "post-deploy", smoke_password="smoke-pw")
+    assert not next(result for result in results if result.name == "admin_deploy_smoke").passed
+    assert not next(result for result in results if result.name == "approvals_summary").passed
+
+
 # ---------------------------------------------------------------------------
 # print_results
 # ---------------------------------------------------------------------------
@@ -250,3 +311,10 @@ def test_cli_missing_password(monkeypatch):
     monkeypatch.delenv("API_PROXY_SECRET", raising=False)
     code = main(["--service-url", "http://test", "--mode", "post-deploy"])
     assert code == 1
+
+
+def test_cli_passes_explicit_viewer_profile(monkeypatch):
+    monkeypatch.setenv("AUTH_SMOKE_PASSWORD", "smoke-pw")
+    with patch("infra.gcp.deploy_smoke.run_smoke", return_value=[]) as runner:
+        assert main(["--service-url", "http://test", "--auth-profile", "viewer"]) == 0
+    assert runner.call_args.kwargs["auth_profile"] == "viewer"

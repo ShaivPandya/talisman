@@ -248,9 +248,9 @@ After migration:
 
 ## Deploy Smoke Tests (SHA-34)
 
-Backend deploys automatically run smoke tests after the API service is updated.
 The smoke runner authenticates against the live API using a dedicated smoke
 password (separate from the normal admin password) and probes multiple endpoints.
+Run it explicitly after deploying, with the expected image tag.
 
 ### Required Secrets
 
@@ -284,6 +284,20 @@ Run smoke manually when you want a live diagnostic:
 EXPECTED_IMAGE_TAG=<deployed-tag> ./infra/gcp/run-backend-smoke.sh
 ```
 
+For the dedicated `smoke` account, which has viewer access, select the viewer
+profile explicitly:
+
+```bash
+AUTH_DEFAULT_USERNAME=smoke SMOKE_AUTH_PROFILE=viewer EXPECTED_IMAGE_TAG=<deployed-tag> \
+  ./infra/gcp/run-backend-smoke.sh
+```
+
+This profile verifies login, the session's unprivileged viewer role, workspace
+reads, and required 403 responses from approval and admin diagnostics. It does
+not execute the admin-only database and migration invariant checks. The default
+admin profile still requires those checks to succeed. Login sends the same
+request schema headers as the frontend.
+
 ### Manual Post-Rollback Smoke
 
 After a manual rollback, run smoke tests against the rolled-back tag:
@@ -295,7 +309,7 @@ SMOKE_MODE=post-rollback EXPECTED_IMAGE_TAG=<rolled-back-tag> \
 
 ### Smoke Checks
 
-The runner performs these required checks:
+The default admin profile performs these required checks:
 
 1. `GET /api/health` — expects 200, `status=ok`, matching `release.image_tag`
 2. `POST /api/auth/login` — authenticates with the smoke password
