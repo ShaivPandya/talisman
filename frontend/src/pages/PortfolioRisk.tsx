@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { ArrowDownUp, RefreshCw } from "lucide-react"
@@ -218,18 +218,19 @@ export function PortfolioRisk() {
   const snapshot = useQuery({ queryKey: QUERY_KEY, queryFn: fetchPortfolioRiskDashboard, retry: false, staleTime: 60_000 })
   const job = useQuery({
     queryKey: ["portfolio-risk-dashboard-job", jobId],
-    queryFn: () => fetchPortfolioRiskDashboardJob(jobId!),
+    queryFn: async () => {
+      const result = await fetchPortfolioRiskDashboardJob(jobId!)
+      if (["done", "error", "cancelled"].includes(result.status)) {
+        saveActiveJob(null)
+        setJobId(null)
+        setRefreshError(result.status === "done" ? null : result.error || "Refresh failed. The prior snapshot is still available.")
+        void queryClient.invalidateQueries({ queryKey: QUERY_KEY })
+      }
+      return result
+    },
     enabled: Boolean(jobId), retry: false,
     refetchInterval: query => query.state.data?.status === "queued" || query.state.data?.status === "running" ? 1500 : false,
   })
-  useEffect(() => {
-    const result = job.data
-    if (!result || !["done", "error", "cancelled"].includes(result.status)) return
-    saveActiveJob(null)
-    setJobId(null)
-    setRefreshError(result.status === "done" ? null : result.error || "Refresh failed. The prior snapshot is still available.")
-    void queryClient.invalidateQueries({ queryKey: QUERY_KEY })
-  }, [job.data, queryClient])
   const refresh = useMutation({
     mutationFn: refreshPortfolioRiskDashboard,
     onMutate: () => setRefreshError(null),

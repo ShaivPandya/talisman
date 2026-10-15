@@ -118,7 +118,7 @@ def load_market_inputs(holdings: list[dict[str, Any]], *, now: datetime) -> dict
     for benchmark in BENCHMARKS:
         symbols.add(benchmark)
         currencies[benchmark] = "USD"
-    fx_symbols = set()
+    fx_symbols: set[str] = set()
     for currency in currencies.values():
         unit = currency_lookup_and_unit_scale(currency)
         if unit and unit[0] != "USD":

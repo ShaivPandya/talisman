@@ -217,6 +217,7 @@ def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
                 "currencies": {},
             }
         )
+        stress: dict[str, Any] | None
         stress_error = None
         try:
             stress = refresh_portfolio_risk()

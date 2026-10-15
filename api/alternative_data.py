@@ -738,10 +738,21 @@ def build_company_evidence(
             if source_id in seen or source_id not in {s["source_id"] for s in catalog["sources"]}:
                 continue
             seen.add(source_id)
+            parameters = choice.get("parameters", {})
+            mappings = context.get("alternative_data_mappings", {})
+            if parameters.get("employer") and parameters["employer"] != mappings.get("employer"):
+                result["coverage_warnings"].append(
+                    "The company-to-employer legal-entity mapping is unresolved; LCA evidence was skipped."
+                )
+                continue
+            if parameters.get("product") and parameters["product"] not in mappings.get("products", []):
+                result["coverage_warnings"].append(
+                    "The company-to-product mapping is unresolved; product trade is a sector proxy."
+                )
             try:
                 req = FetchRequest(
                     source_id=source_id,
-                    parameters=choice.get("parameters", {}),
+                    parameters=parameters,
                     ticker=ticker,
                     actor=actor_to_dict(actor or admin_actor(source="alternative_data_evidence")),
                 )

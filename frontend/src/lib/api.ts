@@ -1673,6 +1673,8 @@ export interface PositionRiskSnapshot {
 }
 
 export interface PortfolioRiskSnapshot extends Omit<PositionRiskSnapshot, "ticker"> {
+  computed_at: string
+  as_of?: string | null
   position_count?: number
   average_risk_score?: number | null
   max_risk_score?: number | null

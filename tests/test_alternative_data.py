@@ -309,6 +309,27 @@ def test_agents_cannot_confirm_company_ownership():
         service.confirm_site(service.SiteRequest(ticker="MSFT", name="Site", bbox=[0, 0, 0.001, 0.001]), agent_actor())
 
 
+def test_automatic_evidence_does_not_invent_employer_mapping(monkeypatch):
+    import llm_utils
+
+    monkeypatch.setattr(llm_utils, "has_llm_api_key", lambda: True)
+    monkeypatch.setattr(
+        llm_utils,
+        "call_llm_json",
+        lambda **kw: (
+            {"fetches": [{"source_id": "alternative_lca", "parameters": {"employer": "Guessed Legal Entity"}}]},
+            [],
+            None,
+            {},
+        ),
+    )
+    calls = []
+    monkeypatch.setattr(service, "query_source", lambda req: calls.append(req))
+    result = service.build_company_evidence("MSFT", "Hiring evidence")
+    assert not calls and not result["evidence"]
+    assert any("mapping is unresolved" in warning for warning in result["coverage_warnings"])
+
+
 def test_confirmed_sites_use_ontology_write_boundary(monkeypatch):
     writes = []
     monkeypatch.setattr(service, "use_postgres_state", lambda: True)
