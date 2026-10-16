@@ -442,7 +442,7 @@ export function HedgingTool() {
             type="button"
             onClick={handleLoadFromPortfolio}
             disabled={portfolioLoading || mutation.isPending}
-            className="px-5 py-2.5 rounded-lg border border-indigo-200 bg-indigo-50 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-5 py-2.5 rounded-lg border border-blue-200 bg-blue-50 text-sm font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {portfolioLoading ? "Loading Portfolio..." : "Load & Run from Portfolio"}
           </button>
@@ -485,7 +485,7 @@ export function HedgingTool() {
                 type="button"
                 onClick={handleGetRecommendations}
                 disabled={recommendLoading}
-                className="px-4 py-2 rounded-lg bg-indigo-600 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="theme-button-primary px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 {recommendLoading ? "Analyzing..." : recommendations ? "Refresh Notes" : "Get Analysis Notes"}
               </button>

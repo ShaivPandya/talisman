@@ -428,7 +428,7 @@ export function EconomicGrowth() {
             <div className="px-4 py-4">
               {mutation.isPending && (
                 <div className="flex items-center gap-2 text-sm text-gray-500">
-                  <div className="w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-[hsl(var(--accent))] border-t-transparent rounded-full animate-spin" />
                   Analyzing market data...
                 </div>
               )}
