@@ -938,8 +938,11 @@ function ActionQueueCard({
   pressures,
   pressureDismissError,
   processingIds,
+  approvalActions,
   bulkDismissSubmitting,
   onReviewApproval,
+  onApproveApproval,
+  onRejectApproval,
   onBulkDismiss,
   onDismissOptimizer,
   onDismissPressure,
@@ -955,8 +958,11 @@ function ActionQueueCard({
   pressures: WorkspaceData["thesis_pressure"]
   pressureDismissError: string | null
   processingIds: Set<number | string>
+  approvalActions: Record<string, ApprovalDialogAction | undefined>
   bulkDismissSubmitting: boolean
   onReviewApproval: (a: ApprovalRecord) => void
+  onApproveApproval: (a: ApprovalRecord) => void
+  onRejectApproval: (a: ApprovalRecord) => void
   onBulkDismiss: () => void
   onDismissOptimizer: (a: OptimizationAlert) => void
   onDismissPressure: (tp: WorkspaceData["thesis_pressure"][number]) => void
@@ -1052,15 +1058,33 @@ function ActionQueueCard({
                 {displayReason && <p className="mb-2 line-clamp-2 text-sm text-muted">{displayReason}</p>}
                 {approvalNeedsPolicyGate(a, gate) && <PolicyGatePanel gate={gate} />}
                 <ApprovalProgressSummary approval={a} compact />
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => onReviewApproval(a)}
                     disabled={processingIds.has(a.id)}
-                    className="theme-button-base theme-button-primary min-h-9 flex-1 px-4 text-xs"
+                    className="theme-button-base theme-button-primary min-h-11 flex-1 px-3 text-xs sm:min-h-9"
                   >
                     Review
                   </button>
+                  <ActionButton
+                    onClick={() => onApproveApproval(a)}
+                    loading={approvalActions[a.id] === "approve"}
+                    loadingText="Approving..."
+                    disabled={processingIds.has(a.id) || a.can_approve === false}
+                    className="theme-button-success min-h-11 w-auto flex-1 px-3 text-xs sm:min-h-9"
+                  >
+                    Approve
+                  </ActionButton>
+                  <ActionButton
+                    onClick={() => onRejectApproval(a)}
+                    loading={approvalActions[a.id] === "reject"}
+                    loadingText="Rejecting..."
+                    disabled={processingIds.has(a.id) || a.can_reject === false}
+                    className="theme-button-destructive min-h-11 w-auto flex-1 px-3 text-xs sm:min-h-9"
+                  >
+                    Reject
+                  </ActionButton>
                   <TraceTriggerButton compact label={`View approval ${a.id} trace`} onClick={() => onOpenApprovalTrace(a)} />
                 </div>
               </div>
@@ -1336,9 +1360,11 @@ export function Workspace() {
   const { openDecisionTrace } = useDecisionTrace()
   const [postMortemReview, setPostMortemReview] = useState<DecisionOutcomeRecord | null>(null)
   const [approvalReview, setApprovalReview] = useState<ApprovalRecord | null>(null)
+  const approvalReviewIdRef = useRef<string | null>(null)
   const [approvalNote, setApprovalNote] = useState("")
   const [approvalError, setApprovalError] = useState<string | null>(null)
-  const [approvalDialogAction, setApprovalDialogAction] = useState<ApprovalDialogAction | null>(null)
+  const [approvalActions, setApprovalActions] = useState<Record<string, ApprovalDialogAction | undefined>>({})
+  const approvalSubmissionIds = useRef(new Set<string>())
   const [bulkDismissOpen, setBulkDismissOpen] = useState(false)
   const [bulkDismissSubmitting, setBulkDismissSubmitting] = useState(false)
   const [bulkDismissError, setBulkDismissError] = useState<string | null>(null)
@@ -1355,11 +1381,40 @@ export function Workspace() {
     setSearchParams(next, { replace: true })
   }, [searchParams, setSearchParams])
 
-  function openApprovalReview(approval: ApprovalRecord) {
+  function openApprovalReview(approval: ApprovalRecord, note = "", error: string | null = null) {
+    approvalReviewIdRef.current = approval.id
     setApprovalReview(approval)
+    setApprovalNote(note)
+    setApprovalError(error)
+  }
+
+  function closeApprovalReview() {
+    approvalReviewIdRef.current = null
+    setApprovalReview(null)
     setApprovalNote("")
     setApprovalError(null)
-    setApprovalDialogAction(null)
+  }
+
+  function beginApprovalSubmission(id: string, action: ApprovalDialogAction): boolean {
+    if (approvalSubmissionIds.current.has(id)) return false
+    approvalSubmissionIds.current.add(id)
+    setApprovalActions(prev => ({ ...prev, [id]: action }))
+    setProcessingIds(prev => new Set(prev).add(id))
+    return true
+  }
+
+  function finishApprovalSubmission(id: string) {
+    approvalSubmissionIds.current.delete(id)
+    setApprovalActions(prev => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    setProcessingIds(prev => {
+      const next = new Set(prev)
+      next.delete(id)
+      return next
+    })
   }
 
   function toggleExpanded(key: string) {
@@ -1371,14 +1426,19 @@ export function Workspace() {
     })
   }
 
-  async function handleApproval(approval: ApprovalRecord, action: "approve" | "reject", note?: string) {
-    setApprovalError(null)
+  async function handleApproval(
+    approval: ApprovalRecord,
+    action: "approve" | "reject",
+    note?: string,
+    source: "review" | "queue" = "review",
+  ) {
+    if (action === "approve" ? approval.can_approve === false : approval.can_reject === false) return
+    if (approvalReviewIdRef.current === approval.id) setApprovalError(null)
     if (action === "approve" && !String(note || "").trim()) {
       setApprovalError("Approval note is required before applying an internal state change.")
       return
     }
-    setApprovalDialogAction(action)
-    setProcessingIds(prev => new Set(prev).add(approval.id))
+    if (!beginApprovalSubmission(approval.id, action)) return
     try {
       let resolved: ApprovalRecord
       if (action === "approve") {
@@ -1387,42 +1447,42 @@ export function Workspace() {
         resolved = await rejectItem(approval.id, note?.trim() || undefined)
       }
       patchResolvedApprovalSummaries(qc, resolved, approval)
-      setApprovalReview(null)
-      setApprovalNote("")
+      if (approvalReviewIdRef.current === approval.id) closeApprovalReview()
       invalidateAfterApprovalResolution(qc, approval)
     } catch (err) {
-      setApprovalError(formatApprovalResolutionError(err))
-      if (shouldRefetchApprovalSummariesAfterError(err)) void invalidateApprovalSummaries(qc)
+      const message = formatApprovalResolutionError(err)
+      if (source === "queue") openApprovalReview(approval, note ?? "", message)
+      else if (approvalReviewIdRef.current === approval.id) setApprovalError(message)
+      if (shouldRefetchApprovalSummariesAfterError(err)) {
+        void invalidateApprovalSummaries(qc)
+        if (source === "queue") {
+          void fetchApproval(approval.id)
+            .then(latest => {
+              if (approvalReviewIdRef.current === approval.id) setApprovalReview(latest)
+            })
+            .catch(() => {
+              // Keep the submitted proposal and original error available if refresh fails.
+            })
+        }
+      }
     } finally {
-      setProcessingIds(prev => {
-        const next = new Set(prev)
-        next.delete(approval.id)
-        return next
-      })
-      setApprovalDialogAction(null)
+      finishApprovalSubmission(approval.id)
     }
   }
 
   async function handleRejectAndRestage(approval: ApprovalRecord, note?: string) {
-    setProcessingIds(prev => new Set(prev).add(approval.id))
+    if (!beginApprovalSubmission(approval.id, "restage")) return
     setApprovalError(null)
-    setApprovalDialogAction("restage")
     try {
       const result = await rejectAndRestageApproval(approval.id, note?.trim() || undefined)
       patchResolvedApprovalSummaries(qc, result.original, approval)
-      setApprovalReview(null)
-      setApprovalNote("")
+      if (approvalReviewIdRef.current === approval.id) closeApprovalReview()
       invalidateAfterApprovalResolution(qc, approval)
     } catch (err) {
-      setApprovalError(formatApprovalResolutionError(err))
+      if (approvalReviewIdRef.current === approval.id) setApprovalError(formatApprovalResolutionError(err))
       if (shouldRefetchApprovalSummariesAfterError(err)) void invalidateApprovalSummaries(qc)
     } finally {
-      setProcessingIds(prev => {
-        const next = new Set(prev)
-        next.delete(approval.id)
-        return next
-      })
-      setApprovalDialogAction(null)
+      finishApprovalSubmission(approval.id)
     }
   }
 
@@ -1529,8 +1589,7 @@ export function Workspace() {
         })
         patchResolvedApprovalSummaries(qc, result.original, triggerEdit.approval)
         invalidateAfterApprovalResolution(qc, triggerEdit.approval)
-        setApprovalReview(null)
-        setApprovalNote("")
+        if (approvalReviewIdRef.current === triggerEdit.approval.id) closeApprovalReview()
       }
       setTriggerEdit(null)
     } catch (err) {
@@ -1683,8 +1742,11 @@ export function Workspace() {
           pressures={data.thesis_pressure}
           pressureDismissError={pressureDismissError}
           processingIds={processingIds}
+          approvalActions={approvalActions}
           bulkDismissSubmitting={bulkDismissSubmitting}
           onReviewApproval={openApprovalReview}
+          onApproveApproval={approval => void handleApproval(approval, "approve", "LGTM", "queue")}
+          onRejectApproval={approval => void handleApproval(approval, "reject", undefined, "queue")}
           onBulkDismiss={() => {
             setBulkDismissOpen(true)
             setBulkDismissError(null)
@@ -2154,10 +2216,7 @@ export function Workspace() {
         open={approvalReview !== null}
         onOpenChange={open => {
           if (!open) {
-            setApprovalReview(null)
-            setApprovalNote("")
-            setApprovalError(null)
-            setApprovalDialogAction(null)
+            closeApprovalReview()
             clearApprovalDeepLink()
           }
         }}
@@ -2235,10 +2294,7 @@ export function Workspace() {
               <button
                 type="button"
                 onClick={() => {
-                  setApprovalReview(null)
-                  setApprovalNote("")
-                  setApprovalError(null)
-                  setApprovalDialogAction(null)
+                  closeApprovalReview()
                 }}
                 className="w-full rounded-lg border border-app px-3 py-2.5 text-sm font-medium text-muted hover:text-app sm:w-auto sm:py-2"
               >
@@ -2246,7 +2302,7 @@ export function Workspace() {
               </button>
               <ActionButton
                 onClick={() => handleApproval(approvalReview, "reject", approvalNote)}
-                loading={approvalDialogAction === "reject" && processingIds.has(approvalReview.id)}
+                loading={approvalActions[approvalReview.id] === "reject"}
                 loadingText="Rejecting..."
                 disabled={processingIds.has(approvalReview.id) || approvalReview.can_reject === false}
                 className="theme-button-destructive w-full px-4 sm:w-auto"
@@ -2256,7 +2312,7 @@ export function Workspace() {
               {approvalReview.can_restage && (
                 <ActionButton
                   onClick={() => handleRejectAndRestage(approvalReview, approvalNote)}
-                  loading={approvalDialogAction === "restage" && processingIds.has(approvalReview.id)}
+                  loading={approvalActions[approvalReview.id] === "restage"}
                   loadingText="Restaging..."
                   disabled={processingIds.has(approvalReview.id)}
                   className="w-full bg-amber-600 px-4 hover:bg-amber-700 sm:w-auto"
@@ -2280,7 +2336,7 @@ export function Workspace() {
               )}
               <ActionButton
                 onClick={() => handleApproval(approvalReview, "approve", approvalNote)}
-                loading={approvalDialogAction === "approve" && processingIds.has(approvalReview.id)}
+                loading={approvalActions[approvalReview.id] === "approve"}
                 loadingText={approvalActionLabel(approvalReview) === "Record Approval" ? "Recording..." : "Applying..."}
                 disabled={processingIds.has(approvalReview.id) || !approvalNote.trim() || approvalReview.can_approve === false}
                 className="theme-button-success w-full px-4 sm:w-auto"
