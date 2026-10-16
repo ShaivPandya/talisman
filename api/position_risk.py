@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import uuid
+from collections import Counter
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
@@ -151,7 +152,14 @@ def get_latest_position_risk(ticker: str) -> dict[str, Any] | None:
 
 
 def get_latest_portfolio_risk() -> dict[str, Any] | None:
-    return read_latest_portfolio_risk()
+    snapshot = read_latest_portfolio_risk()
+    if snapshot is None:
+        return None
+    positions = snapshot.get("position_snapshots")
+    if not isinstance(positions, list):
+        return snapshot
+    # Rebuild from all legs so persisted snapshots also get distinct ticker summaries.
+    return {**snapshot, "top_contributors": _top_risk_contributors(positions)}
 
 
 def refresh_position_risk(ticker: str) -> dict[str, Any]:
@@ -822,18 +830,27 @@ def _risk_bucket_counts(snapshots: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def _top_risk_contributors(snapshots: list[dict[str, Any]], *, limit: int = 5) -> list[dict[str, Any]]:
+    if limit <= 0:
+        return []
     rows = sorted(
         snapshots,
-        key=lambda row: (_float_or_none(row.get("risk_score")) or 0.0, str(row.get("ticker") or "")),
+        key=lambda row: (_float_or_none(row.get("risk_score")) or 0.0, _ticker(row.get("ticker"))),
         reverse=True,
     )
+    counts = Counter(_ticker(row.get("ticker")) for row in snapshots)
+    seen: set[str] = set()
     contributors: list[dict[str, Any]] = []
-    for row in rows[:limit]:
+    for row in rows:
+        ticker = _ticker(row.get("ticker"))
+        if not ticker or ticker in seen:
+            continue
+        seen.add(ticker)
         evidence = row.get("evidence") if isinstance(row.get("evidence"), list) else []
         top_driver = evidence[0] if evidence and isinstance(evidence[0], dict) else None
         contributors.append(
             {
-                "ticker": row.get("ticker"),
+                "ticker": ticker,
+                "position_count": counts[ticker],
                 "asset": row.get("asset"),
                 "direction": row.get("direction"),
                 "sector": row.get("sector"),
@@ -845,6 +862,8 @@ def _top_risk_contributors(snapshots: list[dict[str, Any]], *, limit: int = 5) -
                 "top_driver": top_driver,
             }
         )
+        if len(contributors) >= limit:
+            break
     return contributors
 
 

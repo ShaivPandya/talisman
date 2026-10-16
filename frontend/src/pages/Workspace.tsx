@@ -29,6 +29,7 @@ import {
   type PolicyGateResult,
   type RecommendationRecord,
   type SourceHealth,
+  type PositionRiskDegradedModule,
   type TriggerMutationBody,
 } from "@/lib/api"
 import {
@@ -63,6 +64,7 @@ import {
 } from "@/components/shared/DecisionStateBadge"
 import { approvalDecisionState, courseOfActionDecisionState, recommendationDecisionState } from "@/lib/decisionState"
 import { cn } from "@/lib/utils"
+import { riskDate } from "@/lib/portfolioRisk"
 import { useCallback, useEffect, useRef, useState } from "react"
 
 interface WorkspaceData {
@@ -87,11 +89,13 @@ interface WorkspaceData {
       computed_at?: string | null
       quality?: string | null
       confidence?: number | null
+      position_count?: number | null
       average_risk_score?: number | null
       max_risk_score?: number | null
       risk_level?: string | null
       risk_buckets?: { high?: number; medium?: number; low?: number } | null
       top_contributors?: Array<Record<string, unknown>>
+      degraded_modules?: PositionRiskDegradedModule[]
     } | null
   } | null
   source_health?: SourceHealth | null
@@ -821,7 +825,10 @@ type PortfolioRisk = NonNullable<NonNullable<WorkspaceData["portfolio"]>["risk"]
 
 function WorkspaceRiskCard({ risk }: { risk: PortfolioRisk }) {
   const contributors = Array.isArray(risk.top_contributors) ? risk.top_contributors : []
+  const degradedModules = Array.isArray(risk.degraded_modules) ? risk.degraded_modules : []
+  const requiredDegraded = degradedModules.filter(module => module.required).length
   const degraded = Boolean(risk.quality && risk.quality !== "ok")
+  const asOf = risk.as_of || risk.computed_at
   return (
     <section className="theme-surface flex flex-col rounded-xl p-4">
       <div className="mb-4 flex items-center gap-2">
@@ -839,24 +846,45 @@ function WorkspaceRiskCard({ risk }: { risk: PortfolioRisk }) {
           <p className="mt-1 text-xs text-subtle">Max risk</p>
         </div>
         <div className="ml-auto text-right">
-          <p className="text-sm font-semibold text-app">
+          <p className="text-sm font-semibold text-app" title="Low < 0.50; medium 0.50 to < 0.75; high ≥ 0.75">
             H {risk.risk_buckets?.high ?? 0} · M {risk.risk_buckets?.medium ?? 0} · L {risk.risk_buckets?.low ?? 0}
           </p>
-          <p className="mt-1 text-xs text-subtle">Buckets · {risk.as_of || risk.computed_at || "—"}</p>
+          <p className="mt-1 text-xs text-subtle" title={`Computed ${formatTime(risk.computed_at)}`}>
+            As of {riskDate(asOf?.slice(0, 10))}
+          </p>
         </div>
       </div>
       {contributors.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {contributors.slice(0, 5).map((row, idx) => {
+          {contributors.slice(0, 5).map(row => {
             const score = typeof row.risk_score === "number" ? row.risk_score : null
+            const positionCount = typeof row.position_count === "number" ? row.position_count : 1
             return (
-              <span key={`${String(row.ticker || "risk")}-${idx}`} className="inline-flex items-center gap-1.5 rounded-full border border-app bg-card-muted px-2.5 py-1 text-xs">
+              <span key={String(row.ticker || "risk")} className="inline-flex items-center gap-1.5 rounded-full border border-app bg-card-muted px-2.5 py-1 text-xs" title="Highest market-stress score across this ticker's positions">
                 <span className="font-bold tabular-nums text-app">{String(row.ticker || "Portfolio")}</span>
-                <span className={cn("tabular-nums font-semibold", score != null && score >= 0.36 ? "text-amber-600 dark:text-amber-400" : "text-subtle")}>{formatRiskScore(score)}</span>
+                {positionCount > 1 && <span className="text-subtle">{positionCount} positions</span>}
+                <span className={cn("tabular-nums font-semibold", score != null && score >= 0.75 ? "text-red-600 dark:text-red-400" : score != null && score >= 0.5 ? "text-amber-600 dark:text-amber-400" : "text-subtle")}>{formatRiskScore(score)}</span>
               </span>
             )
           })}
         </div>
+      )}
+      {degradedModules.length > 0 && (
+        <details className="mt-3 text-xs text-muted">
+          <summary className="cursor-pointer">
+            {requiredDegraded === 0
+              ? `${degradedModules.length} optional source${degradedModules.length === 1 ? "" : "s"} degraded`
+              : `${degradedModules.length} source${degradedModules.length === 1 ? "" : "s"} degraded · ${requiredDegraded} required`}
+          </summary>
+          <ul className="mt-2 space-y-2">
+            {degradedModules.map(module => (
+              <li key={module.module}>
+                <span className="font-medium capitalize">{module.module.replaceAll("_", " ")} · {module.required ? "required" : "optional"}</span>
+                <p className="mt-0.5">{module.reason || module.status || "Source unavailable"}</p>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   )

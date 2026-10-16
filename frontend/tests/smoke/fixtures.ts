@@ -16,6 +16,7 @@ interface ApiMockState {
   dismissedPressureKeys: Set<string>
   ontologyQueryRequest: Record<string, JsonValue> | null
   isAuthenticated: boolean
+  workspaceRiskOverride?: Record<string, JsonValue>
 }
 
 export const smokeApproval = {
@@ -639,6 +640,9 @@ const provenanceTraceResponse = {
 function workspaceResponse(state: ApiMockState) {
   return {
     ...(baseWorkspaceResponse as Record<string, JsonValue>),
+    ...(state.workspaceRiskOverride ? {
+      portfolio: { ...baseWorkspaceResponse.portfolio, risk: state.workspaceRiskOverride },
+    } : {}),
     thesis_pressure: state.dismissedPressureKeys.has(smokePressureKey)
       ? []
       : (baseWorkspaceResponse as { thesis_pressure: JsonValue[] }).thesis_pressure,

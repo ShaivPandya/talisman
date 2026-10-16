@@ -63,6 +63,15 @@ def test_workspace_router_uses_runtime_bundle(monkeypatch):
     monkeypatch.setattr(workspace_router, "OntologyRuntimeReadService", _Reads)
     monkeypatch.setattr(workspace_router, "get_setting", lambda key: None)
     monkeypatch.setattr(agent_tools, "execute_tool", lambda name, args: {"positions": [{"ticker": "MU"}]})
+    risk = {
+        "position_count": 13,
+        "quality": "degraded",
+        "degraded_modules": [
+            {"module": "sentiment", "required": False, "reason": "NAAIM current data requires member access"}
+        ],
+        "top_contributors": [{"ticker": "RIDE", "risk_score": 0.3936, "position_count": 5}],
+    }
+    monkeypatch.setattr("api.position_risk.get_latest_portfolio_risk", lambda: risk)
     monkeypatch.setattr(
         "api.signal_snapshot.get_signal_aggregator_snapshot_or_module_response",
         lambda **kwargs: {"regime": {"label": "neutral", "score": 0}},
@@ -81,6 +90,9 @@ def test_workspace_router_uses_runtime_bundle(monkeypatch):
     payload = workspace_router.get_workspace()
 
     assert payload["source_health"]["overall_quality"] == "ok"
+    assert payload["portfolio"]["risk"]["position_count"] == 13
+    assert payload["portfolio"]["risk"]["degraded_modules"] == risk["degraded_modules"]
+    assert payload["portfolio"]["risk"]["top_contributors"] == risk["top_contributors"]
     assert payload["what_changed"]["counts"]["total"] == 0
     assert [row["ticker"] for row in payload["thesis_pressure"]] == ["MU"]
     assert payload["thesis_pressure"][0]["pressure_key"].startswith("MU:")

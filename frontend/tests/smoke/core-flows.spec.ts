@@ -80,6 +80,61 @@ test("opens approval review from workspace approval_id deep link", async ({ page
   await expect(page.getByText("Create internal action item")).toBeVisible()
 })
 
+test("workspace risk shows distinct ticker summaries, low-risk styling and optional source details", async ({ page, apiMocks }) => {
+  apiMocks.workspaceRiskOverride = {
+    result_id: "risk-multiple-legs",
+    as_of: "2026-10-14T00:00:00+00:00",
+    computed_at: "2026-10-16T11:22:29+00:00",
+    quality: "degraded",
+    position_count: 13,
+    average_risk_score: 0.384,
+    max_risk_score: 0.3936,
+    risk_buckets: { high: 0, medium: 0, low: 13 },
+    top_contributors: [
+      { ticker: "RIDE", risk_score: 0.3936, risk_level: "low", position_count: 5 },
+      { ticker: "NOVA", risk_score: 0.38, risk_level: "low", position_count: 3 },
+      { ticker: "GAMMA", risk_score: 0.38, risk_level: "low", position_count: 1 },
+    ],
+    degraded_modules: [{
+      module: "sentiment",
+      required: false,
+      reason: "NAAIM current data requires member or API access; the public page has a three-month delay",
+    }],
+  }
+  await page.goto("/workspace")
+
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Portfolio risk", exact: true }) })
+  await expect(card.getByText("RIDE", { exact: true })).toHaveCount(1)
+  await expect(card.getByText("5 positions", { exact: true })).toBeVisible()
+  await expect(card.getByText("3 positions", { exact: true })).toBeVisible()
+  await expect(card.getByText("RIDE", { exact: true }).locator("..").getByText("0.39", { exact: true })).toHaveClass(/text-subtle/)
+  await expect(card.getByText("H 0 · M 0 · L 13", { exact: true })).toBeVisible()
+  await expect(card.getByText("As of Oct 14, 2026", { exact: true })).toBeVisible()
+  await expect(card.getByText("Data Degraded", { exact: true })).toBeVisible()
+  await card.getByText("1 optional source degraded", { exact: true }).click()
+  await expect(card.getByText(/NAAIM current data requires member or API access/)).toBeVisible()
+})
+
+test("workspace risk distinguishes required source failures and score thresholds", async ({ page, apiMocks }) => {
+  apiMocks.workspaceRiskOverride = {
+    quality: "degraded",
+    top_contributors: [
+      { ticker: "HIGH", risk_score: 0.75 },
+      { ticker: "MEDIUM", risk_score: 0.5 },
+      { ticker: "LOW", risk_score: 0.49 },
+    ],
+    degraded_modules: [{ module: "market_breadth", required: true, reason: "Snapshot is stale" }],
+  }
+  await page.goto("/workspace")
+
+  const card = page.locator("section").filter({ has: page.getByRole("heading", { name: "Portfolio risk", exact: true }) })
+  await expect(card.getByText("HIGH", { exact: true }).locator("..").getByText("0.75", { exact: true })).toHaveClass(/text-red-600/)
+  await expect(card.getByText("MEDIUM", { exact: true }).locator("..").getByText("0.50", { exact: true })).toHaveClass(/text-amber-600/)
+  await expect(card.getByText("LOW", { exact: true }).locator("..").getByText("0.49", { exact: true })).toHaveClass(/text-subtle/)
+  await card.getByText("1 source degraded · 1 required", { exact: true }).click()
+  await expect(card.getByText("Snapshot is stale", { exact: true })).toBeVisible()
+})
+
 test("clears workspace pressure rows and bulk dismisses approvals", async ({ page }) => {
   await authenticate(page)
   await page.goto("/workspace")

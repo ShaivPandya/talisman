@@ -430,10 +430,12 @@ def get_workspace(since: str | None = None):
                 "computed_at": portfolio_risk.get("computed_at"),
                 "quality": portfolio_risk.get("quality"),
                 "confidence": portfolio_risk.get("confidence"),
+                "position_count": portfolio_risk.get("position_count"),
                 "average_risk_score": portfolio_risk.get("average_risk_score"),
                 "max_risk_score": portfolio_risk.get("max_risk_score"),
                 "risk_level": portfolio_risk.get("risk_level"),
                 "risk_buckets": portfolio_risk.get("risk_buckets"),
+                "degraded_modules": portfolio_risk.get("degraded_modules", []),
                 "top_contributors": portfolio_risk.get("top_contributors", [])[:5]
                 if isinstance(portfolio_risk.get("top_contributors"), list)
                 else [],
