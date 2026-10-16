@@ -173,7 +173,7 @@ pydantic_core==2.41.5
 pydeck==0.9.1
 pydub==0.25.1
 pyexcel==0.7.4
-pyexcel-io==0.6.7
+pyexcel-io==0.6.8
 pyexcel-xls==0.7.1
 Pygments==2.20.0
 pyjson5==2.0.0
