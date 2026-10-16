@@ -24,13 +24,7 @@
     --border: 220 16% 86%;
     --border-strong: 220 16% 78%;
 
-    --accent: 211 100% 52%;
-    --accent-foreground: 0 0% 100%;
-    --accent-muted: 211 100% 97%;
-    --accent-selected: 211 92% 93%;
-    --accent-pressed: 211 100% 46%;
-    --link: 212 100% 45%;
-    --focus-ring: 211 100% 62%;
+    /* Accent, link, focus-ring and selected tokens come from the accent presets below. */
 
     --success: 142 63% 35%;
     --success-muted: 143 50% 95%;
@@ -41,7 +35,6 @@
 
     --hover: 220 18% 93%;
     --pressed: 220 18% 89%;
-    --selected: 211 92% 93%;
     --disabled: 220 8% 72%;
 
     --shadow-color: 220 26% 10%;
@@ -85,14 +78,6 @@
     --border: 222 13% 25%;
     --border-strong: 221 12% 32%;
 
-    --accent: 211 100% 64%;
-    --accent-foreground: 222 40% 10%;
-    --accent-muted: 214 54% 20%;
-    --accent-selected: 214 42% 25%;
-    --accent-pressed: 211 100% 58%;
-    --link: 210 100% 72%;
-    --focus-ring: 212 100% 69%;
-
     --success: 142 58% 55%;
     --success-muted: 142 30% 20%;
     --warning: 38 89% 58%;
@@ -102,7 +87,6 @@
 
     --hover: 222 13% 23%;
     --pressed: 222 13% 28%;
-    --selected: 214 42% 25%;
     --disabled: 219 8% 36%;
 
     --shadow-color: 220 45% 2%;
@@ -120,6 +104,196 @@
     --negative: 358 80% 68%;
     --neutral: 214 10% 68%;
     color-scheme: dark;
+  }
+
+  /*
+   * Accent presets (see src/lib/accentPresets.ts). <html data-accent> picks the app accent;
+   * the same attribute on any element scopes a preset to it, which the settings swatches use.
+   * Light rules come first; the dark rules match the same element with higher specificity.
+   */
+  :root,
+  [data-accent="blue"] {
+    --accent: 211 100% 52%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 211 100% 97%;
+    --accent-selected: 211 92% 93%;
+    --accent-pressed: 211 100% 46%;
+    --link: 212 100% 45%;
+    --focus-ring: 211 100% 62%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="indigo"] {
+    --accent: 239 78% 60%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 238 100% 97%;
+    --accent-selected: 238 85% 94%;
+    --accent-pressed: 239 68% 53%;
+    --link: 239 64% 52%;
+    --focus-ring: 239 84% 67%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="violet"] {
+    --accent: 266 70% 56%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 268 100% 97%;
+    --accent-selected: 267 80% 94%;
+    --accent-pressed: 266 60% 49%;
+    --link: 266 60% 48%;
+    --focus-ring: 266 72% 65%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="teal"] {
+    --accent: 178 82% 31%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 176 60% 95%;
+    --accent-selected: 176 50% 89%;
+    --accent-pressed: 178 86% 25%;
+    --link: 180 88% 25%;
+    --focus-ring: 178 70% 42%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="green"] {
+    --accent: 145 68% 33%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 140 60% 95%;
+    --accent-selected: 142 48% 89%;
+    --accent-pressed: 145 72% 27%;
+    --link: 146 72% 28%;
+    --focus-ring: 145 60% 42%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="orange"] {
+    --accent: 24 90% 43%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 33 100% 95%;
+    --accent-selected: 31 92% 89%;
+    --accent-pressed: 22 88% 37%;
+    --link: 22 86% 37%;
+    --focus-ring: 27 92% 54%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="rose"] {
+    --accent: 345 76% 50%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 345 100% 97%;
+    --accent-selected: 345 85% 94%;
+    --accent-pressed: 345 72% 43%;
+    --link: 345 70% 44%;
+    --focus-ring: 345 78% 60%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-accent="graphite"] {
+    --accent: 220 14% 30%;
+    --accent-foreground: 0 0% 100%;
+    --accent-muted: 220 16% 95%;
+    --accent-selected: 220 16% 90%;
+    --accent-pressed: 220 16% 22%;
+    --link: 220 18% 28%;
+    --focus-ring: 220 14% 50%;
+    --selected: var(--accent-selected);
+  }
+
+  :root[data-theme="dark"],
+  [data-theme="dark"] [data-accent="blue"] {
+    --accent: 211 100% 64%;
+    --accent-foreground: 222 40% 10%;
+    --accent-muted: 214 54% 20%;
+    --accent-selected: 214 42% 25%;
+    --accent-pressed: 211 100% 58%;
+    --link: 210 100% 72%;
+    --focus-ring: 212 100% 69%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="indigo"],
+  [data-theme="dark"] [data-accent="indigo"] {
+    --accent: 236 90% 74%;
+    --accent-foreground: 236 40% 11%;
+    --accent-muted: 237 38% 22%;
+    --accent-selected: 237 30% 27%;
+    --accent-pressed: 236 82% 68%;
+    --link: 235 100% 80%;
+    --focus-ring: 236 90% 76%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="violet"],
+  [data-theme="dark"] [data-accent="violet"] {
+    --accent: 267 84% 75%;
+    --accent-foreground: 266 40% 11%;
+    --accent-muted: 267 32% 22%;
+    --accent-selected: 267 26% 27%;
+    --accent-pressed: 267 74% 69%;
+    --link: 268 90% 81%;
+    --focus-ring: 267 84% 77%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="teal"],
+  [data-theme="dark"] [data-accent="teal"] {
+    --accent: 172 62% 52%;
+    --accent-foreground: 180 40% 8%;
+    --accent-muted: 176 40% 17%;
+    --accent-selected: 176 30% 22%;
+    --accent-pressed: 172 58% 46%;
+    --link: 170 64% 62%;
+    --focus-ring: 172 62% 56%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="green"],
+  [data-theme="dark"] [data-accent="green"] {
+    --accent: 142 55% 55%;
+    --accent-foreground: 145 40% 8%;
+    --accent-muted: 145 32% 17%;
+    --accent-selected: 145 24% 22%;
+    --accent-pressed: 142 50% 48%;
+    --link: 140 58% 65%;
+    --focus-ring: 142 55% 58%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="orange"],
+  [data-theme="dark"] [data-accent="orange"] {
+    --accent: 31 95% 60%;
+    --accent-foreground: 28 50% 9%;
+    --accent-muted: 28 38% 18%;
+    --accent-selected: 28 30% 23%;
+    --accent-pressed: 29 88% 54%;
+    --link: 33 100% 68%;
+    --focus-ring: 31 95% 62%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="rose"],
+  [data-theme="dark"] [data-accent="rose"] {
+    --accent: 345 88% 71%;
+    --accent-foreground: 345 40% 10%;
+    --accent-muted: 345 32% 20%;
+    --accent-selected: 345 26% 25%;
+    --accent-pressed: 345 78% 65%;
+    --link: 345 94% 78%;
+    --focus-ring: 345 88% 73%;
+    --selected: var(--accent-selected);
+  }
+
+  [data-theme="dark"][data-accent="graphite"],
+  [data-theme="dark"] [data-accent="graphite"] {
+    --accent: 216 14% 82%;
+    --accent-foreground: 222 30% 10%;
+    --accent-muted: 220 10% 22%;
+    --accent-selected: 220 10% 27%;
+    --accent-pressed: 216 12% 74%;
+    --link: 216 18% 86%;
+    --focus-ring: 216 14% 72%;
+    --selected: var(--accent-selected);
   }
 
   * {
@@ -622,6 +796,14 @@
     bottom: -0.32rem;
     border-bottom: 1px solid hsl(var(--border));
     border-right: 1px solid hsl(var(--border));
+  }
+
+  .theme-tooltip-content[data-side="right"]::after {
+    left: -0.32rem;
+    top: var(--theme-tooltip-arrow-y);
+    border-bottom: 1px solid hsl(var(--border));
+    border-left: 1px solid hsl(var(--border));
+    transform: translate(0, -50%) rotate(45deg);
   }
 }
 
