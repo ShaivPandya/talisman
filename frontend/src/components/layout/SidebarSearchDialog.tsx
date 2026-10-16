@@ -3,7 +3,8 @@ import { ArrowUpRight, Search, X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useLocation, useNavigate } from "react-router-dom"
 import { cn } from "@/lib/utils"
-import { NAV_SECTIONS } from "./Sidebar"
+import { usePersonalization } from "@/contexts/PersonalizationContext"
+import { NAV_SECTIONS, type NavPage } from "./navSections"
 
 interface SidebarSearchDialogProps {
   open: boolean
@@ -11,16 +12,15 @@ interface SidebarSearchDialogProps {
   onNavigate?: () => void
 }
 
-interface SidebarSearchPage {
-  label: string
-  path: string
+interface SidebarSearchPage extends NavPage {
   section: string
 }
 
+// Search covers every page, including ones hidden from the sidebar.
 const SIDEBAR_PAGES: SidebarSearchPage[] = NAV_SECTIONS.flatMap(section =>
   section.pages.map(page => ({
     ...page,
-    section: section.label ?? "Navigation",
+    section: section.label,
   })),
 )
 
@@ -42,6 +42,7 @@ export function SidebarSearchDialog({ open, onOpenChange, onNavigate }: SidebarS
   const inputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const location = useLocation()
+  const { hiddenPaths } = usePersonalization()
 
   const filteredPages = useMemo(
     () => SIDEBAR_PAGES.filter(page => pageMatchesQuery(page, query)),
@@ -134,6 +135,7 @@ export function SidebarSearchDialog({ open, onOpenChange, onNavigate }: SidebarS
               filteredPages.map((page, index) => {
                 const isSelected = index === activeSelectedIndex
                 const isCurrent = page.path === location.pathname
+                const Icon = page.icon
 
                 return (
                   <button
@@ -148,12 +150,18 @@ export function SidebarSearchDialog({ open, onOpenChange, onNavigate }: SidebarS
                       isSelected ? "bg-selected" : "hover:bg-hover",
                     )}
                   >
+                    <Icon size={16} className="shrink-0 text-subtle" aria-hidden="true" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-app">{page.label}</span>
                       <span className="mt-0.5 block truncate text-xs text-muted">
                         {page.section} / {page.path}
                       </span>
                     </span>
+                    {hiddenPaths.has(page.path) && (
+                      <span className="rounded-full border border-app px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-subtle">
+                        Hidden
+                      </span>
+                    )}
                     {isCurrent && (
                       <span className="rounded-full bg-[hsl(var(--accent-muted))] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-link">
                         Current

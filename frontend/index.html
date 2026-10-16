@@ -18,6 +18,11 @@
                 : "light"
 
           document.documentElement.dataset.theme = resolvedTheme
+
+          const storedAccent = window.localStorage.getItem("talisman-accent")
+          if (storedAccent && /^[a-z]+$/.test(storedAccent)) {
+            document.documentElement.dataset.accent = storedAccent
+          }
         } catch {
           document.documentElement.dataset.theme = "light"
         }

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
+import { PersonalizationProvider } from "@/contexts/PersonalizationContext"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { Layout } from "@/components/layout/Layout"
 import { isChunkLoadError, maybeReloadForChunkLoadError } from "@/lib/chunkRecovery"
@@ -146,6 +147,7 @@ const IdeaDetail = lazyPage(() => import("@/pages/IdeaDetail"), "IdeaDetail")
 const DCFModel = lazyPage(() => import("@/pages/DCFModel"), "DCFModel")
 const AISettings = lazyPage(() => import("@/pages/AISettings"), "AISettings")
 const PolicyMatrixSettings = lazyPage(() => import("@/pages/PolicyMatrixSettings"), "PolicyMatrixSettings")
+const PersonalizationSettings = lazyPage(() => import("@/pages/PersonalizationSettings"), "PersonalizationSettings")
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -237,6 +239,7 @@ function AppRoutes() {
               <Route path="/alternative-data" element={<AlternativeData />} />
               <Route path="/settings/ai" element={<AISettings />} />
               <Route path="/settings/policy-matrix" element={<PolicyMatrixSettings />} />
+              <Route path="/settings/personalization" element={<PersonalizationSettings />} />
             </Route>
           </Route>
         </Routes>
@@ -249,11 +252,13 @@ export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
-          <AuthProvider>
-            <AppRoutes />
-          </AuthProvider>
-        </BrowserRouter>
+        <PersonalizationProvider>
+          <BrowserRouter>
+            <AuthProvider>
+              <AppRoutes />
+            </AuthProvider>
+          </BrowserRouter>
+        </PersonalizationProvider>
       </ThemeProvider>
     </QueryClientProvider>
   )
