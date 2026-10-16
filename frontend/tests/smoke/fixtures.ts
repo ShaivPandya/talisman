@@ -18,7 +18,7 @@ interface ApiMockState {
   isAuthenticated: boolean
 }
 
-const smokeApproval = {
+export const smokeApproval = {
   id: "smoke-approval",
   status: "pending",
   entity_type: "action_item",
