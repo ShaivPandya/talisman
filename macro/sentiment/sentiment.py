@@ -13,6 +13,7 @@ from __future__ import annotations
 import io
 from datetime import date as date_type
 from datetime import timedelta
+from urllib.parse import urljoin
 
 import pandas as pd
 
@@ -205,6 +206,9 @@ def _fetch_naaim_excel(page_url: str) -> pd.DataFrame:
     page = requests_get(page_url, headers=_HEADERS, timeout=_TIMEOUT)
     page.raise_for_status()
     soup = BeautifulSoup(page.content, "lxml")
+    page_text = soup.get_text(" ", strip=True).lower()
+    if "three-month delay" in page_text and "subscription" in page_text:
+        raise ValueError("NAAIM current data requires member or API access; the public page has a three-month delay")
 
     # Find the Excel download link
     xlsx_url = None
@@ -219,7 +223,7 @@ def _fetch_naaim_excel(page_url: str) -> pd.DataFrame:
         if not href:
             continue
         if any(ext in href.lower() for ext in (".xlsx", ".xls")):
-            xlsx_url = href if href.startswith("http") else "https://www.naaim.org" + href
+            xlsx_url = urljoin(page.url or page_url, href)
             break
 
     if not xlsx_url:
