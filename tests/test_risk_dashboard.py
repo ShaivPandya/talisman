@@ -297,6 +297,23 @@ def install_compute_mocks(monkeypatch):
     return payload
 
 
+def test_scheduled_dashboard_reuses_stress_and_persists_snapshot(isolated_snapshots, monkeypatch):
+    payload = install_compute_mocks(monkeypatch)
+    stress = {"quality": "degraded", "position_snapshots": []}
+
+    def unexpected_refresh():
+        pytest.fail("Scheduled dashboard must reuse the risk refresh that just completed")
+
+    monkeypatch.setattr("api.position_risk.refresh_portfolio_risk", unexpected_refresh)
+    result = risk_dashboard.compute_dashboard(payload, stress_snapshot=stress)
+    assert result["stress"] == stress
+    assert result["quality"] == "degraded"
+    stored = snapshot_store.read_snapshot(SNAPSHOT_PORTFOLIO_RISK_DASHBOARD)
+    assert stored is not None
+    assert stored.payload["computed_at"] == result["computed_at"]
+    assert stored.as_of_date == result["as_of"]
+
+
 def test_persist_read_staleness_and_retained_snapshot(isolated_snapshots, monkeypatch):
     payload = install_compute_mocks(monkeypatch)
     result = risk_dashboard.compute_dashboard(payload)

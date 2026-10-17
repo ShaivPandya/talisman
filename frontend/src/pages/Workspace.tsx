@@ -1347,14 +1347,26 @@ function CollapsibleSourceHealth({ sourceHealth }: { sourceHealth: SourceHealth 
               </div>
               <div>
                 {domain.sources.map((source, i) => (
-                  <div key={source.id} className={cn("flex items-center gap-2.5 py-2", i > 0 && "border-t border-app")}>
-                    <span className="text-sm text-muted">{source.source_name.replace(/_/g, " ")}</span>
-                    <span className="text-[11px] font-semibold text-subtle">
-                      {reliabilityTierLabel(source.reliability_tier)} · {source.required ? "required" : "optional"}
-                    </span>
-                    <span className={cn("ml-auto text-xs font-semibold", source.status === "ok" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
-                      {sourceHealthLabel(source.status)}
-                    </span>
+                  <div key={source.id} className={cn("py-2", i > 0 && "border-t border-app")}>
+                    <div className="flex flex-wrap items-center gap-2.5">
+                      <span className="text-sm text-muted">{source.display_name || source.source_name.replace(/_/g, " ")}</span>
+                      <span className="text-[11px] font-semibold text-subtle">
+                        {reliabilityTierLabel(source.reliability_tier)} · {source.required ? "required" : "optional"}
+                      </span>
+                      <span className={cn("ml-auto text-xs font-semibold", source.status === "ok" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+                        {sourceHealthLabel(source.status)}
+                      </span>
+                    </div>
+                    {source.status !== "ok" && (
+                      <div className="mt-1 space-y-1 text-xs text-subtle">
+                        <p className="break-words">{source.detail || source.error || source.freshness_reason || "No additional source details are available."}</p>
+                        <p>
+                          As of {source.as_of || "unknown"}
+                          {source.fetched_at && <> · Last fetched {formatTime(source.fetched_at)}</>}
+                          {source.expected_as_of_date && <> · Expected since {source.expected_as_of_date}</>}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

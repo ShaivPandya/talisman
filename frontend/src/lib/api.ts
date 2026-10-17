@@ -208,6 +208,7 @@ export interface SourceHealthSource {
   id: string
   domain: string
   source_name: string
+  display_name?: string | null
   snapshot_key?: string | null
   status: string
   quality_state: string
@@ -222,6 +223,8 @@ export interface SourceHealthSource {
   stale?: boolean
   error?: string | null
   detail?: string | null
+  freshness_reason?: string | null
+  expected_as_of_date?: string | null
   source_registry?: Record<string, unknown> | null
 }
 

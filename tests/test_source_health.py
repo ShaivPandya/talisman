@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -62,6 +63,77 @@ def _portfolio_risk(now: datetime) -> dict:
             "freshness": {"fresh": True, "observed_as_of_date": now.date().isoformat()},
         }
     return {"source_status": source_status}
+
+
+def test_alternative_health_uses_one_named_provider_and_its_observation_cadence():
+    now = datetime(2026, 10, 17, 19, 0, tzinfo=ZoneInfo("America/New_York"))
+    fetched = now - timedelta(days=3)
+    payload = build_workspace_source_health(
+        now=now,
+        portfolio_risk=_portfolio_risk(now),
+        snapshot_records=[
+            _snapshot("signal_aggregator:current:v1", fetched_at=now, as_of_date="2026-10-16"),
+            _snapshot("alternative:alternative_tsa:query1", fetched_at=now - timedelta(days=90)),
+            _snapshot("alternative:alternative_tsa:query2", fetched_at=fetched),
+            _snapshot("alternative:latest:alternative_tsa", fetched_at=fetched),
+        ],
+    )
+
+    sources = _sources(payload)
+    alternative = [source for source in sources.values() if source["domain"] == "alternative"]
+    assert len(alternative) == 1
+    assert alternative[0]["source_name"] == "alternative_tsa"
+    assert alternative[0]["display_name"] == "TSA Checkpoint Travel Numbers"
+    assert alternative[0]["status"] == "ok"
+    assert alternative[0]["sla_seconds"] == 10 * 86400
+    assert payload["counts"]["sla_breach"] == 0
+    assert payload["counts"]["optional_degraded"] == 0
+
+
+def test_alternative_health_keeps_real_staleness_even_after_a_recent_fetch():
+    now = datetime(2026, 10, 17, 19, 0, tzinfo=ZoneInfo("America/New_York"))
+    payload = build_workspace_source_health(
+        now=now,
+        snapshot_records=[
+            _snapshot("alternative:latest:alternative_tsa", fetched_at=now, as_of_date="2026-09-01"),
+        ],
+    )
+    source = _sources(payload)["alternative:latest:alternative_tsa"]
+    assert source["status"] == "stale"
+    assert source["sla_breach"] is True
+    assert "2026-09-01" in source["detail"]
+
+
+def test_sentiment_weekend_freshness_preserves_real_provider_errors():
+    now = datetime(2026, 10, 18, 19, 0, tzinfo=ZoneInfo("America/New_York"))
+    fetched = now - timedelta(days=2)
+    for status, expected in (("ok", "ok"), ("error", "degraded")):
+        payload = build_workspace_source_health(
+            now=now,
+            snapshot_records=[
+                _snapshot(
+                    "sentiment:current:v1",
+                    fetched_at=fetched,
+                    status=status,
+                    error="NAAIM current data requires member access" if status == "error" else None,
+                ),
+            ],
+        )
+        source = _sources(payload)["sentiment:current:v1"]
+        assert source["status"] == expected
+        assert source["sla_breach"] is False
+        if status == "error":
+            assert source["detail"] == "NAAIM current data requires member access"
+
+
+def test_source_health_keeps_refreshed_dashboard_quality_warning():
+    now = datetime(2026, 10, 16, 19, 0, tzinfo=ZoneInfo("America/New_York"))
+    snapshot = replace(
+        _snapshot("portfolio_risk_dashboard:current:v1", fetched_at=now),
+        payload={"quality": "degraded"},
+    )
+    payload = build_workspace_source_health(now=now, snapshot_records=[snapshot])
+    assert _sources(payload)[snapshot.snapshot_key]["status"] == "degraded"
 
 
 def test_source_health_marks_fresh_snapshot_ok():

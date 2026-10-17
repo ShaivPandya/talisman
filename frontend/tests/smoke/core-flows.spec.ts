@@ -54,6 +54,10 @@ test("renders workspace common operating picture and enforces approval note gati
 
   await expect(page.getByText("Source health", { exact: true })).toBeVisible()
   await expect(page.getByText(/SLA breach/).first()).toBeVisible()
+  await page.getByRole("button", { name: /^Source health/ }).click()
+  const sourceHealth = page.locator("section").filter({ has: page.getByText("Source health", { exact: true }) })
+  await expect(sourceHealth.getByText("snapshot is stale", { exact: true })).toBeVisible()
+  await expect(sourceHealth.getByText(/As of 2026-05-11/)).toBeVisible()
 
   await page.getByRole("button", { name: "Review", exact: true }).click()
 
