@@ -1401,6 +1401,8 @@ export function Workspace() {
   const [triggerEditError, setTriggerEditError] = useState<string | null>(null)
   const [triggerEditSubmitting, setTriggerEditSubmitting] = useState(false)
   const [optimizerDismissError, setOptimizerDismissError] = useState<string | null>(null)
+  const optimizerDismissalIds = useRef(new Set<string>())
+  const [hiddenOptimizerAlertIds, setHiddenOptimizerAlertIds] = useState<Set<string>>(new Set())
 
   const clearApprovalDeepLink = useCallback(() => {
     if (!searchParams.has("approval_id")) return
@@ -1629,13 +1631,37 @@ export function Workspace() {
   }
 
   async function handleDismissOptimizerAlert(alert: OptimizationAlert) {
+    if (optimizerDismissalIds.current.has(alert.id)) return
+    optimizerDismissalIds.current.add(alert.id)
     const processingKey = `optimizer-alert-${alert.id}`
     setOptimizerDismissError(null)
+    setHiddenOptimizerAlertIds(prev => new Set(prev).add(alert.id))
     setProcessingIds(prev => new Set(prev).add(processingKey))
     try {
+      await qc.cancelQueries({ queryKey: ["workspace"] })
       await dismissOptimizationAlert(alert.id)
+      qc.setQueryData<WorkspaceData>(["workspace"], current => {
+        const optimization = current?.continuous_optimization
+        if (!current || !optimization) return current
+        const remaining = optimization.open_alerts.filter(item => item.id !== alert.id)
+        return {
+          ...current,
+          continuous_optimization: {
+            ...optimization,
+            open_alerts: remaining,
+            open_alert_count: Math.max(0, optimization.open_alert_count - (optimization.open_alerts.length - remaining.length)),
+          },
+        }
+      })
       void qc.invalidateQueries({ queryKey: ["workspace"] })
+      void qc.invalidateQueries({ queryKey: ["optimization", "alerts"] })
     } catch (err) {
+      optimizerDismissalIds.current.delete(alert.id)
+      setHiddenOptimizerAlertIds(prev => {
+        const next = new Set(prev)
+        next.delete(alert.id)
+        return next
+      })
       setOptimizerDismissError(err instanceof Error ? err.message : String(err))
     } finally {
       setProcessingIds(prev => {
@@ -1705,8 +1731,13 @@ export function Workspace() {
   }
   const approvalSummaryError = approvalSummary.error
   const portfolioRisk = data.portfolio?.risk
-  const optimizerAlerts = data.continuous_optimization?.open_alerts ?? []
-  const optimizerAlertCount = data.continuous_optimization?.open_alert_count ?? optimizerAlerts.length
+  const allOptimizerAlerts = data.continuous_optimization?.open_alerts ?? []
+  const optimizerAlerts = allOptimizerAlerts.filter(alert => !hiddenOptimizerAlertIds.has(alert.id))
+  const optimizerAlertCount = Math.max(
+    0,
+    (data.continuous_optimization?.open_alert_count ?? allOptimizerAlerts.length)
+      - (allOptimizerAlerts.length - optimizerAlerts.length),
+  )
   const briefingFacts = buildBriefingFacts(data, approvalCount, optimizerAlertCount)
   const builderMonitors = data.monitor_builder?.active_monitors ?? []
   const builderMissions = data.monitor_builder?.active_missions ?? []
