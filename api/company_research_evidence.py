@@ -127,6 +127,80 @@ class CheckedFacts(EvidenceModel):
     rejected: list[Rejection]
 
 
+class EvidenceCorrection(EvidenceModel):
+    field: Literal[
+        "initiative",
+        "category",
+        "later_evidence",
+        "outcome",
+        "variance",
+        "explanation",
+        "independent_verification",
+        "control",
+        "acknowledgement",
+        "corrective_action",
+        "response_time",
+        "fix_result",
+        "claim",
+    ]
+    value: str
+
+
+class EvidenceDecision(EvidenceModel):
+    record_id: str
+    supported: bool
+    reason: str
+    corrections: list[EvidenceCorrection]
+    replacement_sources: list[Source] | None
+
+
+class EvidenceDecisions(EvidenceModel):
+    decisions: list[EvidenceDecision]
+
+
+def apply_decisions(
+    original: list[Any], checked: EvidenceDecisions, *, management: bool, as_of: date
+) -> tuple[list[Any], list[str]]:
+    """Apply only explicit corrections; never regenerate or silently drop the original ledger."""
+    validate_sources(checked, as_of=as_of)
+    before = {r.record_id: r for r in original}
+    ids = [d.record_id for d in checked.decisions]
+    if len(set(ids)) != len(ids) or set(ids) != set(before):
+        raise ValueError("Verification must account for every evidence record exactly once.")
+    accepted: list[Any] = []
+    rejected: list[str] = []
+    for decision in checked.decisions:
+        old = before[decision.record_id]
+        if not decision.supported:
+            if not decision.reason.strip():
+                raise ValueError("An evidence rejection needs a reason.")
+            rejected.append(f"{decision.record_id}: {decision.reason}")
+            continue
+        changes: dict[str, Any] = {c.field: c.value for c in decision.corrections}
+        if len(changes) != len(decision.corrections):
+            raise ValueError("Corrections must not repeat the same field.")
+        if management and "claim" in changes:
+            raise ValueError("Original management promises cannot be rewritten; reject unsupported originals.")
+        if not management and any(key != "claim" for key in changes):
+            raise ValueError("Overview corrections may only change the factual claim.")
+        if decision.replacement_sources is not None:
+            changes["outcome_sources" if management else "sources"] = decision.replacement_sources
+        value = {**old.model_dump(), **changes}
+        accepted.append(Commitment.model_validate(value) if management else Fact.model_validate(value))
+    if management:
+        validate_reconciliation(
+            original,
+            CheckedCommitments(
+                records=accepted,
+                rejected=[
+                    Rejection(record_id=d.record_id, reason=d.reason) for d in checked.decisions if not d.supported
+                ],
+            ),
+            as_of=as_of,
+        )
+    return accepted, rejected
+
+
 class Section(EvidenceModel):
     title: str
     markdown: str

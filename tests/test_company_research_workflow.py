@@ -17,6 +17,7 @@ from api.company_research_evidence import (
     CheckedCommitments,
     CheckedFacts,
     Commitment,
+    EvidenceDecisions,
     Fact,
     OverviewPacket,
     Quarter,
@@ -28,6 +29,7 @@ from api.company_research_evidence import (
     Source,
     Topic,
     WrittenSections,
+    apply_decisions,
     render_tracker,
     validate_plan,
     validate_quarters,
@@ -277,8 +279,78 @@ def test_provider_rejects_unobserved_sources(monkeypatch):
     run_id = claimed()
     with pytest.raises(RuntimeError, match="not observed"):
         provider.ResearchProvider(run_id, "worker").request(
-            "sources", OverviewPacket, prompt="Research", instructions="Research", web=True
+            "sources", OverviewPacket, prompt="Research", instructions="Research", web=True, resolve_unobserved=False
         )
+
+
+def test_tracking_parameters_do_not_change_source_identity_but_document_ids_do():
+    assert provider._canonical(URL + "?utm_source=openai#page=4") == provider._canonical(URL)
+    assert provider._canonical(URL + "?id=1&utm_source=openai") != provider._canonical(URL + "?id=2")
+
+
+def test_unobserved_citation_is_checked_without_regenerating_the_evidence_packet(monkeypatch):
+    extra_url = "https://issuer.example/annual"
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": extra_url})])
+    checked = response(
+        {"checks": [{"url": extra_url, "supported": True, "explanation": "The filing supports the passage."}]}
+    )
+    checked["output"][-1]["action"]["sources"] = [{"url": extra_url}]
+    client = mock_client(monkeypatch, [response(packet.model_dump(mode="json")), checked])
+    run_id = claimed()
+    result = provider.ResearchProvider(run_id, "worker").request(
+        "sources", OverviewPacket, prompt="Research", instructions="Research", web=True
+    )
+    assert result == packet
+    assert client.responses.create.call_count == 2
+    assert client.responses.create.call_args_list[1].kwargs["text"]["format"]["name"] == "SourceChecks"
+
+
+def test_unknown_provider_outcome_keeps_concurrency_slot_until_terminal_recovery():
+    run_id = claimed()
+    for key in ("one", "two", "three"):
+        store.reserve_call(run_id, "worker", key, 2, gathering=False, details={})
+        store.settle_call(run_id, "worker", key, actual_usd=None, usage={}, status="unknown")
+    with pytest.raises(store.ResearchLimitReached, match="in flight"):
+        store.reserve_call(run_id, "worker", "four", 2, gathering=False, details={})
+    store.settle_call(run_id, "worker", "one", actual_usd=0.25, usage={}, status="completed")
+    assert store.get_run(run_id)["charged_usd"] == 6
+    store.reserve_call(run_id, "worker", "four", 2, gathering=False, details={})
+
+
+def test_compact_verification_preserves_full_ledger_and_original_promises():
+    original = commitment()
+    checked = EvidenceDecisions.model_validate(
+        {
+            "decisions": [
+                {
+                    "record_id": original.record_id,
+                    "supported": True,
+                    "reason": "Supported",
+                    "corrections": [],
+                    "replacement_sources": None,
+                }
+            ]
+        }
+    )
+    accepted, rejected = apply_decisions([original], checked, management=True, as_of=AS_OF)
+    assert accepted == [original] and not rejected
+    changed = checked.model_dump()
+    changed["decisions"][0]["corrections"] = [{"field": "claim", "value": "Different promise"}]
+    with pytest.raises(ValueError, match="cannot be rewritten"):
+        apply_decisions([original], EvidenceDecisions.model_validate(changed), management=True, as_of=AS_OF)
+
+
+def test_gathering_cutoff_cancels_inflight_request_without_releasing_unknown_liability(monkeypatch):
+    client = mock_client(monkeypatch, [])
+    pending = response({}, status="in_progress")
+    client.responses.cancel.return_value = pending
+    run_id = claimed()
+    store.reserve_call(run_id, "worker", "sources:0", 5, gathering=True, details={"response_id": "resp_1"})
+    store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))
+    with pytest.raises(store.ResearchLimitReached):
+        provider.ResearchProvider(run_id, "worker")._wait(pending, "sources:0", gathering=True)
+    client.responses.cancel.assert_called_once_with("resp_1")
+    assert store.get_run(run_id)["charged_usd"] == 5
 
 
 class FakeProvider:
@@ -313,21 +385,33 @@ class FakeProvider:
                 gaps=[],
                 searched_sources=[source()],
             )
-        elif model in {CheckedCommitments, CheckedFacts}:
+        elif model is EvidenceDecisions:
             records = json.loads(prompt.split("Packet:\n")[1])
-            result = model.model_validate(
-                {"records" if model is CheckedCommitments else "facts": records, "rejected": []}
+            result = EvidenceDecisions.model_validate(
+                {
+                    "decisions": [
+                        {
+                            "record_id": r["record_id"],
+                            "supported": True,
+                            "reason": "Supported by filing",
+                            "corrections": [],
+                            "replacement_sources": None,
+                        }
+                        for r in records
+                    ]
+                }
             )
         elif model is WrittenSections:
-            title = prompt.split("Write ONLY this report section: ")[1].split(". Use the supplied")[0]
-            bundle = json.loads(prompt.split("\nEvidence:\n")[1].split("\nGaps:\n")[0])
+            titles = json.loads(prompt.split("preserving exact titles and order: ")[1].split(". Use the supplied")[0])
+            records = json.loads(prompt.split("\nEvidence:\n")[1].split("\nGaps:\n")[0])["records"]
             result = WrittenSections(
                 sections=[
                     Section(
                         title=title,
                         markdown=f"Supported claim [filing]({URL}).",
-                        evidence_ids=[r["record_id"] for r in bundle["records"]],
+                        evidence_ids=[r["record_id"] for r in records],
                     )
+                    for title in titles
                 ]
             )
         elif model is ReportReview:
@@ -341,6 +425,23 @@ class FakeProvider:
         if kwargs.get("validate"):
             kwargs["validate"](result)
         return result
+
+
+def test_truncated_quarter_packet_splits_without_losing_coverage(monkeypatch):
+    class SplittingProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is QuarterPacket:
+                assigned = json.loads(kwargs["prompt"].split("Assigned quarters:\n")[1])
+                if len(assigned) > 1:
+                    raise provider.ResearchTruncated("Output cap")
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", SplittingProvider)
+    run_id = claimed()
+    labels = [q.label for q in plan().quarters[:4]]
+    packet = workflow.Workflow(run_id, "worker").gather_quarters(plan(), labels)
+    assert [q.quarter for q in packet.quarters] == labels
+    assert all(len(q.records) == 1 for q in packet.quarters)
 
 
 def test_complete_workflow_covers_all_quarters_and_eval_never_publishes(monkeypatch):
@@ -379,3 +480,30 @@ def test_failed_report_does_not_discard_completed_report(monkeypatch):
     workflow.run_company_research_run(workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="resumed")
     assert not any(c.startswith("overview/") for c in FakeProvider.calls)
     assert legacy.read_research_report("EL", "overview", state["run_id"]) == overview
+
+
+def test_verified_reports_publish_as_requesting_actor_once_and_pending_approval_is_not_success(monkeypatch):
+    monkeypatch.setattr(workflow, "ResearchProvider", FakeProvider)
+    published = []
+
+    def publish(action, payload, **kwargs):
+        published.append((action, payload, kwargs))
+        return {
+            "application_status": "applied" if action == "save_overview_content" else "pending",
+            "approval_id": "approval",
+        }
+
+    monkeypatch.setattr(legacy, "stage_api_action", publish)
+    state = create_run(apply=True)
+    request = workflow.CompanyResearchRunRequest(run_id=state["run_id"])
+    workflow.run_company_research_run(request, job_id="publish")
+    saved = store.get_run(state["run_id"])
+    assert saved["reports"]["overview"]["status"] == "done"
+    assert saved["reports"]["management_quality"]["status"] == "incomplete"
+    assert legacy.read_research_report("EL", "overview", state["run_id"])["summary_applied"]
+    assert not legacy.read_research_report("EL", "management_quality", state["run_id"])["summary_applied"]
+    assert all(kwargs["actor"].actor_id == "researcher" and kwargs["apply"] for _, _, kwargs in published)
+    assert all(payload["preserve_exact_content"] for _, payload, _ in published)
+    store.resume_run(state["run_id"])
+    workflow.run_company_research_run(request, job_id="resume-publish")
+    assert sum(action == "save_overview_content" for action, _, _ in published) == 1

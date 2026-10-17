@@ -47,7 +47,7 @@ def _report_status(state, kind, actor_id=None):
     resumable = (
         status == "incomplete"
         and not expired
-        and state["charged_usd"] + store.reserved_usd(state) < state["max_cost_usd"]
+        and state["charged_usd"] < state["max_cost_usd"]
         and actor_id == state["snapshot"]["actor"].get("actor_id")
     )
     return {

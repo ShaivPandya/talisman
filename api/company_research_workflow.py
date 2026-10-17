@@ -20,6 +20,7 @@ from api.company_research_evidence import (
     CheckedCommitments,
     CheckedFacts,
     Commitment,
+    EvidenceDecisions,
     EvidenceModel,
     Fact,
     OverviewPacket,
@@ -28,6 +29,7 @@ from api.company_research_evidence import (
     ReportReview,
     ResearchPlan,
     WrittenSections,
+    apply_decisions,
     render_tracker,
     source_urls,
     validate_plan,
@@ -89,6 +91,27 @@ def evidence_bundle(evidence: Any) -> str:
     return _json({"records": records, "sources": sources})
 
 
+def narrative_bundle(evidence: Any) -> str:
+    # The ledger retains full source passages. Writing/auditing needs the verified
+    # facts and citation identities; repeating every quotation would crowd them out.
+    sources: dict[str, Any] = {}
+
+    def walk(value: Any) -> Any:
+        if isinstance(value, dict):
+            if "url" in value and "passage" in value:
+                source = {k: v for k, v in value.items() if k not in {"passage", "location"}}
+                key = hashlib.sha256(_json(source).encode()).hexdigest()[:16]
+                sources[key] = source
+                return {"source_ref": key}
+            return {k: walk(v) for k, v in value.items() if k not in {"passage", "location"}}
+        if isinstance(value, list):
+            return [walk(v) for v in value]
+        return value
+
+    records = walk(json.loads(_json(evidence)))
+    return _json({"records": records, "sources": sources})
+
+
 class Workflow:
     def __init__(self, run_id: str, owner: str):
         self.run_id, self.owner = run_id, owner
@@ -137,7 +160,8 @@ class Workflow:
                 QuarterPacket,
                 web=True,
                 gathering=True,
-                tool_calls=12,
+                tool_calls=8,
+                effort="medium",
                 instructions=self.context,
                 prompt="Investigate every assigned quarter. Identify specific material operational commitments "
                 "and trace subsequent outcomes through the as-of date. Capture all 16 tracker fields in each "
@@ -145,7 +169,7 @@ class Workflow:
                 "Do not write the final narrative. Document source searches even when disclosure is absent. "
                 "Use source_unavailable only after searching primary-source alternatives; it means evidence "
                 "was unavailable, not that execution failed. Keep sources concise, without losing targets, "
-                "dates or supporting evidence. Full research requirements:\n"
+                "dates or supporting evidence. Keep fields concise and avoid repeating background. Full research requirements:\n"
                 + self.prompt("management_quality")
                 + "\nFiscal calendar: "
                 + plan.fiscal_calendar
@@ -184,7 +208,8 @@ class Workflow:
             OverviewPacket,
             web=True,
             gathering=True,
-            tool_calls=12,
+            tool_calls=8,
+            effort="medium",
             instructions=self.context,
             prompt="Gather detailed evidence for this assigned topic and every question in its requirements. "
             "Include original numbers, units, periods and inputs for calculations. Distinguish estimates "
@@ -232,18 +257,65 @@ class Workflow:
         for kind in self.snapshot["kinds"]:
             if self.state["reports"][kind]["status"] != "done":
                 self.progress(kind, status="running", phase="sources", error=None)
-        with ThreadPoolExecutor(max_workers=2) as pool:
+                self.progress(
+                    kind,
+                    **(
+                        {"quarters_completed": 0, "quarters_total": 20}
+                        if kind == "management_quality"
+                        else {"topics_completed": 0, "topics_total": len(plan.overview_topics)}
+                    ),
+                )
+        with ThreadPoolExecutor(max_workers=store.MAX_INFLIGHT) as pool:
             futures: dict[Future[Any], str] = {}
-            if (
+            tasks: list[tuple[str, str, Any, Any]] = []
+            management_pending = (
                 "management_quality" in self.snapshot["kinds"]
                 and self.state["reports"]["management_quality"]["status"] != "done"
+            )
+            overview_pending = (
+                "overview" in self.snapshot["kinds"] and self.state["reports"]["overview"]["status"] != "done"
+            )
+            labels = [q.label for q in plan.quarters]
+            # Interleave reports so a difficult management packet cannot starve overview work.
+            for index in range(
+                max(5 if management_pending else 0, len(plan.overview_topics) if overview_pending else 0)
             ):
-                labels = [q.label for q in plan.quarters]
-                for offset in range(0, 20, 4):
-                    futures[pool.submit(self.gather_quarters, plan, labels[offset : offset + 4])] = "management_quality"
-            if "overview" in self.snapshot["kinds"] and self.state["reports"]["overview"]["status"] != "done":
-                for index in range(len(plan.overview_topics)):
-                    futures[pool.submit(self.gather_overview, plan, index)] = "overview"
+                if overview_pending and index < len(plan.overview_topics):
+                    tasks.append(
+                        (f"overview/{plan.overview_topics[index].key}", "overview", self.gather_overview, index)
+                    )
+                if management_pending and index < 5:
+                    batch = labels[index * 4 : index * 4 + 4]
+                    tasks.append(
+                        (
+                            "quarters/" + "/".join(q.replace(" ", "_") for q in batch),
+                            "management_quality",
+                            self.gather_quarters,
+                            batch,
+                        )
+                    )
+            pending = [
+                c["step"]
+                for c in store.get_run(self.run_id)["calls"].values()
+                if not c.get("settled") or c.get("inflight_unknown")
+            ]
+
+            def recovering(task: tuple[str, str, Any, Any]) -> bool:
+                step = task[0]
+                return any(
+                    step == active
+                    or (
+                        step.startswith("quarters/")
+                        and active.startswith("quarters/")
+                        and set(active.split("/")[1:]).issubset(step.split("/")[1:])
+                    )
+                    for active in pending
+                )
+
+            # Recover known provider calls before admitting fresh work into the bounded slots.
+            tasks.sort(key=lambda task: not recovering(task))
+            for _step, kind, function, argument in tasks:
+                futures[pool.submit(function, plan, argument)] = kind
             for future in as_completed(futures):
                 kind = futures[future]
                 try:
@@ -288,11 +360,10 @@ class Workflow:
 
     def verify(self, kind: str, originals: list[Any]) -> tuple[list[Any], list[str]]:
         self.progress(kind, phase="verification")
-        # Keep related initiatives together; bounded packets prevent another monolithic response.
         originals = sorted(originals, key=lambda r: (getattr(r, "initiative", getattr(r, "section", "")), r.record_id))
         batches: list[list[Any]] = [[]]
         for record in originals:
-            if batches[-1] and len(_json(batches[-1] + [record]).encode()) > 38_000:
+            if batches[-1] and len(_json(batches[-1] + [record]).encode()) > 75_000:
                 batches.append([])
             batches[-1].append(record)
         accepted: list[Any] = []
@@ -301,58 +372,56 @@ class Workflow:
             if not batch:
                 continue
 
-            def validate(checked: Any, original: list[Any] = batch) -> None:
-                if kind == "management_quality":
-                    validate_reconciliation(original, checked, as_of=self.as_of)
-                else:
-                    validate_sources(checked, as_of=self.as_of)
-                    ids = [f.record_id for f in checked.facts] + [r.record_id for r in checked.rejected]
-                    if len(set(ids)) != len(ids) or set(ids) != {f.record_id for f in original}:
-                        raise ValueError("Verification must account for every fact exactly once.")
-                    before = {f.record_id: f for f in original}
-                    if any(f.section != before[f.record_id].section for f in checked.facts):
-                        raise ValueError("Verification must preserve section assignments.")
+            def validate(checked: EvidenceDecisions, original: list[Any] = batch) -> None:
+                apply_decisions(original, checked, management=kind == "management_quality", as_of=self.as_of)
 
-            checked: Any = self.provider.request(
-                f"{kind}/verification/{index}",
-                CheckedCommitments if kind == "management_quality" else CheckedFacts,
+            checked = self.provider.request(
+                f"{kind}/verification-decisions/{index}",
+                EvidenceDecisions,
                 web=True,
                 tool_calls=5,
                 effort="max",
                 instructions=self.context,
-                prompt="Independently check this evidence packet against sources. Reconcile contradictions, "
-                "check dates, original targets, later outcomes and calculations. Keep record IDs unchanged. "
-                "Preserve original promises; reject unsupported originals with specific reasons. Account "
-                "for EVERY input ID exactly once as accepted or rejected. Do not merge away distinct "
-                "quarterly promises. Do not invent missing evidence. Packet:\n" + _json(batch),
+                prompt="Independently verify this evidence packet against public sources. Reconcile contradictions, "
+                "check dates, targets, outcomes, and calculations. Return one decision for EVERY original record ID. "
+                "Keep supported originals intact: output only required field corrections, not a copy of the ledger. "
+                "For management, original promises and targets are immutable; reject unsupported originals. "
+                "For overview, only claim corrections are allowed. replacement_sources replaces outcome sources "
+                "for management and fact sources for overview; use null to keep existing sources. Do not merge "
+                "away distinct quarterly promises or invent evidence. Packet:\n" + _json(batch),
                 known_urls=source_urls(batch),
                 validate=validate,
             )
-            accepted.extend(checked.records if isinstance(checked, CheckedCommitments) else checked.facts)
-            rejected.extend(f"{r.record_id}: {r.reason}" for r in checked.rejected)
+            records, exclusions = apply_decisions(
+                batch, checked, management=kind == "management_quality", as_of=self.as_of
+            )
+            accepted.extend(records)
+            rejected.extend(exclusions)
         return accepted, rejected
 
     def write(self, kind: str, sections: list[str], evidence: list[Any], gaps: list[str]) -> list[str]:
         self.progress(kind, phase="report")
         rendered: list[str] = []
-        # Every section has its own output allowance and checkpoint.
-        for index, title in enumerate(sections):
-            relevant = evidence if kind == "management_quality" else [f for f in evidence if f.section == title]
-            compact = evidence_bundle(relevant)
+        # Two related sections share context, while every packet stays independently recoverable.
+        for index in range(0, len(sections), 2):
+            titles = sections[index : index + 2]
+            relevant = evidence if kind == "management_quality" else [f for f in evidence if f.section in titles]
+            compact = narrative_bundle(relevant)
 
-            def validate(w: WrittenSections, t: str = title, e: list[Any] = relevant) -> None:
-                validate_sections(w, [t], {r.record_id for r in e}, source_urls(e))
+            def validate(w: WrittenSections, expected: list[str] = titles, records: list[Any] = relevant) -> None:
+                validate_sections(w, expected, {r.record_id for r in records}, source_urls(records))
 
             written = self.provider.request(
-                f"{kind}/section/{index}",
+                f"{kind}/sections/{index}",
                 WrittenSections,
                 effort="max",
                 instructions=self.context,
-                prompt="Write ONLY this report section: " + title + ". Use the supplied verified evidence, "
-                "cite every material factual claim with clickable source links, and separate judgments from "
-                "facts. Reconcile initiatives across quarters where relevant. Do not generate the quarter "
-                "tracker. Include precise evidence gaps. Return exactly one section with the exact title "
-                "and the IDs of the evidence used. Full requested report requirements:\n"
+                prompt="Write ONLY these report sections, preserving exact titles and order: "
+                + _json(titles)
+                + ". Use the supplied verified evidence, cite material factual claims with clickable source links, "
+                "and distinguish judgments from facts. Reconcile initiatives across quarters where relevant. "
+                "Do not generate the quarter tracker. Include evidence gaps and the IDs of evidence actually "
+                "used. Full requirements:\n"
                 + self.prompt(kind)
                 + "\nEvidence:\n"
                 + compact
@@ -361,22 +430,22 @@ class Workflow:
                 validate=validate,
             )
             try:
-                self.audit(f"{kind}/audit/{index}", written.sections[0].markdown, relevant)
+                self.audit(f"{kind}/sections-audit/{index}", _json(written), relevant)
             except ValueError as exc:
                 written = self.provider.request(
-                    f"{kind}/section/{index}/repair",
+                    f"{kind}/sections/{index}/repair",
                     WrittenSections,
                     effort="max",
                     instructions=self.context,
-                    prompt=f"Repair only these supported audit findings, retaining the exact section title {title}: {exc}\n"
+                    prompt=f"Repair only these audit findings, retaining section titles and order: {exc}\n"
                     + "Draft:\n"
                     + _json(written)
                     + "\nVerified evidence:\n"
                     + compact,
                     validate=validate,
                 )
-                self.audit(f"{kind}/audit/{index}/repair", written.sections[0].markdown, relevant)
-            rendered.append(f"## {title}\n\n{written.sections[0].markdown}")
+                self.audit(f"{kind}/sections-audit/{index}/repair", _json(written), relevant)
+            rendered.extend(f"## {section.title}\n\n{section.markdown}" for section in written.sections)
         return rendered
 
     def audit(self, step: str, content: str, evidence: Any) -> None:
@@ -392,7 +461,7 @@ class Workflow:
             "material unsupported claims or contradictions. Draft:\n"
             + content
             + "\nEvidence:\n"
-            + evidence_bundle(evidence),
+            + narrative_bundle(evidence),
         )
         if not result.supported or result.issues:
             raise ValueError("Report did not pass evidence review: " + "; ".join(result.issues))
@@ -426,6 +495,7 @@ class Workflow:
         )
         content = f"# {plan.issuer} — {kind.replace('_', ' ').title()}\n\nAs of {self.as_of}.\n\n"
         parts = self.write(kind, sections, evidence, gaps)
+        summary_input = content + "\n\n".join(parts)
         if kind == "management_quality":
             parts.insert(1, render_tracker(quarters, evidence))
         content += "\n\n".join(parts)
@@ -440,7 +510,7 @@ class Workflow:
             effort="high",
             instructions=self.context + "\n" + template.format(ticker=self.state["ticker"]),
             prompt="Prepare the company-sheet summary using only this verified full report. Preserve citations "
-            "and evidence gaps. Return the required Markdown in the markdown field.\n" + content,
+            "and evidence gaps. Return the required Markdown in the markdown field.\n" + summary_input,
         )
         try:
             self.audit(f"{kind}/summary-audit", summary.markdown, evidence)
@@ -453,7 +523,7 @@ class Workflow:
                 prompt=f"Repair these audit findings: {exc}\nDraft:\n"
                 + summary.markdown
                 + "\nVerified report:\n"
-                + content,
+                + summary_input,
             )
             self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence)
         normalized = (

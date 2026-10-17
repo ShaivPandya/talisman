@@ -34,7 +34,7 @@ async function mockResearch(page: Page) {
         generated_at: "2026-10-14T22:00:00Z", model: "gpt-6.1-sol", summary_applied: reports[kind].status === "done",
         sources: [{ title: "Issuer filing", url: "https://example.com/issuer-filing" }],
         content: kind === "overview"
-          ? "# Full company report\n\nNewly researched overview. [Issuer filing](https://example.com/issuer-filing)"
+          ? `# Full company report\n\n${reports.overview.status === "done" ? "Newly researched overview." : "Unverified draft evidence."} [Issuer filing](https://example.com/issuer-filing)`
           : "# Full management report\n\n## Quarter-by-quarter operational commitment tracker\n\n"
             + "| Fiscal quarter | Source | Commitment | Outcome |\n|---|---|---|---|\n"
             + Array.from({ length: 20 }, (_, n) => `| FY${2022 + Math.floor(n / 4)} Q${n % 4 + 1} | [Issuer filing](https://example.com/issuer-filing) | Production target | Insufficient disclosure |\n`).join(""),
@@ -91,10 +91,23 @@ test("shows a shared allowance and resumes the original run without clearing the
   await expect(controls.getByLabel("Research allowance")).toHaveCount(1)
   await expect(controls.getByLabel("Research allowance")).toContainText("$4.25 budget used")
   await expect(controls.getByText(/12 \/ 20 quarters researched/)).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath("research-shared-budget.png"), fullPage: true })
   await controls.getByRole("button", { name: "Resume management quality" }).click()
   await expect.poll(() => research.starts.length).toBe(1)
   expect(research.starts[0].resumeRunId).toBe(runId)
   await expect(controls.getByText("Saved to company sheet")).toBeVisible()
+})
+
+test("an expanded draft refreshes when the same run completes", async ({ page }) => {
+  const research = await mockResearch(page)
+  research.reports.overview = { status: "running", job_id: "same-run", report_available: true, progress: { phase: "verification" } }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await controls.getByText("Full overview research", { exact: true }).click()
+  await expect(controls.getByText("Unverified draft evidence.", { exact: false })).toBeVisible()
+  research.complete("overview")
+  await expect(controls.getByText("Newly researched overview.", { exact: false })).toBeVisible({ timeout: 10_000 })
+  await expect(controls.getByText("Unverified draft evidence.", { exact: false })).toHaveCount(0)
 })
 
 test("an exhausted run retains evidence and cannot silently retry with a new allowance", async ({ page }) => {

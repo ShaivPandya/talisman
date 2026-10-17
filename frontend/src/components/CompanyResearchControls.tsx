@@ -104,13 +104,14 @@ function PromptEditor({ onClose }: { onClose: () => void }) {
   return <PromptForm settings={query.data} onClose={onClose} />
 }
 
-function FullResearchReport({ ticker, kind, jobId }: { ticker: string; kind: CompanyResearchKind; jobId?: string }) {
+function FullResearchReport({ ticker, kind, jobId, status }: { ticker: string; kind: CompanyResearchKind; jobId?: string; status: CompanyResearchReportStatus["status"] }) {
   const [expanded, setExpanded] = useState(false)
   const query = useQuery({
-    queryKey: ["company-research-report", ticker, kind, jobId],
+    queryKey: ["company-research-report", ticker, kind, jobId, status],
     queryFn: () => fetchCompanyResearchReport(ticker, kind, jobId),
     enabled: expanded,
     staleTime: 60_000,
+    refetchInterval: expanded && (status === "running" || status === "queued") ? 10_000 : false,
   })
   return (
     <details onToggle={event => setExpanded(event.currentTarget.open)} className="min-w-0 rounded-lg border border-app">
@@ -252,7 +253,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
                 {report.progress.evidence_gaps != null && `${report.progress.evidence_gaps} evidence gaps identified.`}
               </p>
             )}
-            {report.report_available && <FullResearchReport key={report.job_id ?? kind} ticker={normalizedTicker} kind={kind} jobId={report.job_id} />}
+            {report.report_available && <FullResearchReport key={report.job_id ?? kind} ticker={normalizedTicker} kind={kind} jobId={report.job_id} status={report.status} />}
           </div>
         )
       })}

@@ -21,6 +21,8 @@ MAX_DURATION_S = 55 * 60
 FINISH_RESERVE_USD = 7.0
 FINISH_RESERVE_S = 15 * 60
 LEASE_S = 180
+MAX_INFLIGHT = 3
+TERMINAL_CALL_STATES = {"completed", "failed", "incomplete", "cancelled"}
 
 
 class ResearchLimitReached(RuntimeError):
@@ -28,6 +30,10 @@ class ResearchLimitReached(RuntimeError):
 
 
 class ResearchLeaseLost(RuntimeError):
+    pass
+
+
+class ResearchCapacityBusy(ResearchLimitReached):
     pass
 
 
@@ -206,10 +212,16 @@ def reserve_call(
         if remaining <= (FINISH_RESERVE_S if gathering else 0):
             raise ResearchLimitReached("Research time allowance reached; completed evidence is retained.")
         reserve = FINISH_RESERVE_USD if gathering else 0
-        if state["charged_usd"] + reserved_usd(state) + amount > state["max_cost_usd"] - reserve:
+        ceiling = state["max_cost_usd"] - reserve
+        if state["charged_usd"] + amount > ceiling:
             raise ResearchLimitReached("Research spending allowance reached; completed evidence is retained.")
-        if sum(not call.get("settled") for call in state["calls"].values()) >= 2:
-            raise ResearchLimitReached("Two research requests are already in flight. Resume after they finish.")
+        if state["charged_usd"] + reserved_usd(state) + amount > ceiling:
+            raise ResearchCapacityBusy("Waiting for existing research spending reservations to settle.")
+        if (
+            sum(not call.get("settled") or call.get("inflight_unknown", False) for call in state["calls"].values())
+            >= MAX_INFLIGHT
+        ):
+            raise ResearchCapacityBusy("Research requests are already in flight; waiting for a slot.")
         state["calls"][call_id] = {**details, "reserved_usd": amount, "settled": False, "created_at": time.time()}
         state["lease_until"] = time.time() + LEASE_S
 
@@ -222,6 +234,12 @@ def settle_call(
     def change(state: dict[str, Any]) -> None:
         call = state["calls"][call_id]
         if call.get("settled"):
+            if status in TERMINAL_CALL_STATES:
+                # Recovery frees the concurrency slot, never the previously charged liability.
+                call.update(status=status, usage=usage, inflight_unknown=False)
+                if actual_usd is not None and actual_usd > call["charged_usd"]:
+                    state["charged_usd"] = round(state["charged_usd"] + actual_usd - call["charged_usd"], 8)
+                    call["charged_usd"] = actual_usd
             return
         # Unknown provider outcomes remain fully charged. A retry never frees that liability.
         charge = call["reserved_usd"] if actual_usd is None else max(0.0, actual_usd)
@@ -232,6 +250,7 @@ def settle_call(
             status=status,
             finished_at=time.time(),
             estimated=actual_usd is None,
+            inflight_unknown=actual_usd is None and status not in TERMINAL_CALL_STATES,
         )
         state["charged_usd"] = round(state["charged_usd"] + charge, 8)
 
