@@ -83,6 +83,14 @@ def preflight(base: str | None) -> None:
     releases = firebase("releases?pageSize=1").get("releases", [])
     if not releases or not releases[0].get("version", {}).get("name"):
         raise RuntimeError("No Firebase release available for recovery.")
+    for kind, name in resources():
+        gcloud("run", kind, "describe", name, f"--region={os.environ['REGION']}", "--format=export", capture=True)
+    os.environ.update(
+        EXPECTED_IMAGE_TAG=values["TALISMAN_RELEASE_IMAGE_TAG"],
+        AUTH_DEFAULT_USERNAME="smoke",
+        SMOKE_AUTH_PROFILE="viewer",
+    )
+    run("bash", "infra/gcp/run-backend-smoke.sh")
     print(f"Cloud Run and Firebase are accessible. Current backend release: {deployed}")
 
 

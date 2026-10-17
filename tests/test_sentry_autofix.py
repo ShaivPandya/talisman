@@ -145,3 +145,68 @@ def test_kill_switch_prevents_api_mutations(monkeypatch):
     monkeypatch.setenv("SENTRY_AUTOFIX_ENABLED", "false")
     with pytest.raises(policy.NotQualified, match="disabled"):
         policy.merge(None, {})
+
+
+class FakeGitHub:
+    def __init__(self):
+        pr, run, jobs = metadata()
+        pr.update(number=7, changed_files=2)
+        self.responses = {
+            "actions/runs/1": run,
+            "pulls/7": pr,
+            "git/ref/heads/main": {"object": {"sha": "base"}},
+            "actions/workflows/ci.yml/runs?head_sha=head&event=pull_request&per_page=1": {"workflow_runs": [{"id": 1}]},
+            "compare/base...head": {"behind_by": 0, "status": "ahead"},
+            "git/trees/head?recursive=1": {
+                "tree": [{"path": f["filename"], "mode": "100644"} for f in allowed_files()]
+            },
+            "deployments?environment=sentry-autofix&per_page=1": [],
+            "commits/head/pulls": [pr],
+            "actions/runs/1/jobs?filter=latest": jobs,
+            "pulls/7/files": allowed_files(),
+            "pulls/7/reviews": [],
+        }
+
+    def request(self, path):
+        return self.responses[path]
+
+    def pages(self, path, key=None):
+        return self.responses[path]
+
+
+def test_complete_candidate_binds_base_head_and_run():
+    assert policy.candidate(FakeGitHub(), 1) == {"pr": 7, "head": "head", "base": "base", "run_id": 1}
+
+
+@pytest.mark.parametrize(
+    "path,value",
+    [
+        ("actions/workflows/ci.yml/runs?head_sha=head&event=pull_request&per_page=1", {"workflow_runs": [{"id": 2}]}),
+        ("compare/base...head", {"behind_by": 1, "status": "diverged"}),
+        ("git/trees/head?recursive=1", {"truncated": True, "tree": []}),
+        ("git/trees/head?recursive=1", {"tree": [{"path": "api/serializers.py", "mode": "120000"}]}),
+        ("pulls/7/reviews", [{"user": {"id": 42}, "state": "CHANGES_REQUESTED"}]),
+    ],
+)
+def test_stale_runs_symlinks_or_review_objections_block(path, value):
+    api = FakeGitHub()
+    api.responses[path] = value
+    with pytest.raises(policy.NotQualified):
+        policy.candidate(api, 1)
+
+
+@pytest.mark.parametrize("state", ["pending", "in_progress", "failure", "error", None])
+def test_prior_release_needing_attention_blocks_new_merges(state):
+    api = FakeGitHub()
+    api.responses["deployments?environment=sentry-autofix&per_page=1"] = [{"id": 12}]
+    api.responses["deployments/12/statuses?per_page=1"] = [{"state": state}] if state else []
+    with pytest.raises(policy.NotQualified, match="Previous automatic"):
+        policy.candidate(api, 1)
+
+
+def test_pr_changed_after_preflight_is_not_merged(monkeypatch):
+    monkeypatch.setenv("SENTRY_AUTOFIX_ENABLED", "true")
+    api = FakeGitHub()
+    expected = {"pr": 7, "head": "previous-head", "base": "base", "run_id": 1}
+    with pytest.raises(policy.NotQualified, match="changed after preflight"):
+        policy.merge(api, expected)

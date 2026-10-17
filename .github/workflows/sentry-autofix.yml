@@ -82,6 +82,7 @@ jobs:
           BASE_SHA: ${{ steps.qualify.outputs.base_sha }}
         run: |
           test -n "$DEPLOY_CONFIG"
+          python -m pip install httpx==0.28.1
           printf '%s\n' "$DEPLOY_CONFIG" > infra/gcp/config.sh
           source infra/gcp/config.sh
           if [ -n "$BASE_SHA" ]; then
