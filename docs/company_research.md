@@ -9,6 +9,7 @@ The previous sources phase requested five years of operational evidence in one r
 - PostgreSQL transactions protect leases and in-flight reservations. At most three requests are in flight; reservations can reduce this further. The SDK has no hidden retries. Unknown submission/cancellation outcomes consume their full reserved liability; known rejected submissions consume zero.
 - A resume reuses evidence, response IDs, prompt snapshots, charged costs and the original deadline. It never grants another allowance. Only the original actor can resume. A distinct **Run Company Research** action starts a new allowance after the prior run is no longer active.
 - A completed report is independently saved through the existing governed company-sheet action. Incomplete evidence remains available for inspection and never replaces a company sheet. Existing legacy jobs/reports remain readable.
+- When source gathering stops early, the finishing reserve can verify the evidence already collected. Its draft lists unresearched quarters or sections explicitly and remains incomplete; it cannot publish a company-sheet summary.
 
 ## Quality checks
 
@@ -36,5 +37,7 @@ python -m scripts.evaluate_company_research --ticker EL
 ```
 
 This uses real provider calls and egress governance, isolated local persistence, and `apply=false`. It writes the run ID, response artifacts and result under `tmp/company-research-eval/`. It cannot update company sheets or latest-report pointers. Continue an interrupted evaluation using `--resume RUN_ID` with the same output directory; the original caps remain in effect. Never treat a capped or incomplete evaluation as a successful quality test.
+
+The October 17, 2026 EL pilot did not complete either report within its source-gathering allowance. It retained 19 management commitments across four fiscal quarters. The pilot exposed equivalent quarter-label formatting, citation tracking parameters and repeated evidence payloads; these led to parser normalization, focused citation checks and compact verification decisions. In-flight requests retained their initial, slower reasoning settings, so this pilot does not establish the final configuration's full-report completion rate or equivalence to ChatGPT Deep Research. Keep incomplete reports clearly labeled and evaluate completion quality on subsequent explicitly authorized runs.
 
 Deploy the additive Alembic migration before the new API/worker. The normal `./infra/gcp/deploy-all.sh` sequence does this. The migration retains legacy state. After rollout, verify the deployed commit and migration health, then exercise authenticated settings/status/report endpoints without starting an unapproved paid run.

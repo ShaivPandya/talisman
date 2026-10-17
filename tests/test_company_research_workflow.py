@@ -482,6 +482,31 @@ def test_failed_report_does_not_discard_completed_report(monkeypatch):
     assert legacy.read_research_report("EL", "overview", state["run_id"]) == overview
 
 
+def test_partial_coverage_is_verified_and_retained_without_publication(monkeypatch):
+    monkeypatch.setattr(workflow, "ResearchProvider", FakeProvider)
+    gather = workflow.Workflow.gather_quarters
+
+    def first_packet_only(self, research_plan, labels):
+        if labels != [q.label for q in research_plan.quarters[:4]]:
+            raise store.ResearchLimitReached("Source gathering allowance reached")
+        return gather(self, research_plan, labels)
+
+    monkeypatch.setattr(workflow.Workflow, "gather_quarters", first_packet_only)
+    publish = MagicMock(return_value={"application_status": "applied"})
+    monkeypatch.setattr(legacy, "stage_api_action", publish)
+    state = create_run(apply=True)
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="partial"
+    )
+    assert result["status"] == "incomplete"
+    report = legacy.read_research_report("EL", "management_quality", state["run_id"])
+    assert report["verified_partial"] and not report["complete"] and not report["summary_applied"]
+    assert len(report["evidence"]) == 4
+    assert "Not researched: FY2025 Q4" in report["content"]
+    assert all(call.args[0] == "save_overview_content" for call in publish.call_args_list)
+    assert legacy._read_json("EL/management_quality/latest.json") is None
+
+
 def test_verified_reports_publish_as_requesting_actor_once_and_pending_approval_is_not_success(monkeypatch):
     monkeypatch.setattr(workflow, "ResearchProvider", FakeProvider)
     published = []

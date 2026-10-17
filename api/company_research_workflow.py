@@ -260,9 +260,15 @@ class Workflow:
                 self.progress(
                     kind,
                     **(
-                        {"quarters_completed": 0, "quarters_total": 20}
+                        {
+                            "quarters_completed": self.state["reports"][kind].get("quarters_completed", 0),
+                            "quarters_total": 20,
+                        }
                         if kind == "management_quality"
-                        else {"topics_completed": 0, "topics_total": len(plan.overview_topics)}
+                        else {
+                            "topics_completed": self.state["reports"][kind].get("topics_completed", 0),
+                            "topics_total": len(plan.overview_topics),
+                        }
                     ),
                 )
         with ThreadPoolExecutor(max_workers=store.MAX_INFLIGHT) as pool:
@@ -313,7 +319,8 @@ class Workflow:
                 )
 
             # Recover known provider calls before admitting fresh work into the bounded slots.
-            tasks.sort(key=lambda task: not recovering(task))
+            completed_steps = store.get_run(self.run_id)["steps"]
+            tasks.sort(key=lambda task: 0 if task[0] in completed_steps else 1 if recovering(task) else 2)
             for _step, kind, function, argument in tasks:
                 futures[pool.submit(function, plan, argument)] = kind
             for future in as_completed(futures):
@@ -327,7 +334,9 @@ class Workflow:
                         )
                         self.progress(
                             kind,
-                            quarters_completed=len(quarters),
+                            quarters_completed=max(
+                                len(quarters), self.state["reports"][kind].get("quarters_completed", 0)
+                            ),
                             quarters_total=20,
                             evidence_gaps=sum(bool(q.gap) for q in quarters),
                         )
@@ -341,7 +350,7 @@ class Workflow:
                         overview.append(packet)
                         self.progress(
                             kind,
-                            topics_completed=len(overview),
+                            topics_completed=max(len(overview), self.state["reports"][kind].get("topics_completed", 0)),
                             topics_total=len(plan.overview_topics),
                             evidence_gaps=sum(len(p.gaps) for p in overview),
                         )
@@ -368,7 +377,7 @@ class Workflow:
             batches[-1].append(record)
         accepted: list[Any] = []
         rejected: list[str] = []
-        for index, batch in enumerate(batches):
+        for batch in batches:
             if not batch:
                 continue
 
@@ -376,7 +385,7 @@ class Workflow:
                 apply_decisions(original, checked, management=kind == "management_quality", as_of=self.as_of)
 
             checked = self.provider.request(
-                f"{kind}/verification-decisions/{index}",
+                f"{kind}/verification-decisions/{hashlib.sha256(_json(batch).encode()).hexdigest()[:20]}",
                 EvidenceDecisions,
                 web=True,
                 tool_calls=5,
@@ -447,6 +456,43 @@ class Workflow:
                 self.audit(f"{kind}/sections-audit/{index}/repair", _json(written), relevant)
             rendered.extend(f"## {section.title}\n\n{section.markdown}" for section in written.sections)
         return rendered
+
+    def retain_verified_partial(
+        self, kind: str, plan: ResearchPlan, quarters: list[QuarterReview], packets: list[OverviewPacket]
+    ) -> None:
+        """Use the finishing reserve to check useful evidence without publishing an incomplete report."""
+        original: list[Any] = (
+            [r for q in quarters for r in q.records]
+            if kind == "management_quality"
+            else [f for p in packets for f in p.facts]
+        )
+        if not original:
+            return
+        accepted, rejected = self.verify(kind, original)
+        content = f"# Incomplete research — verified evidence only\n\n{plan.issuer}, as of {self.as_of}. "
+        content += (
+            "The full requested investigation did not complete. This draft has not been saved to the company sheet.\n\n"
+        )
+        if kind == "management_quality":
+            missing = [q.label for q in plan.quarters if q.label not in {r.quarter for r in quarters}]
+            content += render_tracker(quarters, accepted)
+            gaps = [f"Not researched: {label}" for label in missing] + [
+                f"{q.quarter}: {q.gap}" for q in quarters if q.gap
+            ]
+        else:
+            for section in [s for topic in plan.overview_topics for s in topic.sections]:
+                facts = [f for f in accepted if f.section == section]
+                content += f"\n\n## {section}\n\n" + (
+                    "\n".join(
+                        f"- {fact.claim} " + "; ".join(f"[{s.title}]({s.url})" for s in fact.sources) for fact in facts
+                    )
+                    if facts
+                    else "Not researched or insufficient verified evidence."
+                )
+            gaps = [gap for packet in packets for gap in packet.gaps]
+        gaps += rejected
+        content += "\n\n## Coverage limitations\n\n" + "\n".join(f"- {gap}" for gap in gaps)
+        self.archive(kind, content, accepted, complete=False, verified_partial=True, gaps=gaps)
 
     def audit(self, step: str, content: str, evidence: Any) -> None:
         result = self.provider.request(
@@ -576,9 +622,14 @@ def run_company_research_run(req: CompanyResearchRunRequest, *, job_id: str) -> 
         quarters, packets, errors = workflow.gather(plan)
         with ThreadPoolExecutor(max_workers=2) as pool:
             futures = {
-                pool.submit(workflow.finish, kind, plan, quarters, packets): kind
+                pool.submit(
+                    workflow.retain_verified_partial if kind in errors else workflow.finish,
+                    kind,
+                    plan,
+                    quarters,
+                    packets,
+                ): kind
                 for kind in workflow.snapshot["kinds"]
-                if kind not in errors
             }
             for future in as_completed(futures):
                 try:
