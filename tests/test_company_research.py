@@ -10,6 +10,7 @@ from uuid import uuid4
 import pytest
 
 from api import company_research as research
+from api import company_research_store as run_store
 from api import job_queue, llm_settings
 from api.routers import company_research as router
 from ontology.policy import actor_to_dict, user_actor
@@ -18,6 +19,7 @@ from ontology.policy import actor_to_dict, user_actor
 @pytest.fixture(autouse=True)
 def research_state(tmp_path, monkeypatch):
     job_queue.clear_memory_jobs()
+    monkeypatch.setattr(run_store, "SQLITE_PATH", tmp_path / "runs.sqlite3")
     monkeypatch.setattr(research, "LOCAL_REPORTS_DIR", tmp_path / "reports")
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
     monkeypatch.delenv("COMPANY_RESEARCH_MODEL", raising=False)
@@ -133,80 +135,64 @@ def test_next_company_snapshots_saved_prompts_and_actor(auth_client, monkeypatch
     first = auth_client.post("/api/company-research/mu", json={}).json()
     auth_client.put("/api/settings/company-research", json={**prompts, "overview_prompt": "UPDATED {ticker}"})
     second = auth_client.post("/api/company-research/NVDA", json={}).json()
-    old = job_queue.get_job(first["reports"]["overview"]["job_id"])["payload_json"]
-    new = job_queue.get_job(second["reports"]["overview"]["job_id"])["payload_json"]
-    assert old["prompt"] == prompts["overview_prompt"]
-    assert new["prompt"] == "UPDATED {ticker}"
+    old = run_store.get_run(first["reports"]["overview"]["run_id"])["snapshot"]
+    new = run_store.get_run(second["reports"]["overview"]["run_id"])["snapshot"]
+    assert old["prompts"]["overview"] == prompts["overview_prompt"]
+    assert new["prompts"]["overview"] == "UPDATED {ticker}"
     assert new["actor"]["actor_type"] == "user"
     assert new["actor"]["actor_id"]
     assert old["ticker"] == "MU" and new["ticker"] == "NVDA"
 
 
-def test_duplicate_starts_reuse_active_jobs_but_completed_jobs_run_fresh(auth_client, monkeypatch):
+def test_duplicate_starts_share_one_budget_but_explicit_new_runs_get_new_allowances(auth_client, monkeypatch):
     dispatched = []
     monkeypatch.setattr("api.async_job_runner._enqueue_local_job", dispatched.append)
     first = auth_client.post("/api/company-research/MU", json={}).json()
     again = auth_client.post("/api/company-research/MU", json={}).json()
-    assert len(dispatched) == 2
-    assert first["reports"] == again["reports"]
-    for row in first["reports"].values():
-        job_queue.complete_job(row["job_id"], {"report_available": True})
+    assert len(dispatched) == 1
+    run_id = first["reports"]["overview"]["run_id"]
+    assert again["reports"]["management_quality"]["run_id"] == run_id
+    state = run_store.get_run(run_id)
+    job_queue.complete_job(state["job_id"], {})
+    run_store.mutate_run(run_id, lambda s: s.update(status="done"))
     fresh = auth_client.post("/api/company-research/MU", json={}).json()
-    assert len(dispatched) == 4
-    assert fresh["reports"]["overview"]["job_id"] != first["reports"]["overview"]["job_id"]
+    assert len(dispatched) == 2
+    assert fresh["reports"]["overview"]["run_id"] != run_id
     status = auth_client.get("/api/company-research/MU").json()
-    assert status["reports"]["overview"]["job_id"] == fresh["reports"]["overview"]["job_id"]
+    assert status["reports"]["overview"]["run_id"] == fresh["reports"]["overview"]["run_id"]
 
 
-@pytest.mark.parametrize("failed_kind", ["overview", "management_quality"])
-def test_dispatch_failure_still_starts_other_report(auth_client, monkeypatch, failed_kind):
-    calls = []
+def test_dispatch_failure_retains_run_and_safe_resume(auth_client, monkeypatch):
+    def fail(*args, **kwargs):
+        raise RuntimeError("private dispatch details")
 
-    def enqueue(job_type, payload, **kwargs):
-        calls.append(payload["kind"])
-        if payload["kind"] == failed_kind:
-            raise RuntimeError("private dispatch details")
-        return job_queue.create_or_reuse_job(job_type, payload=payload, **kwargs)
-
-    monkeypatch.setattr(router, "enqueue_registered_job", enqueue)
+    monkeypatch.setattr(router, "enqueue_registered_job", fail)
     result = auth_client.post("/api/company-research/MU", json={})
-    assert result.status_code == 202
-    assert calls == ["overview", "management_quality"]
-    reports = result.json()["reports"]
-    assert reports[failed_kind]["status"] == "error"
-    assert "private" not in reports[failed_kind]["error"]
-    assert reports["management_quality" if failed_kind == "overview" else "overview"]["status"] == "queued"
-
-
-@pytest.mark.parametrize("failed_kind", ["overview", "management_quality"])
-def test_jobs_run_concurrently_and_partial_success_survives_reload(auth_client, monkeypatch, failed_kind):
-    barrier = threading.Barrier(3)
-    release = threading.Event()
-
-    def compute(req, *, job_id):
-        barrier.wait(timeout=10)
-        release.wait(timeout=10)
-        if req.kind == failed_kind:
-            raise RuntimeError("Source unavailable")
-        return {"report_available": True, "application_status": "applied", "kind": req.kind}
-
-    monkeypatch.setattr(research, "run_company_research_job", compute)
-    started = auth_client.post("/api/company-research/MU", json={}).json()
-    try:
-        barrier.wait(timeout=10)
-    finally:
-        release.set()
-    deadline = time.monotonic() + 10
-    while time.monotonic() < deadline:
-        rows = [job_queue.get_job(row["job_id"]) for row in started["reports"].values()]
-        if all(row["status"] in {"completed", "failed"} for row in rows):
-            break
-        time.sleep(0.01)
+    assert result.status_code == 503
     status = auth_client.get("/api/company-research/MU").json()["reports"]
-    assert status[failed_kind]["status"] == "error"
-    other = "management_quality" if failed_kind == "overview" else "overview"
-    assert status[other]["status"] == "done"
-    assert status[other]["report_available"] is True
+    assert status["overview"]["status"] == "incomplete"
+    assert "private" not in status["overview"]["error"]
+    assert status["overview"]["resumable"]
+    assert status["overview"]["budget"] == status["management_quality"]["budget"]
+
+
+def test_resume_keeps_original_snapshot_deadline_and_spend(auth_client, monkeypatch):
+    monkeypatch.setattr("api.async_job_runner._enqueue_local_job", lambda job_id: None)
+    started = auth_client.post("/api/company-research/MU", json={}).json()
+    run_id = started["reports"]["overview"]["run_id"]
+    before = run_store.get_run(run_id)
+    run_store.mutate_run(run_id, lambda s: s.update(status="incomplete", charged_usd=3.25))
+    job_queue.complete_job(before["job_id"], {})
+    resumed = auth_client.post("/api/company-research/MU", json={"resume_run_id": run_id})
+    assert resumed.status_code == 202
+    after = run_store.get_run(run_id)
+    assert after["deadline"] == before["deadline"]
+    assert after["snapshot"] == before["snapshot"]
+    assert after["charged_usd"] == 3.25
+    assert after["job_id"] != before["job_id"]
+    run_store.mutate_run(run_id, lambda s: s.update(deadline=time.time() - 1))
+    assert auth_client.post("/api/company-research/MU", json={"resume_run_id": run_id}).status_code == 409
+    assert not auth_client.get("/api/company-research/MU").json()["reports"]["overview"]["resumable"]
 
 
 def test_citation_spans_become_clickable_without_losing_facts():

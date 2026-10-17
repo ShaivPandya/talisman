@@ -1,19 +1,14 @@
 import type { Page } from "@playwright/test"
 import { authenticate, dossierResponse, expect, test } from "./fixtures"
 import { dismissFloatingAlerts } from "./operatingWorkflow"
+import type { CompanyResearchReportStatus } from "@/lib/api"
 
 type Kind = "overview" | "management_quality"
-type Status = {
-  job_id?: string
-  status: "idle" | "running" | "done" | "error"
-  progress?: { phase: string }
-  report_available?: boolean
-  error?: string
-}
+type Status = CompanyResearchReportStatus
 
 async function mockResearch(page: Page) {
   const reports: Record<Kind, Status> = { overview: { status: "idle" }, management_quality: { status: "idle" } }
-  const starts: { ticker: string; kinds: Kind[]; overviewPrompt: string }[] = []
+  const starts: { ticker: string; kinds: Kind[]; overviewPrompt: string; resumeRunId?: string }[] = []
   let prompts = {
     overview_prompt: "Original overview for {ticker}",
     management_quality_prompt: "Original operational management query for {ticker}",
@@ -39,7 +34,7 @@ async function mockResearch(page: Page) {
         generated_at: "2026-10-14T22:00:00Z", model: "gpt-6.1-sol", summary_applied: reports[kind].status === "done",
         sources: [{ title: "Issuer filing", url: "https://example.com/issuer-filing" }],
         content: kind === "overview"
-          ? "# Full company report\n\nNewly researched overview. [Issuer filing](https://example.com/issuer-filing)"
+          ? `# Full company report\n\n${reports.overview.status === "done" ? "Newly researched overview." : "Unverified draft evidence."} [Issuer filing](https://example.com/issuer-filing)`
           : "# Full management report\n\n## Quarter-by-quarter operational commitment tracker\n\n"
             + "| Fiscal quarter | Source | Commitment | Outcome |\n|---|---|---|---|\n"
             + Array.from({ length: 20 }, (_, n) => `| FY${2022 + Math.floor(n / 4)} Q${n % 4 + 1} | [Issuer filing](https://example.com/issuer-filing) | Production target | Insufficient disclosure |\n`).join(""),
@@ -47,8 +42,8 @@ async function mockResearch(page: Page) {
       return
     }
     if (route.request().method() === "POST") {
-      const { kinds } = route.request().postDataJSON() as { kinds: Kind[] }
-      starts.push({ ticker, kinds, overviewPrompt: prompts.overview_prompt.replaceAll("{ticker}", ticker) })
+      const { kinds, resume_run_id } = route.request().postDataJSON() as { kinds: Kind[]; resume_run_id?: string }
+      starts.push({ ticker, kinds, resumeRunId: resume_run_id, overviewPrompt: prompts.overview_prompt.replaceAll("{ticker}", ticker) })
       for (const kind of kinds) reports[kind] = {
         job_id: kind === "overview" ? "38e149b0-49fb-4b69-9412-d40d51c8cde1" : "365f9dbd-7ed7-4ac4-aab5-ff5c329e52aa",
         status: "running", progress: { phase: "sources" },
@@ -82,6 +77,50 @@ async function mockResearch(page: Page) {
     getDossierReads: () => dossierReads,
   }
 }
+
+test("shows a shared allowance and resumes the original run without clearing the saved report", async ({ page }) => {
+  const research = await mockResearch(page)
+  const runId = "38e149b0-49fb-4b69-9412-d40d51c8cde1"
+  const budget = { run_id: runId, elapsed_seconds: 1200, remaining_seconds: 2100, max_seconds: 3300,
+    charged_usd: 4.25, reserved_usd: 0, max_cost_usd: 25, deadline: "2026-10-17T20:00:00Z", estimated: false }
+  research.reports.overview = { status: "done", job_id: runId, run_id: runId, budget, report_available: true }
+  research.reports.management_quality = { status: "incomplete", job_id: runId, run_id: runId, budget,
+    resumable: true, error: "Completed evidence retained", progress: { phase: "sources", quarters_completed: 12, quarters_total: 20, evidence_gaps: 2 } }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await expect(controls.getByLabel("Research allowance")).toHaveCount(1)
+  await expect(controls.getByLabel("Research allowance")).toContainText("$4.25 budget used")
+  await expect(controls.getByText(/12 \/ 20 quarters researched/)).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath("research-shared-budget.png"), fullPage: true })
+  await controls.getByRole("button", { name: "Resume management quality" }).click()
+  await expect.poll(() => research.starts.length).toBe(1)
+  expect(research.starts[0].resumeRunId).toBe(runId)
+  await expect(controls.getByText("Saved to company sheet")).toBeVisible()
+})
+
+test("an expanded draft refreshes when the same run completes", async ({ page }) => {
+  const research = await mockResearch(page)
+  research.reports.overview = { status: "running", job_id: "same-run", report_available: true, progress: { phase: "verification" } }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await controls.getByText("Full overview research", { exact: true }).click()
+  await expect(controls.getByText("Unverified draft evidence.", { exact: false })).toBeVisible()
+  research.complete("overview")
+  await expect(controls.getByText("Newly researched overview.", { exact: false })).toBeVisible({ timeout: 10_000 })
+  await expect(controls.getByText("Unverified draft evidence.", { exact: false })).toHaveCount(0)
+})
+
+test("an exhausted run retains evidence and cannot silently retry with a new allowance", async ({ page }) => {
+  const research = await mockResearch(page)
+  research.reports.management_quality = { status: "incomplete", run_id: "exhausted", resumable: false,
+    error: "Research reached its 55-minute limit; completed evidence is retained.", report_available: true }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await expect(controls.getByText(/55-minute limit/)).toBeVisible()
+  await expect(controls.getByRole("button", { name: /Resume|Retry/ })).toHaveCount(0)
+  await expect(controls.getByText("Full management quality research", { exact: true })).toBeVisible()
+  await expect(controls.getByRole("button", { name: "Run Company Research" })).toBeEnabled()
+})
 
 test("starts both reports, recovers after reload, refreshes summaries and displays cited full reports", async ({ page }) => {
   const research = await mockResearch(page)

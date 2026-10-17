@@ -1317,10 +1317,19 @@ export interface CompanyResearchSettings {
 
 export interface CompanyResearchReportStatus {
   job_id?: string
-  status: "idle" | "queued" | "running" | "done" | "error" | "cancelled"
+  run_id?: string
+  resumable?: boolean
+  status: "idle" | "queued" | "running" | "done" | "error" | "cancelled" | "incomplete"
   error?: string | null
   report_available?: boolean
-  progress?: { phase?: string; report_available?: boolean }
+  progress?: {
+    phase?: string; report_available?: boolean; quarters_completed?: number; quarters_total?: number
+    topics_completed?: number; topics_total?: number; evidence_gaps?: number
+  }
+  budget?: {
+    run_id: string; elapsed_seconds: number; remaining_seconds: number; max_seconds: number
+    charged_usd: number; reserved_usd: number; max_cost_usd: number; deadline: string; estimated: boolean
+  }
   result?: {
     application_status: string
     generated_at: string
@@ -1343,6 +1352,7 @@ export interface CompanyResearchReport {
   generated_at: string
   model: string
   summary_applied: boolean
+  complete?: boolean
 }
 
 export const fetchCompanyResearchSettings = () =>
@@ -1354,9 +1364,9 @@ export const updateCompanyResearchSettings = (prompts: Pick<CompanyResearchSetti
 export const fetchCompanyResearchStatus = (ticker: string) =>
   client.get<CompanyResearchStatus>(`/company-research/${encodeURIComponent(ticker)}`).then(r => r.data)
 
-export const startCompanyResearch = (ticker: string, kinds: CompanyResearchKind[]) =>
+export const startCompanyResearch = (ticker: string, kinds: CompanyResearchKind[], resumeRunId?: string) =>
   client.post<{ ticker: string; reports: Partial<CompanyResearchStatus["reports"]> }>(
-    `/company-research/${encodeURIComponent(ticker)}`, { kinds },
+    `/company-research/${encodeURIComponent(ticker)}`, { kinds, ...(resumeRunId ? { resume_run_id: resumeRunId } : {}) },
   ).then(r => r.data)
 
 export const fetchCompanyResearchReport = (ticker: string, kind: CompanyResearchKind, jobId?: string) =>

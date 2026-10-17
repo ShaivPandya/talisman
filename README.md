@@ -203,7 +203,7 @@ State backends:
 
 - Normal development, CI, and production runtime paths use `STATE_DB_BACKEND=postgres` and `DATABASE_URL`; a few isolated tests still exercise explicit SQLite compatibility paths.
 - Production additionally uses `STATE_STORAGE_BACKEND=gcs` and `GCS_STATE_BUCKET`.
-- Company research uses `OPENAI_API_KEY` and `COMPANY_RESEARCH_MODEL=gpt-6.1-sol` independently of regular LLM settings. Prompts persist in `app_settings`; reports and phase checkpoints use local `tmp/company_research/` or GCS `live/company_research/`. The research deadline defaults to 55 minutes within the generic Cloud Run Job's 60-minute limit.
+- Company research uses `OPENAI_API_KEY` and `COMPANY_RESEARCH_MODEL=gpt-6.1-sol` independently of regular LLM settings. One durable run shares a **55-minute / $25** allowance across overview, management research and all retries. Run state, worker leases and atomic spending reservations persist in `company_research_runs`; evidence and report checkpoints use local `tmp/company_research/` or GCS `live/company_research/`. Prompts persist in `app_settings` and are snapshotted per run. See [company research operations](docs/company_research.md) for coverage checks, recovery, pricing assumptions and the non-publishing evaluation command. The legacy timeout setting applies only to older queued jobs.
 - Async work runs locally unless `ASYNC_JOB_BACKEND=cloud_run_jobs` or `CLOUD_RUN_JOBS_ENABLED=true` opts into dispatching the generic Cloud Run Job configured by `ASYNC_CLOUD_RUN_JOB=talisman-async-job`.
 
 ## Observability (optional Sentry)
