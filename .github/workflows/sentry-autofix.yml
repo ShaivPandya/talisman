@@ -1,0 +1,138 @@
+name: Sentry autofix
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      ci_run_id:
+        description: Successful PR CI run ID; leave empty to verify cloud setup
+        type: string
+        default: ''
+      dry_run:
+        description: Check eligibility and deployment readiness without merging
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sentry-autofix-production
+  cancel-in-progress: false
+
+jobs:
+  ship:
+    if: >-
+      github.repository == 'ShaivPandya/talisman' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.event == 'pull_request'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+      deployments: write
+      id-token: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SENTRY_AUTOFIX_ENABLED: ${{ vars.SENTRY_AUTOFIX_ENABLED }}
+      CI_RUN_ID: ${{ inputs.ci_run_id || github.event.workflow_run.id }}
+      AUTOFIX_BUILD_SA: ${{ vars.AUTOFIX_BUILD_SA }}
+      AUTOFIX_BUILD_BUCKET: ${{ vars.AUTOFIX_BUILD_BUCKET }}
+    steps:
+      # Privileged controller always comes from main, never the PR branch.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          path: control
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - name: Check qualification
+        id: qualify
+        working-directory: control
+        run: |
+          if [ -z "$CI_RUN_ID" ]; then
+            echo 'setup_check=true' >> "$GITHUB_OUTPUT"
+          else
+            python scripts/sentry_autofix.py --run-id "$CI_RUN_ID"
+          fi
+      - name: Authenticate deployment identity
+        if: steps.qualify.outputs.qualified == 'true' || steps.qualify.outputs.setup_check == 'true'
+        uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_AUTOFIX_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_AUTOFIX_SERVICE_ACCOUNT }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+      - name: Set up Google Cloud
+        if: steps.qualify.outputs.qualified == 'true' || steps.qualify.outputs.setup_check == 'true'
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3
+      - name: Check production baseline and recovery access
+        if: steps.qualify.outputs.qualified == 'true' || steps.qualify.outputs.setup_check == 'true'
+        working-directory: control
+        env:
+          DEPLOY_CONFIG: ${{ secrets.GCP_AUTOFIX_DEPLOY_CONFIG }}
+          BASE_SHA: ${{ steps.qualify.outputs.base_sha }}
+        run: |
+          test -n "$DEPLOY_CONFIG"
+          printf '%s\n' "$DEPLOY_CONFIG" > infra/gcp/config.sh
+          source infra/gcp/config.sh
+          if [ -n "$BASE_SHA" ]; then
+            python scripts/sentry_autofix_deploy.py --preflight --base "$BASE_SHA"
+          else
+            python scripts/sentry_autofix_deploy.py --preflight
+          fi
+      - name: Merge the verified PR
+        id: merge
+        if: >-
+          steps.qualify.outputs.qualified == 'true' &&
+          vars.SENTRY_AUTOFIX_ENABLED == 'true' &&
+          (github.event_name != 'workflow_dispatch' || !inputs.dry_run)
+        working-directory: control
+        run: python scripts/sentry_autofix.py --merge
+      # Deploy here: merges made with GITHUB_TOKEN do not trigger push workflows.
+      - name: Check out the merged commit
+        if: steps.merge.outputs.merged_sha != ''
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ steps.merge.outputs.merged_sha }}
+          path: app
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up frontend build
+        if: steps.merge.outputs.merged_sha != ''
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '22'
+      - name: Install deployment tools
+        if: steps.merge.outputs.merged_sha != ''
+        run: |
+          npm install --global firebase-tools@15.34.0
+          python -m pip install httpx==0.28.1
+      - name: Deploy and smoke test
+        if: steps.merge.outputs.merged_sha != ''
+        working-directory: app
+        env:
+          MERGED_SHA: ${{ steps.merge.outputs.merged_sha }}
+        run: |
+          cp ../control/infra/gcp/config.sh infra/gcp/config.sh
+          source infra/gcp/config.sh
+          python ../control/scripts/sentry_autofix_deploy.py --ship "$MERGED_SHA"
+      - name: Record deployment outcome
+        if: always() && steps.merge.outputs.deployment_id != ''
+        env:
+          DEPLOYMENT_ID: ${{ steps.merge.outputs.deployment_id }}
+          OUTCOME: ${{ job.status }}
+        run: |
+          if [ "$OUTCOME" != success ]; then OUTCOME=failure; fi
+          gh api "repos/$GITHUB_REPOSITORY/deployments/$DEPLOYMENT_ID/statuses" \
+            -f state="$OUTCOME" \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID" \
+            -f description='Sentry autofix deployment and smoke checks'
