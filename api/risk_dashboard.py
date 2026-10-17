@@ -192,7 +192,7 @@ def latest_dashboard() -> dict[str, Any] | None:
     return PortfolioRiskDashboard.model_validate(result).model_dump(mode="json")
 
 
-def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
+def compute_dashboard(payload: dict[str, Any], *, stress_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
     """Runs in the existing durable worker, never in a latest/dashboard read."""
     from api.position_risk import get_latest_portfolio_risk, refresh_portfolio_risk
     from portfolio.portfolio_optimizer.portfolio_analyzer import (
@@ -218,9 +218,10 @@ def compute_dashboard(payload: dict[str, Any]) -> dict[str, Any]:
             }
         )
         stress_error = None
-        stress: dict[str, Any] | None = None
+        stress: dict[str, Any] | None = stress_snapshot
         try:
-            stress = refresh_portfolio_risk()
+            if stress is None:
+                stress = refresh_portfolio_risk()
         except Exception as exc:
             stress_error = str(exc)
             stress = get_latest_portfolio_risk()

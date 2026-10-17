@@ -99,6 +99,10 @@ def build_workspace_source_health(
 
     required_sources = _required_sources(portfolio_risk)
     for record in records:
+        # Parameter-specific research results are historical cache entries. Only
+        # the latest pointer represents an alternative provider's current health.
+        if record.snapshot_key.startswith("alternative:") and not record.snapshot_key.startswith("alternative:latest:"):
+            continue
         source = _source_from_snapshot(record, required=record.snapshot_key in required_sources, now=now)
         sources_by_key[source["id"]] = source
 
@@ -230,7 +234,8 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
     freshness_state = _snapshot_freshness_state(record, registry=registry, now=now, sla_seconds=sla_seconds)
     freshness = freshness_state.to_dict()
     stale = not freshness_state.fresh
-    status = _normalize_status(record.status, stale=stale, quality=record.quality, required=required)
+    quality = (record.payload or {}).get("quality", record.quality) if record.quality == "ok" else record.quality
+    status = _normalize_status(record.status, stale=stale, quality=quality, required=required)
     source_name = str(
         (registry or {}).get("source_id")
         or _SNAPSHOT_SOURCE_NAMES.get(record.snapshot_key)
@@ -240,6 +245,9 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
         "id": record.snapshot_key,
         "domain": str((registry or {}).get("dataset_domain") or _domain_for_snapshot(record.snapshot_key)),
         "source_name": source_name,
+        "display_name": (registry or {}).get("vendor_name")
+        if record.snapshot_key.startswith("alternative:latest:")
+        else None,
         "snapshot_key": record.snapshot_key,
         "status": status,
         "quality_state": _quality_state(status, required=required),

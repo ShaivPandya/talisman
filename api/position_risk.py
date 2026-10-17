@@ -178,7 +178,7 @@ def refresh_position_risk(ticker: str) -> dict[str, Any]:
     return _with_refresh_cache_status(write_position_risk_snapshot(snapshot), "refreshed")
 
 
-def refresh_portfolio_risk() -> dict[str, Any]:
+def refresh_portfolio_risk(*, refresh_optional_sources: bool = False) -> dict[str, Any]:
     """Refresh risk for all current positions using one shared global input bundle."""
     if not risk_engine_enabled():
         latest = get_latest_portfolio_risk()
@@ -186,7 +186,7 @@ def refresh_portfolio_risk() -> dict[str, Any]:
             return latest
     now = datetime.now(UTC)
     positions = _load_portfolio_positions(now=now)
-    bundle = load_global_risk_input_bundle(now=now)
+    bundle = load_global_risk_input_bundle(now=now, refresh_optional_sources=refresh_optional_sources)
 
     portfolio_result_id = f"portfolio-risk:{uuid.uuid4().hex[:12]}"
     position_snapshots: list[dict[str, Any]] = []
@@ -298,7 +298,9 @@ def refresh_portfolio_risk() -> dict[str, Any]:
     return write_portfolio_risk_snapshot(portfolio_snapshot)
 
 
-def load_global_risk_input_bundle(*, now: datetime | None = None) -> RiskInputBundle:
+def load_global_risk_input_bundle(
+    *, now: datetime | None = None, refresh_optional_sources: bool = False
+) -> RiskInputBundle:
     """Load/heal all non-position risk inputs once for a risk refresh run."""
     run_now = now or datetime.now(UTC)
     source_status: dict[str, dict[str, Any]] = {}
@@ -307,7 +309,7 @@ def load_global_risk_input_bundle(*, now: datetime | None = None) -> RiskInputBu
 
     for name in [*REQUIRED_MODULES[1:], *OPTIONAL_MODULES]:
         config = _MODULES[name]
-        state, data = _load_module(config, now=run_now)
+        state, data = _load_module(config, now=run_now, force_refresh=refresh_optional_sources and not config.required)
         source_status[name] = state
         if data is not None:
             module_data[name] = data
@@ -472,10 +474,12 @@ def _flag_enabled(name: str, *, default: bool) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
-def _load_module(config: ModuleConfig, *, now: datetime) -> tuple[dict[str, Any], Any | None]:
+def _load_module(
+    config: ModuleConfig, *, now: datetime, force_refresh: bool = False
+) -> tuple[dict[str, Any], Any | None]:
     record = read_snapshot(config.snapshot_key)
     cached_state, cached_data = _evaluate_record(config, record, now=now)
-    if cached_state.get("accepted"):
+    if cached_state.get("accepted") and not force_refresh:
         return cached_state, cached_data
 
     if not config.required:

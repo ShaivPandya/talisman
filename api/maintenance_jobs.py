@@ -1,6 +1,6 @@
 """Background maintenance jobs enqueued by Cloud Scheduler.
 
-Only the async-job sweep is scheduled by default. Cache warming is kept as an
+Snapshot and risk refreshes persist shared data. Cache warming is kept as an
 admin/manual job because the generic Cloud Run Job does not share the API
 service's in-memory TTL cache or local filesystem cache.
 """
@@ -43,17 +43,28 @@ def refresh_workspace_sources(_payload: dict[str, Any] | None = None) -> dict[st
     from api.macro_snapshots import refresh_macro_snapshots
     from api.market_snapshots import refresh_market_snapshots
     from api.position_risk import refresh_portfolio_risk
+    from api.risk_dashboard import compute_dashboard, dashboard_request
 
     steps: list[dict[str, Any]] = []
+    portfolio_risk: dict[str, Any] | None = None
+
+    def refresh_dashboard() -> dict[str, Any]:
+        return compute_dashboard(dashboard_request(), stress_snapshot=portfolio_risk)
+
     for name, fn in (
         ("market_snapshot_refresh", refresh_market_snapshots),
         ("macro_snapshot_refresh", refresh_macro_snapshots),
-        ("portfolio_risk_refresh", refresh_portfolio_risk),
+        ("portfolio_risk_refresh", lambda: refresh_portfolio_risk(refresh_optional_sources=True)),
+        ("portfolio_risk_dashboard_refresh", refresh_dashboard),
     ):
         try:
             result = fn()
-            logger.info("workspace_source_refresh step=%s status=ok", name)
-            steps.append({"step": name, "status": "ok", "result": result})
+            if name == "portfolio_risk_refresh":
+                portfolio_risk = result
+            issues = _refresh_issues(result)
+            status = "degraded" if issues else "ok"
+            logger.info("workspace_source_refresh step=%s status=%s issues=%s", name, status, issues)
+            steps.append({"step": name, "status": status, "result": result, "issues": issues})
         except Exception as exc:
             logger.warning("workspace_source_refresh step=%s status=error", name, exc_info=True)
             steps.append({"step": name, "status": "error", "error": str(exc) or exc.__class__.__name__})
@@ -63,7 +74,18 @@ def refresh_workspace_sources(_payload: dict[str, Any] | None = None) -> dict[st
         summary = "; ".join(f"{step['step']}: {step['error']}" for step in errors)
         raise RuntimeError(f"Workspace source refresh failed: {summary}")
 
-    return {"steps": steps}
+    return {"status": "degraded" if any(step["status"] == "degraded" for step in steps) else "ok", "steps": steps}
+
+
+def _refresh_issues(result: dict[str, Any]) -> list[dict[str, Any]]:
+    """Expose returned source failures even when a best-effort refresh completes."""
+    issues = [
+        row for row in result.get("snapshots", []) if isinstance(row, dict) and row.get("status") not in {None, "ok"}
+    ]
+    issues.extend(result.get("degraded_modules") or [])
+    if not issues and result.get("quality") == "degraded":
+        issues.append({"detail": "Refreshed snapshot contains incomplete or degraded inputs"})
+    return issues
 
 
 def sweep_async_jobs(_payload: dict[str, Any] | None = None) -> dict[str, Any]:
