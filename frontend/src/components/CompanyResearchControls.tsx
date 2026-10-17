@@ -25,6 +25,7 @@ const LABELS: Record<CompanyResearchKind, string> = {
 }
 const PHASES: Record<string, string> = {
   queued: "Queued",
+  planning: "Confirming company and fiscal quarters",
   sources: "Gathering sources",
   verification: "Checking evidence and coverage",
   report: "Writing full report",
@@ -39,7 +40,7 @@ function isActive(report?: CompanyResearchReportStatus) {
 
 function statusText(report: CompanyResearchReportStatus) {
   if (report.status === "done") return "Saved to company sheet"
-  if (report.status === "error") return report.error || "Research failed."
+  if (report.status === "error" || report.status === "incomplete") return report.error || "Research is incomplete; completed evidence is retained."
   if (report.status === "cancelled") return report.error || "Research was cancelled."
   return PHASES[report.progress?.phase ?? report.status] ?? "Researching"
 }
@@ -125,6 +126,7 @@ function FullResearchReport({ ticker, kind, jobId }: { ticker: string; kind: Com
               <p className="text-xs text-subtle">
                 Researched {new Date(query.data.generated_at).toLocaleString()} · {query.data.sources.length} {query.data.sources.length === 1 ? "source" : "sources"}
                 {!query.data.summary_applied && " · Company sheet has not been updated"}
+                {query.data.complete === false && " · Incomplete evidence; verification is still required"}
               </p>
               <div className="min-w-0 space-y-3 break-words text-sm leading-6 text-app">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
@@ -159,7 +161,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
     refetchInterval: state => KINDS.some(kind => isActive(state.state.data?.reports[kind])) ? 5000 : false,
   })
   const mutation = useMutation({
-    mutationFn: ({ target, kinds }: { target: string; kinds: CompanyResearchKind[] }) => startCompanyResearch(target, kinds),
+    mutationFn: ({ target, kinds, resumeRunId }: { target: string; kinds: CompanyResearchKind[]; resumeRunId?: string }) => startCompanyResearch(target, kinds, resumeRunId),
     onSuccess: (result, variables) => {
       qc.setQueryData<CompanyResearchStatus>(["company-research", variables.target], current => ({
         ticker: variables.target,
@@ -174,12 +176,16 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
     },
   })
   const running = KINDS.some(kind => isActive(query.data?.reports[kind]))
+  const budgets = [...new Map(KINDS.flatMap(kind => {
+    const budget = query.data?.reports[kind]?.budget
+    return budget ? [[budget.run_id, budget] as const] : []
+  })).values()]
 
   useEffect(() => {
     let completed = false
     for (const kind of KINDS) {
       const report = query.data?.reports[kind]
-      const key = `${normalizedTicker}:${report?.job_id}`
+      const key = `${normalizedTicker}:${kind}:${report?.job_id}`
       if (report?.status !== "done" || completedRef.current.has(key)) continue
       completedRef.current.add(key)
       completed = true
@@ -203,7 +209,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
         <button type="button" onClick={() => setEditing(true)} className={`${BUTTON} theme-button-secondary`}>
           <Settings2 size={16} aria-hidden="true" /> Edit Research Prompts
         </button>
-        <p className="text-xs text-subtle">Researches and saves overview and management quality.</p>
+        <p className="text-xs text-subtle">Researches and saves overview and management quality. Each new run allows up to 55 minutes and $25 total.</p>
       </div>
       {query.error && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-red-600" role="alert">
@@ -212,10 +218,18 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
         </div>
       )}
       {mutation.error && <p role="alert" className="text-sm text-red-600">{mutation.error.message}</p>}
+      {budgets.map(budget => (
+        <p key={budget.run_id} className="text-xs text-subtle" aria-label="Research allowance">
+          {Math.floor(budget.elapsed_seconds / 60)} / 55 minutes · ${budget.charged_usd.toFixed(2)} budget used
+          {budget.reserved_usd > 0 && ` + $${budget.reserved_usd.toFixed(2)} reserved`} / ${budget.max_cost_usd.toFixed(2)} total
+          {budget.remaining_seconds > 0 ? ` · ${Math.ceil(budget.remaining_seconds / 60)} minutes remaining` : " · Time allowance exhausted"}
+          {" · Cost includes a conservative margin; resume keeps the original allowance."}
+        </p>
+      ))}
       {KINDS.map(kind => {
         const report = query.data?.reports[kind]
         if (!report || report.status === "idle") return null
-        const failed = report.status === "error" || report.status === "cancelled"
+        const failed = report.status === "error" || report.status === "cancelled" || report.status === "incomplete"
         return (
           <div key={kind} className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-sm" role={failed ? "alert" : "status"}>
@@ -224,13 +238,20 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
               <span className={failed ? "text-red-600" : report.status === "done" ? "text-green-600 dark:text-green-400" : "text-muted"}>
                 {statusText(report)}
               </span>
-              {failed && (
+              {failed && (!report.run_id || report.resumable) && (
                 <button type="button" className={`${BUTTON} theme-button-secondary`}
-                  disabled={mutation.isPending} onClick={() => mutation.mutate({ target: normalizedTicker, kinds: [kind] })}>
-                  Retry {LABELS[kind].toLowerCase()}
+                  disabled={mutation.isPending || running} onClick={() => mutation.mutate({ target: normalizedTicker, kinds: [kind], resumeRunId: report.run_id })}>
+                  {report.run_id ? "Resume" : "Retry"} {LABELS[kind].toLowerCase()}
                 </button>
               )}
             </div>
+            {report.progress && (
+              <p className="text-xs text-subtle">
+                {report.progress.quarters_total != null && `${report.progress.quarters_completed ?? 0} / ${report.progress.quarters_total} quarters researched. `}
+                {report.progress.topics_total != null && `${report.progress.topics_completed ?? 0} / ${report.progress.topics_total} overview topics researched. `}
+                {report.progress.evidence_gaps != null && `${report.progress.evidence_gaps} evidence gaps identified.`}
+              </p>
+            )}
             {report.report_available && <FullResearchReport key={report.job_id ?? kind} ticker={normalizedTicker} kind={kind} jobId={report.job_id} />}
           </div>
         )

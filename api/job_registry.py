@@ -277,6 +277,18 @@ JOB_SPECS: dict[str, JobSpec] = {
         supports_progress=True,
         initial_progress={"phase": "queued", "done": 0, "total": 0},
     ),
+    "company_research_run": JobSpec(
+        job_type="company_research_run",
+        request_model="api.company_research_workflow.CompanyResearchRunRequest",
+        compute_func="api.company_research_workflow.run_company_research_run",
+        cache_key_func=None,
+        timeout_s=55 * 60,
+        completed_ttl_s=DEFAULT_COMPLETED_TTL_S,
+        failed_ttl_s=DEFAULT_FAILED_TTL_S,
+        stale_grace_s=60,
+        initial_progress={"phase": "researching"},
+        error_message="Company research failed",
+    ),
     "company_research": JobSpec(
         job_type="company_research",
         request_model="api.company_research.CompanyResearchJobRequest",

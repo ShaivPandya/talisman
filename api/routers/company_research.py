@@ -2,18 +2,18 @@
 
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-from api.agent_governance import redact_secrets
-from api.async_job_runner import enqueue_registered_job, job_response, poll_registered_job
+from api import company_research_store as store
+from api.async_job_runner import enqueue_registered_job, poll_registered_job
 from api.audit import emit_audit_event
 from api.company_research import (
     RESEARCH_KINDS,
-    CompanyResearchJobRequest,
     ResearchKind,
     ResearchPromptsUpdate,
     archived_report_status,
@@ -23,7 +23,7 @@ from api.company_research import (
     research_settings,
     save_research_prompts,
 )
-from api.exceptions import AppError
+from api.exceptions import AppError, ConflictError, NotFoundError
 from api.job_queue import latest_job_for_key
 from api.routers.auth import ActorDep
 from api.routers.overview import _normalize_ticker, _validate_ticker
@@ -34,6 +34,34 @@ router = APIRouter()
 
 class StartCompanyResearchRequest(BaseModel):
     kinds: list[ResearchKind] = Field(default_factory=lambda: list(RESEARCH_KINDS), min_length=1, max_length=2)
+    resume_run_id: UUID | None = None
+
+
+def _report_status(state, kind, actor_id=None):
+    report = state["reports"][kind]
+    expired = state["deadline"] <= time.time()
+    stopped = report["status"] != "done" and (
+        expired or (state["status"] == "running" and state.get("lease_until", 0) <= time.time())
+    )
+    status = "incomplete" if stopped else report["status"]
+    resumable = (
+        status == "incomplete"
+        and not expired
+        and state["charged_usd"] + store.reserved_usd(state) < state["max_cost_usd"]
+        and actor_id == state["snapshot"]["actor"].get("actor_id")
+    )
+    return {
+        "job_id": state["run_id"],
+        "run_id": state["run_id"],
+        "status": status,
+        "error": "Research reached its 55-minute limit; completed evidence is retained."
+        if expired and stopped
+        else report.get("error"),
+        "report_available": report.get("report_available", False),
+        "progress": report,
+        "budget": store.budget_summary(state),
+        "resumable": resumable,
+    }
 
 
 @router.get("/settings/company-research")
@@ -62,42 +90,78 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
     ticker = _normalize_ticker(ticker)
     _validate_ticker(ticker)
     require_research_key()
-    settings = research_settings()
-    reports = {}
-    for kind in dict.fromkeys(body.kinds):
-        req = CompanyResearchJobRequest(
-            ticker=ticker,
-            kind=kind,
-            prompt=settings[f"{kind}_prompt"],
-            prompt_version=settings["updated_at"] or "default-v1",
-            model=settings["model"],
-            actor=actor_to_dict(actor),
-            requested_at=datetime.now(UTC).isoformat(),
-        )
+    actor_id = actor_to_dict(actor).get("actor_id")
+    if body.resume_run_id:
         try:
-            row, _disposition = enqueue_registered_job(
-                "company_research",
-                req.model_dump(),
-                cache_key=research_cache_key(ticker, kind),
-                reuse_completed=False,
+            state = store.get_run(str(body.resume_run_id))
+        except KeyError as exc:
+            raise NotFoundError("Research run") from exc
+        if state["ticker"] != ticker or state["snapshot"]["actor"].get("actor_id") != actor_id:
+            raise NotFoundError("Research run")
+        if state["status"] == "done":
+            return {"ticker": ticker, "reports": {k: _report_status(state, k, actor_id) for k in state["reports"]}}
+        if state["deadline"] <= time.time() or state["charged_usd"] >= state["max_cost_usd"]:
+            raise ConflictError(
+                "This run has exhausted its original allowance. Start a new run explicitly to research again."
             )
-            reports[kind] = job_response(row)
-        except Exception as exc:
-            # Attempt the other report even if this dispatch failed.
-            message = (
-                exc.message if isinstance(exc, AppError) else "Could not start this research report. Please retry."
+        state = store.resume_run(state["run_id"])
+    else:
+        settings = research_settings()
+        if settings["model"] != "gpt-6.1-sol":
+            raise AppError("Budgeted research requires COMPANY_RESEARCH_MODEL=gpt-6.1-sol.", status_code=503)
+        try:
+            state, _created = store.create_run(
+                {
+                    "ticker": ticker,
+                    "kinds": list(dict.fromkeys(body.kinds)),
+                    "prompts": {kind: settings[f"{kind}_prompt"] for kind in body.kinds},
+                    "prompt_version": settings["updated_at"] or "default-v1",
+                    "model": settings["model"],
+                    "actor": actor_to_dict(actor),
+                    "requested_at": datetime.now(UTC).isoformat(),
+                    "pricing_version": "gpt-6.1-sol-standard-2026-10-17",
+                }
             )
-            sanitized, _findings = redact_secrets({"error": message})
-            reports[kind] = {"status": "error", "error": sanitized["error"], "report_available": False}
-    return {"ticker": ticker, "reports": reports}
+        except store.ResearchLimitReached as exc:
+            raise ConflictError(str(exc)) from exc
+    try:
+        row, _ = enqueue_registered_job(
+            "company_research_run",
+            {"run_id": state["run_id"]},
+            cache_key=f"company_research_run:{state['run_id']}:{state.get('dispatch_generation', 0)}",
+            reuse_completed=False,
+        )
+        state = store.mutate_run(state["run_id"], lambda s: s.update(job_id=str(row["job_id"])))
+    except Exception as exc:
+
+        def failed(s):
+            if s["status"] != "running":
+                s["status"] = "incomplete"
+                for report in s["reports"].values():
+                    if report["status"] != "done":
+                        report.update(
+                            status="incomplete",
+                            error="Could not dispatch research. Resume to retry within the original allowance.",
+                        )
+
+        store.mutate_run(state["run_id"], failed)
+        raise AppError(
+            "Could not dispatch research. The run and its original allowance are retained.", status_code=503
+        ) from exc
+    return {"ticker": ticker, "reports": {k: _report_status(state, k, actor_id) for k in state["reports"]}}
 
 
 @router.get("/company-research/{ticker}")
-def get_company_research_status(ticker: str):
+def get_company_research_status(ticker: str, actor: ActorDep):
     ticker = _normalize_ticker(ticker)
     _validate_ticker(ticker)
     reports = {}
+    runs = store.latest_runs(ticker)
     for kind in RESEARCH_KINDS:
+        state = next((r for r in runs if kind in r["reports"] and r["apply"]), None)
+        if state:
+            reports[kind] = _report_status(state, kind, actor_to_dict(actor).get("actor_id"))
+            continue
         row = latest_job_for_key("company_research", research_cache_key(ticker, kind))
         if row:
             response = poll_registered_job(str(row["job_id"]), row=row)
