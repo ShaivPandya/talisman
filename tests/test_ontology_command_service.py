@@ -1275,7 +1275,23 @@ def test_fire_watch_trigger_accepts_uid_targets_trigger_and_preserves_context():
     assert props["fired_at"]
 
 
-def test_replace_watch_trigger_cancels_old_and_creates_replacement_with_same_condition():
+@pytest.mark.parametrize(
+    ("followup_action", "followup_payload", "expected_status"),
+    [
+        ("cancel_watch_trigger", {}, "cancelled"),
+        ("fire_watch_trigger", {"evidence": "Breadth reversed"}, "fired"),
+        ("update_watch_trigger_check", {"result": {"fired": False}}, "active"),
+        ("update_watch_trigger_definition", {"definition": {"type": "macro"}}, "active"),
+        (
+            "replace_watch_trigger",
+            {"condition": "Watch OKLO price reversal", "trigger_type": "technical", "ticker": "OKLO"},
+            "cancelled",
+        ),
+    ],
+)
+def test_replace_watch_trigger_preserves_identity_through_later_actions(
+    followup_action, followup_payload, expected_status
+):
     repo = NormalizingTemporalRepo()
     service = OntologyCommandService(OntologyObjectService(repository=repo))  # type: ignore[arg-type]
     context = OntologyCommandContext(actor=admin_actor(source="test"), source_type="test", source_id="unit")
@@ -1316,6 +1332,73 @@ def test_replace_watch_trigger_cancels_old_and_creates_replacement_with_same_con
     assert active_replacements[0]["properties_json"]["condition"] == "Watch OKLO breadth reversal"
     assert active_replacements[0]["properties_json"]["trigger_type"] == "technical"
     assert active_replacements[0]["properties_json"]["definition"] == {"type": "technical", "field": "breadth"}
+
+    replacement_uid = active_replacements[0]["object_uid"]
+    replacement_identity = active_replacements[0]["properties_json"]["trigger_id"]
+    followup = service.propose_action(
+        followup_action,
+        {"trigger_id": replacement_uid, **followup_payload},
+        context,
+        reason="Update replacement trigger",
+    )
+    result = service.resolve_approval(followup["id"], "approved", "approved", context)
+
+    props = repo.objects[replacement_uid]["properties_json"]
+    assert result["application_status"] == "applied"
+    assert props["status"] == expected_status
+    assert props["trigger_id"] == replacement_identity
+    assert props["condition"] == "Watch OKLO breadth reversal"
+    if followup_action == "replace_watch_trigger":
+        active = [
+            row
+            for row in repo.objects.values()
+            if row["object_type"] == "WatchTrigger" and row["properties_json"]["status"] == "active"
+        ]
+        assert len(active) == 1
+        assert active[0]["object_uid"] not in {trigger_uid, replacement_uid}
+        assert active[0]["properties_json"]["condition"] == "Watch OKLO price reversal"
+
+
+def test_failed_replacement_trigger_cancellation_can_be_retried(monkeypatch):
+    repo = NormalizingTemporalRepo()
+    objects = OntologyObjectService(repository=repo)  # type: ignore[arg-type]
+    service = OntologyCommandService(objects)
+    context = OntologyCommandContext(actor=admin_actor(source="test"), source_type="test", source_id="unit")
+    key = "replacement:watch_trigger:smh_downside:128a5656db05"
+    trigger = objects.write_object(
+        "WatchTrigger",
+        key,
+        {"trigger_id": key, "condition": "Downside: SMH -10% in a week", "trigger_type": "macro"},
+        datetime(2026, 5, 6, tzinfo=UTC),
+        provenance="test:replacement",
+    )
+    uid = trigger["object_uid"]
+    approval = service.propose_action(
+        "cancel_watch_trigger", {"trigger_id": uid}, context, reason="Cancel replacement trigger"
+    )
+    write_object = objects.write_object
+
+    def write_without_trigger_identity(object_type, business_key, properties, *args, **kwargs):
+        properties = dict(properties)
+        if object_type == "WatchTrigger":
+            properties.pop("trigger_id", None)
+        return write_object(object_type, business_key, properties, *args, **kwargs)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(objects, "write_object", write_without_trigger_identity)
+        with pytest.raises(OntologyCommandConflict, match="non-canonical identity"):
+            service.resolve_approval(approval["id"], "approved", "LGTM", context)
+
+    failed = service.get_approval(approval["id"], actor=context.actor)
+    assert failed["application_status"] == "failed"
+    assert repo.objects[uid]["properties_json"]["status"] == "active"
+
+    applied = service.resolve_approval(approval["id"], "approved", "Retry apply", context)
+    assert applied["application_status"] == "applied"
+    assert applied["application_attempts"] == 2
+    assert applied["approval_decisions"] == failed["approval_decisions"]
+    assert repo.objects[uid]["properties_json"]["status"] == "cancelled"
+    assert repo.objects[uid]["properties_json"]["trigger_id"] == key
 
 
 @pytest.mark.parametrize(

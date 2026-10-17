@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.async_job_runner import enqueue_registered_job, enqueue_response
+from ontology.read_model import TemporalReadModelRepository
 from ontology.runtime_read_service import OntologyRuntimeReadService
 
 router = APIRouter()
@@ -88,14 +89,20 @@ def dismiss_optimization_alert(alert_id: str, req: DismissOptimizationAlertReque
     alert = _get_optimization_object("OptimizationAlert", alert_id)
     if not alert:
         raise HTTPException(status_code=404, detail="Unknown optimization alert")
-    props = {**alert, "status": "dismissed", "dismissal_note": req.note if req else None}
-    props["dismissed_at"] = props.get("dismissed_at") or datetime.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
+    props = {**alert, "status": "dismissed", "dismissal_note": req.note if req else None, "updated_at": now}
+    props["dismissed_at"] = props.get("dismissed_at") or now
     props.pop("_meta", None)
     props.pop("id", None)
     props.pop("object_uid", None)
     from api.continuous_optimizer import _write_runtime_object
 
-    return _write_runtime_object("OptimizationAlert", alert.get("object_uid") or alert.get("id") or alert_id, props)
+    dismissed = _write_runtime_object(
+        "OptimizationAlert", alert.get("object_uid") or alert.get("id") or alert_id, props
+    )
+    # Workspace reads a materialized projection, so a successful dismissal must refresh it.
+    TemporalReadModelRepository().refresh()
+    return dismissed
 
 
 def _get_optimization_object(object_type: str, object_id: str) -> dict[str, Any] | None:

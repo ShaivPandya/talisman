@@ -1942,6 +1942,7 @@ class OntologyCommandService:
                 "WatchTrigger",
                 trigger_uid,
                 {
+                    "trigger_id": trigger.get("trigger_id"),
                     "condition": condition,
                     "trigger_type": str(trigger.get("trigger_type") or payload.get("trigger_type") or "custom"),
                     "ticker": trigger.get("ticker") or _optional_ticker(payload),
@@ -1976,6 +1977,7 @@ class OntologyCommandService:
                 "WatchTrigger",
                 trigger_uid,
                 {
+                    "trigger_id": trigger.get("trigger_id"),
                     "condition": str(trigger.get("condition") or f"Watch trigger {trigger_uid}").strip(),
                     "trigger_type": str(trigger.get("trigger_type") or "custom"),
                     "ticker": trigger.get("ticker"),
