@@ -322,7 +322,7 @@ def _current_ontology_cache_token() -> str:
 
 
 def _read_model_watermark_token() -> str:
-    from api.postgres import connect
+    from api.postgres import connect, retry_read
 
     sql = """
     SELECT
@@ -335,8 +335,13 @@ def _read_model_watermark_token() -> str:
       (SELECT max(GREATEST(tx_from, COALESCE(tx_to, '-infinity'::timestamptz)))
          FROM source_record_versions) AS source_watermark
     """
-    with connect() as conn:
-        row = conn.execute(sql).fetchone() or {}
+
+    def _read():
+        with connect(read_only=True) as conn:
+            row = conn.execute(sql).fetchone() or {}
+        return row
+
+    row = retry_read(_read)
     payload = {
         "objects": str(row.get("object_watermark") or ""),
         "relations": str(row.get("relation_watermark") or ""),

@@ -8,6 +8,8 @@ import secrets
 import sqlite3
 import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -15,13 +17,13 @@ from typing import Any
 
 import bcrypt
 
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 
 DB_PATH = Path(__file__).parent / "auth.db"
 
 _lock = threading.RLock()
-_conn: sqlite3.Connection | PostgresStateConnection | None = None
+_conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
 _seeded = False
 
 _CREATE_AUTH_USERS = """
@@ -122,23 +124,23 @@ def reset_auth_store_for_tests() -> None:
             DB_PATH.unlink(missing_ok=True)
 
 
-def _get_conn() -> sqlite3.Connection | PostgresStateConnection:
+@contextmanager
+def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | PostgresStateConnection]:
     global _conn
-    if _conn is not None:
+    if use_postgres_state():
+        with PostgresStateConnection(read_only=read_only) as conn:
+            yield conn
+        return
+    with _lock:
+        if _conn is None:
+            _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
+            _conn.row_factory = sqlite3.Row
+            _init_db(_conn)
         try:
-            _conn.execute("SELECT 1")
-        except Exception:
-            _close_conn()
-    if _conn is None:
-        with _lock:
-            if _conn is None:
-                if use_postgres_state():
-                    _conn = PostgresStateConnection()
-                else:
-                    _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-                    _conn.row_factory = sqlite3.Row
-                _init_db(_conn)
-    return _conn
+            yield _conn
+        except BaseException:
+            _conn.rollback()
+            raise
 
 
 def _init_db(conn: sqlite3.Connection | PostgresStateConnection) -> None:
@@ -222,47 +224,55 @@ def ensure_auth_users_seeded() -> None:
     with _lock:
         if _seeded:
             return
-        conn = _get_conn()
-        admin_hash = (os.environ.get("AUTH_PASSWORD_HASH") or "").strip()
-        if admin_hash:
-            _upsert_user(
-                conn,
-                username=default_admin_username(),
-                password_hash=admin_hash,
-                email=None,
-                roles=("owner", "admin"),
-            )
-        smoke_hash = (os.environ.get("AUTH_SMOKE_PASSWORD_HASH") or "").strip()
-        if smoke_hash:
-            _upsert_user(
-                conn,
-                username="smoke",
-                password_hash=smoke_hash,
-                email=None,
-                roles=("smoke", "viewer"),
-            )
+        with _get_conn() as conn:
+            admin_hash = (os.environ.get("AUTH_PASSWORD_HASH") or "").strip()
+            if admin_hash:
+                _upsert_user(
+                    conn,
+                    username=default_admin_username(),
+                    password_hash=admin_hash,
+                    email=None,
+                    roles=("owner", "admin"),
+                )
+            smoke_hash = (os.environ.get("AUTH_SMOKE_PASSWORD_HASH") or "").strip()
+            if smoke_hash:
+                _upsert_user(
+                    conn,
+                    username="smoke",
+                    password_hash=smoke_hash,
+                    email=None,
+                    roles=("smoke", "viewer"),
+                )
         _seeded = True
 
 
 def get_user_by_username(username: str) -> AuthUser | None:
     ensure_auth_users_seeded()
-    conn = _get_conn()
-    row = conn.execute(
-        "SELECT * FROM auth_users WHERE username = ? AND active = ?",
-        (username.strip(), True),
-    ).fetchone()
-    return _user_from_row(conn, row)
+
+    def _read() -> AuthUser | None:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                "SELECT * FROM auth_users WHERE username = ? AND active = ?",
+                (username.strip(), True),
+            ).fetchone()
+            return _user_from_row(conn, row)
+
+    return retry_read(_read)
 
 
 def get_user_by_email(email: str) -> AuthUser | None:
     ensure_auth_users_seeded()
-    conn = _get_conn()
-    normalized = email.strip().lower()
-    row = conn.execute(
-        "SELECT * FROM auth_users WHERE lower(email) = ? AND active = ?",
-        (normalized, True),
-    ).fetchone()
-    return _user_from_row(conn, row)
+
+    def _read() -> AuthUser | None:
+        with _get_conn(read_only=True) as conn:
+            normalized = email.strip().lower()
+            row = conn.execute(
+                "SELECT * FROM auth_users WHERE lower(email) = ? AND active = ?",
+                (normalized, True),
+            ).fetchone()
+            return _user_from_row(conn, row)
+
+    return retry_read(_read)
 
 
 def get_or_create_cloudflare_user(email: str) -> AuthUser:
@@ -272,7 +282,6 @@ def get_or_create_cloudflare_user(email: str) -> AuthUser:
     existing = get_user_by_email(normalized_email)
     if existing:
         return existing
-    conn = _get_conn()
     username = normalized_email.split("@", 1)[0] or normalized_email
     base_username = username
     suffix = 0
@@ -282,19 +291,25 @@ def get_or_create_cloudflare_user(email: str) -> AuthUser:
     default_roles = tuple(
         r.strip() for r in (os.environ.get("AUTH_CLOUDFLARE_DEFAULT_ROLES") or "admin,viewer").split(",") if r.strip()
     ) or ("admin", "viewer")
-    return _upsert_user(
-        conn,
-        username=username,
-        password_hash=None,
-        email=normalized_email,
-        roles=default_roles,
-    )
+    with _get_conn() as conn:
+        return _upsert_user(
+            conn,
+            username=username,
+            password_hash=None,
+            email=normalized_email,
+            roles=default_roles,
+        )
 
 
 def verify_password(user: AuthUser, password: str) -> bool:
     ensure_auth_users_seeded()
-    conn = _get_conn()
-    row = conn.execute("SELECT password_hash FROM auth_users WHERE id = ?", (user.id,)).fetchone()
+
+    def _read():
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute("SELECT password_hash FROM auth_users WHERE id = ?", (user.id,)).fetchone()
+        return row
+
+    row = retry_read(_read)
     if not row:
         return False
     stored = _row_dict(row).get("password_hash")
@@ -314,90 +329,98 @@ def create_session(
     csrf_token = secrets.token_urlsafe(32)
     session_id = str(uuid.uuid4())
     expires_at = datetime.now(UTC) + timedelta(hours=_session_ttl_hours())
-    conn = _get_conn()
-    conn.execute(
-        """
-        INSERT INTO auth_sessions (
-            id, token_hash, user_id, csrf_token_hash, expires_at, revoked_at,
-            created_at, user_agent, ip_address
-        ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
-        """,
-        (
-            session_id,
-            _hash_secret(session_token),
-            user.id,
-            _hash_secret(csrf_token),
-            expires_at.isoformat(),
-            _now(),
-            user_agent,
-            ip_address,
-        ),
-    )
-    conn.commit()
-    return AuthSession(
-        session_id=session_id,
-        user=user,
-        session_token=session_token,
-        csrf_token=csrf_token,
-        expires_at=expires_at,
-    )
+    with _get_conn() as conn:
+        conn.execute(
+            """
+            INSERT INTO auth_sessions (
+                id, token_hash, user_id, csrf_token_hash, expires_at, revoked_at,
+                created_at, user_agent, ip_address
+            ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
+            """,
+            (
+                session_id,
+                _hash_secret(session_token),
+                user.id,
+                _hash_secret(csrf_token),
+                expires_at.isoformat(),
+                _now(),
+                user_agent,
+                ip_address,
+            ),
+        )
+        conn.commit()
+        return AuthSession(
+            session_id=session_id,
+            user=user,
+            session_token=session_token,
+            csrf_token=csrf_token,
+            expires_at=expires_at,
+        )
 
 
 def lookup_session(session_token: str) -> AuthSession | None:
     if not session_token:
         return None
     ensure_auth_users_seeded()
-    conn = _get_conn()
-    row = conn.execute(
-        """
-        SELECT s.id, s.user_id, s.csrf_token_hash, s.expires_at, s.revoked_at,
-               u.username, u.email
-        FROM auth_sessions s
-        JOIN auth_users u ON u.id = s.user_id
-        WHERE s.token_hash = ? AND u.active = ?
-        """,
-        (_hash_secret(session_token), True),
-    ).fetchone()
-    if not row:
-        return None
-    data = _row_dict(row)
-    if data.get("revoked_at"):
-        return None
-    expires_at = _parse_iso(str(data["expires_at"]))
-    if expires_at <= datetime.now(UTC):
-        return None
-    user_id = str(data["user_id"])
-    user = AuthUser(
-        id=user_id,
-        username=str(data["username"]),
-        email=str(data["email"]) if data.get("email") else None,
-        roles=_roles_for_user(conn, user_id),
-    )
-    return AuthSession(
-        session_id=str(data["id"]),
-        user=user,
-        session_token=session_token,
-        csrf_token="",
-        expires_at=expires_at,
-    )
+
+    def _read() -> AuthSession | None:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT s.id, s.user_id, s.csrf_token_hash, s.expires_at, s.revoked_at,
+                       u.username, u.email
+                FROM auth_sessions s
+                JOIN auth_users u ON u.id = s.user_id
+                WHERE s.token_hash = ? AND u.active = ?
+                """,
+                (_hash_secret(session_token), True),
+            ).fetchone()
+            if not row:
+                return None
+            data = _row_dict(row)
+            if data.get("revoked_at"):
+                return None
+            expires_at = _parse_iso(str(data["expires_at"]))
+            if expires_at <= datetime.now(UTC):
+                return None
+            user_id = str(data["user_id"])
+            user = AuthUser(
+                id=user_id,
+                username=str(data["username"]),
+                email=str(data["email"]) if data.get("email") else None,
+                roles=_roles_for_user(conn, user_id),
+            )
+            return AuthSession(
+                session_id=str(data["id"]),
+                user=user,
+                session_token=session_token,
+                csrf_token="",
+                expires_at=expires_at,
+            )
+
+    return retry_read(_read)
 
 
 def verify_csrf(session_token: str, csrf_token: str | None) -> bool:
     if not session_token or not csrf_token:
         return False
-    conn = _get_conn()
-    row = conn.execute(
-        "SELECT csrf_token_hash, revoked_at, expires_at FROM auth_sessions WHERE token_hash = ?",
-        (_hash_secret(session_token),),
-    ).fetchone()
-    if not row:
-        return False
-    data = _row_dict(row)
-    if data.get("revoked_at"):
-        return False
-    if _parse_iso(str(data["expires_at"])) <= datetime.now(UTC):
-        return False
-    return secrets.compare_digest(_hash_secret(csrf_token), str(data["csrf_token_hash"]))
+
+    def _read() -> bool:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                "SELECT csrf_token_hash, revoked_at, expires_at FROM auth_sessions WHERE token_hash = ?",
+                (_hash_secret(session_token),),
+            ).fetchone()
+            if not row:
+                return False
+            data = _row_dict(row)
+            if data.get("revoked_at"):
+                return False
+            if _parse_iso(str(data["expires_at"])) <= datetime.now(UTC):
+                return False
+            return secrets.compare_digest(_hash_secret(csrf_token), str(data["csrf_token_hash"]))
+
+    return retry_read(_read)
 
 
 def get_csrf_token_for_session(session_token: str) -> str | None:
@@ -406,24 +429,24 @@ def get_csrf_token_for_session(session_token: str) -> str | None:
     if session is None:
         return None
     csrf_token = secrets.token_urlsafe(32)
-    conn = _get_conn()
-    conn.execute(
-        "UPDATE auth_sessions SET csrf_token_hash = ? WHERE token_hash = ?",
-        (_hash_secret(csrf_token), _hash_secret(session_token)),
-    )
-    conn.commit()
-    return csrf_token
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE auth_sessions SET csrf_token_hash = ? WHERE token_hash = ?",
+            (_hash_secret(csrf_token), _hash_secret(session_token)),
+        )
+        conn.commit()
+        return csrf_token
 
 
 def revoke_session(session_token: str) -> None:
     if not session_token:
         return
-    conn = _get_conn()
-    conn.execute(
-        "UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL",
-        (_now(), _hash_secret(session_token)),
-    )
-    conn.commit()
+    with _get_conn() as conn:
+        conn.execute(
+            "UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL",
+            (_now(), _hash_secret(session_token)),
+        )
+        conn.commit()
 
 
 def user_has_role(user: AuthUser, role: str) -> bool:

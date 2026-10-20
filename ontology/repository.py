@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any, Literal, cast
 
 from api.audit import emit_audit_event
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 from ontology.models import EntityType, OntologyEdge, OntologyNode, RelationType
 from ontology.schema_definitions import (
@@ -124,15 +124,16 @@ class OntologyRepository:
             self.db_path.parent.mkdir(parents=True, exist_ok=True)
         self._init_schema()
 
-    def _connect(self) -> sqlite3.Connection | PostgresStateConnection:
+    def _connect(self, *, read_only: bool = False) -> sqlite3.Connection | PostgresStateConnection:
         if self._use_postgres:
             return PostgresStateConnection(
+                read_only=read_only,
                 table_map={
                     "nodes": "ontology_nodes",
                     "edges": "ontology_edges",
                     "snapshot_nodes": "ontology_snapshot_nodes",
                     "snapshot_edges": "ontology_snapshot_edges",
-                }
+                },
             )
         assert self.db_path is not None
         conn = sqlite3.connect(self.db_path)
@@ -561,23 +562,27 @@ class OntologyRepository:
         return to_delete
 
     def get_run(self, run_id: str) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT
-                  run_id,
-                  as_of,
-                  source_status_json,
-                  required_modules_json,
-                  optional_modules_json,
-                  component_scores_json,
-                  provenance_event_id,
-                  created_at
-                FROM ontology_runs
-                WHERE run_id = ?
-                """,
-                (run_id,),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT
+                      run_id,
+                      as_of,
+                      source_status_json,
+                      required_modules_json,
+                      optional_modules_json,
+                      component_scores_json,
+                      provenance_event_id,
+                      created_at
+                    FROM ontology_runs
+                    WHERE run_id = ?
+                    """,
+                    (run_id,),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         if row is None:
             return None
         return {
@@ -593,23 +598,27 @@ class OntologyRepository:
         }
 
     def get_latest_run(self) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT
-                  run_id,
-                  as_of,
-                  source_status_json,
-                  required_modules_json,
-                  optional_modules_json,
-                  component_scores_json,
-                  provenance_event_id,
-                  created_at
-                FROM ontology_runs
-                ORDER BY created_at DESC, run_id DESC
-                LIMIT 1
-                """
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT
+                      run_id,
+                      as_of,
+                      source_status_json,
+                      required_modules_json,
+                      optional_modules_json,
+                      component_scores_json,
+                      provenance_event_id,
+                      created_at
+                    FROM ontology_runs
+                    ORDER BY created_at DESC, run_id DESC
+                    LIMIT 1
+                    """
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         if row is None:
             return None
         return {
@@ -625,9 +634,9 @@ class OntologyRepository:
         }
 
     def _get_schema_bindings(self, run_id: str) -> list[dict[str, Any]]:
-        with self._connect() as conn:
-            try:
-                rows = conn.execute(
+        def _read():
+            with self._connect(read_only=True) as conn:
+                return conn.execute(
                     """
                     SELECT schema_kind, schema_name, schema_version, definition_hash
                     FROM ontology_run_schema_bindings
@@ -636,8 +645,11 @@ class OntologyRepository:
                     """,
                     (run_id,),
                 ).fetchall()
-            except Exception:
-                return []
+
+        try:
+            rows = retry_read(_read)
+        except Exception:
+            return []
         return [
             {
                 "schema_kind": str(row["schema_kind"]),
@@ -650,22 +662,27 @@ class OntologyRepository:
 
     def list_runs(self, *, limit: int = 100) -> list[dict[str, Any]]:
         safe_limit = max(1, min(int(limit), 500))
-        with self._connect() as conn:
-            rows = conn.execute(
-                """
-                SELECT
-                  run_id,
-                  as_of,
-                  source_status_json,
-                  required_modules_json,
-                  provenance_event_id,
-                  created_at
-                FROM ontology_runs
-                ORDER BY created_at DESC, run_id DESC
-                LIMIT ?
-                """,
-                (safe_limit,),
-            ).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(
+                    """
+                    SELECT
+                      run_id,
+                      as_of,
+                      source_status_json,
+                      required_modules_json,
+                      provenance_event_id,
+                      created_at
+                    FROM ontology_runs
+                    ORDER BY created_at DESC, run_id DESC
+                    LIMIT ?
+                    """,
+                    (safe_limit,),
+                ).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:
@@ -690,17 +707,21 @@ class OntologyRepository:
         return out
 
     def snapshot_has_positions(self, run_id: str) -> bool:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT 1 AS found
-                FROM snapshot_nodes
-                WHERE run_id = ?
-                  AND type = 'Position'
-                LIMIT 1
-                """,
-                (run_id,),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT 1 AS found
+                    FROM snapshot_nodes
+                    WHERE run_id = ?
+                      AND type = 'Position'
+                    LIMIT 1
+                    """,
+                    (run_id,),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         return row is not None
 
     def query_snapshot_positions_page(
@@ -718,52 +739,56 @@ class OntologyRepository:
         offset = (safe_page - 1) * safe_page_size
         parts = _build_snapshot_position_query_parts(run_id, filters, use_postgres=self._use_postgres)
 
-        with self._connect() as conn:
-            total_row = conn.execute(
-                f"SELECT COUNT(*) AS total_results {parts['from_sql']} WHERE {parts['where_sql']}",
-                tuple(parts["params"]),
-            ).fetchone()
-            rows = conn.execute(
-                f"""
-                SELECT
-                  p.id AS position_id,
-                  p.label AS position_label,
-                  p.properties_json AS position_props,
-                  p.schema_name AS position_schema_name,
-                  p.schema_version AS position_schema_version,
-                  p.updated_at AS position_updated_at,
-                  a.id AS asset_id,
-                  a.label AS asset_label,
-                  a.properties_json AS asset_props,
-                  a.schema_name AS asset_schema_name,
-                  a.schema_version AS asset_schema_version,
-                  a.updated_at AS asset_updated_at,
-                  s.id AS sector_id,
-                  s.label AS sector_label,
-                  s.properties_json AS sector_props,
-                  s.schema_name AS sector_schema_name,
-                  s.schema_version AS sector_schema_version,
-                  s.updated_at AS sector_updated_at,
-                  pa.properties_json AS position_asset_edge_props,
-                  pa.schema_name AS position_asset_edge_schema_name,
-                  pa.schema_version AS position_asset_edge_schema_version,
-                  pa.relation_schema_name AS position_asset_edge_relation_schema_name,
-                  pa.relation_schema_version AS position_asset_edge_relation_schema_version,
-                  pa.updated_at AS position_asset_edge_updated_at,
-                  ase.properties_json AS asset_sector_edge_props,
-                  ase.schema_name AS asset_sector_edge_schema_name,
-                  ase.schema_version AS asset_sector_edge_schema_version,
-                  ase.relation_schema_name AS asset_sector_edge_relation_schema_name,
-                  ase.relation_schema_version AS asset_sector_edge_relation_schema_version,
-                  ase.updated_at AS asset_sector_edge_updated_at,
-                  {parts["risk_score_sort_expr"]} AS risk_score_value
-                {parts["from_sql"]}
-                WHERE {parts["where_sql"]}
-                ORDER BY risk_score_value DESC, p.id ASC
-                LIMIT ? OFFSET ?
-                """,
-                tuple([*parts["params"], safe_page_size, offset]),
-            ).fetchall()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                total_row = conn.execute(
+                    f"SELECT COUNT(*) AS total_results {parts['from_sql']} WHERE {parts['where_sql']}",
+                    tuple(parts["params"]),
+                ).fetchone()
+                rows = conn.execute(
+                    f"""
+                    SELECT
+                      p.id AS position_id,
+                      p.label AS position_label,
+                      p.properties_json AS position_props,
+                      p.schema_name AS position_schema_name,
+                      p.schema_version AS position_schema_version,
+                      p.updated_at AS position_updated_at,
+                      a.id AS asset_id,
+                      a.label AS asset_label,
+                      a.properties_json AS asset_props,
+                      a.schema_name AS asset_schema_name,
+                      a.schema_version AS asset_schema_version,
+                      a.updated_at AS asset_updated_at,
+                      s.id AS sector_id,
+                      s.label AS sector_label,
+                      s.properties_json AS sector_props,
+                      s.schema_name AS sector_schema_name,
+                      s.schema_version AS sector_schema_version,
+                      s.updated_at AS sector_updated_at,
+                      pa.properties_json AS position_asset_edge_props,
+                      pa.schema_name AS position_asset_edge_schema_name,
+                      pa.schema_version AS position_asset_edge_schema_version,
+                      pa.relation_schema_name AS position_asset_edge_relation_schema_name,
+                      pa.relation_schema_version AS position_asset_edge_relation_schema_version,
+                      pa.updated_at AS position_asset_edge_updated_at,
+                      ase.properties_json AS asset_sector_edge_props,
+                      ase.schema_name AS asset_sector_edge_schema_name,
+                      ase.schema_version AS asset_sector_edge_schema_version,
+                      ase.relation_schema_name AS asset_sector_edge_relation_schema_name,
+                      ase.relation_schema_version AS asset_sector_edge_relation_schema_version,
+                      ase.updated_at AS asset_sector_edge_updated_at,
+                      {parts["risk_score_sort_expr"]} AS risk_score_value
+                    {parts["from_sql"]}
+                    WHERE {parts["where_sql"]}
+                    ORDER BY risk_score_value DESC, p.id ASC
+                    LIMIT ? OFFSET ?
+                    """,
+                    tuple([*parts["params"], safe_page_size, offset]),
+                ).fetchall()
+            return total_row, rows
+
+        total_row, rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:
@@ -889,32 +914,36 @@ class OntologyRepository:
         risk_expr = parts["risk_score_expr"]
         asset_expr = parts["asset_bucket_expr"]
 
-        with self._connect() as conn:
-            counts = conn.execute(
-                f"""
-                SELECT
-                  COUNT(*) AS position_count,
-                  SUM(CASE WHEN {risk_expr} >= 0.75 THEN 1 ELSE 0 END) AS high_count,
-                  SUM(CASE WHEN {risk_expr} >= 0.5 AND {risk_expr} < 0.75 THEN 1 ELSE 0 END) AS medium_count,
-                  SUM(CASE WHEN {risk_expr} < 0.5 OR {risk_expr} IS NULL THEN 1 ELSE 0 END) AS low_count,
-                  AVG({risk_expr}) AS average_risk_score
-                {parts["from_sql"]}
-                WHERE {parts["where_sql"]}
-                """,
-                tuple(parts["params"]),
-            ).fetchone()
-            asset_rows = conn.execute(
-                f"""
-                SELECT
-                  {asset_expr} AS asset_name,
-                  COUNT(*) AS asset_count
-                {parts["from_sql"]}
-                WHERE {parts["where_sql"]}
-                GROUP BY {asset_expr}
-                ORDER BY {asset_expr}
-                """,
-                tuple(parts["params"]),
-            ).fetchall()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                counts = conn.execute(
+                    f"""
+                    SELECT
+                      COUNT(*) AS position_count,
+                      SUM(CASE WHEN {risk_expr} >= 0.75 THEN 1 ELSE 0 END) AS high_count,
+                      SUM(CASE WHEN {risk_expr} >= 0.5 AND {risk_expr} < 0.75 THEN 1 ELSE 0 END) AS medium_count,
+                      SUM(CASE WHEN {risk_expr} < 0.5 OR {risk_expr} IS NULL THEN 1 ELSE 0 END) AS low_count,
+                      AVG({risk_expr}) AS average_risk_score
+                    {parts["from_sql"]}
+                    WHERE {parts["where_sql"]}
+                    """,
+                    tuple(parts["params"]),
+                ).fetchone()
+                asset_rows = conn.execute(
+                    f"""
+                    SELECT
+                      {asset_expr} AS asset_name,
+                      COUNT(*) AS asset_count
+                    {parts["from_sql"]}
+                    WHERE {parts["where_sql"]}
+                    GROUP BY {asset_expr}
+                    ORDER BY {asset_expr}
+                    """,
+                    tuple(parts["params"]),
+                ).fetchall()
+            return counts, asset_rows
+
+        counts, asset_rows = retry_read(_read)
 
         return {
             "position_count": int(_row_value(counts, "position_count", 0) or 0),
@@ -966,8 +995,13 @@ class OntologyRepository:
           AND ps.source_id IN ({placeholders})
         ORDER BY ps.source_id, s.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, tuple([run_id, *normalized_ids])).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, tuple([run_id, *normalized_ids])).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         grouped: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
@@ -1048,181 +1082,190 @@ class OntologyRepository:
           AND ht.source_id IN ({placeholders})
         ORDER BY ht.source_id, ht.target_id
         """
-        with self._connect() as conn:
-            thesis_rows = conn.execute(thesis_sql, tuple([run_id, *normalized_ids])).fetchall()
 
-            grouped: dict[str, dict[str, Any]] = {position_id: {} for position_id in normalized_ids}
-            thesis_ids: list[str] = []
-            for row in thesis_rows:
-                position_key = str(row["position_id"])
-                thesis_node = _node_payload_from_row(
-                    row,
-                    prefix="thesis",
-                    node_type="Thesis",
-                    run_id=run_id,
-                    schema_mode=schema_mode,
-                )
-                if thesis_node is None:
+        def _read() -> dict[str, dict[str, Any]]:
+            with self._connect(read_only=True) as conn:
+                thesis_rows = conn.execute(thesis_sql, tuple([run_id, *normalized_ids])).fetchall()
+
+                grouped: dict[str, dict[str, Any]] = {position_id: {} for position_id in normalized_ids}
+                thesis_ids: list[str] = []
+                for row in thesis_rows:
+                    position_key = str(row["position_id"])
+                    thesis_node = _node_payload_from_row(
+                        row,
+                        prefix="thesis",
+                        node_type="Thesis",
+                        run_id=run_id,
+                        schema_mode=schema_mode,
+                    )
+                    if thesis_node is None:
+                        continue
+                    thesis_edge = _edge_payload_from_row(
+                        row,
+                        prefix="has_thesis_edge",
+                        source_id_key="position_id",
+                        target_id_key="thesis_id",
+                        relation_type="has_thesis",
+                        run_id=run_id,
+                        schema_mode=schema_mode,
+                    )
+                    grouped[position_key] = {
+                        "thesis": {"node": thesis_node, "edge": thesis_edge},
+                        "evaluations": [],
+                        "catalysts": [],
+                    }
+                    thesis_ids.append(thesis_node["id"])
+
+                normalized_thesis_ids = _normalized_ids(thesis_ids)
+                if not normalized_thesis_ids:
+                    return grouped
+
+                thesis_placeholders = ", ".join("?" for _ in normalized_thesis_ids)
+                evaluation_sql = f"""
+                SELECT
+                  eb.source_id AS thesis_id,
+                  eb.target_id AS evaluation_id,
+                  eb.properties_json AS evaluated_by_edge_props,
+                  eb.schema_name AS evaluated_by_edge_schema_name,
+                  eb.schema_version AS evaluated_by_edge_schema_version,
+                  eb.relation_schema_name AS evaluated_by_edge_relation_schema_name,
+                  eb.relation_schema_version AS evaluated_by_edge_relation_schema_version,
+                  eb.updated_at AS evaluated_by_edge_updated_at,
+                  e.label AS evaluation_label,
+                  e.properties_json AS evaluation_props,
+                  e.schema_name AS evaluation_schema_name,
+                  e.schema_version AS evaluation_schema_version,
+                  e.updated_at AS evaluation_updated_at
+                FROM snapshot_edges eb
+                JOIN snapshot_nodes e
+                  ON e.run_id = eb.run_id
+                 AND e.id = eb.target_id
+                 AND e.type = 'Evaluation'
+                WHERE eb.run_id = ?
+                  AND eb.relation_type = 'evaluated_by'
+                  AND eb.source_id IN ({thesis_placeholders})
+                ORDER BY eb.source_id, eb.target_id
+                """
+                catalyst_sql = f"""
+                SELECT
+                  hc.source_id AS thesis_id,
+                  hc.target_id AS catalyst_id,
+                  hc.properties_json AS has_catalyst_edge_props,
+                  hc.schema_name AS has_catalyst_edge_schema_name,
+                  hc.schema_version AS has_catalyst_edge_schema_version,
+                  hc.relation_schema_name AS has_catalyst_edge_relation_schema_name,
+                  hc.relation_schema_version AS has_catalyst_edge_relation_schema_version,
+                  hc.updated_at AS has_catalyst_edge_updated_at,
+                  c.label AS catalyst_label,
+                  c.properties_json AS catalyst_props,
+                  c.schema_name AS catalyst_schema_name,
+                  c.schema_version AS catalyst_schema_version,
+                  c.updated_at AS catalyst_updated_at
+                FROM snapshot_edges hc
+                JOIN snapshot_nodes c
+                  ON c.run_id = hc.run_id
+                 AND c.id = hc.target_id
+                 AND c.type = 'Catalyst'
+                WHERE hc.run_id = ?
+                  AND hc.relation_type = 'has_catalyst'
+                  AND hc.source_id IN ({thesis_placeholders})
+                ORDER BY hc.source_id, hc.target_id
+                """
+                evaluation_rows = conn.execute(evaluation_sql, tuple([run_id, *normalized_thesis_ids])).fetchall()
+                catalyst_rows = conn.execute(catalyst_sql, tuple([run_id, *normalized_thesis_ids])).fetchall()
+
+            positions_by_thesis = {
+                ctx["thesis"]["node"]["id"]: position_key
+                for position_key, ctx in grouped.items()
+                if isinstance(ctx.get("thesis"), dict) and isinstance(ctx["thesis"].get("node"), dict)
+            }
+            for row in evaluation_rows:
+                evaluation_position_key = positions_by_thesis.get(str(row["thesis_id"]))
+                if evaluation_position_key is None:
                     continue
-                thesis_edge = _edge_payload_from_row(
+                node = _node_payload_from_row(
                     row,
-                    prefix="has_thesis_edge",
-                    source_id_key="position_id",
-                    target_id_key="thesis_id",
-                    relation_type="has_thesis",
+                    prefix="evaluation",
+                    node_type="Evaluation",
                     run_id=run_id,
                     schema_mode=schema_mode,
                 )
-                grouped[position_key] = {
-                    "thesis": {"node": thesis_node, "edge": thesis_edge},
-                    "evaluations": [],
-                    "catalysts": [],
-                }
-                thesis_ids.append(thesis_node["id"])
+                if node is None:
+                    continue
+                edge = _edge_payload_from_row(
+                    row,
+                    prefix="evaluated_by_edge",
+                    source_id_key="thesis_id",
+                    target_id_key="evaluation_id",
+                    relation_type="evaluated_by",
+                    run_id=run_id,
+                    schema_mode=schema_mode,
+                )
+                grouped[evaluation_position_key]["evaluations"].append({"node": node, "edge": edge})
 
-            normalized_thesis_ids = _normalized_ids(thesis_ids)
-            if not normalized_thesis_ids:
-                return grouped
+            for row in catalyst_rows:
+                catalyst_position_key = positions_by_thesis.get(str(row["thesis_id"]))
+                if catalyst_position_key is None:
+                    continue
+                node = _node_payload_from_row(
+                    row,
+                    prefix="catalyst",
+                    node_type="Catalyst",
+                    run_id=run_id,
+                    schema_mode=schema_mode,
+                )
+                if node is None:
+                    continue
+                edge = _edge_payload_from_row(
+                    row,
+                    prefix="has_catalyst_edge",
+                    source_id_key="thesis_id",
+                    target_id_key="catalyst_id",
+                    relation_type="has_catalyst",
+                    run_id=run_id,
+                    schema_mode=schema_mode,
+                )
+                grouped[catalyst_position_key]["catalysts"].append({"node": node, "edge": edge})
 
-            thesis_placeholders = ", ".join("?" for _ in normalized_thesis_ids)
-            evaluation_sql = f"""
-            SELECT
-              eb.source_id AS thesis_id,
-              eb.target_id AS evaluation_id,
-              eb.properties_json AS evaluated_by_edge_props,
-              eb.schema_name AS evaluated_by_edge_schema_name,
-              eb.schema_version AS evaluated_by_edge_schema_version,
-              eb.relation_schema_name AS evaluated_by_edge_relation_schema_name,
-              eb.relation_schema_version AS evaluated_by_edge_relation_schema_version,
-              eb.updated_at AS evaluated_by_edge_updated_at,
-              e.label AS evaluation_label,
-              e.properties_json AS evaluation_props,
-              e.schema_name AS evaluation_schema_name,
-              e.schema_version AS evaluation_schema_version,
-              e.updated_at AS evaluation_updated_at
-            FROM snapshot_edges eb
-            JOIN snapshot_nodes e
-              ON e.run_id = eb.run_id
-             AND e.id = eb.target_id
-             AND e.type = 'Evaluation'
-            WHERE eb.run_id = ?
-              AND eb.relation_type = 'evaluated_by'
-              AND eb.source_id IN ({thesis_placeholders})
-            ORDER BY eb.source_id, eb.target_id
-            """
-            catalyst_sql = f"""
-            SELECT
-              hc.source_id AS thesis_id,
-              hc.target_id AS catalyst_id,
-              hc.properties_json AS has_catalyst_edge_props,
-              hc.schema_name AS has_catalyst_edge_schema_name,
-              hc.schema_version AS has_catalyst_edge_schema_version,
-              hc.relation_schema_name AS has_catalyst_edge_relation_schema_name,
-              hc.relation_schema_version AS has_catalyst_edge_relation_schema_version,
-              hc.updated_at AS has_catalyst_edge_updated_at,
-              c.label AS catalyst_label,
-              c.properties_json AS catalyst_props,
-              c.schema_name AS catalyst_schema_name,
-              c.schema_version AS catalyst_schema_version,
-              c.updated_at AS catalyst_updated_at
-            FROM snapshot_edges hc
-            JOIN snapshot_nodes c
-              ON c.run_id = hc.run_id
-             AND c.id = hc.target_id
-             AND c.type = 'Catalyst'
-            WHERE hc.run_id = ?
-              AND hc.relation_type = 'has_catalyst'
-              AND hc.source_id IN ({thesis_placeholders})
-            ORDER BY hc.source_id, hc.target_id
-            """
-            evaluation_rows = conn.execute(evaluation_sql, tuple([run_id, *normalized_thesis_ids])).fetchall()
-            catalyst_rows = conn.execute(catalyst_sql, tuple([run_id, *normalized_thesis_ids])).fetchall()
+            return grouped
 
-        positions_by_thesis = {
-            ctx["thesis"]["node"]["id"]: position_key
-            for position_key, ctx in grouped.items()
-            if isinstance(ctx.get("thesis"), dict) and isinstance(ctx["thesis"].get("node"), dict)
-        }
-        for row in evaluation_rows:
-            evaluation_position_key = positions_by_thesis.get(str(row["thesis_id"]))
-            if evaluation_position_key is None:
-                continue
-            node = _node_payload_from_row(
-                row,
-                prefix="evaluation",
-                node_type="Evaluation",
-                run_id=run_id,
-                schema_mode=schema_mode,
-            )
-            if node is None:
-                continue
-            edge = _edge_payload_from_row(
-                row,
-                prefix="evaluated_by_edge",
-                source_id_key="thesis_id",
-                target_id_key="evaluation_id",
-                relation_type="evaluated_by",
-                run_id=run_id,
-                schema_mode=schema_mode,
-            )
-            grouped[evaluation_position_key]["evaluations"].append({"node": node, "edge": edge})
-
-        for row in catalyst_rows:
-            catalyst_position_key = positions_by_thesis.get(str(row["thesis_id"]))
-            if catalyst_position_key is None:
-                continue
-            node = _node_payload_from_row(
-                row,
-                prefix="catalyst",
-                node_type="Catalyst",
-                run_id=run_id,
-                schema_mode=schema_mode,
-            )
-            if node is None:
-                continue
-            edge = _edge_payload_from_row(
-                row,
-                prefix="has_catalyst_edge",
-                source_id_key="thesis_id",
-                target_id_key="catalyst_id",
-                relation_type="has_catalyst",
-                run_id=run_id,
-                schema_mode=schema_mode,
-            )
-            grouped[catalyst_position_key]["catalysts"].append({"node": node, "edge": edge})
-
-        return grouped
+        return retry_read(_read)
 
     def fetch_snapshot_graph(self, run_id: str, *, schema_mode: SchemaMode) -> dict[str, list[dict[str, Any]]]:
         _validate_schema_mode(schema_mode)
-        with self._connect() as conn:
-            node_rows = conn.execute(
-                """
-                SELECT id, type, label, properties_json, schema_name, schema_version, updated_at
-                FROM snapshot_nodes
-                WHERE run_id = ?
-                ORDER BY type, id
-                """,
-                (run_id,),
-            ).fetchall()
-            edge_rows = conn.execute(
-                """
-                SELECT
-                  source_id,
-                  target_id,
-                  relation_type,
-                  properties_json,
-                  schema_name,
-                  schema_version,
-                  relation_schema_name,
-                  relation_schema_version,
-                  updated_at
-                FROM snapshot_edges
-                WHERE run_id = ?
-                ORDER BY relation_type, source_id
-                """,
-                (run_id,),
-            ).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                node_rows = conn.execute(
+                    """
+                    SELECT id, type, label, properties_json, schema_name, schema_version, updated_at
+                    FROM snapshot_nodes
+                    WHERE run_id = ?
+                    ORDER BY type, id
+                    """,
+                    (run_id,),
+                ).fetchall()
+                edge_rows = conn.execute(
+                    """
+                    SELECT
+                      source_id,
+                      target_id,
+                      relation_type,
+                      properties_json,
+                      schema_name,
+                      schema_version,
+                      relation_schema_name,
+                      relation_schema_version,
+                      updated_at
+                    FROM snapshot_edges
+                    WHERE run_id = ?
+                    ORDER BY relation_type, source_id
+                    """,
+                    (run_id,),
+                ).fetchall()
+            return node_rows, edge_rows
+
+        node_rows, edge_rows = retry_read(_read)
 
         nodes = [
             {
@@ -1292,8 +1335,13 @@ class OntologyRepository:
           AND p.type = 'Position'
         ORDER BY p.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, (run_id,)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, (run_id,)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:
@@ -1369,8 +1417,13 @@ class OntologyRepository:
           AND ps.relation_type = 'exposed_to_signal'
         ORDER BY s.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, (run_id, position_id)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, (run_id, position_id)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:
@@ -1434,8 +1487,13 @@ class OntologyRepository:
           AND ps.relation_type = 'exposed_to_signal'
         ORDER BY ps.source_id, s.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, (run_id,)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, (run_id,)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         grouped: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
@@ -1471,30 +1529,34 @@ class OntologyRepository:
         return grouped
 
     def fetch_graph(self) -> dict[str, list[dict[str, Any]]]:
-        with self._connect() as conn:
-            node_rows = conn.execute(
-                """
-                SELECT id, type, label, properties_json, schema_name, schema_version, updated_at
-                FROM nodes
-                ORDER BY type, id
-                """
-            ).fetchall()
-            edge_rows = conn.execute(
-                """
-                SELECT
-                  source_id,
-                  target_id,
-                  relation_type,
-                  properties_json,
-                  schema_name,
-                  schema_version,
-                  relation_schema_name,
-                  relation_schema_version,
-                  updated_at
-                FROM edges
-                ORDER BY relation_type, source_id
-                """
-            ).fetchall()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                node_rows = conn.execute(
+                    """
+                    SELECT id, type, label, properties_json, schema_name, schema_version, updated_at
+                    FROM nodes
+                    ORDER BY type, id
+                    """
+                ).fetchall()
+                edge_rows = conn.execute(
+                    """
+                    SELECT
+                      source_id,
+                      target_id,
+                      relation_type,
+                      properties_json,
+                      schema_name,
+                      schema_version,
+                      relation_schema_name,
+                      relation_schema_version,
+                      updated_at
+                    FROM edges
+                    ORDER BY relation_type, source_id
+                    """
+                ).fetchall()
+            return node_rows, edge_rows
+
+        node_rows, edge_rows = retry_read(_read)
 
         nodes = [
             {
@@ -1556,8 +1618,13 @@ class OntologyRepository:
         WHERE p.type = 'Position'
         ORDER BY p.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:
@@ -1618,8 +1685,13 @@ class OntologyRepository:
           AND ps.relation_type = 'exposed_to_signal'
         ORDER BY s.id
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, (position_id,)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, (position_id,)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         out: list[dict[str, Any]] = []
         for row in rows:

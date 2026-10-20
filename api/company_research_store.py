@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
 
-from api.postgres import connect, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
 from paths import PROJECT_ROOT
 
 SQLITE_PATH: Path = PROJECT_ROOT / "tmp" / "company_research" / "runs.sqlite3"
@@ -38,10 +38,14 @@ class ResearchCapacityBusy(ResearchLimitReached):
 
 
 @contextmanager
-def _connection() -> Iterator[tuple[Any, bool]]:
+def _connection(*, read_only: bool = False) -> Iterator[tuple[Any, bool]]:
     if use_postgres_state():
-        with connect() as conn, conn.transaction():
-            yield conn, True
+        with connect(read_only=read_only) as conn:
+            if read_only:
+                yield conn, True
+            else:
+                with conn.transaction():
+                    yield conn, True
         return
     SQLITE_PATH.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(SQLITE_PATH, timeout=30)
@@ -67,23 +71,31 @@ def _decode(row: Any) -> dict[str, Any] | None:
 
 
 def get_run(run_id: str) -> dict[str, Any]:
-    with _connection() as (conn, pg):
-        mark = "%s" if pg else "?"
-        state = _decode(
-            conn.execute(f"SELECT state_json FROM company_research_runs WHERE run_id={mark}", (run_id,)).fetchone()
-        )
+    def _read():
+        with _connection(read_only=True) as (conn, pg):
+            mark = "%s" if pg else "?"
+            state = _decode(
+                conn.execute(f"SELECT state_json FROM company_research_runs WHERE run_id={mark}", (run_id,)).fetchone()
+            )
+        return state
+
+    state = retry_read(_read)
     if state is None:
         raise KeyError(run_id)
     return state
 
 
 def latest_runs(ticker: str) -> list[dict[str, Any]]:
-    with _connection() as (conn, pg):
-        mark = "%s" if pg else "?"
-        rows = conn.execute(
-            f"SELECT state_json FROM company_research_runs WHERE ticker={mark} ORDER BY created_at DESC LIMIT 30",
-            (ticker,),
-        ).fetchall()
+    def _read():
+        with _connection(read_only=True) as (conn, pg):
+            mark = "%s" if pg else "?"
+            rows = conn.execute(
+                f"SELECT state_json FROM company_research_runs WHERE ticker={mark} ORDER BY created_at DESC LIMIT 30",
+                (ticker,),
+            ).fetchall()
+        return rows
+
+    rows = retry_read(_read)
     return [state for row in rows if (state := _decode(row)) is not None]
 
 

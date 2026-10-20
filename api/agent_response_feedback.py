@@ -18,7 +18,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from api.agent_governance import redact_secrets
-from api.postgres import connect, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
 from api.provenance import stable_hash
 
 logger = logging.getLogger(__name__)
@@ -340,10 +340,14 @@ def _upsert_postgres(record: AgentResponseFeedback) -> dict[str, Any]:
 
 def get_feedback(feedback_id: str) -> dict[str, Any] | None:
     if use_postgres_state():
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute("SELECT * FROM agent_response_feedback WHERE feedback_id = %s", (feedback_id,))
-            row = cur.fetchone()
-            return _row_to_dict(row) if row else None
+
+        def _read() -> dict[str, Any] | None:
+            with connect(read_only=True) as conn, conn.cursor() as cur:
+                cur.execute("SELECT * FROM agent_response_feedback WHERE feedback_id = %s", (feedback_id,))
+                row = cur.fetchone()
+                return _row_to_dict(row) if row else None
+
+        return retry_read(_read)
     with _sqlite_connect() as conn:
         row = conn.execute(
             "SELECT * FROM agent_response_feedback WHERE feedback_id = ?",
@@ -357,16 +361,20 @@ def list_feedback_for_trajectory(trajectory_id: str, *, include_tombstoned: bool
     if not include_tombstoned:
         clauses.append("tombstoned_at IS NULL")
     if use_postgres_state():
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT * FROM agent_response_feedback
-                WHERE {" AND ".join(clauses)}
-                ORDER BY reviewed_at DESC
-                """,
-                (trajectory_id,),
-            )
-            return [_row_to_dict(row) for row in cur.fetchall()]
+
+        def _read() -> list[dict[str, Any]]:
+            with connect(read_only=True) as conn, conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT * FROM agent_response_feedback
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY reviewed_at DESC
+                    """,
+                    (trajectory_id,),
+                )
+                return [_row_to_dict(row) for row in cur.fetchall()]
+
+        return retry_read(_read)
     with _sqlite_connect() as conn:
         rows = conn.execute(
             f"""
@@ -423,17 +431,21 @@ def list_feedback(
     placeholder = "%s" if use_postgres_state() else "?"
     params.append(limit)
     if use_postgres_state():
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                f"""
-                SELECT * FROM agent_response_feedback
-                WHERE {" AND ".join(clauses)}
-                ORDER BY reviewed_at DESC
-                LIMIT {placeholder}
-                """,
-                tuple(params),
-            )
-            return [_row_to_dict(row) for row in cur.fetchall()]
+
+        def _read() -> list[dict[str, Any]]:
+            with connect(read_only=True) as conn, conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT * FROM agent_response_feedback
+                    WHERE {" AND ".join(clauses)}
+                    ORDER BY reviewed_at DESC
+                    LIMIT {placeholder}
+                    """,
+                    tuple(params),
+                )
+                return [_row_to_dict(row) for row in cur.fetchall()]
+
+        return retry_read(_read)
     with _sqlite_connect() as conn:
         rows = conn.execute(
             f"""

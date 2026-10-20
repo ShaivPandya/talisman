@@ -14,7 +14,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from api.postgres import connect, database_url
+from api.postgres import connect, database_url, retry_read
 
 ACTIVE_STATUSES = ("queued", "running")
 TERMINAL_STATUSES = ("completed", "failed", "cancelled")
@@ -95,40 +95,48 @@ def _select_completed_postgres(job_type: str, cache_key: str | None) -> dict[str
     if not cache_key:
         return None
     now = _now()
-    with connect() as conn:
-        row = conn.execute(
-            """
-            SELECT *
-            FROM async_jobs
-            WHERE job_type = %s
-              AND cache_key = %s
-              AND status = 'completed'
-              AND (result_expires_at IS NULL OR result_expires_at > %s)
-            ORDER BY completed_at DESC NULLS LAST, updated_at DESC
-            LIMIT 1
-            """,
-            (job_type, cache_key, now),
-        ).fetchone()
-        return dict(row) if row else None
+
+    def _read() -> dict[str, Any] | None:
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM async_jobs
+                WHERE job_type = %s
+                  AND cache_key = %s
+                  AND status = 'completed'
+                  AND (result_expires_at IS NULL OR result_expires_at > %s)
+                ORDER BY completed_at DESC NULLS LAST, updated_at DESC
+                LIMIT 1
+                """,
+                (job_type, cache_key, now),
+            ).fetchone()
+            return dict(row) if row else None
+
+    return retry_read(_read)
 
 
 def _select_active_postgres(job_type: str, cache_key: str | None) -> dict[str, Any] | None:
     if not cache_key:
         return None
-    with connect() as conn:
-        row = conn.execute(
-            """
-            SELECT *
-            FROM async_jobs
-            WHERE job_type = %s
-              AND cache_key = %s
-              AND status = ANY(%s)
-            ORDER BY created_at ASC
-            LIMIT 1
-            """,
-            (job_type, cache_key, list(ACTIVE_STATUSES)),
-        ).fetchone()
-        return dict(row) if row else None
+
+    def _read() -> dict[str, Any] | None:
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM async_jobs
+                WHERE job_type = %s
+                  AND cache_key = %s
+                  AND status = ANY(%s)
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (job_type, cache_key, list(ACTIVE_STATUSES)),
+            ).fetchone()
+            return dict(row) if row else None
+
+    return retry_read(_read)
 
 
 def create_or_reuse_job(
@@ -451,9 +459,13 @@ def get_job(job_id: str) -> dict[str, Any] | None:
         with _memory_lock:
             row = _memory_jobs.get(job_id)
             return dict(row) if row else None
-    with connect() as conn:
-        row = conn.execute("SELECT * FROM async_jobs WHERE job_id = %s", (job_id,)).fetchone()
-        return dict(row) if row else None
+
+    def _read() -> dict[str, Any] | None:
+        with connect(read_only=True) as conn:
+            row = conn.execute("SELECT * FROM async_jobs WHERE job_id = %s", (job_id,)).fetchone()
+            return dict(row) if row else None
+
+    return retry_read(_read)
 
 
 def latest_job_for_key(job_type: str, cache_key: str) -> dict[str, Any] | None:
@@ -466,40 +478,52 @@ def latest_job_for_key(job_type: str, cache_key: str) -> dict[str, Any] | None:
                 if row.get("job_type") == job_type and row.get("cache_key") == cache_key
             ]
             return dict(max(matches, key=lambda row: row["created_at"])) if matches else None
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT * FROM async_jobs WHERE job_type = %s AND cache_key = %s ORDER BY created_at DESC LIMIT 1",
-            (job_type, cache_key),
-        ).fetchone()
-        return dict(row) if row else None
+
+    def _read() -> dict[str, Any] | None:
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                "SELECT * FROM async_jobs WHERE job_type = %s AND cache_key = %s ORDER BY created_at DESC LIMIT 1",
+                (job_type, cache_key),
+            ).fetchone()
+            return dict(row) if row else None
+
+    return retry_read(_read)
 
 
 def count_active_jobs() -> int:
     if not postgres_jobs_enabled():
         with _memory_lock:
             return sum(1 for row in _memory_jobs.values() if row.get("status") in ACTIVE_STATUSES)
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT COUNT(*) AS count FROM async_jobs WHERE status = ANY(%s)", (list(ACTIVE_STATUSES),)
-        ).fetchone()
-        return int(row["count"]) if row else 0
+
+    def _read() -> int:
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS count FROM async_jobs WHERE status = ANY(%s)", (list(ACTIVE_STATUSES),)
+            ).fetchone()
+            return int(row["count"]) if row else 0
+
+    return retry_read(_read)
 
 
 def list_active_jobs() -> list[dict[str, Any]]:
     if not postgres_jobs_enabled():
         with _memory_lock:
             return [dict(row) for row in _memory_jobs.values() if row.get("status") in ACTIVE_STATUSES]
-    with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT *
-            FROM async_jobs
-            WHERE status = ANY(%s)
-            ORDER BY created_at ASC
-            """,
-            (list(ACTIVE_STATUSES),),
-        ).fetchall()
-        return [dict(row) for row in rows]
+
+    def _read() -> list[dict[str, Any]]:
+        with connect(read_only=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM async_jobs
+                WHERE status = ANY(%s)
+                ORDER BY created_at ASC
+                """,
+                (list(ACTIVE_STATUSES),),
+            ).fetchall()
+            return [dict(row) for row in rows]
+
+    return retry_read(_read)
 
 
 def claim_queued_job(job_type: str, *, queue_name: str | None = None) -> dict[str, Any] | None:

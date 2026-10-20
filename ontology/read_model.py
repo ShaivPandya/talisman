@@ -7,7 +7,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from api.postgres import connect
+from api.postgres import connect, retry_read
 
 ConnectionFactory = Callable[[], Any]
 
@@ -23,11 +23,12 @@ class TemporalReadModelRepository:
     """Read optimized ontology projections backed by authoritative temporal tables."""
 
     def __init__(self, connection_factory: ConnectionFactory | None = None):
-        self._connection_factory = connection_factory or connect
+        self._connection_factory = connection_factory
 
     @contextmanager
-    def _connect(self) -> Iterator[Any]:
-        with self._connection_factory() as conn:
+    def _connect(self, *, read_only: bool = False) -> Iterator[Any]:
+        factory = self._connection_factory
+        with factory() if factory is not None else connect(read_only=read_only) as conn:
             yield conn
 
     def refresh(self) -> None:
@@ -59,21 +60,25 @@ class TemporalReadModelRepository:
         where_sql, where_params = _position_filter_sql(filters)
         params = [*source_params, *where_params]
 
-        with self._connect() as conn:
-            total = conn.execute(
-                f"SELECT COUNT(*) AS total_results FROM ({source_sql}) rm WHERE {where_sql}",
-                tuple(params),
-            ).fetchone()
-            rows = conn.execute(
-                f"""
-                SELECT *
-                FROM ({source_sql}) rm
-                WHERE {where_sql}
-                ORDER BY risk_score_value DESC NULLS LAST, position_id ASC
-                LIMIT %s OFFSET %s
-                """,
-                tuple([*params, safe_page_size, offset]),
-            ).fetchall()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                total = conn.execute(
+                    f"SELECT COUNT(*) AS total_results FROM ({source_sql}) rm WHERE {where_sql}",
+                    tuple(params),
+                ).fetchone()
+                rows = conn.execute(
+                    f"""
+                    SELECT *
+                    FROM ({source_sql}) rm
+                    WHERE {where_sql}
+                    ORDER BY risk_score_value DESC NULLS LAST, position_id ASC
+                    LIMIT %s OFFSET %s
+                    """,
+                    tuple([*params, safe_page_size, offset]),
+                ).fetchall()
+            return total, rows
+
+        total, rows = retry_read(_read)
 
         return {
             "rows": [_position_row(row) for row in rows],
@@ -98,32 +103,36 @@ class TemporalReadModelRepository:
         where_sql, where_params = _position_filter_sql(filters)
         params = [*source_params, *where_params]
 
-        with self._connect() as conn:
-            counts = conn.execute(
-                f"""
-                SELECT
-                  COUNT(*) AS position_count,
-                  SUM(CASE WHEN risk_score_value >= 0.75 THEN 1 ELSE 0 END) AS high_count,
-                  SUM(CASE WHEN risk_score_value >= 0.5 AND risk_score_value < 0.75 THEN 1 ELSE 0 END)
-                    AS medium_count,
-                  SUM(CASE WHEN risk_score_value < 0.5 OR risk_score_value IS NULL THEN 1 ELSE 0 END)
-                    AS low_count,
-                  AVG(risk_score_value) AS average_risk_score
-                FROM ({source_sql}) rm
-                WHERE {where_sql}
-                """,
-                tuple(params),
-            ).fetchone()
-            asset_rows = conn.execute(
-                f"""
-                SELECT COALESCE(asset, 'unknown') AS asset_name, COUNT(*) AS asset_count
-                FROM ({source_sql}) rm
-                WHERE {where_sql}
-                GROUP BY COALESCE(asset, 'unknown')
-                ORDER BY COALESCE(asset, 'unknown')
-                """,
-                tuple(params),
-            ).fetchall()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                counts = conn.execute(
+                    f"""
+                    SELECT
+                      COUNT(*) AS position_count,
+                      SUM(CASE WHEN risk_score_value >= 0.75 THEN 1 ELSE 0 END) AS high_count,
+                      SUM(CASE WHEN risk_score_value >= 0.5 AND risk_score_value < 0.75 THEN 1 ELSE 0 END)
+                        AS medium_count,
+                      SUM(CASE WHEN risk_score_value < 0.5 OR risk_score_value IS NULL THEN 1 ELSE 0 END)
+                        AS low_count,
+                      AVG(risk_score_value) AS average_risk_score
+                    FROM ({source_sql}) rm
+                    WHERE {where_sql}
+                    """,
+                    tuple(params),
+                ).fetchone()
+                asset_rows = conn.execute(
+                    f"""
+                    SELECT COALESCE(asset, 'unknown') AS asset_name, COUNT(*) AS asset_count
+                    FROM ({source_sql}) rm
+                    WHERE {where_sql}
+                    GROUP BY COALESCE(asset, 'unknown')
+                    ORDER BY COALESCE(asset, 'unknown')
+                    """,
+                    tuple(params),
+                ).fetchall()
+            return counts, asset_rows
+
+        counts, asset_rows = retry_read(_read)
 
         return {
             "position_count": int(_row_value(counts, "position_count", 0) or 0),
@@ -152,16 +161,21 @@ class TemporalReadModelRepository:
             return {}
         source_sql, params = _evidence_source_sql(as_of=as_of, tx_as_of=tx_as_of, include_history=include_history)
         where, id_params = _in_clause("position_id", normalized_ids)
-        with self._connect() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT *
-                FROM ({source_sql}) ev
-                WHERE {where}
-                ORDER BY position_id, signal_id
-                """,
-                tuple([*params, *id_params]),
-            ).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT *
+                    FROM ({source_sql}) ev
+                    WHERE {where}
+                    ORDER BY position_id, signal_id
+                    """,
+                    tuple([*params, *id_params]),
+                ).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         grouped: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
@@ -185,16 +199,21 @@ class TemporalReadModelRepository:
             return {}
         source_sql, params = _thesis_source_sql(as_of=as_of, tx_as_of=tx_as_of, include_history=include_history)
         where, id_params = _in_clause("position_id", normalized_ids)
-        with self._connect() as conn:
-            rows = conn.execute(
-                f"""
-                SELECT *
-                FROM ({source_sql}) tc
-                WHERE {where}
-                ORDER BY position_id, context_type, target_id
-                """,
-                tuple([*params, *id_params]),
-            ).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(
+                    f"""
+                    SELECT *
+                    FROM ({source_sql}) tc
+                    WHERE {where}
+                    ORDER BY position_id, context_type, target_id
+                    """,
+                    tuple([*params, *id_params]),
+                ).fetchall()
+            return rows
+
+        rows = retry_read(_read)
 
         grouped: dict[str, dict[str, Any]] = {
             position_id: {"evaluations": [], "catalysts": []} for position_id in normalized_ids
@@ -217,162 +236,213 @@ class TemporalReadModelRepository:
 
     def fetch_workspace_bundle(self) -> dict[str, Any]:
         """Fetch the ontology-backed workspace landing-page payload in bounded indexed reads."""
-        with self._connect() as conn:
-            latest_evaluations = _latest_by_ticker(
-                _fetch_operational_objects(
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                latest_evaluations = _latest_by_ticker(
+                    _fetch_operational_objects(
+                        conn,
+                        "Evaluation",
+                        limit=1000,
+                        order_by="evaluated_at_sort DESC, updated_sort DESC, object_uid ASC",
+                    )
+                )
+                theses = _fetch_operational_objects(
                     conn,
-                    "Evaluation",
+                    "Thesis",
                     limit=1000,
-                    order_by="evaluated_at_sort DESC, updated_sort DESC, object_uid ASC",
+                    order_by="ticker ASC NULLS LAST, updated_sort DESC, object_uid ASC",
                 )
-            )
-            theses = _fetch_operational_objects(
-                conn,
-                "Thesis",
-                limit=1000,
-                order_by="ticker ASC NULLS LAST, updated_sort DESC, object_uid ASC",
-            )
-            pending_approvals = _fetch_operational_objects(
-                conn,
-                "Approval",
-                filters={"status": "pending"},
-                limit=200,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            latest_daily_recommendation = _first_row(
-                _fetch_operational_objects(
+                pending_approvals = _fetch_operational_objects(
+                    conn,
+                    "Approval",
+                    filters={"status": "pending"},
+                    limit=200,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                latest_daily_recommendation = _first_row(
+                    _fetch_operational_objects(
+                        conn,
+                        "Recommendation",
+                        filters={"report_type": "daily"},
+                        limit=1,
+                        order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                    )
+                )
+                latest_weekly_recommendation = _first_row(
+                    _fetch_operational_objects(
+                        conn,
+                        "Recommendation",
+                        filters={"report_type": "weekly"},
+                        limit=1,
+                        order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                    )
+                )
+                pending_actionable_recommendations = _fetch_operational_objects(
                     conn,
                     "Recommendation",
-                    filters={"report_type": "daily"},
-                    limit=1,
+                    filters={"approval_status": "pending"},
+                    limit=5,
                     order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
                 )
-            )
-            latest_weekly_recommendation = _first_row(
-                _fetch_operational_objects(
+                pending_course_of_actions = _fetch_operational_objects(
                     conn,
-                    "Recommendation",
-                    filters={"report_type": "weekly"},
-                    limit=1,
+                    "CourseOfAction",
+                    filters={"approval_status": "pending"},
+                    limit=10,
                     order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
                 )
+                recent_course_of_actions = _fetch_operational_objects(
+                    conn,
+                    "CourseOfAction",
+                    limit=10,
+                    order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                open_course_of_action_comparisons = _fetch_operational_objects(
+                    conn,
+                    "CourseOfActionComparison",
+                    filters={"status": "open"},
+                    limit=10,
+                    order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                open_action_items = _fetch_operational_objects(
+                    conn,
+                    "ActionItem",
+                    filters={"status": "open"},
+                    limit=100,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                optimizer_alerts = _fetch_operational_objects(
+                    conn,
+                    "OptimizationAlert",
+                    filters={"status": "open"},
+                    limit=5,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                _attach_optimization_alert_context(conn, optimizer_alerts)
+                active_monitor_definitions = _fetch_operational_objects(
+                    conn,
+                    "MonitorDefinition",
+                    filters={"status": "active"},
+                    limit=100,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                active_mission_definitions = _fetch_operational_objects(
+                    conn,
+                    "MissionDefinition",
+                    filters={"status": "active"},
+                    limit=100,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                active_watch_triggers = _fetch_operational_objects(
+                    conn,
+                    "WatchTrigger",
+                    filters={"status": "active"},
+                    limit=100,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                recent_monitor_hits = _fetch_operational_objects(
+                    conn,
+                    "MonitorHit",
+                    filters={"status": "open"},
+                    limit=20,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                open_opportunity_candidates = _fetch_operational_objects(
+                    conn,
+                    "OpportunityCandidate",
+                    filters={"status": "open"},
+                    limit=50,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                recent_workflow_runs = _fetch_operational_objects(
+                    conn,
+                    "WorkflowRun",
+                    limit=3,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                recent_report_runs = _fetch_operational_objects(
+                    conn,
+                    "ReportRun",
+                    limit=5,
+                    order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                challenged_claims = _fetch_operational_objects(
+                    conn,
+                    "ThesisClaim",
+                    filters={"status": "challenged"},
+                    limit=5,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                disconfirmed_claims = _fetch_operational_objects(
+                    conn,
+                    "ThesisClaim",
+                    filters={"status": "disconfirmed"},
+                    limit=5,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                pending_draft_decision_outcomes = _fetch_operational_objects(
+                    conn,
+                    "DecisionOutcome",
+                    filters={"final_label_status": "draft", "outcome_status": "evaluated"},
+                    limit=10,
+                    order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                recent_finalized_decision_outcomes = _fetch_operational_objects(
+                    conn,
+                    "DecisionOutcome",
+                    limit=10,
+                    order_by="updated_sort DESC, as_of_sort DESC, object_uid ASC",
+                )
+            return (
+                latest_evaluations,
+                theses,
+                pending_approvals,
+                latest_daily_recommendation,
+                latest_weekly_recommendation,
+                pending_actionable_recommendations,
+                pending_course_of_actions,
+                recent_course_of_actions,
+                open_course_of_action_comparisons,
+                open_action_items,
+                optimizer_alerts,
+                active_monitor_definitions,
+                active_mission_definitions,
+                active_watch_triggers,
+                recent_monitor_hits,
+                open_opportunity_candidates,
+                recent_workflow_runs,
+                recent_report_runs,
+                challenged_claims,
+                disconfirmed_claims,
+                pending_draft_decision_outcomes,
+                recent_finalized_decision_outcomes,
             )
-            pending_actionable_recommendations = _fetch_operational_objects(
-                conn,
-                "Recommendation",
-                filters={"approval_status": "pending"},
-                limit=5,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            pending_course_of_actions = _fetch_operational_objects(
-                conn,
-                "CourseOfAction",
-                filters={"approval_status": "pending"},
-                limit=10,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            recent_course_of_actions = _fetch_operational_objects(
-                conn,
-                "CourseOfAction",
-                limit=10,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            open_course_of_action_comparisons = _fetch_operational_objects(
-                conn,
-                "CourseOfActionComparison",
-                filters={"status": "open"},
-                limit=10,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            open_action_items = _fetch_operational_objects(
-                conn,
-                "ActionItem",
-                filters={"status": "open"},
-                limit=100,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            optimizer_alerts = _fetch_operational_objects(
-                conn,
-                "OptimizationAlert",
-                filters={"status": "open"},
-                limit=5,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            _attach_optimization_alert_context(conn, optimizer_alerts)
-            active_monitor_definitions = _fetch_operational_objects(
-                conn,
-                "MonitorDefinition",
-                filters={"status": "active"},
-                limit=100,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            active_mission_definitions = _fetch_operational_objects(
-                conn,
-                "MissionDefinition",
-                filters={"status": "active"},
-                limit=100,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            active_watch_triggers = _fetch_operational_objects(
-                conn,
-                "WatchTrigger",
-                filters={"status": "active"},
-                limit=100,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            recent_monitor_hits = _fetch_operational_objects(
-                conn,
-                "MonitorHit",
-                filters={"status": "open"},
-                limit=20,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            open_opportunity_candidates = _fetch_operational_objects(
-                conn,
-                "OpportunityCandidate",
-                filters={"status": "open"},
-                limit=50,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            recent_workflow_runs = _fetch_operational_objects(
-                conn,
-                "WorkflowRun",
-                limit=3,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            recent_report_runs = _fetch_operational_objects(
-                conn,
-                "ReportRun",
-                limit=5,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            challenged_claims = _fetch_operational_objects(
-                conn,
-                "ThesisClaim",
-                filters={"status": "challenged"},
-                limit=5,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            disconfirmed_claims = _fetch_operational_objects(
-                conn,
-                "ThesisClaim",
-                filters={"status": "disconfirmed"},
-                limit=5,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            pending_draft_decision_outcomes = _fetch_operational_objects(
-                conn,
-                "DecisionOutcome",
-                filters={"final_label_status": "draft", "outcome_status": "evaluated"},
-                limit=10,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            recent_finalized_decision_outcomes = _fetch_operational_objects(
-                conn,
-                "DecisionOutcome",
-                limit=10,
-                order_by="updated_sort DESC, as_of_sort DESC, object_uid ASC",
-            )
+
+        (
+            latest_evaluations,
+            theses,
+            pending_approvals,
+            latest_daily_recommendation,
+            latest_weekly_recommendation,
+            pending_actionable_recommendations,
+            pending_course_of_actions,
+            recent_course_of_actions,
+            open_course_of_action_comparisons,
+            open_action_items,
+            optimizer_alerts,
+            active_monitor_definitions,
+            active_mission_definitions,
+            active_watch_triggers,
+            recent_monitor_hits,
+            open_opportunity_candidates,
+            recent_workflow_runs,
+            recent_report_runs,
+            challenged_claims,
+            disconfirmed_claims,
+            pending_draft_decision_outcomes,
+            recent_finalized_decision_outcomes,
+        ) = retry_read(_read)
 
         return {
             "latest_evaluations": latest_evaluations,
@@ -402,101 +472,134 @@ class TemporalReadModelRepository:
     def fetch_dossier_bundle(self, ticker: str) -> dict[str, Any]:
         """Fetch the ontology-backed dossier payload for one ticker without scanning all positions."""
         normalized = str(ticker or "").strip().upper()
-        with self._connect() as conn:
-            position = _first_row(
-                _fetch_operational_objects(
-                    conn,
-                    "Position",
-                    filters={"ticker": normalized},
-                    limit=1,
-                    order_by="updated_sort DESC, object_uid ASC",
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                position = _first_row(
+                    _fetch_operational_objects(
+                        conn,
+                        "Position",
+                        filters={"ticker": normalized},
+                        limit=1,
+                        order_by="updated_sort DESC, object_uid ASC",
+                    )
                 )
-            )
-            thesis = _fetch_dossier_thesis(conn, normalized)
-            management_quality_assessment = _first_row(
-                _fetch_operational_objects(
+                thesis = _fetch_dossier_thesis(conn, normalized)
+                management_quality_assessment = _first_row(
+                    _fetch_operational_objects(
+                        conn,
+                        "ManagementQualityAssessment",
+                        filters={"ticker": normalized},
+                        limit=20,
+                        order_by=(
+                            "CASE WHEN status = 'active' THEN 0 ELSE 1 END, "
+                            "updated_sort DESC, created_at_sort DESC, object_uid ASC"
+                        ),
+                    )
+                )
+                if management_quality_assessment:
+                    _attach_management_quality_children(conn, management_quality_assessment)
+                evaluations = _fetch_operational_objects(
                     conn,
-                    "ManagementQualityAssessment",
+                    "Evaluation",
+                    filters={"ticker": normalized},
+                    limit=52,
+                    order_by="evaluated_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                catalysts = _fetch_operational_objects(
+                    conn,
+                    "Catalyst",
+                    filters={"ticker": normalized},
+                    limit=100,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                kill_conditions = _fetch_operational_objects(
+                    conn,
+                    "KillCondition",
+                    filters={"ticker": normalized},
+                    limit=100,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                thesis_claims = _fetch_operational_objects(
+                    conn,
+                    "ThesisClaim",
+                    filters={"ticker": normalized},
+                    limit=100,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                workflow_runs = _fetch_operational_objects(
+                    conn,
+                    "WorkflowRun",
+                    filters={"ticker": normalized},
+                    limit=10,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                action_items = _fetch_operational_objects(
+                    conn,
+                    "ActionItem",
+                    filters={"ticker": normalized, "status": "open"},
+                    limit=100,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                watch_triggers = _fetch_operational_objects(
+                    conn,
+                    "WatchTrigger",
+                    filters={"ticker": normalized},
+                    limit=100,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                monitor_hits = _fetch_operational_objects(
+                    conn,
+                    "MonitorHit",
+                    filters={"ticker": normalized},
+                    limit=50,
+                    order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
+                )
+                pending_approvals = _fetch_operational_objects(
+                    conn,
+                    "Approval",
+                    filters={"ticker": normalized, "status": "pending"},
+                    limit=200,
+                    order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
+                )
+                decision_outcomes = _fetch_operational_objects(
+                    conn,
+                    "DecisionOutcome",
                     filters={"ticker": normalized},
                     limit=20,
-                    order_by=(
-                        "CASE WHEN status = 'active' THEN 0 ELSE 1 END, "
-                        "updated_sort DESC, created_at_sort DESC, object_uid ASC"
-                    ),
+                    order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
                 )
+            return (
+                position,
+                thesis,
+                management_quality_assessment,
+                evaluations,
+                catalysts,
+                kill_conditions,
+                thesis_claims,
+                workflow_runs,
+                action_items,
+                watch_triggers,
+                monitor_hits,
+                pending_approvals,
+                decision_outcomes,
             )
-            if management_quality_assessment:
-                _attach_management_quality_children(conn, management_quality_assessment)
-            evaluations = _fetch_operational_objects(
-                conn,
-                "Evaluation",
-                filters={"ticker": normalized},
-                limit=52,
-                order_by="evaluated_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            catalysts = _fetch_operational_objects(
-                conn,
-                "Catalyst",
-                filters={"ticker": normalized},
-                limit=100,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            kill_conditions = _fetch_operational_objects(
-                conn,
-                "KillCondition",
-                filters={"ticker": normalized},
-                limit=100,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            thesis_claims = _fetch_operational_objects(
-                conn,
-                "ThesisClaim",
-                filters={"ticker": normalized},
-                limit=100,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            workflow_runs = _fetch_operational_objects(
-                conn,
-                "WorkflowRun",
-                filters={"ticker": normalized},
-                limit=10,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            action_items = _fetch_operational_objects(
-                conn,
-                "ActionItem",
-                filters={"ticker": normalized, "status": "open"},
-                limit=100,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            watch_triggers = _fetch_operational_objects(
-                conn,
-                "WatchTrigger",
-                filters={"ticker": normalized},
-                limit=100,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            monitor_hits = _fetch_operational_objects(
-                conn,
-                "MonitorHit",
-                filters={"ticker": normalized},
-                limit=50,
-                order_by="updated_sort DESC, created_at_sort DESC, object_uid ASC",
-            )
-            pending_approvals = _fetch_operational_objects(
-                conn,
-                "Approval",
-                filters={"ticker": normalized, "status": "pending"},
-                limit=200,
-                order_by="created_at_sort DESC, updated_sort DESC, object_uid ASC",
-            )
-            decision_outcomes = _fetch_operational_objects(
-                conn,
-                "DecisionOutcome",
-                filters={"ticker": normalized},
-                limit=20,
-                order_by="as_of_sort DESC, updated_sort DESC, object_uid ASC",
-            )
+
+        (
+            position,
+            thesis,
+            management_quality_assessment,
+            evaluations,
+            catalysts,
+            kill_conditions,
+            thesis_claims,
+            workflow_runs,
+            action_items,
+            watch_triggers,
+            monitor_hits,
+            pending_approvals,
+            decision_outcomes,
+        ) = retry_read(_read)
 
         return {
             "position": position,
@@ -526,8 +629,13 @@ class TemporalReadModelRepository:
         FROM ontology_current_source_status_read_model
         ORDER BY source_name
         """
-        with self._connect() as conn:
-            rows = conn.execute(sql, ()).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, ()).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         status: dict[str, dict[str, Any]] = {}
         for row_raw in rows:
             row = _row_dict(row_raw)

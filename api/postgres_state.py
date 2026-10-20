@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import re
+import sys
+import warnings
 from collections.abc import Iterator, Mapping, Sequence
 from typing import Any
 
-from api.postgres import open_connection
+from api.postgres import connect
 
 
 class StateRow(Mapping[str, Any]):
@@ -66,31 +68,67 @@ class PostgresStateConnection:
         table_map: dict[str, str] | None = None,
         identity_tables: set[str] | None = None,
         register_pgvector: bool = False,
+        read_only: bool = False,
     ):
-        self._conn = open_connection(register_pgvector=register_pgvector)
+        self._closed = True
         self._table_map = table_map or {}
         self._identity_tables = identity_tables or set()
+        self._connection_context = connect(register_pgvector=register_pgvector, read_only=read_only)
+        self._conn = self._connection_context.__enter__()
+        self._closed = False
 
     def __enter__(self) -> PostgresStateConnection:
+        self._require_open()
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        if exc_type is None:
-            self.commit()
+        if self._closed:
+            return
+        try:
+            if exc_type is None:
+                self.commit()
+        except BaseException:
+            self._release(*sys.exc_info())
+            raise
         else:
-            self.rollback()
-        self.close()
+            self._release(exc_type, exc, tb)
 
     def close(self) -> None:
-        self._conn.close()
+        self._release(None, None, None)
+
+    def _release(self, exc_type, exc, tb) -> None:
+        if not self._closed:
+            self._closed = True
+            self._connection_context.__exit__(exc_type, exc, tb)
+
+    def __del__(self) -> None:
+        if not getattr(self, "_closed", True):
+            try:
+                warnings.warn(
+                    "Unclosed PostgresStateConnection; returning its pool slot.", ResourceWarning, stacklevel=2
+                )
+            finally:
+                try:
+                    self.close()
+                except Exception:
+                    pass
 
     def commit(self) -> None:
+        self._require_open()
         self._conn.commit()
 
     def rollback(self) -> None:
+        self._require_open()
         self._conn.rollback()
 
+    def _require_open(self) -> None:
+        if self._closed:
+            from psycopg import InterfaceError
+
+            raise InterfaceError("PostgresStateConnection is closed")
+
     def execute(self, sql: str, params: Sequence[Any] | None = None) -> StateCursor:
+        self._require_open()
         translated = self._translate_sql(sql)
         if self._is_schema_statement(translated):
             return StateCursor(rowcount=0)
@@ -106,6 +144,7 @@ class PostgresStateConnection:
             return StateCursor(rows, rowcount=cur.rowcount, lastrowid=lastrowid)
 
     def executemany(self, sql: str, params_seq: Sequence[Sequence[Any]]) -> StateCursor:
+        self._require_open()
         translated = self._translate_sql(sql)
         if self._is_schema_statement(translated):
             return StateCursor(rowcount=0)

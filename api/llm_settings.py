@@ -6,11 +6,13 @@ import json
 import os
 import sqlite3
 import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 
 DB_PATH = Path(__file__).parent / "app_settings.db"
@@ -74,7 +76,7 @@ DEFAULT_GATEWAY_POLICY: dict[str, Any] = {
 DEFAULT_PROVIDER_MODE = "single"
 
 _lock = threading.RLock()
-_conn: sqlite3.Connection | PostgresStateConnection | None = None
+_conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
 
 _CREATE_APP_SETTINGS = """
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -100,22 +102,23 @@ def _close_conn() -> None:
             _conn = None
 
 
-def _get_conn(*, probe: bool = True) -> sqlite3.Connection | PostgresStateConnection:
+@contextmanager
+def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | PostgresStateConnection]:
     global _conn
     with _lock:
-        if probe and _conn is not None:
-            try:
-                _conn.execute("SELECT 1")
-            except Exception:
-                _close_conn()
-        if _conn is None:
-            if use_postgres_state():
-                _conn = PostgresStateConnection()
-            else:
+        if use_postgres_state():
+            with PostgresStateConnection(read_only=read_only) as conn:
+                yield conn
+        else:
+            if _conn is None:
                 _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                 _conn.row_factory = sqlite3.Row
                 _init_db(_conn)
-        return _conn
+            try:
+                yield _conn
+            except BaseException:
+                _conn.rollback()
+                raise
 
 
 def _init_db(conn: sqlite3.Connection | PostgresStateConnection) -> None:
@@ -133,8 +136,13 @@ def get_setting(key: str) -> dict[str, Any] | None:
     if not use_postgres_state() and not DB_PATH.exists():
         return None
     with _lock:
-        conn = _get_conn()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+
+        def _read():
+            with _get_conn(read_only=True) as conn:
+                row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+            return row
+
+        row = retry_read(_read)
     return _row_to_dict(row) if row else None
 
 
@@ -147,56 +155,49 @@ def get_settings(keys: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]
 
     placeholders = ", ".join("?" for _ in unique_keys)
     sql = f"SELECT key, value, updated_at FROM app_settings WHERE key IN ({placeholders})"
-    last_exc: Exception | None = None
-    for attempt in range(2):
-        try:
-            with _lock:
-                conn = _get_conn(probe=False)
-                rows = conn.execute(sql, tuple(unique_keys)).fetchall()
-            return {str(row["key"]): _row_to_dict(row) for row in rows}
-        except Exception as exc:
-            last_exc = exc
-            _close_conn()
-            if attempt == 1:
-                raise
-    if last_exc is not None:
-        raise last_exc
-    return {}
+
+    def _read():
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(sql, tuple(unique_keys)).fetchall()
+        return rows
+
+    rows = retry_read(_read)
+    return {str(row["key"]): _row_to_dict(row) for row in rows}
 
 
 def set_setting(key: str, value: str) -> dict[str, Any]:
     updated_at = _now()
     with _lock:
-        conn = _get_conn()
-        conn.execute(
-            """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
-                updated_at = excluded.updated_at
-            """,
-            (key, value, updated_at),
-        )
-        conn.commit()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+        with _get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (key, value, updated_at),
+            )
+            conn.commit()
+            row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
 
 def ensure_setting(key: str, default_value: str) -> dict[str, Any]:
     """Persist a default without overwriting concurrent or existing edits."""
     with _lock:
-        conn = _get_conn()
-        conn.execute(
-            """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO NOTHING
-            """,
-            (key, default_value, _now()),
-        )
-        conn.commit()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+        with _get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO NOTHING
+                """,
+                (key, default_value, _now()),
+            )
+            conn.commit()
+            row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
 

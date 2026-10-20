@@ -22,7 +22,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from api.postgres import open_connection, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
 from ontology.sources.source_registry import source_registry_metadata
 
 logger = logging.getLogger("api.retrieval")
@@ -628,21 +628,25 @@ def _pg_lexical_search(
         params.append([t.upper() for t in tickers])
     where_clause = f"WHERE {' AND '.join(where_parts)}"
 
-    with open_connection(register_pgvector=False) as conn:
-        rows = conn.execute(
-            f"""
-            SELECT c.chunk_id, c.doc_id, c.chunk_index, c.content,
-                   c.heading, c.object_uid, c.object_version_id, c.source_record_id,
-                   c.source_record_version_id, c.citation_span_start, c.citation_span_end,
-                   c.permission_scope, c.freshness_as_of, c.stale_after, c.is_stale,
-                   c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at
-            FROM retrieval_chunks c
-            JOIN retrieval_documents d ON c.doc_id = d.doc_id
-            {where_clause}
-            LIMIT 1000
-            """,
-            tuple(params),
-        ).fetchall()
+    def _read():
+        with connect(read_only=True) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT c.chunk_id, c.doc_id, c.chunk_index, c.content,
+                       c.heading, c.object_uid, c.object_version_id, c.source_record_id,
+                       c.source_record_version_id, c.citation_span_start, c.citation_span_end,
+                       c.permission_scope, c.freshness_as_of, c.stale_after, c.is_stale,
+                       c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at
+                FROM retrieval_chunks c
+                JOIN retrieval_documents d ON c.doc_id = d.doc_id
+                {where_clause}
+                LIMIT 1000
+                """,
+                tuple(params),
+            ).fetchall()
+        return rows
+
+    rows = retry_read(_read)
     return _rank_lexical_rows(query, rows, top_k=top_k, fallback_reason=fallback_reason)
 
 
@@ -740,7 +744,7 @@ def _retrieval_result_from_row(
 def delete_document(doc_id: str) -> bool:
     """Delete a document and its chunks."""
     if use_postgres_state():
-        with open_connection(register_pgvector=True) as conn:
+        with connect(register_pgvector=True) as conn:
             cur = conn.execute("DELETE FROM retrieval_documents WHERE doc_id = %s", (doc_id,))
             conn.commit()
             return bool(cur.rowcount > 0)
@@ -756,10 +760,15 @@ def delete_document(doc_id: str) -> bool:
 def get_indexed_count() -> dict[str, int]:
     """Return count of indexed documents by type."""
     if use_postgres_state():
-        with open_connection(register_pgvector=True) as conn:
-            rows = conn.execute(
-                "SELECT doc_type, COUNT(*) AS cnt FROM retrieval_documents GROUP BY doc_type"
-            ).fetchall()
+
+        def _read():
+            with connect(read_only=True) as conn:
+                rows = conn.execute(
+                    "SELECT doc_type, COUNT(*) AS cnt FROM retrieval_documents GROUP BY doc_type"
+                ).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         return {row["doc_type"]: row["cnt"] for row in rows}
 
     conn = _get_conn()
@@ -846,7 +855,7 @@ def _pg_index_document(
         )
         for i, ((heading, text), emb) in enumerate(zip(raw_chunks, embeddings, strict=True))
     ]
-    with open_connection(register_pgvector=True) as conn:
+    with connect(register_pgvector=True) as conn:
         conn.execute("DELETE FROM retrieval_chunks WHERE doc_id = %s", (doc_id,))
         conn.execute(
             """
@@ -884,8 +893,11 @@ def _pg_search(
     tickers: list[str] | None,
     top_k: int,
 ) -> list[dict[str, Any]]:
+    from pgvector import Vector
+
+    query_vector = Vector(query_emb)
     where_parts: list[str] = []
-    params: list[Any] = [query_emb]
+    params: list[Any] = [query_vector]
     if doc_types:
         where_parts.append("d.doc_type = ANY(%s)")
         params.append(doc_types)
@@ -894,25 +906,29 @@ def _pg_search(
         params.append([t.upper() for t in tickers])
     where_parts.append("COALESCE(c.is_stale, false) = false")
     where_clause = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
-    params.extend([query_emb, top_k])
+    params.extend([query_vector, top_k])
 
-    with open_connection(register_pgvector=True) as conn:
-        rows = conn.execute(
-            f"""
-            SELECT c.chunk_id, c.doc_id, c.chunk_index, c.content,
-                   c.heading, c.object_uid, c.object_version_id, c.source_record_id,
-                   c.source_record_version_id, c.citation_span_start, c.citation_span_end,
-                   c.permission_scope, c.freshness_as_of, c.stale_after, c.is_stale,
-                   c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at,
-                   1 - (c.embedding <=> %s) AS score
-            FROM retrieval_chunks c
-            JOIN retrieval_documents d ON c.doc_id = d.doc_id
-            {where_clause}
-            ORDER BY c.embedding <=> %s
-            LIMIT %s
-            """,
-            tuple(params),
-        ).fetchall()
+    def _read():
+        with connect(read_only=True) as conn:
+            rows = conn.execute(
+                f"""
+                SELECT c.chunk_id, c.doc_id, c.chunk_index, c.content,
+                       c.heading, c.object_uid, c.object_version_id, c.source_record_id,
+                       c.source_record_version_id, c.citation_span_start, c.citation_span_end,
+                       c.permission_scope, c.freshness_as_of, c.stale_after, c.is_stale,
+                       c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at,
+                       1 - (c.embedding <=> %s) AS score
+                FROM retrieval_chunks c
+                JOIN retrieval_documents d ON c.doc_id = d.doc_id
+                {where_clause}
+                ORDER BY c.embedding <=> %s
+                LIMIT %s
+                """,
+                tuple(params),
+            ).fetchall()
+        return rows
+
+    rows = retry_read(_read)
 
     return [
         {

@@ -211,10 +211,13 @@ def get_admin_job(job_id: str, _sub: str = Depends(require_job_admin)):
 def _check_postgres() -> tuple[bool, str]:
     """Verify Postgres connectivity."""
     try:
-        from api.postgres import connect
+        from api.postgres import connect, retry_read
 
-        with connect() as conn:
-            conn.execute("SELECT 1")
+        def _read() -> None:
+            with connect(read_only=True) as conn:
+                conn.execute("SELECT 1")
+
+        retry_read(_read)
         return True, "ok"
     except Exception as exc:
         return False, str(exc)
@@ -226,16 +229,19 @@ def _check_migration_head() -> tuple[bool, str]:
     if not expected:
         return True, "not_configured"
     try:
-        from api.postgres import connect
+        from api.postgres import connect, retry_read
 
-        with connect() as conn:
-            row = conn.execute("SELECT version_num FROM alembic_version LIMIT 1").fetchone()
-            if row is None:
-                return False, "no alembic_version row"
-            actual = row["version_num"] if isinstance(row, dict) else row[0]
-            if actual == expected:
-                return True, f"head={actual}"
-            return False, f"mismatch: deployed={expected} db={actual}"
+        def _read() -> tuple[bool, str]:
+            with connect(read_only=True) as conn:
+                row = conn.execute("SELECT version_num FROM alembic_version LIMIT 1").fetchone()
+                if row is None:
+                    return False, "no alembic_version row"
+                actual = row["version_num"] if isinstance(row, dict) else row[0]
+                if actual == expected:
+                    return True, f"head={actual}"
+                return False, f"mismatch: deployed={expected} db={actual}"
+
+        return retry_read(_read)
     except Exception as exc:
         return False, str(exc)
 

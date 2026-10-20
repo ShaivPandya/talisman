@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from api.job_queue import postgres_jobs_enabled
-from api.postgres import connect
+from api.postgres import connect, retry_read
 
 _memory_events: dict[str, list[dict[str, Any]]] = {}
 _memory_lock = threading.Lock()
@@ -77,18 +77,21 @@ def list_job_events(job_id: str, *, after_seq: int = 0, limit: int = 500) -> lis
             events = _memory_events.get(job_id, [])
             return [dict(event) for event in events if int(event["seq"]) > after][:capped_limit]
 
-    with connect() as conn:
-        rows = conn.execute(
-            """
-            SELECT seq, event_type, payload_json, created_at
-            FROM async_job_events
-            WHERE job_id = %s AND seq > %s
-            ORDER BY seq ASC
-            LIMIT %s
-            """,
-            (job_id, after, capped_limit),
-        ).fetchall()
-        return [_row_to_event(row) for row in rows]
+    def _read() -> list[dict[str, Any]]:
+        with connect(read_only=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT seq, event_type, payload_json, created_at
+                FROM async_job_events
+                WHERE job_id = %s AND seq > %s
+                ORDER BY seq ASC
+                LIMIT %s
+                """,
+                (job_id, after, capped_limit),
+            ).fetchall()
+            return [_row_to_event(row) for row in rows]
+
+    return retry_read(_read)
 
 
 def clear_memory_events() -> None:

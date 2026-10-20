@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any
 
-from api.postgres import connect
+from api.postgres import connect, retry_read
 
 ConnectionFactory = Callable[[], Any]
 
@@ -111,11 +111,12 @@ class TemporalOntologyRepository:
     """Authoritative Postgres repository for ontology temporal versions."""
 
     def __init__(self, connection_factory: ConnectionFactory | None = None):
-        self._connection_factory = connection_factory or connect
+        self._connection_factory = connection_factory
 
     @contextmanager
-    def _connect(self) -> Iterator[Any]:
-        with self._connection_factory() as conn:
+    def _connect(self, *, read_only: bool = False) -> Iterator[Any]:
+        factory = self._connection_factory
+        with factory() if factory is not None else connect(read_only=read_only) as conn:
             yield conn
 
     def get_object(
@@ -134,8 +135,13 @@ class TemporalOntologyRepository:
         ORDER BY tx_from DESC, valid_from DESC
         LIMIT 1
         """
-        with self._connect() as conn:
-            row = conn.execute(sql, (object_uid, *params)).fetchone()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(sql, (object_uid, *params)).fetchone()
+            return row
+
+        row = retry_read(_read)
         return _normalize_row(row)
 
     def query_objects(
@@ -170,8 +176,13 @@ class TemporalOntologyRepository:
         LIMIT %s OFFSET %s
         """
         params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
-        with self._connect() as conn:
-            rows = conn.execute(sql, tuple(params)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         return _normalize_rows(rows)
 
     def write_object_version(self, write: ObjectVersionWrite) -> dict[str, Any]:
@@ -487,8 +498,13 @@ class TemporalOntologyRepository:
         LIMIT %s OFFSET %s
         """
         params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
-        with self._connect() as conn:
-            rows = conn.execute(sql, tuple(params)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         return _normalize_rows(rows)
 
     def write_source_record_version(self, write: SourceRecordWrite) -> dict[str, Any]:
@@ -623,8 +639,13 @@ class TemporalOntologyRepository:
         LIMIT %s OFFSET %s
         """
         params.extend([max(1, min(int(limit), 500)), max(0, int(offset))])
-        with self._connect() as conn:
-            rows = conn.execute(sql, tuple(params)).fetchall()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         return _normalize_rows(rows)
 
     def write_computed_snapshot_version(self, write: SnapshotVersionWrite) -> dict[str, Any]:
@@ -718,8 +739,13 @@ class TemporalOntologyRepository:
         ORDER BY load_time DESC, tx_from DESC
         LIMIT 1
         """
-        with self._connect() as conn:
-            row = conn.execute(sql, (snapshot_key, *params)).fetchone()
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(sql, (snapshot_key, *params)).fetchone()
+            return row
+
+        row = retry_read(_read)
         return _normalize_row(row)
 
     def _find_equivalent_current_object(
@@ -730,20 +756,24 @@ class TemporalOntologyRepository:
         valid_to: datetime | None,
         payload: Any,
     ) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM ontology_object_versions
-                WHERE object_uid = %s
-                  AND tx_to IS NULL
-                  AND valid_from = %s
-                  AND valid_to IS NOT DISTINCT FROM %s
-                ORDER BY tx_from DESC
-                LIMIT 1
-                """,
-                (write.object_uid, valid_from, valid_to),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM ontology_object_versions
+                    WHERE object_uid = %s
+                      AND tx_to IS NULL
+                      AND valid_from = %s
+                      AND valid_to IS NOT DISTINCT FROM %s
+                    ORDER BY tx_from DESC
+                    LIMIT 1
+                    """,
+                    (write.object_uid, valid_from, valid_to),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         normalized = _normalize_row(row)
         if not normalized:
             return None
@@ -783,20 +813,24 @@ class TemporalOntologyRepository:
         valid_to: datetime | None,
         payload: Any,
     ) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM ontology_relation_versions
-                WHERE relation_uid = %s
-                  AND tx_to IS NULL
-                  AND valid_from = %s
-                  AND valid_to IS NOT DISTINCT FROM %s
-                ORDER BY tx_from DESC
-                LIMIT 1
-                """,
-                (write.relation_uid, valid_from, valid_to),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM ontology_relation_versions
+                    WHERE relation_uid = %s
+                      AND tx_to IS NULL
+                      AND valid_from = %s
+                      AND valid_to IS NOT DISTINCT FROM %s
+                    ORDER BY tx_from DESC
+                    LIMIT 1
+                    """,
+                    (write.relation_uid, valid_from, valid_to),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         normalized = _normalize_row(row)
         if not normalized:
             return None
@@ -839,42 +873,46 @@ class TemporalOntologyRepository:
         valid_to: datetime | None,
         as_of: datetime | None,
     ) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM source_record_versions
-                WHERE vendor = %s
-                  AND source_name = %s
-                  AND source_version = %s
-                  AND dataset = %s
-                  AND record_kind = %s
-                  AND record_key_hash = %s
-                  AND payload_hash = %s
-                  AND status = %s
-                  AND quality = %s
-                  AND as_of IS NOT DISTINCT FROM %s
-                  AND valid_from = %s
-                  AND valid_to IS NOT DISTINCT FROM %s
-                  AND tx_to IS NULL
-                ORDER BY tx_from DESC
-                LIMIT 1
-                """,
-                (
-                    write.vendor,
-                    write.source_name,
-                    write.source_version,
-                    write.dataset,
-                    write.record_kind,
-                    record_key_hash,
-                    write.payload_hash,
-                    write.status,
-                    write.quality,
-                    as_of,
-                    valid_from,
-                    valid_to,
-                ),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM source_record_versions
+                    WHERE vendor = %s
+                      AND source_name = %s
+                      AND source_version = %s
+                      AND dataset = %s
+                      AND record_kind = %s
+                      AND record_key_hash = %s
+                      AND payload_hash = %s
+                      AND status = %s
+                      AND quality = %s
+                      AND as_of IS NOT DISTINCT FROM %s
+                      AND valid_from = %s
+                      AND valid_to IS NOT DISTINCT FROM %s
+                      AND tx_to IS NULL
+                    ORDER BY tx_from DESC
+                    LIMIT 1
+                    """,
+                    (
+                        write.vendor,
+                        write.source_name,
+                        write.source_version,
+                        write.dataset,
+                        write.record_kind,
+                        record_key_hash,
+                        write.payload_hash,
+                        write.status,
+                        write.quality,
+                        as_of,
+                        valid_from,
+                        valid_to,
+                    ),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         return _normalize_row(row)
 
     def _find_equivalent_current_snapshot(
@@ -886,34 +924,38 @@ class TemporalOntologyRepository:
         as_of: datetime | None,
         payload: Any,
     ) -> dict[str, Any] | None:
-        with self._connect() as conn:
-            row = conn.execute(
-                """
-                SELECT *
-                FROM computed_snapshot_versions
-                WHERE snapshot_key = %s
-                  AND payload_hash = %s
-                  AND status = %s
-                  AND quality = %s
-                  AND error IS NOT DISTINCT FROM %s
-                  AND as_of IS NOT DISTINCT FROM %s
-                  AND valid_from = %s
-                  AND valid_to IS NOT DISTINCT FROM %s
-                  AND tx_to IS NULL
-                ORDER BY tx_from DESC
-                LIMIT 1
-                """,
-                (
-                    write.snapshot_key,
-                    write.payload_hash,
-                    write.status,
-                    write.quality,
-                    write.error,
-                    as_of,
-                    valid_from,
-                    valid_to,
-                ),
-            ).fetchone()
+        def _read():
+            with self._connect(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT *
+                    FROM computed_snapshot_versions
+                    WHERE snapshot_key = %s
+                      AND payload_hash = %s
+                      AND status = %s
+                      AND quality = %s
+                      AND error IS NOT DISTINCT FROM %s
+                      AND as_of IS NOT DISTINCT FROM %s
+                      AND valid_from = %s
+                      AND valid_to IS NOT DISTINCT FROM %s
+                      AND tx_to IS NULL
+                    ORDER BY tx_from DESC
+                    LIMIT 1
+                    """,
+                    (
+                        write.snapshot_key,
+                        write.payload_hash,
+                        write.status,
+                        write.quality,
+                        write.error,
+                        as_of,
+                        valid_from,
+                        valid_to,
+                    ),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         normalized = _normalize_row(row)
         if not normalized:
             return None

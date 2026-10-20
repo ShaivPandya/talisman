@@ -126,8 +126,7 @@ def test_get_session_falls_back_to_server_messages_for_existing_v2_sessions(temp
         {"role": "assistant", "content": "Use direction-adjusted P&L.", "timestamp": 2.0},
     ]
 
-    conn = memory_db._get_conn()
-    with memory_db._lock:
+    with memory_db._get_conn() as conn:
         conn.execute(
             """
             UPDATE conversation_sessions

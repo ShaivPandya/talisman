@@ -168,7 +168,7 @@ def _init_sqlite(conn: sqlite3.Connection) -> None:
     conn.commit()
 
 
-def _connect_db():
+def _connect_db(*, read_only: bool = False):
     """Open a connection routed by ``use_postgres_state()``.
 
     Production (`ENVIRONMENT=production` or `STATE_DB_BACKEND=postgres`) → Postgres
@@ -177,7 +177,7 @@ def _connect_db():
     only outside production, so the production write guard is never tripped.
     """
     if use_postgres_state():
-        return PostgresStateConnection()
+        return PostgresStateConnection(read_only=read_only)
     conn = sqlite3.connect(_resolve_db_path())
     conn.row_factory = sqlite3.Row
     _init_sqlite(conn)

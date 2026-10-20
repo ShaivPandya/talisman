@@ -12,18 +12,20 @@ import re
 import sqlite3
 import threading
 import uuid
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _DB_PATH = _REPO_ROOT / "data_cache" / "memory" / "memory.db"
 
-_lock = threading.Lock()
-_conn: sqlite3.Connection | PostgresStateConnection | None = None
+_lock = threading.RLock()
+_conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
 
 # ---------------------------------------------------------------------------
 # Schema
@@ -57,31 +59,25 @@ SESSION_TITLE_MAX_CHARS = 80
 # ---------------------------------------------------------------------------
 
 
-def _get_conn() -> sqlite3.Connection | PostgresStateConnection:
+@contextmanager
+def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | PostgresStateConnection]:
     global _conn
-
-    if _conn is not None:
-        try:
-            _conn.execute("SELECT 1")
-        except Exception:
-            try:
-                _conn.close()
-            except Exception:
-                pass
-            _conn = None
-
-    if _conn is None:
-        with _lock:
+    with _lock:
+        if use_postgres_state():
+            with PostgresStateConnection(read_only=read_only) as conn:
+                yield conn
+        else:
             if _conn is None:
-                if use_postgres_state():
-                    _conn = PostgresStateConnection()
-                else:
-                    _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-                    _conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
-                    _conn.execute("PRAGMA journal_mode=WAL")
-                    _conn.row_factory = sqlite3.Row
-                    _init_db(_conn)
-    return _conn
+                _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+                _conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
+                _conn.execute("PRAGMA journal_mode=WAL")
+                _conn.row_factory = sqlite3.Row
+                _init_db(_conn)
+            try:
+                yield _conn
+            except BaseException:
+                _conn.rollback()
+                raise
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
@@ -113,16 +109,15 @@ def save_session(
     session_id: str | None = None,
 ) -> dict[str, Any]:
     """Save a conversation transcript. Returns the session record."""
-    conn = _get_conn()
-    sid = session_id or str(uuid.uuid4())
-    now = datetime.now(UTC).isoformat()
+    with _get_conn() as conn:
+        sid = session_id or str(uuid.uuid4())
+        now = datetime.now(UTC).isoformat()
 
-    timestamps: list[float] = [m["timestamp"] for m in messages if m.get("timestamp") is not None]
-    started_at = datetime.fromtimestamp(min(timestamps) / 1000, tz=UTC).isoformat() if timestamps else now
+        timestamps: list[float] = [m["timestamp"] for m in messages if m.get("timestamp") is not None]
+        started_at = datetime.fromtimestamp(min(timestamps) / 1000, tz=UTC).isoformat() if timestamps else now
 
-    transcript_json = json.dumps(messages, default=str)
+        transcript_json = json.dumps(messages, default=str)
 
-    with _lock:
         conn.execute(
             """
             INSERT INTO conversation_sessions
@@ -157,8 +152,7 @@ def update_summary(
     key_topics: list[str] | None = None,
 ) -> bool:
     """Attach a summary to a session. Returns True if session exists."""
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             """
             UPDATE conversation_sessions
@@ -180,57 +174,62 @@ def update_summary(
 
 def list_sessions(limit: int = 20) -> list[dict[str, Any]]:
     """List recent sessions (without full transcripts)."""
-    conn = _get_conn()
-    with _lock:
-        rows = conn.execute(
-            """
-            SELECT session_id, started_at, ended_at, message_count,
-                   key_tickers, key_topics, summary,
-                   title, title_source, title_updated_at
-            FROM conversation_sessions
-            ORDER BY ended_at DESC
-            LIMIT ?
-            """,
-            (limit,),
-        ).fetchall()
-    return [_row_to_dict(r) for r in rows]
+
+    def _read() -> list[dict[str, Any]]:
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT session_id, started_at, ended_at, message_count,
+                       key_tickers, key_topics, summary,
+                       title, title_source, title_updated_at
+                FROM conversation_sessions
+                ORDER BY ended_at DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+            return [_row_to_dict(r) for r in rows]
+
+    return retry_read(_read)
 
 
 def get_session(session_id: str) -> dict[str, Any] | None:
     """Load a full session including transcript."""
-    conn = _get_conn()
-    with _lock:
-        row = conn.execute(
-            """
-                SELECT session_id, started_at, ended_at, message_count,
-                   key_tickers, key_topics, summary,
-                   title, title_source, title_updated_at,
-                   transcript, server_messages
-            FROM conversation_sessions
-            WHERE session_id = ?
-            """,
-            (session_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    result = _row_to_dict(row)
-    try:
-        result["transcript"] = json.loads(row["transcript"])
-    except Exception:
-        result["transcript"] = []
-    if not result["transcript"]:
-        try:
-            result["transcript"] = json.loads(row["server_messages"]) if row["server_messages"] else []
-        except Exception:
-            result["transcript"] = []
-    result.pop("server_messages", None)
-    return result
+
+    def _read() -> dict[str, Any] | None:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                """
+                    SELECT session_id, started_at, ended_at, message_count,
+                       key_tickers, key_topics, summary,
+                       title, title_source, title_updated_at,
+                       transcript, server_messages
+                FROM conversation_sessions
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            result = _row_to_dict(row)
+            try:
+                result["transcript"] = json.loads(row["transcript"])
+            except Exception:
+                result["transcript"] = []
+            if not result["transcript"]:
+                try:
+                    result["transcript"] = json.loads(row["server_messages"]) if row["server_messages"] else []
+                except Exception:
+                    result["transcript"] = []
+            result.pop("server_messages", None)
+            return result
+
+    return retry_read(_read)
 
 
 def delete_session(session_id: str) -> bool:
     """Delete a session. Returns True if it existed."""
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             "DELETE FROM conversation_sessions WHERE session_id = ?",
             (session_id,),
@@ -248,30 +247,33 @@ def get_recent_summaries(
     If *tickers* is provided, prefer sessions mentioning those tickers,
     but still fall back to the most recent if none match.
     """
-    conn = _get_conn()
-    with _lock:
-        rows = conn.execute(
-            """
-            SELECT session_id, started_at, ended_at, message_count,
-                   key_tickers, key_topics, summary,
-                   title, title_source, title_updated_at
-            FROM conversation_sessions
-            WHERE summary IS NOT NULL AND summary != ''
-            ORDER BY ended_at DESC
-            LIMIT ?
-            """,
-            (limit * 3,),
-        ).fetchall()
 
-    results = [_row_to_dict(r) for r in rows]
+    def _read() -> list[dict[str, Any]]:
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(
+                """
+                SELECT session_id, started_at, ended_at, message_count,
+                       key_tickers, key_topics, summary,
+                       title, title_source, title_updated_at
+                FROM conversation_sessions
+                WHERE summary IS NOT NULL AND summary != ''
+                ORDER BY ended_at DESC
+                LIMIT ?
+                """,
+                (limit * 3,),
+            ).fetchall()
 
-    if tickers:
-        upper = {t.upper() for t in tickers}
-        relevant = [r for r in results if _tickers_overlap(r.get("key_tickers"), upper)]
-        if relevant:
-            return relevant[:limit]
+            results = [_row_to_dict(r) for r in rows]
 
-    return results[:limit]
+            if tickers:
+                upper = {t.upper() for t in tickers}
+                relevant = [r for r in results if _tickers_overlap(r.get("key_tickers"), upper)]
+                if relevant:
+                    return relevant[:limit]
+
+            return results[:limit]
+
+    return retry_read(_read)
 
 
 # ---------------------------------------------------------------------------
@@ -285,21 +287,25 @@ def get_or_create_session(session_id: str | None = None) -> dict[str, Any]:
     Returns a dict with parsed ``server_messages`` (list) and
     ``rolling_summary`` (str | None).
     """
-    conn = _get_conn()
     sid = session_id or str(uuid.uuid4())
 
     if session_id:
-        with _lock:
-            row = conn.execute(
-                """
-                SELECT session_id, started_at, ended_at, message_count,
-                       rolling_summary, server_messages, transcript,
-                       title, title_source, title_updated_at
-                FROM conversation_sessions
-                WHERE session_id = ?
-                """,
-                (sid,),
-            ).fetchone()
+
+        def _read():
+            with _get_conn(read_only=True) as conn:
+                row = conn.execute(
+                    """
+                    SELECT session_id, started_at, ended_at, message_count,
+                           rolling_summary, server_messages, transcript,
+                           title, title_source, title_updated_at
+                    FROM conversation_sessions
+                    WHERE session_id = ?
+                    """,
+                    (sid,),
+                ).fetchone()
+            return row
+
+        row = retry_read(_read)
         if row is not None:
             try:
                 msgs = json.loads(row["server_messages"]) if row["server_messages"] else []
@@ -323,7 +329,7 @@ def get_or_create_session(session_id: str | None = None) -> dict[str, Any]:
 
     # Create a new session
     now = datetime.now(UTC).isoformat()
-    with _lock:
+    with _get_conn() as conn:
         conn.execute(
             """
             INSERT OR IGNORE INTO conversation_sessions
@@ -385,13 +391,16 @@ def turn_exists(session_id: str, client_turn_id: str) -> bool:
     """Return True if any message in the session carries this client_turn_id."""
     if not client_turn_id:
         return False
-    conn = _get_conn()
-    with _lock:
-        try:
-            messages = _load_session_messages(conn, session_id)
-        except ValueError:
-            return False
-    return any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
+
+    def _read() -> bool:
+        with _get_conn(read_only=True) as conn:
+            try:
+                messages = _load_session_messages(conn, session_id)
+            except ValueError:
+                return False
+            return any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
+
+    return retry_read(_read)
 
 
 def begin_turn(
@@ -401,8 +410,7 @@ def begin_turn(
 ) -> int:
     """Append user + streaming assistant for a turn. Idempotent per client_turn_id."""
     client_turn_id = str(user_message.get("client_turn_id") or assistant_placeholder.get("client_turn_id") or "")
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         messages = _load_session_messages(conn, session_id)
         if client_turn_id and any(str(m.get("client_turn_id")) == client_turn_id for m in messages):
             return len(messages)
@@ -410,7 +418,7 @@ def begin_turn(
         messages.append(assistant_placeholder)
         total = _save_session_messages(conn, session_id, messages)
         conn.commit()
-    return total
+        return total
 
 
 def update_assistant_message(
@@ -421,8 +429,7 @@ def update_assistant_message(
     """Patch the assistant message for a turn. Returns True if updated."""
     if not client_turn_id:
         return False
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         try:
             messages = _load_session_messages(conn, session_id)
         except ValueError:
@@ -441,7 +448,7 @@ def update_assistant_message(
             return False
         _save_session_messages(conn, session_id, messages)
         conn.commit()
-    return True
+        return True
 
 
 def complete_turn_messages(
@@ -453,8 +460,7 @@ def complete_turn_messages(
     """Finalize an incremental turn in place. Idempotent if already complete."""
     if not client_turn_id:
         return append_messages(session_id, [user_message, assistant_message])
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         messages = _load_session_messages(conn, session_id)
         found_turn = any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
         if not found_turn:
@@ -480,7 +486,7 @@ def complete_turn_messages(
             new_messages.append(assistant_message)
         total = _save_session_messages(conn, session_id, new_messages)
         conn.commit()
-    return total
+        return total
 
 
 def fail_turn(
@@ -499,10 +505,9 @@ def fail_turn(
 
 def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:
     """Append messages to a session's server_messages. Returns new total count."""
-    conn = _get_conn()
-    now = datetime.now(UTC).isoformat()
-    turn_ids = {str(m.get("client_turn_id")) for m in messages if m.get("client_turn_id")}
-    with _lock:
+    with _get_conn() as conn:
+        now = datetime.now(UTC).isoformat()
+        turn_ids = {str(m.get("client_turn_id")) for m in messages if m.get("client_turn_id")}
         row = conn.execute(
             "SELECT server_messages, transcript FROM conversation_sessions WHERE session_id = ?",
             (session_id,),
@@ -530,13 +535,12 @@ def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:
             (json.dumps(existing, default=str), json.dumps(existing, default=str), len(existing), now, session_id),
         )
         conn.commit()
-    return len(existing)
+        return len(existing)
 
 
 def update_rolling_summary(session_id: str, summary: str) -> bool:
     """Update the rolling summary for a session. Returns True if session exists."""
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             "UPDATE conversation_sessions SET rolling_summary = ? WHERE session_id = ?",
             (summary, session_id),
@@ -589,8 +593,7 @@ def set_deterministic_title_if_missing(session_id: str, first_user_message: str 
     if not title:
         return False
     now = datetime.now(UTC).isoformat()
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             """
             UPDATE conversation_sessions
@@ -610,8 +613,7 @@ def set_deterministic_title_if_missing(session_id: str, first_user_message: str 
 def update_generated_title(session_id: str, title: str) -> bool:
     normalized = normalize_session_title(title)
     now = datetime.now(UTC).isoformat()
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             """
             UPDATE conversation_sessions
@@ -630,8 +632,7 @@ def update_generated_title(session_id: str, title: str) -> bool:
 def rename_session(session_id: str, title: str) -> dict[str, Any] | None:
     normalized = normalize_session_title(title)
     now = datetime.now(UTC).isoformat()
-    conn = _get_conn()
-    with _lock:
+    with _get_conn() as conn:
         cur = conn.execute(
             """
             UPDATE conversation_sessions
@@ -649,37 +650,41 @@ def rename_session(session_id: str, title: str) -> dict[str, Any] | None:
 
 
 def get_session_summary(session_id: str) -> dict[str, Any] | None:
-    conn = _get_conn()
-    with _lock:
-        row = conn.execute(
-            """
-            SELECT session_id, started_at, ended_at, message_count,
-                   key_tickers, key_topics, summary,
-                   title, title_source, title_updated_at
-            FROM conversation_sessions
-            WHERE session_id = ?
-            """,
-            (session_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    return _row_to_dict(row)
+    def _read() -> dict[str, Any] | None:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT session_id, started_at, ended_at, message_count,
+                       key_tickers, key_topics, summary,
+                       title, title_source, title_updated_at
+                FROM conversation_sessions
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return _row_to_dict(row)
+
+    return retry_read(_read)
 
 
 def get_session_title_metadata(session_id: str) -> dict[str, Any] | None:
-    conn = _get_conn()
-    with _lock:
-        row = conn.execute(
-            """
-            SELECT session_id, title, title_source, title_updated_at
-            FROM conversation_sessions
-            WHERE session_id = ?
-            """,
-            (session_id,),
-        ).fetchone()
-    if row is None:
-        return None
-    return cast(dict[str, Any], dict(row))
+    def _read() -> dict[str, Any] | None:
+        with _get_conn(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT session_id, title, title_source, title_updated_at
+                FROM conversation_sessions
+                WHERE session_id = ?
+                """,
+                (session_id,),
+            ).fetchone()
+            if row is None:
+                return None
+            return cast(dict[str, Any], dict(row))
+
+    return retry_read(_read)
 
 
 # ---------------------------------------------------------------------------

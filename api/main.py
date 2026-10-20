@@ -530,10 +530,13 @@ def _detailed_health_response() -> JSONResponse:
 
     # Check ontology/Postgres connectivity
     try:
-        from api.postgres import connect
+        from api.postgres import connect, retry_read
 
-        with connect() as conn:
-            conn.execute("SELECT 1")
+        def _read() -> None:
+            with connect(read_only=True) as conn:
+                conn.execute("SELECT 1")
+
+        retry_read(_read)
         checks["postgres"] = "ok"
     except Exception:
         logger.warning("postgres health check failed", exc_info=True)
