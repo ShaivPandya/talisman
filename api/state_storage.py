@@ -7,11 +7,18 @@ Storage and refuses to fall back to project-local writes.
 from __future__ import annotations
 
 import os
+import threading
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from api.local_write_guard import assert_project_write_allowed
+
+if TYPE_CHECKING:
+    from google.cloud.storage import Client
+
+_client: Client | None = None
+_client_lock = threading.Lock()
 
 
 class StateStorageConfigError(RuntimeError):
@@ -33,11 +40,18 @@ def _bucket_name() -> str:
 
 
 def _bucket():
-    try:
-        from google.cloud import storage
-    except ImportError as exc:
-        raise StateStorageConfigError("google-cloud-storage is required for GCS state storage.") from exc
-    return storage.Client().bucket(_bucket_name())
+    global _client
+    bucket_name = _bucket_name()
+    if _client is None:
+        with _client_lock:
+            if _client is None:
+                try:
+                    from google.cloud import storage
+                except ImportError as exc:
+                    raise StateStorageConfigError("google-cloud-storage is required for GCS state storage.") from exc
+                # Initialize only on the GCS path, and leave failures retryable.
+                _client = storage.Client()
+    return _client.bucket(bucket_name)
 
 
 def _gs_uri(key: str) -> str:

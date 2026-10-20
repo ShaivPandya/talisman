@@ -6,9 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, cast
 
-from cachetools import TTLCache
-
-from api.cache import get_or_set_cached
+from api.cache import ApiCache, get_or_set_cached
 from api.exceptions import DataFetchError
 from api.snapshot_keys import (
     SNAPSHOT_ECONOMIC_GROWTH,
@@ -71,7 +69,7 @@ def _load_and_write_snapshot(
 def get_snapshot_backed_response(
     *,
     snapshot_key: str,
-    cache: TTLCache,
+    cache: ApiCache,
     cache_key: str,
     source: str,
     load_payload: Callable[[], dict[str, Any]],

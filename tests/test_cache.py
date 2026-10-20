@@ -7,17 +7,28 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 import pytest
-from cachetools import TTLCache
+
+from api.cache import ApiCache
 
 
-def _memory_only_cache(monkeypatch) -> TTLCache:
+@pytest.fixture(autouse=True)
+def _isolated_storage(monkeypatch, tmp_path):
+    from api import cache, state_storage
+
+    monkeypatch.setattr(cache, "_DISK_CACHE_ROOT", tmp_path)
+    monkeypatch.setattr(cache, "_DISK_CACHE_ENABLED", True)
+    monkeypatch.setattr(cache, "_invalidate_downstream_caches", lambda: None)
+    monkeypatch.setattr(state_storage, "use_gcs_state", lambda: False)
+
+
+def _memory_only_cache(monkeypatch) -> ApiCache:
     import api.cache as cache_mod
 
     monkeypatch.setattr(cache_mod, "_DISK_CACHE_ENABLED", False)
-    return TTLCache(maxsize=16, ttl=60)
+    return ApiCache(maxsize=16, ttl=60)
 
 
-def _fake_gcs_cache(monkeypatch, *, ttl: int = 60) -> tuple[TTLCache, dict[str, str]]:
+def _fake_gcs_cache(monkeypatch, *, ttl: int = 60) -> tuple[ApiCache, dict[str, str]]:
     import api.cache as cache_mod
     from api import state_storage
 
@@ -48,7 +59,7 @@ def _fake_gcs_cache(monkeypatch, *, ttl: int = 60) -> tuple[TTLCache, dict[str, 
     monkeypatch.setattr(state_storage, "delete_file", delete_file)
     monkeypatch.setattr(state_storage, "list_keys", lambda prefix: sorted(k for k in store if k.startswith(prefix)))
     monkeypatch.setattr(state_storage, "object_updated", lambda _local_path, gcs_key: updated.get(gcs_key))
-    return TTLCache(maxsize=16, ttl=ttl), store
+    return ApiCache(maxsize=16, ttl=ttl), store
 
 
 def test_set_and_get_cached():
