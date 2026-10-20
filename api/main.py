@@ -9,6 +9,7 @@ import hmac
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -25,6 +26,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from api.audit import emit_audit_event
 from api.exceptions import AppError, DataFetchError
 from api.logging_config import configure_logging, generate_request_id, request_id_var
+from api.performance import PerformanceMiddleware
 from api.request_limits import MULTIPART_FORM_DATA_OVERHEAD_BYTES, BodySizeLimitMiddleware
 from api.request_schema import (
     collect_api_request_schema_definitions,
@@ -136,10 +138,28 @@ for module_path, name, tag in _OPTIONAL_MODULES:
     router, healthy = safe_import_router(module_path)
     _optional_routers[name] = (router, tag, healthy)
 
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = FastAPI(
+class PerformanceFastAPI(FastAPI):
+    def build_middleware_stack(self):
+        # Include ServerErrorMiddleware so even generated 500 replies get timing.
+        return PerformanceMiddleware(super().build_middleware_stack())
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    try:
+        yield
+    finally:
+        from api.postgres import close_pools
+
+        close_pools()
+
+
+app = PerformanceFastAPI(
+    lifespan=_lifespan,
     title="Talisman API",
     description="REST API for portfolio analytics, market data, and macro indicators",
     version="1.0.0",
@@ -258,7 +278,7 @@ def _is_production_runtime() -> bool:
 @app.middleware("http")
 async def _request_id_middleware(request: Request, call_next):
     """Assign a correlation ID to every request."""
-    rid = request.headers.get("x-request-id") or generate_request_id()
+    rid = request_id_var.get("") or request.headers.get("x-request-id") or generate_request_id()
     request_id_var.set(rid)
     set_request_context(request_id=rid, method=request.method, path=request.url.path)
     response = await call_next(request)
@@ -285,23 +305,6 @@ async def _security_headers_middleware(request: Request, call_next):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     if "x-frame-options" not in response.headers:
         response.headers["X-Frame-Options"] = "DENY"
-    return response
-
-
-@app.middleware("http")
-async def _request_timing_middleware(request: Request, call_next):
-    """Log request duration for every API call."""
-    start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = round((time.perf_counter() - start) * 1000, 1)
-    if request.url.path.startswith("/api/"):
-        logger.info(
-            "%s %s -> %s (%.1fms)",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-        )
     return response
 
 
@@ -418,6 +421,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Server-Timing", "X-Request-Id"],
 )
 
 # ---------------------------------------------------------------------------

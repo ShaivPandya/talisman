@@ -1,4 +1,6 @@
 import * as Sentry from "@sentry/react"
+import { useEffect } from "react"
+import { createRoutesFromChildren, matchRoutes, useLocation, useNavigationType } from "react-router-dom"
 
 const DROP_KEYS = new Set([
   "authorization",
@@ -101,6 +103,14 @@ function scrubEvent(event: Sentry.ErrorEvent): Sentry.ErrorEvent | null {
 }
 
 function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrumb | null {
+  if (breadcrumb.category === "navigation" && breadcrumb.data) {
+    return {
+      ...breadcrumb,
+      data: Object.fromEntries(Object.entries(breadcrumb.data).map(([key, value]) =>
+        [key, typeof value === "string" ? stripQuery(value) : value],
+      )),
+    }
+  }
   if (breadcrumb.category === "xhr" || breadcrumb.category === "fetch") {
     return {
       ...breadcrumb,
@@ -116,6 +126,24 @@ function scrubBreadcrumb(breadcrumb: Sentry.Breadcrumb): Sentry.Breadcrumb | nul
     }
   }
   return breadcrumb
+}
+
+function scrubPerformanceSpan<T extends { op?: string; description?: string; data?: Record<string, unknown> }>(span: T): T {
+  let description = span.description
+  if (span.op?.startsWith("ui")) description = span.op
+  else if (description && (span.op?.startsWith("http") || span.op?.startsWith("resource") || /^https?:\/\//.test(description))) {
+    const prefix = description.match(/^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) /)?.[0] ?? ""
+    description = prefix + stripQuery(description.slice(prefix.length))
+  }
+  return {
+    ...span,
+    description,
+    data: span.data ? Object.fromEntries(Object.entries(span.data).filter(([key, value]) =>
+      typeof value === "number" || typeof value === "boolean"
+      || ["sentry.origin", "sentry.op", "sentry.source", "http.request.method", "release", "environment",
+        "transaction", "user_agent.original", "sentry.pageload.span_id", "sentry.report_event"].includes(key),
+    )) : undefined,
+  }
 }
 
 export function sentryFrontendEnabled(): boolean {
@@ -143,8 +171,28 @@ export function initFrontendObservability(): void {
     sendDefaultPii: false,
     tracesSampleRate: envFloat("VITE_SENTRY_TRACES_SAMPLE_RATE", 0.05),
     beforeSend: scrubEvent,
+    beforeSendTransaction: event => ({
+      ...event,
+      request: event.request ? { url: event.request.url ? stripQuery(event.request.url) : undefined } : undefined,
+      extra: event.extra ? scrubValue(event.extra) as Record<string, unknown> : undefined,
+      // Performance context includes DOM/resource details; retain metric values,
+      // not content or arbitrary application contexts.
+      contexts: event.contexts?.trace ? { trace: scrubPerformanceSpan(event.contexts.trace) } : undefined,
+      spans: event.spans?.map(scrubPerformanceSpan),
+    }),
+    beforeSendSpan: scrubPerformanceSpan,
     beforeBreadcrumb: scrubBreadcrumb,
-    integrations: [Sentry.browserTracingIntegration()],
+    integrations: [Sentry.reactRouterV7BrowserTracingIntegration({
+      useEffect,
+      useLocation,
+      useNavigationType,
+      createRoutesFromChildren,
+      matchRoutes,
+      enableInp: true,
+      // Keep LCP on pageload. SDK 9's lifecycle hooks conflict when both
+      // standalone vital observers are enabled. Standalone CLS retains zeroes.
+      _experiments: { enableStandaloneClsSpans: true },
+    })],
   })
 }
 

@@ -1,0 +1,608 @@
+{
+  "displayName": "Talisman performance baselines (TL-179)",
+  "dashboardFilters": [
+    {
+      "stringValue": ".*",
+      "templateVariable": "release",
+      "valueType": "STRING",
+      "filterType": "VALUE_ONLY"
+    }
+  ],
+  "gridLayout": {
+    "columns": 2,
+    "widgets": [
+      {
+        "title": "Collection contract",
+        "text": {
+          "format": "MARKDOWN",
+          "content": "TL-179 baseline: rolling **72 hours**, normal traffic, one instrumentation release, no Tier 1 deployment during collection. Pick a release regex above (default all). Tables rank endpoints by request volume; missing/unsupported browser metrics remain absent, not zero. Latency percentiles use merged histogram buckets, not averages of per-instance percentiles.\n\n[Browser Web Vitals](https://__SENTRY_ORG__.sentry.io/insights/browser/?project=__SENTRY_PROJECT_ID__) \u00b7 [Sentry traces](https://__SENTRY_ORG__.sentry.io/traces/?project=__SENTRY_PROJECT_ID__)\n\nSelect the same release and 72-hour window in Sentry. Inspect p50/p95 LCP, INP, CLS and navigation duration with sample counts. For pool sizing, checkout includes validation; usage deltas and request-wait deltas are separate. Process cold start includes idle time until the first API reply; platform startup latency is shown separately."
+        }
+      },
+      {
+        "title": "Top 20 endpoints \u2014 request count, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "topk(20, sum by (route, method) (increase(logging_googleapis_com:user_talisman_api_duration_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\",route!=\"/api/health\",route!=\"<unmatched>\"}[72h])))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Top 20 endpoints \u2014 p50 duration (ms), 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.5, sum by (le, route, method) (rate(logging_googleapis_com:user_talisman_api_duration_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))) and on (route, method) topk(20, sum by (route, method) (increase(logging_googleapis_com:user_talisman_api_duration_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\",route!=\"/api/health\",route!=\"<unmatched>\"}[72h])))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Top 20 endpoints \u2014 p95 duration (ms), 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.95, sum by (le, route, method) (rate(logging_googleapis_com:user_talisman_api_duration_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))) and on (route, method) topk(20, sum by (route, method) (increase(logging_googleapis_com:user_talisman_api_duration_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\",route!=\"/api/health\",route!=\"<unmatched>\"}[72h])))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Chat TTFT \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_ttft_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_ttft_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Chat TTFT \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_chat_ttft_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Chat turn duration \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_duration_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_duration_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Chat turn duration \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_chat_duration_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Continuation round duration \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_round_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_round_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Continuation round duration \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_chat_round_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Continuation round TTFT \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_round_ttft_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_round_ttft_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Continuation round TTFT \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_chat_round_ttft_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Chat queue delay \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_queue_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_chat_queue_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Chat queue delay \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_chat_queue_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Pool checkout (queue + validation) \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_pool_checkout_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_pool_checkout_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Pool checkout (queue + validation) \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_pool_checkout_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Process entrypoint to first response \u2014 p50 / p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "label_replace(histogram_quantile(0.5, sum by (le) (rate(logging_googleapis_com:user_talisman_cold_start_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p50\", \"\", \"\") or label_replace(histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_cold_start_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))), \"percentile\", \"p95\", \"\", \"\")"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Process entrypoint to first response \u2014 samples, 72h",
+        "timeSeriesTable": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(increase(logging_googleapis_com:user_talisman_cold_start_ms_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h]))",
+                "outputFullDuration": true
+              },
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "metricVisualization": "NUMBER"
+        }
+      },
+      {
+        "title": "Waiting requests \u2014 snapshot mean per component/pool, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_requests_waiting_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m])) / sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_requests_waiting_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "connections",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Pool size \u2014 snapshot mean per component/pool, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_pool_size_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m])) / sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_pool_size_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "connections",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Idle pool connections \u2014 snapshot mean per component/pool, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_pool_available_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m])) / sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_pool_available_count{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "connections",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Pool connection attempts \u2014 interval deltas, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_connections_num_delta_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "attempts/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Pool occupied connection equivalents \u2014 usage delta, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_usage_ms_delta_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m])) / 1000"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "connections",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Pool aggregate queued wait \u2014 interval delta, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum by (component, pool) (rate(logging_googleapis_com:user_talisman_pool_requests_wait_ms_delta_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "api db ms \u2014 p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_api_db_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h])))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "api cache ms \u2014 p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_api_cache_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h])))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "api storage ms \u2014 p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(logging_googleapis_com:user_talisman_api_storage_ms_bucket{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[72h])))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "cache hit \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_cache_hit_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "cache miss \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_cache_miss_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "cache memory hit \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_cache_memory_hit_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "cache disk hit \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_cache_disk_hit_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "cache gcs hit \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_cache_gcs_hit_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "storage disk reads \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_storage_disk_reads_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "storage gcs reads \u2014 operations, 5m",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "sum(rate(logging_googleapis_com:user_talisman_storage_gcs_reads_sum{monitored_resource=~\"cloud_run_.*\",environment=\"production\",release=~\"${release}\"}[5m]))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "operations/s",
+            "scale": "LINEAR"
+          }
+        }
+      },
+      {
+        "title": "Cloud Run platform startup \u2014 p95, 72h",
+        "xyChart": {
+          "dataSets": [
+            {
+              "timeSeriesQuery": {
+                "prometheusQuery": "histogram_quantile(0.95, sum by (le) (rate(run_googleapis_com:container_startup_latencies_bucket{monitored_resource=\"cloud_run_revision\",service_name=\"__API_SERVICE__\"}[72h])))"
+              },
+              "plotType": "LINE",
+              "minAlignmentPeriod": "60s"
+            }
+          ],
+          "yAxis": {
+            "label": "ms",
+            "scale": "LINEAR"
+          }
+        }
+      }
+    ]
+  },
+  "labels": {
+    "talisman_issue": "tl-179"
+  }
+}

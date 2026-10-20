@@ -1,11 +1,9 @@
+import './instrumentation'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.tsx'
 import { reloadOnceForStaleAssetLoad } from '@/lib/chunkRecovery'
-import { initFrontendObservability } from '@/lib/observability'
-
-initFrontendObservability()
 
 type VitePreloadErrorEvent = Event & { payload?: unknown }
 

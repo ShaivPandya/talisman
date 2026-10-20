@@ -6,7 +6,7 @@ import hashlib
 import json
 import logging
 import time
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from concurrent.futures import Future, as_completed
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -39,6 +39,7 @@ from api.company_research_evidence import (
     validate_sources,
 )
 from api.company_research_provider import ResearchProvider, ResearchTruncated
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from ontology.policy import actor_from_dict
 
 logger = logging.getLogger(__name__)

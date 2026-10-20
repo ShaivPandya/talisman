@@ -15,13 +15,13 @@ import json
 import logging
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
 from api.agent_tools import execute_tool
 from api.audit import emit_audit_event
 from api.observability import capture_exception, capture_message
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from ontology.action_registry import get_tool_exposure
 from ontology.object_service import OntologyObjectService, object_uid_for
 from ontology.policy import Actor, admin_actor

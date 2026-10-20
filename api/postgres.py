@@ -9,6 +9,9 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from api.performance_pool import observe_checkout, stop_pool_sampler
+from api.performance_postgres import timing_cursor_class
+
 _FALSE_VALUES = {"0", "false", "no", "off", "disabled"}
 _TRUE_VALUES = {"1", "true", "yes", "on", "enabled"}
 _POOLS: dict[str, Any] = {}
@@ -94,7 +97,7 @@ def _new_direct_connection(env_var: str = "DATABASE_URL", *, register_pgvector: 
     except ImportError as exc:
         raise RuntimeError("psycopg is required for Postgres-backed state.") from exc
 
-    conn = psycopg.connect(require_database_url(env_var), row_factory=dict_row)
+    conn = psycopg.connect(require_database_url(env_var), row_factory=dict_row, cursor_factory=timing_cursor_class())
     if register_pgvector:
         try:
             from pgvector.psycopg import register_vector
@@ -132,7 +135,7 @@ def _new_pool(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False)
         raise ValueError("POSTGRES_POOL_MIN_SIZE must not exceed POSTGRES_POOL_MAX_SIZE.")
     return ConnectionPool(
         conninfo=require_database_url(env_var),
-        kwargs={"row_factory": dict_row},
+        kwargs={"row_factory": dict_row, "cursor_factory": timing_cursor_class()},
         min_size=min_size,
         max_size=max_size,
         timeout=_pool_timeout(),
@@ -157,6 +160,7 @@ def _get_pool(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False)
 
 def close_pools() -> None:
     """Close process-local Postgres pools. Intended for tests and shutdown hooks."""
+    stop_pool_sampler()
     with _POOLS_LOCK:
         pools = list(_POOLS.values())
         _POOLS.clear()
@@ -178,7 +182,8 @@ def connect(
     from psycopg import OperationalError
 
     pool = _get_pool(env_var, register_pgvector=register_pgvector)
-    conn = pool.getconn(timeout=_pool_timeout())
+    with observe_checkout(pool):
+        conn = pool.getconn(timeout=_pool_timeout())
     try:
         conn.autocommit = read_only
         yield conn

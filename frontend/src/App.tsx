@@ -7,7 +7,9 @@ import { PersonalizationProvider } from "@/contexts/PersonalizationContext"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { Layout } from "@/components/layout/Layout"
 import { isChunkLoadError, maybeReloadForChunkLoadError } from "@/lib/chunkRecovery"
-import { captureRouteError } from "@/lib/observability"
+import { captureRouteError, sentryFrontendEnabled, Sentry } from "@/lib/observability"
+
+const SentryRoutes = sentryFrontendEnabled() ? Sentry.withSentryReactRouterV7Routing(Routes) : Routes
 
 const PAGE_LOAD_RETRY_DELAYS_MS = [300, 1_000, 2_000] as const
 
@@ -184,14 +186,14 @@ function AppRoutes() {
   return (
     <RouteLoadBoundary>
       <Suspense fallback={<RouteLoading />}>
-        <Routes>
+        <SentryRoutes>
           {/* Public */}
           <Route path="/login" element={<LoginRoute />} />
 
           {/* Protected — all existing routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
-              <Route index element={<PortfolioDashboard />} />
+              <Route path="/" element={<PortfolioDashboard />} />
               <Route path="/portfolio/edit" element={<PortfolioEditorPage />} />
               <Route path="/risk" element={<PortfolioRisk />} />
               <Route path="/portfolio" element={<Navigate to="/" replace />} />
@@ -242,7 +244,7 @@ function AppRoutes() {
               <Route path="/settings/personalization" element={<PersonalizationSettings />} />
             </Route>
           </Route>
-        </Routes>
+        </SentryRoutes>
       </Suspense>
     </RouteLoadBoundary>
   )

@@ -1,0 +1,2129 @@
+[
+  {
+    "name": "talisman_api_duration_ms",
+    "description": "api duration ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_api_headers_ms",
+    "description": "api headers ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.headers_ms:* AND jsonPayload.headers_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.headers_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_api_db_ms",
+    "description": "api db ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.db_ms:* AND jsonPayload.db_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.db_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_api_cache_ms",
+    "description": "api cache ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_ms:* AND jsonPayload.cache_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_api_storage_ms",
+    "description": "api storage ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.storage_ms:* AND jsonPayload.storage_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.storage_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_ttft_ms",
+    "description": "chat ttft ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_turn\" AND jsonPayload.first_token_ms:* AND jsonPayload.first_token_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.first_token_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_duration_ms",
+    "description": "chat duration ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_turn\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_round_ms",
+    "description": "chat round ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_round\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_round_ttft_ms",
+    "description": "chat round ttft ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_round\" AND jsonPayload.first_token_ms:* AND jsonPayload.first_token_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.first_token_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_queue_ms",
+    "description": "chat queue ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_queue\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_chat_model_ms",
+    "description": "chat model ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"chat_model\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_checkout_ms",
+    "description": "pool checkout ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_checkout\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cold_start_ms",
+    "description": "cold start ms",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"cold_start\" AND jsonPayload.duration_ms:* AND jsonPayload.duration_ms>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.duration_ms)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cache_hit",
+    "description": "cache hit",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_hit:* AND jsonPayload.cache_hit>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_hit)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cache_miss",
+    "description": "cache miss",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_miss:* AND jsonPayload.cache_miss>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_miss)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cache_memory_hit",
+    "description": "cache memory hit",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_memory_hit:* AND jsonPayload.cache_memory_hit>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_memory_hit)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cache_disk_hit",
+    "description": "cache disk hit",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_disk_hit:* AND jsonPayload.cache_disk_hit>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_disk_hit)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_cache_gcs_hit",
+    "description": "cache gcs hit",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.cache_gcs_hit:* AND jsonPayload.cache_gcs_hit>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.cache_gcs_hit)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_storage_disk_reads",
+    "description": "storage disk reads",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.storage_disk_reads:* AND jsonPayload.storage_disk_reads>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.storage_disk_reads)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_storage_gcs_reads",
+    "description": "storage gcs reads",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"api_request\" AND jsonPayload.storage_gcs_reads:* AND jsonPayload.storage_gcs_reads>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.storage_gcs_reads)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_requests_waiting",
+    "description": "pool requests waiting",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.requests_waiting:* AND jsonPayload.requests_waiting>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.requests_waiting)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_pool_size",
+    "description": "pool pool size",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.pool_size:* AND jsonPayload.pool_size>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.pool_size)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_pool_available",
+    "description": "pool pool available",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.pool_available:* AND jsonPayload.pool_available>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.pool_available)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_usage_ms_delta",
+    "description": "pool usage ms delta",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.usage_ms_delta:* AND jsonPayload.usage_ms_delta>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.usage_ms_delta)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_requests_wait_ms_delta",
+    "description": "pool requests wait ms delta",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.requests_wait_ms_delta:* AND jsonPayload.requests_wait_ms_delta>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.requests_wait_ms_delta)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "ms",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          0.1,
+          0.25,
+          0.5,
+          1,
+          2,
+          3,
+          4,
+          5,
+          7.5,
+          10,
+          20,
+          50,
+          100,
+          200,
+          500,
+          1000,
+          2000,
+          5000,
+          10000,
+          30000,
+          60000,
+          120000,
+          300000,
+          600000,
+          1800000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_connections_num_delta",
+    "description": "pool connections num delta",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.connections_num_delta:* AND jsonPayload.connections_num_delta>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.connections_num_delta)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_requests_num_delta",
+    "description": "pool requests num delta",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.requests_num_delta:* AND jsonPayload.requests_num_delta>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.requests_num_delta)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  },
+  {
+    "name": "talisman_pool_requests_errors_delta",
+    "description": "pool requests errors delta",
+    "filter": "resource.type=~\"^cloud_run_\" AND jsonPayload.event=\"pool_stats\" AND jsonPayload.requests_errors_delta:* AND jsonPayload.requests_errors_delta>=0",
+    "valueExtractor": "EXTRACT(jsonPayload.requests_errors_delta)",
+    "metricDescriptor": {
+      "metricKind": "DELTA",
+      "valueType": "DISTRIBUTION",
+      "unit": "1",
+      "labels": [
+        {
+          "key": "environment",
+          "valueType": "STRING"
+        },
+        {
+          "key": "release",
+          "valueType": "STRING"
+        },
+        {
+          "key": "route",
+          "valueType": "STRING"
+        },
+        {
+          "key": "method",
+          "valueType": "STRING"
+        },
+        {
+          "key": "outcome",
+          "valueType": "STRING"
+        },
+        {
+          "key": "pool",
+          "valueType": "STRING"
+        },
+        {
+          "key": "component",
+          "valueType": "STRING"
+        }
+      ]
+    },
+    "labelExtractors": {
+      "environment": "EXTRACT(jsonPayload.environment)",
+      "release": "EXTRACT(jsonPayload.release)",
+      "route": "EXTRACT(jsonPayload.route)",
+      "method": "EXTRACT(jsonPayload.method)",
+      "outcome": "EXTRACT(jsonPayload.outcome)",
+      "pool": "EXTRACT(jsonPayload.pool)",
+      "component": "EXTRACT(jsonPayload.component)"
+    },
+    "bucketOptions": {
+      "explicitBuckets": {
+        "bounds": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16,
+          32,
+          64,
+          128,
+          256,
+          512,
+          1024,
+          10000
+        ]
+      }
+    }
+  }
+]

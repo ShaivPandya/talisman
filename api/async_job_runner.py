@@ -33,6 +33,7 @@ from api.job_registry import (
     parse_request,
 )
 from api.observability import capture_exception, init_sentry
+from api.performance_chat import record_queue_delay
 
 logger = logging.getLogger("api.async_job_runner")
 
@@ -353,6 +354,7 @@ def perform_job(job_id: str) -> dict[str, Any] | None:
         if str(running_row.get("status") or "") == "cancelled":
             logger.info("skip cancelled async job job_id=%s", job_id)
             return None
+        record_queue_delay(running_row)
         _emit_job_audit(
             "async_job.running",
             row=running_row,

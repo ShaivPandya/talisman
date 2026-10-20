@@ -24,6 +24,8 @@ from typing import Any
 
 from cachetools import TLRUCache
 
+from api.performance import count, measure
+
 logger = logging.getLogger("uvicorn.error")
 
 SHORT_CACHE_TTL = 300
@@ -83,6 +85,7 @@ class _SingleFlightState:
     event: threading.Event
     value: object = _MISSING
     error: Exception | None = None
+    backend: str = "memory"
     refresh_requested: bool = False
     complete: bool = False
 
@@ -251,7 +254,9 @@ def _disk_get(cache: ApiCache, key: str) -> _CacheEntry | None:
         return None
     path = _disk_cache_path(cache, key)
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        count("storage_disk_reads")
+        with measure("storage_ms"):
+            payload = json.loads(path.read_text(encoding="utf-8"))
         created_at = _parse_timestamp(payload.get("created_at"))
         if created_at is None:
             created_at = datetime.fromtimestamp(path.stat().st_mtime, tz=UTC)
@@ -358,9 +363,12 @@ def _memory_entry(cache: ApiCache, key: str) -> _CacheEntry | None:
         return cache.get(key)
 
 
-def _cache_result(cache: ApiCache, entry: _CacheEntry | None):
+def _cache_result(cache: ApiCache, entry: _CacheEntry | None, backend: str):
     if entry is None or entry.value is None:
+        count("cache_miss")
         return None
+    count("cache_hit")
+    count(f"cache_{backend}_hit")
     _stamp_age(entry.value, cache)
     return entry.value
 
@@ -379,17 +387,20 @@ def _read_cached(
                 with _lock:
                     if not _token_current(key_state, token) or _clearing:
                         state.value = None
-                        return _cache_result(cache, None), False
+                        return _cache_result(cache, None, "memory"), False
                     entry = cache.get(key)
                 if entry is None:
                     entry = _disk_get(cache, key)
+                    state.backend = "disk"
                     if entry is None:
                         entry = _gcs_get(cache, key)
+                        state.backend = "gcs"
                     with _lock:
                         if not _token_current(key_state, token) or _clearing:
                             entry = None
                         elif (published := cache.get(key)) is not None:
                             entry = published
+                            state.backend = "memory"
                         elif entry is not None and entry.expires_at > cache.timer():
                             # maxsize bounds growth; preserve the original expiry
                             # so promotion never gives a stored value a fresh TTL.
@@ -398,9 +409,11 @@ def _read_cached(
                             entry = None
                 state.value = entry
         else:
-            waited = state.event.wait(timeout=wait_timeout_s)
+            count("cache_wait")
+            with measure("cache_wait_ms"):
+                waited = state.event.wait(timeout=wait_timeout_s)
             if not waited:
-                return _cache_result(cache, _memory_entry(cache, key)), True
+                return _cache_result(cache, _memory_entry(cache, key), "memory"), True
             if state.error is not None:
                 raise state.error
 
@@ -408,16 +421,17 @@ def _read_cached(
         with _lock:
             if not _token_current(key_state, token) or (entry is not None and entry.expires_at <= cache.timer()):
                 entry = None
-        return _cache_result(cache, entry), False
+        return _cache_result(cache, entry, state.backend), False
 
 
 def get_cached(cache: ApiCache, key: str):
-    entry = _memory_entry(cache, key)
-    if entry is not None:
-        return _cache_result(cache, entry)
-    with _key_operation(cache, key) as (key_state, token):
-        value, _timed_out = _read_cached(cache, key, key_state, token, _READ_WAIT_TIMEOUT_S)
-        return value
+    with measure("cache_ms"):
+        entry = _memory_entry(cache, key)
+        if entry is not None:
+            return _cache_result(cache, entry, "memory")
+        with _key_operation(cache, key) as (key_state, token):
+            value, _timed_out = _read_cached(cache, key, key_state, token, _READ_WAIT_TIMEOUT_S)
+            return value
 
 
 def _publish(
@@ -473,10 +487,13 @@ def _get_or_set_cached_with_status(
     force_refresh: bool = False,
     wait_timeout_s: float = 120,
 ) -> tuple[Any, str]:
+    if force_refresh:
+        count("cache_refresh")
     if not force_refresh:
-        entry = _memory_entry(cache, key)
-        if entry is not None and entry.value is not None:
-            return _cache_result(cache, entry), "hit"
+        with measure("cache_ms"):
+            entry = _memory_entry(cache, key)
+            if entry is not None and entry.value is not None:
+                return _cache_result(cache, entry, "memory"), "hit"
 
     with (
         _key_operation(cache, key) as (key_state, token),
@@ -485,7 +502,8 @@ def _get_or_set_cached_with_status(
         if owner:
             read_timed_out = False
             if not force_refresh:
-                cached, read_timed_out = _read_cached(cache, key, key_state, token, wait_timeout_s)
+                with measure("cache_ms"):
+                    cached, read_timed_out = _read_cached(cache, key, key_state, token, wait_timeout_s)
                 if cached is not None:
                     with _singleflight_lock:
                         if not state.refresh_requested:
@@ -497,7 +515,9 @@ def _get_or_set_cached_with_status(
             state.value = value
             return value, "refresh" if force_refresh else "miss_fetch"
 
-        waited = state.event.wait(timeout=wait_timeout_s)
+        count("cache_wait")
+        with measure("cache_wait_ms"):
+            waited = state.event.wait(timeout=wait_timeout_s)
         if waited:
             if state.error is not None:
                 raise state.error
@@ -509,7 +529,7 @@ def _get_or_set_cached_with_status(
         # storage read or wait for the same read flight again.
         entry = _memory_entry(cache, key)
         if entry is not None and entry.value is not None:
-            return _cache_result(cache, entry), "refresh" if force_refresh else "miss_wait"
+            return _cache_result(cache, entry, "memory"), "refresh" if force_refresh else "miss_wait"
 
         logger.warning(
             "api cache singleflight wait timeout; running fallback loader key=%s force_refresh=%s",

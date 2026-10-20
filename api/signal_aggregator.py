@@ -51,7 +51,7 @@ import math
 import os
 import time
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from concurrent.futures import wait as cf_wait
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -59,6 +59,7 @@ from typing import Any
 
 import pandas as pd
 
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from utils.market_freshness import (
     build_market_cache_metadata,
     expected_market_date,

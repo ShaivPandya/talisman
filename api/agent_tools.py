@@ -15,7 +15,6 @@ import os
 import re
 import time
 from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from pathlib import Path
@@ -35,6 +34,7 @@ from api.agent_governance import (
     validate_tool_output,
 )
 from api.cache import _get_or_set_cached_with_status, get_cached, long_cache, set_cached, short_cache
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from api.serializers import serialize_value
 from ontology.action_registry import (
     ActionValidationError,

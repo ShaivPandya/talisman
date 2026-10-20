@@ -9,16 +9,28 @@ from __future__ import annotations
 import os
 import threading
 from datetime import UTC, datetime
+from functools import wraps
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 from api.local_write_guard import assert_project_write_allowed
+from api.performance import count, measure
 
 if TYPE_CHECKING:
     from google.cloud.storage import Client
 
 _client: Client | None = None
 _client_lock = threading.Lock()
+
+
+def _observe_read(function):
+    @wraps(function)
+    def observed(*args, **kwargs):
+        count("storage_gcs_reads" if use_gcs_state() else "storage_disk_reads")
+        with measure("storage_ms"):
+            return function(*args, **kwargs)
+
+    return observed
 
 
 class StateStorageConfigError(RuntimeError):
@@ -58,24 +70,28 @@ def _gs_uri(key: str) -> str:
     return f"gs://{_bucket_name()}/{key.lstrip('/')}"
 
 
+@_observe_read
 def exists_text(local_path: Path, gcs_key: str) -> bool:
     if use_gcs_state():
         return bool(_bucket().blob(gcs_key).exists())
     return local_path.exists()
 
 
+@_observe_read
 def read_text(local_path: Path, gcs_key: str, *, encoding: str = "utf-8") -> str:
     if use_gcs_state():
         return cast(str, _bucket().blob(gcs_key).download_as_text(encoding=encoding))
     return local_path.read_text(encoding=encoding)
 
 
+@_observe_read
 def read_bytes(local_path: Path, gcs_key: str) -> bytes:
     if use_gcs_state():
         return cast(bytes, _bucket().blob(gcs_key).download_as_bytes())
     return local_path.read_bytes()
 
 
+@_observe_read
 def object_updated(local_path: Path, gcs_key: str) -> datetime | None:
     """Return the last-modified time of the underlying object, or None if it doesn't exist."""
     if use_gcs_state():
@@ -189,6 +205,7 @@ def delete_file(local_path: Path, gcs_key: str) -> bool:
     return True
 
 
+@_observe_read
 def list_keys(prefix: str) -> list[str]:
     """List object keys under a state-storage prefix.
 
@@ -201,6 +218,7 @@ def list_keys(prefix: str) -> list[str]:
     return []
 
 
+@_observe_read
 def object_metadata(gcs_key: str) -> dict[str, Any] | None:
     if not use_gcs_state():
         return None

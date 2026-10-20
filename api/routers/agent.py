@@ -17,7 +17,7 @@ import re
 import time
 from collections import Counter
 from collections.abc import Sized
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, wait
 from datetime import UTC, datetime
 from functools import cache, lru_cache
 from pathlib import Path
@@ -51,6 +51,9 @@ from api.agent_models import (
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events
 from api.job_queue import cancel_job, get_job
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
+from api.performance import emit as emit_performance
+from api.performance_chat import begin_chat_round, observe_chat_response
 from api.routers.auth import require_actor
 from api.tool_data_quality import aggregate_tool_data_quality
 from api.workflows import AVAILABLE_WORKFLOWS, execute_workflow
@@ -2704,7 +2707,8 @@ def _stream_llm_response(
         with client.messages.stream(**stream_kwargs) as stream:
             for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    record_first_token()
+                    if event.delta.text:
+                        record_first_token()
                     if text_parts is not None:
                         text_parts.append(event.delta.text)
                     yield _sse("delta", {"text": event.delta.text})
@@ -2757,11 +2761,22 @@ def _stream_llm_response(
         return final_response
 
     if provider == PROVIDER_TALISMAN:
-        final_message = yield from stream_chat_completions_events(
+        stream = stream_chat_completions_events(
             client=client,
             stream_kwargs=stream_kwargs,
             text_parts=text_parts,
         )
+        while True:
+            try:
+                chunk = next(stream)
+            except StopIteration as done:
+                final_message = done.value
+                break
+            if chunk.startswith("event: delta\n"):
+                payload = json.loads(chunk.split("data: ", 1)[1])
+                if payload.get("text"):
+                    record_first_token()
+            yield chunk
         yield from emit_final_text_if_missing(final_message)
         return final_message
 
@@ -3031,6 +3046,7 @@ def _record_model_timing(
 ) -> None:
     model_timing["duration_ms"] = _elapsed_ms(started)
     model_timing["status"] = status
+    emit_performance("chat_model", provider=provider, model=str(model), **model_timing)
     models = timings.setdefault("models", [])
     if isinstance(models, list):
         models.append(dict(model_timing))
@@ -3353,6 +3369,10 @@ def cancel_agent_chat_async(job_id: str):
 
 @router.post("/agent/chat")
 def agent_chat(req: AgentChatRequest, actor: ActorDep):
+    return observe_chat_response(lambda started: _agent_chat_impl(req, actor, turn_started=started))
+
+
+def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: float):
     tool_actor = agent_actor(actor)
     """Chat endpoint with server-managed conversation memory.
 
@@ -3438,7 +3458,6 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
 
     def generate():  # noqa: C901
         nonlocal tool_defs
-        turn_started = time.perf_counter()
         timings = _new_agent_timings()
         yield _sse_ping()
         if workflow_name and req.allow_workflow_handoff:
@@ -3694,6 +3713,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     yield _sse("budget_update", budget.to_meta())
                     break
                 except ModelGatewayDenied as exc:
+                    _record_model_timing(
+                        timings,
+                        model_timing,
+                        started=model_started,
+                        status="denied",
+                        provider=provider,
+                        model=stream_kwargs.get("model"),
+                    )
                     yield _sse("egress_recorded", exc.manifest)
                     yield _sse("blocked", _blocked_model_egress_payload(exc))
                     raise
@@ -4099,6 +4126,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
+                            _record_model_timing(
+                                timings,
+                                model_timing,
+                                started=model_started,
+                                status="denied",
+                                provider=provider,
+                                model=stream_kwargs.get("model"),
+                            )
                             yield _sse("egress_recorded", exc.manifest)
                             yield _sse("blocked", _blocked_model_egress_payload(exc))
                             raise
@@ -4211,6 +4246,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
+                            _record_model_timing(
+                                timings,
+                                model_timing,
+                                started=model_started,
+                                status="denied",
+                                provider=provider,
+                                model=stream_kwargs.get("model"),
+                            )
                             yield _sse("egress_recorded", exc.manifest)
                             yield _sse("blocked", _blocked_model_egress_payload(exc))
                             raise
@@ -4498,6 +4541,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
+                        _record_model_timing(
+                            timings,
+                            model_timing,
+                            started=model_started,
+                            status="denied",
+                            provider=provider,
+                            model=stream_kwargs.get("model"),
+                        )
                         yield _sse("egress_recorded", exc.manifest)
                         yield _sse("blocked", _blocked_model_egress_payload(exc))
                         raise
@@ -4640,6 +4691,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
 
         try:
             while True:
+                begin_chat_round(continuation_round)
                 final_synthesis_round = continuation_round >= MAX_TOOL_CONTINUATION_ROUNDS
                 round_tool_defs = [] if final_synthesis_round or text_only_continuation else tool_defs
                 round_force_tool_use = False if final_synthesis_round or text_only_continuation else force_tool_use
@@ -4724,6 +4776,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
+                        _record_model_timing(
+                            timings,
+                            model_timing,
+                            started=model_started,
+                            status="denied",
+                            provider=provider,
+                            model=stream_kwargs.get("model"),
+                        )
                         yield _sse("egress_recorded", exc.manifest)
                         if _owned_model_canary_should_fallback(
                             rollout_decision=rollout_decision,

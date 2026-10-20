@@ -15,11 +15,11 @@ import time
 import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
-from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass, field
 from typing import Any
 
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from ontology.action_registry import ToolExposure
 from ontology.policy import DEFAULT_ONTOLOGY_POLICY, Actor, admin_actor
 

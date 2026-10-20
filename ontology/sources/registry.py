@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from concurrent.futures import TimeoutError as FuturesTimeoutError
+from concurrent.futures import as_completed
 from typing import Any
 
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from ontology.sources.base import SourceAdapter, SourceResult, error_result, run_source_adapter
 from ontology.sources.liquidity import LiquidityAdapter
 from ontology.sources.macro import EconomicGrowthAdapter, LaborMarketAdapter, PositioningAdapter, SentimentAdapter

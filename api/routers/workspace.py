@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,6 +20,7 @@ from api.decision_state import (
     normalize_recommendation,
 )
 from api.llm_settings import get_setting, set_setting
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from api.source_health import build_approval_source_health_review, build_workspace_source_health
 from decision_quality.opportunity_scout import (
     normalize_candidate_queue_item,
