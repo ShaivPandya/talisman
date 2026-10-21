@@ -215,7 +215,7 @@ def _build_screen_context_section(ctx: ScreenContextModel | None) -> str:
     return "\n".join(lines)
 
 
-def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
+def _build_agent_base_instructions() -> str:
     core_md = _load_required_prompt_file("system.md")
     try:
         agent_md = _load_required_prompt_file("agent_system.md")
@@ -223,7 +223,11 @@ def _build_agent_instructions(screen_context: ScreenContextModel | None = None) 
         logger.warning("Failed to load agent_system.md, using core prompt only")
         agent_md = None
     parts = [core_md] + ([agent_md] if agent_md else [])
-    base = "\n\n---\n\n".join(parts)
+    return "\n\n---\n\n".join(parts)
+
+
+def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
+    base = _build_agent_base_instructions()
 
     memory_section = _build_memory_context()
     if memory_section:
@@ -2555,6 +2559,48 @@ def _tool_definitions_for_provider(provider: str) -> list[dict]:
     return list(_tool_definition_by_name_for_provider(provider).values())
 
 
+def _anthropic_system_blocks(instructions: str) -> list[dict]:
+    """Cache only the known static prefix, ahead of all per-request context."""
+    stable = _build_agent_base_instructions()
+    if not instructions.startswith(stable):
+        return [{"type": "text", "text": instructions}]
+    blocks = [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}}]
+    if suffix := instructions[len(stable) :]:
+        blocks.append({"type": "text", "text": suffix})
+    return blocks
+
+
+def _anthropic_cached_messages(conversation: list[dict]) -> list[dict]:
+    """Move the message breakpoint forward without annotating stored history."""
+    messages = list(conversation)
+    if not messages:
+        return messages
+    latest = dict(messages[-1])
+    content = latest.get("content")
+    if isinstance(content, str):
+        content = [{"type": "text", "text": content}]
+    if not isinstance(content, list):
+        return messages
+    blocks = list(content)
+    for index in range(len(blocks) - 1, -1, -1):
+        block = blocks[index]
+        if not isinstance(block, dict) or block.get("type") not in {
+            "text",
+            "image",
+            "document",
+            "tool_use",
+            "tool_result",
+        }:
+            continue
+        if block.get("type") == "text" and not str(block.get("text", "")).strip():
+            continue
+        blocks[index] = {**block, "cache_control": {"type": "ephemeral"}}
+        latest["content"] = blocks
+        messages[-1] = latest
+        break
+    return messages
+
+
 def _model_stream_kwargs(
     *,
     provider: str,
@@ -2563,6 +2609,7 @@ def _model_stream_kwargs(
     max_tokens: int,
     tool_defs: list[dict] | None = None,
     force_tool_use: bool = False,
+    disable_tool_use: bool = False,
     reasoning_effort: str | None = None,
 ) -> dict[str, object]:
     if provider == PROVIDER_ANTHROPIC:
@@ -2571,8 +2618,8 @@ def _model_stream_kwargs(
         kwargs: dict[str, object] = {
             "model": resolved_model,
             "max_tokens": max_tokens,
-            "system": instructions,
-            "messages": conversation,
+            "system": _anthropic_system_blocks(instructions),
+            "messages": _anthropic_cached_messages(conversation),
         }
         apply_reasoning_config(
             kwargs,
@@ -2582,8 +2629,10 @@ def _model_stream_kwargs(
             reasoning_effort=reasoning_effort,
         )
         if tool_defs:
-            kwargs["tools"] = tool_defs
-        if force_tool_use and tool_defs and reasoning_effort is None:
+            kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
+        if disable_tool_use and tool_defs:
+            kwargs["tool_choice"] = {"type": "none"}
+        elif force_tool_use and tool_defs and reasoning_effort is None:
             kwargs["tool_choice"] = {"type": "any"}
         return kwargs
 
@@ -2763,6 +2812,17 @@ def _stream_llm_response(
                         },
                     )
             final_message = stream.get_final_message()
+            usage = _usage_dict(final_message)
+            cache_usage = {key: usage.get(key, 0) for key in ("cache_read_input_tokens", "cache_creation_input_tokens")}
+            if model_timing is not None:
+                model_timing.update(usage)
+                model_timing.update(cache_usage)
+            logger.info(
+                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d",
+                stream_kwargs.get("model"),
+                cache_usage["cache_read_input_tokens"],
+                cache_usage["cache_creation_input_tokens"],
+            )
             yield from emit_final_text_if_missing(final_message)
             return final_message
 
@@ -2871,6 +2931,15 @@ def _usage_dict(message: object) -> dict:
     out: dict[str, int] = {}
     if isinstance(input_tokens, int):
         out["input_tokens"] = input_tokens
+        for key in ("cache_read_input_tokens", "cache_creation_input_tokens"):
+            cached_tokens = _obj_value(usage, key)
+            if isinstance(cached_tokens, int):
+                out[key] = cached_tokens
+                out["input_tokens"] += cached_tokens
+        if "cache_read_input_tokens" in out or "cache_creation_input_tokens" in out:
+            # Anthropic's input_tokens excludes cache reads AND writes. Preserve
+            # total input accounting for budgets, provenance and the chat UI.
+            out["uncached_input_tokens"] = input_tokens
     if isinstance(output_tokens, int):
         out["output_tokens"] = output_tokens
     return out
@@ -4776,8 +4845,9 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             while True:
                 begin_chat_round(continuation_round)
                 final_synthesis_round = continuation_round >= MAX_TOOL_CONTINUATION_ROUNDS
-                round_tool_defs = [] if final_synthesis_round or text_only_continuation else tool_defs
-                round_force_tool_use = False if final_synthesis_round or text_only_continuation else force_tool_use
+                round_text_only = final_synthesis_round or text_only_continuation
+                round_tool_defs = tool_defs if provider == PROVIDER_ANTHROPIC or not round_text_only else []
+                round_force_tool_use = False if round_text_only else force_tool_use
                 text_only_continuation = False
 
                 stream_kwargs = _model_stream_kwargs(
@@ -4787,6 +4857,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     max_tokens=LLM_CHAT_MAX_TOKENS,
                     tool_defs=round_tool_defs,
                     force_tool_use=round_force_tool_use,
+                    disable_tool_use=round_text_only,
                     reasoning_effort=reasoning_effort,
                 )
 
@@ -4889,6 +4960,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
                                 tool_defs=round_tool_defs,
                                 force_tool_use=round_force_tool_use,
+                                disable_tool_use=round_text_only,
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
@@ -4931,6 +5003,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
                                 tool_defs=round_tool_defs,
                                 force_tool_use=round_force_tool_use,
+                                disable_tool_use=round_text_only,
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
