@@ -22,7 +22,7 @@ require_image_exists
 ASYNC_JOB_RUNNER_JOB="${ASYNC_JOB_RUNNER_JOB:-talisman-async-job}"
 
 # The API service is now primarily request routing, short interactive reads, and
-# async job dispatch/polling; heavier analysis runs in Cloud Run Jobs. Default to
+# async job dispatch/polling; interactive analysis runs in warm workers. Default to
 # one vCPU and 1Gi with moderate concurrency so a single instance is not
 # overcommitted. The instance and pool limits share the 25-connection Cloud SQL
 # budget documented in docs/postgres-pool-sizing.md.
@@ -54,9 +54,9 @@ API_ENV_VARS=(
   "CLOUD_RUN_JOBS_ENABLED=true"
   "ASYNC_JOB_BACKEND=cloud_run_jobs"
   "AGENT_CHAT_DISPATCH_BACKEND=warm_worker"
-  "ASYNC_DISPATCH_BACKEND_ANALYZER=cloud_run_jobs"
+  "ASYNC_DISPATCH_BACKEND_ANALYZER=warm_worker"
   "ASYNC_DISPATCH_BACKEND_SIZER=inline"
-  "ASYNC_DISPATCH_BACKEND_ONTOLOGY=cloud_run_jobs"
+  "ASYNC_DISPATCH_BACKEND_ONTOLOGY=warm_worker"
   "ASYNC_QUEUE_ANALYZER=analyzer"
   "ASYNC_QUEUE_SIZER=sizer"
   "ASYNC_QUEUE_ONTOLOGY=ontology"

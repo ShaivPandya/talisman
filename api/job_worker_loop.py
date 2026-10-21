@@ -10,7 +10,7 @@ import sys
 import threading
 from typing import Any
 
-from api.async_job_runner import perform_job
+from api.async_job_runner import execute_claimed
 from api.job_queue import claim_queued_job
 from api.logging_config import configure_logging
 from api.observability import capture_exception, init_sentry
@@ -96,7 +96,7 @@ def run_once(*, job_type: str = DEFAULT_JOB_TYPE, queue_name: str = DEFAULT_QUEU
         return True
 
     try:
-        perform_job(job_id)
+        execute_claimed(row)
     except Exception as exc:
         logger.exception("warm worker failed job_type=%s queue=%s job_id=%s", job_type, queue_name, job_id)
         capture_exception(

@@ -185,6 +185,15 @@ export SKIP_IMAGE_CHECK=1
 log "Deploying migration job"
 "${_repo_root}/infra/gcp/deploy-migration-job.sh"
 
+# Additive schema changes must be available before new workers start polling.
+if [[ "${RUN_DB_MIGRATIONS:-1}" == "1" ]]; then
+  log "Running Alembic migrations"
+  # Override the migration job's one-time state migration entrypoint.
+  run_job_and_wait "${MIGRATION_JOB}" --args=-m,alembic,upgrade,head
+else
+  log "RUN_DB_MIGRATIONS=0; skipping Alembic migrations"
+fi
+
 if [[ "${PARALLEL_JOB_DEPLOYS}" == "1" ]]; then
   log "Deploying non-migration Cloud Run jobs and worker pools in parallel"
   start_parallel_step "top50 refresh job deploy" \
@@ -220,16 +229,6 @@ if [[ "${SYNC_IAM}" == "1" ]]; then
   "${_repo_root}/infra/gcp/iam.sh"
 else
   log "SYNC_IAM=0; skipping IAM sync"
-fi
-
-if [[ "${RUN_DB_MIGRATIONS:-1}" == "1" ]]; then
-  log "Running Alembic migrations"
-  # The migration job's default args run the one-time state migration tool.
-  # Override args for this execution so routine deploys only apply schema
-  # migrations against the production Cloud SQL database.
-  run_job_and_wait "${MIGRATION_JOB}" --args=-m,alembic,upgrade,head
-else
-  log "RUN_DB_MIGRATIONS=0; skipping Alembic migrations"
 fi
 
 if [[ "${SYNC_IAM}" != "1" ]]; then

@@ -184,6 +184,8 @@ def create_or_reuse_job(
                 "cloud_run_job_name": None,
                 "created_at": now,
                 "started_at": None,
+                "claimed_by": None,
+                "attempt": 0,
                 "completed_at": None,
                 "updated_at": now,
                 "result_expires_at": None,
@@ -276,6 +278,8 @@ def create_job(
                 "cloud_run_job_name": cloud_run_job_name,
                 "created_at": now,
                 "started_at": None,
+                "claimed_by": None,
+                "attempt": 0,
                 "completed_at": None,
                 "updated_at": now,
                 "result_expires_at": None,
@@ -320,25 +324,39 @@ def set_cloud_run_job_name(job_id: str, cloud_run_job_name: str) -> None:
         conn.commit()
 
 
-def mark_job_running(job_id: str) -> None:
+def _claim_memory_job(row: dict[str, Any], now: datetime, claimed_by: str) -> dict[str, Any]:
+    """Update a queued row while the caller holds ``_memory_lock``."""
+    row["status"] = "running"
+    row["started_at"] = now
+    row["updated_at"] = now
+    row["claimed_by"] = claimed_by
+    row["attempt"] = int(row.get("attempt") or 0) + 1
+    return dict(row)
+
+
+def claim_job(job_id: str) -> dict[str, Any] | None:
+    """Atomically acquire one queued job; an owned or finished job returns None."""
     now = _now()
+    claimed_by = str(uuid.uuid4())
     if not postgres_jobs_enabled():
         with _memory_lock:
-            if job_id in _memory_jobs and _memory_jobs[job_id].get("status") != "cancelled":
-                _memory_jobs[job_id]["status"] = "running"
-                _memory_jobs[job_id]["started_at"] = _memory_jobs[job_id].get("started_at") or now
-                _memory_jobs[job_id]["updated_at"] = now
-        return
+            row = _memory_jobs.get(job_id)
+            if row is None or row.get("status") != "queued":
+                return None
+            return _claim_memory_job(row, now, claimed_by)
     with connect() as conn:
-        conn.execute(
+        row = conn.execute(
             """
             UPDATE async_jobs
-            SET status = 'running', started_at = COALESCE(started_at, %s), updated_at = %s
-            WHERE job_id = %s AND status != 'cancelled'
+            SET status = 'running', started_at = %s, updated_at = %s,
+                claimed_by = %s, attempt = attempt + 1
+            WHERE job_id = %s AND status = 'queued'
+            RETURNING *
             """,
-            (now, now, job_id),
-        )
+            (now, now, claimed_by, job_id),
+        ).fetchone()
         conn.commit()
+        return dict(row) if row else None
 
 
 def update_job_progress(job_id: str, progress: dict[str, Any] | None) -> None:
@@ -533,6 +551,7 @@ def claim_queued_job(job_type: str, *, queue_name: str | None = None) -> dict[st
     poll the same queue without running the same job twice.
     """
     now = _now()
+    claimed_by = str(uuid.uuid4())
     if not postgres_jobs_enabled():
         with _memory_lock:
             candidates = [
@@ -545,18 +564,15 @@ def claim_queued_job(job_type: str, *, queue_name: str | None = None) -> dict[st
             if not candidates:
                 return None
             row = sorted(candidates, key=lambda item: _memory_timestamp(item, "created_at"))[0]
-            row["status"] = "running"
-            row["started_at"] = row.get("started_at") or now
-            row["updated_at"] = now
-            return dict(row)
+            return _claim_memory_job(row, now, claimed_by)
 
     queue_filter = ""
     params: tuple[Any, ...]
     if queue_name is not None:
         queue_filter = "AND queue_name = %s"
-        params = (job_type, queue_name, now, now)
+        params = (job_type, queue_name, now, now, claimed_by)
     else:
-        params = (job_type, now, now)
+        params = (job_type, now, now, claimed_by)
 
     with connect() as conn:
         row = conn.execute(
@@ -573,10 +589,13 @@ def claim_queued_job(job_type: str, *, queue_name: str | None = None) -> dict[st
             )
             UPDATE async_jobs AS jobs
             SET status = 'running',
-                started_at = COALESCE(jobs.started_at, %s),
-                updated_at = %s
+                started_at = %s,
+                updated_at = %s,
+                claimed_by = %s,
+                attempt = jobs.attempt + 1
             FROM candidate
             WHERE jobs.job_id = candidate.job_id
+              AND jobs.status = 'queued'
             RETURNING jobs.*
             """,
             params,

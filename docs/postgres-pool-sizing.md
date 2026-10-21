@@ -28,21 +28,33 @@ No database tier, flags, or production deployments were changed by TL-182.
 | --- | ---: | ---: | ---: |
 | API | 2 | 2 / 2 | 4 |
 | Agent worker | 1 | 2 / 2 | 2 |
-| Analyzer worker | 0 | 2 / 2 | 0 |
-| Ontology worker | 0 | 2 / 2 | 0 |
+| Analyzer worker | 1 | 2 / 2 | 2 |
+| Ontology worker | 1 | 2 / 2 | 2 |
 | Generic async executions | 2 | 2 / 2 | 4 |
 | Top-50 refresh | 1 | 0 / 1 | 1 |
 | Migration | 1 | One direct connection | 1 |
 | Admin/diagnostics allowance | — | — | 2 |
-| **Steady-state envelope** | | | **14** |
-| Extra API fleet + agent replica during rollout | 2 + 1 | 2 / 2 | 6 |
-| PostgreSQL reserved slots | | | 3 |
-| **Budget including rollout and reserved slots** | | | **23 / 25** |
+| **Steady-state envelope** | | | **18** |
+
+TL-185 enables one analyzer worker and one ontology worker, adding four
+connections to TL-182's original envelope of 14. Routine rollouts must drain
+generic async executions and pause their callers until old revisions have
+drained. `deploy-backend.sh` finishes migrations before updating worker pools,
+then waits for those updates before rolling the API. With one extra replica of
+each worker pool, the phases are budgeted separately:
+
+| Phase | Base connections | Extra replicas | Reserved slots | Total |
+| --- | ---: | ---: | ---: | ---: |
+| Steady state, up to two generic async executions | 18 | 0 | 3 | **21 / 25** |
+| Worker rollout, generic async drained | 14 | 6 | 3 | **23 / 25** |
+| API rollout, generic async drained | 14 | 4 | 3 | **21 / 25** |
 
 The remaining two slots provide additional headroom. The container entrypoints
 run one Python process each; additional Uvicorn processes multiply their pools.
 The migration allowance covers one migration process, not concurrent migration
-commands. The budget assumes the optional worker pools stay at zero instances.
+commands. Worker and API rollout overlaps must not overlap each other. Without
+draining the four-connection generic async allowance, a worker rollout could
+reach 27 connections including reserved slots and exceed the limit.
 
 **At most two simultaneous generic async executions is an operational
 assumption, not an enforced dispatch limit.** Count executions across all
@@ -53,7 +65,7 @@ cap is separate work. See [Cloud Run job parallelism](https://docs.cloud.google.
 
 `API_MAX_INSTANCES` sets both the service-wide `--max` and per-revision
 `--max-instances` limits. The rollout allowance covers one additional API fleet
-and agent replica; larger overlaps or additional consumers require recalculation.
+or one extra replica of each worker pool; larger overlaps or additional consumers require recalculation.
 It is not a substitute for global database admission control.
 
 The shared production minimum is 2 and checkout timeout is 5 seconds. The API,
@@ -81,9 +93,11 @@ above applies after all consumers use the new settings. For the initial rollout:
    to settle at at most two instances before deploying the new revision.
 3. Roll components sequentially and verify old revisions have drained. Two old
    API processes at max 4 plus two new processes at max 2 consume 12 connections;
-   allowing two agent processes at max 2 and two admin slots totals 18, or 21
-   including the three PostgreSQL reserved slots. Resume batch work only after
-   the final pool/instance settings are confirmed.
+   allowing one process for each of the agent, analyzer, and ontology workers at
+   max 2 plus two admin slots totals 20, or 23 including PostgreSQL reserved slots.
+   Keep analyzer/ontology submissions paused and their old executions drained
+   while upgrading to TL-185's claim protocol. Resume batch work only after the
+   final pool/instance settings are confirmed.
 4. Activate the TL-179 instrumentation using
    [the baseline runbook](performance-baselines.md). Collect comparable normal
    traffic windows on an identified release, including the warm worker.

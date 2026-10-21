@@ -16,11 +16,11 @@ This repository now has the code-level migration pieces for the GCP state move:
 - `bootstrap.sh` — idempotent provisioning of APIs, Artifact Registry, service accounts, Cloud SQL (with backups + PITR + deletion protection + require-SSL), and the GCS state bucket.
 - `setup-secrets.sh` — generates random secrets, prompts for the rest, creates Cloud SQL users with their generated passwords, writes everything to Secret Manager, and binds per-secret accessor IAM to each SA.
 - `iam.sh` — idempotently grants the project-, bucket-, and Cloud Run-job-level IAM bindings the deploy SAs need (cloudsql.client, logging.logWriter, bucket objectAdmin, job executor on scheduled jobs, and job executor with overrides on the async runner).
-- `deploy-api.sh` — Cloud Run service `${API_SERVICE}` (matches the `firebase.json` rewrite). Tunables: `API_CPU`, `API_MEMORY`, `API_CONCURRENCY`, `API_MIN_INSTANCES`, `API_MAX_INSTANCES`, `API_TIMEOUT`. Defaults are `1` vCPU, `1Gi`, and concurrency `20` because long-running analysis is offloaded to Cloud Run Jobs; raise these if synchronous endpoints show memory pressure or CPU saturation.
+- `deploy-api.sh` — Cloud Run service `${API_SERVICE}` (matches the `firebase.json` rewrite). Tunables: `API_CPU`, `API_MEMORY`, `API_CONCURRENCY`, `API_MIN_INSTANCES`, `API_MAX_INSTANCES`, `API_TIMEOUT`. Defaults are `1` vCPU, `1Gi`, and concurrency `20` because long-running analysis is offloaded to workers; raise these if synchronous endpoints show memory pressure or CPU saturation.
 - `deploy-async-job.sh` — generic Cloud Run Job running `python -m api.async_job_runner run`. Tunables: `ASYNC_JOB_CPU`, `ASYNC_JOB_MEMORY`, `ASYNC_JOB_TIMEOUT`, `ASYNC_JOB_MAX_RETRIES`.
 - `deploy-agent-worker.sh` — warm Cloud Run worker pool running `python -m api.agent_worker_loop run` for durable agent workflow turns. Defaults to `1` vCPU and `512Mi`.
-- `deploy-analyzer-worker.sh` — optional warm Cloud Run worker pool running `python -m api.job_worker_loop run` with analyzer job/queue defaults from env for low-latency portfolio analyzer jobs. Defaults to disabled (`0` instances), `1` vCPU, and `1Gi`.
-- `deploy-ontology-worker.sh` — optional warm Cloud Run worker pool running `python -m api.job_worker_loop run` with ontology job/queue defaults from env for low-latency ontology query jobs. Defaults to disabled (`0` instances), `1` vCPU, and `512Mi`.
+- `deploy-analyzer-worker.sh` — warm Cloud Run worker pool running `python -m api.job_worker_loop run` with analyzer job/queue defaults from env for low-latency portfolio analyzer jobs. Defaults to `1` instance, `1` vCPU, and `1Gi`.
+- `deploy-ontology-worker.sh` — warm Cloud Run worker pool running `python -m api.job_worker_loop run` with ontology job/queue defaults from env for low-latency ontology query jobs. Defaults to `1` instance, `1` vCPU, and `512Mi`.
 - `deploy-migration-job.sh` — Cloud Run Job that runs `python -m api.gcp_state_migration migrate`.
 - `deploy-top50-refresh-job.sh` — Cloud Run Job that refreshes the cached S&P 500 top-50.
 - `deploy-backend.sh` — build via Cloud Build at the current short git SHA, run Alembic migrations, then roll API + Cloud Run Jobs to that SHA. Refuses to run on a dirty tree (override with `ALLOW_DIRTY=1`); skip the build with `SKIP_BUILD=1`. Routine deploys skip IAM, Scheduler, and monitoring reconciliation by default; use `FULL_SYNC=1` after infrastructure/config changes.
@@ -67,10 +67,11 @@ Routine deploys:
 
 Routine backend deploys are optimized for the common code-rollout path:
 
-- `deploy-backend.sh` deploys the migration job first, starts the non-migration Cloud Run Job and warm worker updates in parallel, runs Alembic migrations, then deploys the API service.
+- `deploy-backend.sh` deploys the migration job and runs Alembic migrations first, then starts the non-migration Cloud Run Job and warm worker updates in parallel, waits for them, and deploys the API service. New worker code can therefore rely on additive schema changes.
 - IAM, Scheduler, and monitoring syncs are intentionally skipped by default because those resources rarely change and each sync performs multiple GCP control-plane calls.
 - Run `FULL_SYNC=1 ./infra/gcp/deploy-backend.sh` when service accounts, Scheduler definitions, monitoring policy files, or other infra config changed.
 - Set `PARALLEL_JOB_DEPLOYS=0` if you need the older sequential Cloud Run Job deploy behavior for debugging.
+- Drain generic async executions and pause their callers during rollouts. Worker replicas and the extra API fleet are separate rollout phases; see the [connection budget](../../docs/postgres-pool-sizing.md) before changing capacities.
 
 ## Cloud SQL
 
@@ -92,18 +93,32 @@ Cloud Run services and jobs must include:
 ## Async Jobs
 
 Production async work uses the `async_jobs` Postgres table for durable status,
-progress, results, and dedupe. Batch jobs, portfolio analyzer jobs, portfolio
-sizer jobs, and ontology query jobs run through the generic Cloud Run Job by
-default. Agent chat workflow turns run through a warm Cloud Run worker pool so
-interactive agent paths do not pay per-request Cloud Run Job startup latency.
+progress, results, and dedupe. Analyzer, ontology, and agent chat jobs use their
+warm Cloud Run worker pools by default, avoiding per-request Cloud Run Job
+startup latency. Sizer jobs run inline; other batch jobs use the generic Cloud
+Run Job.
+
+Every runner must atomically claim a queued job before computing. Direct
+runners use `claim_job(job_id)`; warm workers select and claim the oldest
+matching queued row with `claim_queued_job`, then call `execute_claimed(row)`.
+Both claims set `started_at`, a unique `claimed_by`, and increment `attempt`.
+A competing or retried runner gets no claim and exits successfully without
+computing or replacing the result. Crashed owners are failed by the stale-job
+sweep; claims do not automatically requeue jobs.
+
+Apply migration `20261021_0002` before deploying these runners. For the initial
+upgrade, pause analyzer/ontology submissions and drain their existing jobs,
+including Cloud Run executions, so old runners cannot bypass the new claim.
+Ensure existing `config.sh` files set both analysis worker instance counts to
+`1`; older copies of the example set them to `0`.
 
 Required services:
 
 - Cloud Run service `${API_SERVICE}`: `uvicorn api.main:app --host 0.0.0.0 --port ${PORT:-8080}`
 - Cloud Run Job `${ASYNC_JOB_RUNNER_JOB}`: `python -m api.async_job_runner run`
 - Cloud Run worker pool `${AGENT_WORKER_POOL}`: `python -m api.agent_worker_loop run`
-- Optional Cloud Run worker pool `${ANALYZER_WORKER_POOL}`: `python -m api.job_worker_loop run` with `JOB_WORKER_JOB_TYPE=analyzer` and `JOB_WORKER_QUEUE=analyzer`; keep at `0` instances unless low-latency analyzer jobs are needed
-- Optional Cloud Run worker pool `${ONTOLOGY_WORKER_POOL}`: `python -m api.job_worker_loop run` with `JOB_WORKER_JOB_TYPE=ontology` and `JOB_WORKER_QUEUE=ontology`; keep at `0` instances unless low-latency ontology queries are needed
+- Cloud Run worker pool `${ANALYZER_WORKER_POOL}`: `python -m api.job_worker_loop run` with `JOB_WORKER_JOB_TYPE=analyzer` and `JOB_WORKER_QUEUE=analyzer`; defaults to `1` instance
+- Cloud Run worker pool `${ONTOLOGY_WORKER_POOL}`: `python -m api.job_worker_loop run` with `JOB_WORKER_JOB_TYPE=ontology` and `JOB_WORKER_QUEUE=ontology`; defaults to `1` instance
 - Cloud Scheduler jobs:
   - hourly: `POST /api/admin/jobs/enqueue-async-job-sweep`
   - weekdays at 23:00 UTC: run `${TOP50_REFRESH_JOB}`
@@ -117,9 +132,11 @@ Set `AGENT_WORKER_INSTANCES`, `ANALYZER_WORKER_INSTANCES`, and
 `ONTOLOGY_WORKER_INSTANCES` in `infra/gcp/config.sh` to control warm worker
 capacity.
 
-Optional analyzer and ontology warm worker pools default to `0` instances. If
-Cloud Monitoring shows p95 memory approaching roughly 80% of a configured worker
-limit, raise the affected `*_WORKER_MEMORY` setting before the next deploy.
+The warm workers preload their job path and poll every `0.25` seconds by
+default. A busy single-instance pool queues jobs until its current compute
+finishes. Raise `*_WORKER_INSTANCES` only after recalculating the database budget.
+If Cloud Monitoring shows p95 memory approaching roughly 80% of a configured
+worker limit, raise the affected `*_WORKER_MEMORY` setting before the next deploy.
 
 The governance outbox drain scheduler is disabled by default because the
 runtime job is now a no-op. To recreate it for a temporary safety check, run
@@ -154,9 +171,9 @@ Required async env/secrets:
 ```bash
 ASYNC_JOB_BACKEND="cloud_run_jobs"
 AGENT_CHAT_DISPATCH_BACKEND="warm_worker"
-ASYNC_DISPATCH_BACKEND_ANALYZER="cloud_run_jobs"
+ASYNC_DISPATCH_BACKEND_ANALYZER="warm_worker"
 ASYNC_DISPATCH_BACKEND_SIZER="inline"
-ASYNC_DISPATCH_BACKEND_ONTOLOGY="cloud_run_jobs"
+ASYNC_DISPATCH_BACKEND_ONTOLOGY="warm_worker"
 ASYNC_QUEUE_ANALYZER="analyzer"
 ASYNC_QUEUE_SIZER="sizer"
 ASYNC_QUEUE_ONTOLOGY="ontology"
@@ -166,6 +183,42 @@ ASYNC_JOB_FAILED_TTL_SECONDS="604800"
 ASYNC_JOB_STALE_GRACE_SECONDS="300"
 SCHEDULER_SECRET="..."
 ```
+
+### Single execution verification (TL-185)
+
+The race tests cover both analyzer and ontology, both runner orderings, task
+retries, eight simultaneous claimers, terminal rows, cancellation after claim,
+inline/local dispatch, and migration upgrade/downgrade on existing rows. Run
+them against disposable Postgres on a dedicated local port:
+
+```bash
+docker run --rm -d --name talisman-tl185-postgres \
+  --cpus=1 --memory=600m -p 127.0.0.1:55485:5432 \
+  -e POSTGRES_PASSWORD=tl185-local-only -e POSTGRES_DB=tl185_claim \
+  pgvector/pgvector:pg16
+TEST_ASYNC_POSTGRES_URL='postgresql://postgres:tl185-local-only@127.0.0.1:55485/tl185_claim' \
+  .venv/bin/python -m pytest tests/test_async_job_claims.py tests/test_deploy_scripts.py -q
+docker stop talisman-tl185-postgres
+```
+
+Local measurements on 2026-10-21 compared base `881ff0ab` with TL-185 using
+the same Postgres 16 container, two-connection pool, no provider calls, and
+the default 250 ms warm poll interval. Each of three trials ran 20 races per
+type/order and 20 idle-queue start samples per type with the same arrival seed.
+
+| Measurement | Before | After |
+| --- | ---: | ---: |
+| Warm runner first, each type: compute / completion calls for 60 jobs | 120 / 120 | 60 / 60 |
+| Cloud Run runner first, each type: compute / completion calls for 60 jobs | 60 / 60 | 60 / 60 |
+| Analyzer warm start p95, range across trials | 242–248 ms | 238–245 ms |
+| Ontology warm start p95, range across trials | 240–243 ms | 239–244 ms |
+
+These warm measurements check claim overhead with an idle queue. The default
+dispatch now selects this warm path and avoids launching a Cloud Run task for
+these queues. After rollout, compare `async_jobs.started_at - created_at` for
+equivalent analyzer traffic windows and confirm the production start target
+below one second. Queue backlog and worker startup affect that measurement;
+local results do not establish production latency.
 
 The API service account needs `roles/run.jobsExecutorWithOverrides` on the async
 Cloud Run Job because dispatch passes `ASYNC_JOB_ID` as a per-execution env

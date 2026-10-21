@@ -30,11 +30,11 @@ export AGENT_WORKER_INSTANCES="1"      # fixed Cloud Run worker-pool capacity
 export AGENT_WORKER_CPU="1"
 export AGENT_WORKER_MEMORY="512Mi"
 export ANALYZER_WORKER_POOL="talisman-analyzer-worker"
-export ANALYZER_WORKER_INSTANCES="0"   # disabled by default; analyzer runs through Cloud Run Jobs
+export ANALYZER_WORKER_INSTANCES="1"   # analyzer dispatches to this warm pool
 export ANALYZER_WORKER_CPU="1"
 export ANALYZER_WORKER_MEMORY="1Gi"
 export ONTOLOGY_WORKER_POOL="talisman-ontology-worker"
-export ONTOLOGY_WORKER_INSTANCES="0"   # disabled by default; ontology runs through Cloud Run Jobs
+export ONTOLOGY_WORKER_INSTANCES="1"   # ontology dispatches to this warm pool
 export ONTOLOGY_WORKER_CPU="1"
 export ONTOLOGY_WORKER_MEMORY="512Mi"
 export INFERENCE_SERVICE="talisman-inference-nonprod"
@@ -52,7 +52,8 @@ export TOP50_REFRESH_JOB="talisman-top50-refresh"
 
 # Pool/instance limits for the current db-f1-micro (25 total connections).
 # Recalculate docs/postgres-pool-sizing.md before raising any of these limits,
-# enabling optional workers, or running more than two async executions at once.
+# increasing worker capacity, or running more than two async executions at once.
+# Drain generic async executions during rollouts to leave room for worker replicas.
 # POSTGRES_POOL_MAX_SIZE applies to the API, warm workers, and async executor;
 # the serial top-50 job has its own fixed one-connection allowance.
 export API_MAX_INSTANCES="${API_MAX_INSTANCES:-2}"

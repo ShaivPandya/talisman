@@ -264,7 +264,7 @@ def test_claim_queued_job_postgres_queue_filter_uses_typed_comparison(monkeypatc
     sql, params = calls[-1]
     assert "%s IS NULL" not in sql
     assert "queue_name = %s" in sql
-    assert len(params) == 4
+    assert len(params) == 5
     assert params[:2] == ("agent_chat_turn", "agent")
 
 
