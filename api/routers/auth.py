@@ -24,15 +24,17 @@ from slowapi.util import get_remote_address
 
 from api.audit import emit_audit_event
 from api.auth_store import (
+    AuthSession,
     AuthUser,
     create_session,
     default_admin_username,
     ensure_auth_users_seeded,
-    get_csrf_token_for_session,
     get_or_create_cloudflare_user,
     get_user_by_username,
     lookup_session,
+    refresh_session_csrf,
     revoke_session,
+    validate_session_csrf,
     verify_password,
 )
 from ontology.policy import Actor, user_actor
@@ -46,6 +48,13 @@ _DEFAULT_LOGIN_LOCKOUT_SECONDS = 15 * 60
 
 SESSION_COOKIE = "__session"
 CSRF_HEADER = "x-csrf-token"
+_FRESH_AUTH_PATHS = ("/api/admin", "/api/approvals", "/api/provenance", "/api/policy-gate", "/api/domain-actions")
+
+
+@dataclass(frozen=True)
+class _RequestAuthIdentity:
+    key: tuple[str, str]
+    user: AuthUser
 
 
 @dataclass
@@ -191,6 +200,7 @@ def _resolve_session_user(
     request: Request,
     access_token: str | None,
 ) -> AuthUser:
+    resolved = getattr(request.state, "auth_identity", None)
     if _is_cloudflare_mode():
         if not _cloudflare_proxy_secret_configured():
             raise HTTPException(
@@ -203,19 +213,37 @@ def _resolve_session_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Cloudflare Access identity is required.",
             )
-        return get_or_create_cloudflare_user(email)
+        identity = ("cloudflare", email.strip().lower())
+        if isinstance(resolved, _RequestAuthIdentity) and resolved.key == identity:
+            return resolved.user
+        user = get_or_create_cloudflare_user(email)
+        request.state.auth_identity = _RequestAuthIdentity(identity, user)
+        return user
 
     if not access_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    session = lookup_session(access_token)
+    identity = ("session", access_token)
+    if isinstance(resolved, _RequestAuthIdentity) and resolved.key == identity:
+        return resolved.user
+    csrf_session = getattr(request.state, "csrf_session", None)
+    session: AuthSession | None
+    if isinstance(csrf_session, AuthSession) and csrf_session.session_token == access_token:
+        session = csrf_session
+    else:
+        path = request.url.path.rstrip("/")
+        use_cache = request.method.upper() in {"GET", "HEAD", "OPTIONS"} and not any(
+            path == prefix or path.startswith(prefix + "/") for prefix in _FRESH_AUTH_PATHS
+        )
+        session = lookup_session(access_token, use_cache=use_cache)
     if session is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired session",
         )
+    request.state.auth_identity = _RequestAuthIdentity(identity, session.user)
     return session.user
 
 
@@ -381,10 +409,17 @@ def me(
     request: Request,
     access_token: str | None = Cookie(default=None, alias=SESSION_COOKIE),
 ):
-    user = _resolve_session_user(request, access_token)
     csrf_token: str | None = None
-    if not _is_cloudflare_mode() and access_token:
-        csrf_token = get_csrf_token_for_session(access_token)
+    if _is_cloudflare_mode():
+        user = _resolve_session_user(request, access_token)
+    else:
+        if not access_token:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
+        session = refresh_session_csrf(access_token)
+        if session is None:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired session")
+        user = session.user
+        csrf_token = session.csrf_token
     return {
         "username": user.username,
         "roles": list(user.roles),
@@ -402,9 +437,11 @@ def verify_request_csrf(request: Request) -> bool:
     if request.method.upper() not in {"POST", "PUT", "PATCH", "DELETE"}:
         return True
     csrf = (request.headers.get(CSRF_HEADER) or request.headers.get("X-CSRF-Token") or "").strip()
-    from api.auth_store import verify_csrf
-
-    return verify_csrf(session_token, csrf or None)
+    session = validate_session_csrf(session_token, csrf or None)
+    if session is None:
+        return False
+    request.state.csrf_session = session
+    return True
 
 
 def is_machine_authenticated_request(request: Request) -> bool:

@@ -21,6 +21,7 @@ from fastapi.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.gzip import GZipMiddleware
 
 from api.audit import emit_audit_event
@@ -348,9 +349,10 @@ async def _csrf_middleware(request: Request, call_next):
         and request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
         and path not in _CSRF_EXEMPT_PATHS
         and not is_machine_authenticated_request(request)
-        and not verify_request_csrf(request)
+        and not await run_in_threadpool(verify_request_csrf, request)
     ):
-        emit_audit_event(
+        await run_in_threadpool(
+            emit_audit_event,
             "permission.csrf_denied",
             "permission",
             "denied",
@@ -372,7 +374,8 @@ async def _require_proxy_secret(request: Request, call_next):
         if _proxy_secret_required():
             proxy_secret = _api_proxy_secret()
             if not proxy_secret:
-                emit_audit_event(
+                await run_in_threadpool(
+                    emit_audit_event,
                     "permission.proxy_secret_denied",
                     "permission",
                     "denied",
@@ -382,7 +385,8 @@ async def _require_proxy_secret(request: Request, call_next):
                 return JSONResponse({"detail": "API proxy secret is required for this auth mode."}, status_code=403)
             provided = request.headers.get("x-api-proxy-secret")
             if not provided or not hmac.compare_digest(provided, proxy_secret):
-                emit_audit_event(
+                await run_in_threadpool(
+                    emit_audit_event,
                     "permission.proxy_secret_denied",
                     "permission",
                     "denied",
@@ -398,7 +402,8 @@ async def _write_freeze_middleware(request: Request, call_next):
     """Reject mutating API calls during cutover freeze."""
     if _WRITE_FREEZE and request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         if request.url.path not in {"/api/auth/login", "/api/health", "/api/admin/quiescence"}:
-            emit_audit_event(
+            await run_in_threadpool(
+                emit_audit_event,
                 "permission.write_freeze_denied",
                 "permission",
                 "denied",

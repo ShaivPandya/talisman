@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
@@ -16,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 import bcrypt
+from cachetools import TTLCache
 
 from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
@@ -25,6 +27,9 @@ DB_PATH = Path(__file__).parent / "auth.db"
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
 _seeded = False
+_session_cache_lock = threading.RLock()
+_session_cache: TTLCache[str, _ValidatedSession] = TTLCache(maxsize=4096, ttl=30)
+_session_cache_generation = 0
 
 _CREATE_AUTH_USERS = """
 CREATE TABLE IF NOT EXISTS auth_users (
@@ -80,6 +85,23 @@ class AuthSession:
     expires_at: datetime
 
 
+@dataclass(frozen=True)
+class _ValidatedSession:
+    session: AuthSession
+    csrf_token_hash: str
+
+
+def _invalidate_session_cache(session_token: str | None = None) -> None:
+    global _session_cache_generation
+    with _session_cache_lock:
+        # Prevent a read started before a revocation/rotation from refilling the cache.
+        _session_cache_generation += 1
+        if session_token is None:
+            _session_cache.clear()
+        else:
+            _session_cache.pop(_hash_secret(session_token), None)
+
+
 def _now() -> str:
     return datetime.now(UTC).isoformat()
 
@@ -120,6 +142,7 @@ def reset_auth_store_for_tests() -> None:
     with _lock:
         _close_conn()
         _seeded = False
+        _invalidate_session_cache()
         if not use_postgres_state() and DB_PATH.exists():
             DB_PATH.unlink(missing_ok=True)
 
@@ -145,6 +168,7 @@ def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | Postg
 
 def _init_db(conn: sqlite3.Connection | PostgresStateConnection) -> None:
     conn.execute(_CREATE_AUTH_USERS)
+    conn.execute("CREATE INDEX IF NOT EXISTS ix_auth_users_email_lower ON auth_users (lower(email))")
     conn.execute(_CREATE_AUTH_USER_ROLES)
     conn.execute(_CREATE_AUTH_SESSIONS)
     conn.commit()
@@ -212,6 +236,7 @@ def _upsert_user(
             (user_id, role),
         )
     conn.commit()
+    _invalidate_session_cache()
     row = conn.execute("SELECT * FROM auth_users WHERE id = ?", (user_id,)).fetchone()
     user = _user_from_row(conn, row)
     assert user is not None
@@ -266,11 +291,27 @@ def get_user_by_email(email: str) -> AuthUser | None:
     def _read() -> AuthUser | None:
         with _get_conn(read_only=True) as conn:
             normalized = email.strip().lower()
-            row = conn.execute(
-                "SELECT * FROM auth_users WHERE lower(email) = ? AND active = ?",
+            rows = conn.execute(
+                """
+                SELECT u.id, u.username, u.email, r.role
+                FROM (
+                    SELECT id, username, email FROM auth_users
+                    WHERE lower(email) = ? AND active = ? LIMIT 1
+                ) u
+                LEFT JOIN auth_user_roles r ON r.user_id = u.id
+                ORDER BY r.role
+                """,
                 (normalized, True),
-            ).fetchone()
-            return _user_from_row(conn, row)
+            ).fetchall()
+            if not rows:
+                return None
+            data = _row_dict(rows[0])
+            return AuthUser(
+                id=str(data["id"]),
+                username=str(data["username"]),
+                email=str(data["email"]) if data.get("email") else None,
+                roles=tuple(str(row["role"]) for row in rows if row["role"] is not None),
+            )
 
     return retry_read(_read)
 
@@ -358,26 +399,36 @@ def create_session(
         )
 
 
-def lookup_session(session_token: str) -> AuthSession | None:
+def _lookup_validated_session(session_token: str, *, use_cache: bool = True) -> _ValidatedSession | None:
     if not session_token:
         return None
     ensure_auth_users_seeded()
+    token_hash = _hash_secret(session_token)
+    with _session_cache_lock:
+        generation = _session_cache_generation
+        cached = _session_cache.get(token_hash) if use_cache else None
+        if cached is not None:
+            if cached.session.expires_at > datetime.now(UTC):
+                return cached
+            _session_cache.pop(token_hash, None)
 
-    def _read() -> AuthSession | None:
+    def _read() -> _ValidatedSession | None:
         with _get_conn(read_only=True) as conn:
-            row = conn.execute(
+            rows = conn.execute(
                 """
                 SELECT s.id, s.user_id, s.csrf_token_hash, s.expires_at, s.revoked_at,
-                       u.username, u.email
+                       u.username, u.email, r.role
                 FROM auth_sessions s
                 JOIN auth_users u ON u.id = s.user_id
+                LEFT JOIN auth_user_roles r ON r.user_id = u.id
                 WHERE s.token_hash = ? AND u.active = ?
+                ORDER BY r.role
                 """,
-                (_hash_secret(session_token), True),
-            ).fetchone()
-            if not row:
+                (token_hash, True),
+            ).fetchall()
+            if not rows:
                 return None
-            data = _row_dict(row)
+            data = _row_dict(rows[0])
             if data.get("revoked_at"):
                 return None
             expires_at = _parse_iso(str(data["expires_at"]))
@@ -388,54 +439,97 @@ def lookup_session(session_token: str) -> AuthSession | None:
                 id=user_id,
                 username=str(data["username"]),
                 email=str(data["email"]) if data.get("email") else None,
-                roles=_roles_for_user(conn, user_id),
+                roles=tuple(str(row["role"]) for row in rows if row["role"] is not None),
             )
-            return AuthSession(
-                session_id=str(data["id"]),
-                user=user,
-                session_token=session_token,
-                csrf_token="",
-                expires_at=expires_at,
+            return _ValidatedSession(
+                session=AuthSession(
+                    session_id=str(data["id"]),
+                    user=user,
+                    session_token=session_token,
+                    csrf_token="",
+                    expires_at=expires_at,
+                ),
+                csrf_token_hash=str(data["csrf_token_hash"]),
             )
 
-    return retry_read(_read)
+    validated = retry_read(_read)
+    with _session_cache_lock:
+        if generation == _session_cache_generation:
+            if validated is not None:
+                _session_cache[token_hash] = validated
+            else:
+                _session_cache.pop(token_hash, None)
+    return validated
+
+
+def lookup_session(session_token: str, *, use_cache: bool = True) -> AuthSession | None:
+    validated = _lookup_validated_session(session_token, use_cache=use_cache)
+    return validated.session if validated is not None else None
 
 
 def verify_csrf(session_token: str, csrf_token: str | None) -> bool:
+    return validate_session_csrf(session_token, csrf_token) is not None
+
+
+def validate_session_csrf(session_token: str, csrf_token: str | None) -> AuthSession | None:
+    """Validate mutations against current state, returning identity for request reuse."""
     if not session_token or not csrf_token:
-        return False
-
-    def _read() -> bool:
-        with _get_conn(read_only=True) as conn:
-            row = conn.execute(
-                "SELECT csrf_token_hash, revoked_at, expires_at FROM auth_sessions WHERE token_hash = ?",
-                (_hash_secret(session_token),),
-            ).fetchone()
-            if not row:
-                return False
-            data = _row_dict(row)
-            if data.get("revoked_at"):
-                return False
-            if _parse_iso(str(data["expires_at"])) <= datetime.now(UTC):
-                return False
-            return secrets.compare_digest(_hash_secret(csrf_token), str(data["csrf_token_hash"]))
-
-    return retry_read(_read)
+        return None
+    validated = _lookup_validated_session(session_token, use_cache=False)
+    if validated is None or not secrets.compare_digest(_hash_secret(csrf_token), validated.csrf_token_hash):
+        return None
+    return validated.session
 
 
 def get_csrf_token_for_session(session_token: str) -> str | None:
     """Return a fresh CSRF token by rotating the stored hash (used on /me)."""
-    session = lookup_session(session_token)
-    if session is None:
+    session = refresh_session_csrf(session_token)
+    return session.csrf_token if session is not None else None
+
+
+def refresh_session_csrf(session_token: str) -> AuthSession | None:
+    """Refresh CSRF and retrieve current identity in one statement, bypassing cache."""
+    if not session_token:
         return None
+    ensure_auth_users_seeded()
     csrf_token = secrets.token_urlsafe(32)
+    roles_aggregate = "json_agg(role)" if use_postgres_state() else "json_group_array(role)"
+    expiry_check = (
+        "expires_at::timestamptz > ?::timestamptz" if use_postgres_state() else "julianday(expires_at) > julianday(?)"
+    )
     with _get_conn() as conn:
-        conn.execute(
-            "UPDATE auth_sessions SET csrf_token_hash = ? WHERE token_hash = ?",
-            (_hash_secret(csrf_token), _hash_secret(session_token)),
-        )
+        row = conn.execute(
+            f"""
+            UPDATE auth_sessions SET csrf_token_hash = ?
+            WHERE token_hash = ? AND revoked_at IS NULL AND {expiry_check}
+              AND EXISTS (SELECT 1 FROM auth_users WHERE id = auth_sessions.user_id AND active = ?)
+            RETURNING id, user_id, expires_at,
+                (SELECT username FROM auth_users WHERE id = auth_sessions.user_id) AS username,
+                (SELECT email FROM auth_users WHERE id = auth_sessions.user_id) AS email,
+                (SELECT {roles_aggregate} FROM auth_user_roles WHERE user_id = auth_sessions.user_id) AS roles_json
+            """,
+            (_hash_secret(csrf_token), _hash_secret(session_token), _now(), True),
+        ).fetchone()
         conn.commit()
-        return csrf_token
+    _invalidate_session_cache(session_token)
+    if row is None:
+        return None
+    data = _row_dict(row)
+    roles = data.get("roles_json") or []
+    if isinstance(roles, str):
+        roles = json.loads(roles)
+    return AuthSession(
+        session_id=str(data["id"]),
+        user=AuthUser(
+            id=str(data["user_id"]),
+            username=str(data["username"]),
+            email=str(data["email"]) if data.get("email") else None,
+            roles=tuple(sorted(roles)),
+        ),
+        session_token=session_token,
+        csrf_token=csrf_token,
+        expires_at=_parse_iso(str(data["expires_at"])),
+    )
 
 
 def revoke_session(session_token: str) -> None:
@@ -447,6 +541,7 @@ def revoke_session(session_token: str) -> None:
             (_now(), _hash_secret(session_token)),
         )
         conn.commit()
+    _invalidate_session_cache(session_token)
 
 
 def user_has_role(user: AuthUser, role: str) -> bool:

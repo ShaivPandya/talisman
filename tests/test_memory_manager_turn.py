@@ -14,7 +14,7 @@ def temp_memory_db(tmp_path, monkeypatch):
             pass
     monkeypatch.setenv("STATE_DB_BACKEND", "sqlite")
     monkeypatch.setattr(memory_db, "_DB_PATH", tmp_path / "memory.db")
-    monkeypatch.setattr(memory_db, "_conn", None)
+    memory_db._conn = None
     yield
     if memory_db._conn is not None:
         try:
