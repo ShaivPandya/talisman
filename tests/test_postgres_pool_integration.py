@@ -71,7 +71,8 @@ def pg_state(migrated_database, monkeypatch):
     for store in (auth_store, memory_db, llm_settings):
         if store._conn is not None:
             store._conn.close()
-        monkeypatch.setattr(store, "_conn", None)
+        # Teardown must not restore a SQLite connection that we just closed.
+        store._conn = None
 
     def no_direct_connections(*args, **kwargs):
         raise AssertionError("a runtime caller bypassed the shared pool")

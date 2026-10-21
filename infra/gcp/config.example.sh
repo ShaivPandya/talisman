@@ -50,6 +50,16 @@ export INFERENCE_ENVIRONMENT="nonprod"
 export MIGRATION_JOB="talisman-migrate"
 export TOP50_REFRESH_JOB="talisman-top50-refresh"
 
+# Pool/instance limits for the current db-f1-micro (25 total connections).
+# Recalculate docs/postgres-pool-sizing.md before raising any of these limits,
+# enabling optional workers, or running more than two async executions at once.
+# POSTGRES_POOL_MAX_SIZE applies to the API, warm workers, and async executor;
+# the serial top-50 job has its own fixed one-connection allowance.
+export API_MAX_INSTANCES="${API_MAX_INSTANCES:-2}"
+export POSTGRES_POOL_MIN_SIZE="${POSTGRES_POOL_MIN_SIZE:-2}"
+export POSTGRES_POOL_MAX_SIZE="${POSTGRES_POOL_MAX_SIZE:-2}"
+export POSTGRES_POOL_TIMEOUT_SECONDS="${POSTGRES_POOL_TIMEOUT_SECONDS:-5}"
+
 # Frontend origins allowed by API CORS. Include Firebase Hosting defaults plus
 # every production custom domain that can serve the frontend.
 export CORS_ORIGINS="https://${PROJECT_ID}.web.app,https://${PROJECT_ID}.firebaseapp.com,https://shaivpandya.com,https://www.shaivpandya.com"

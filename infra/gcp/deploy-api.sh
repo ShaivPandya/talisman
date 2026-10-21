@@ -5,7 +5,7 @@
 #
 # Tunables (override via environment):
 #   API_CPU=1  API_MEMORY=1Gi  API_CONCURRENCY=20
-#   API_MIN_INSTANCES=0  API_MAX_INSTANCES=10  API_TIMEOUT=300
+#   API_MIN_INSTANCES=0  API_MAX_INSTANCES=2  API_TIMEOUT=300
 #   ASYNC_JOB_RUNNER_JOB=talisman-async-job
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -24,7 +24,8 @@ ASYNC_JOB_RUNNER_JOB="${ASYNC_JOB_RUNNER_JOB:-talisman-async-job}"
 # The API service is now primarily request routing, short interactive reads, and
 # async job dispatch/polling; heavier analysis runs in Cloud Run Jobs. Default to
 # one vCPU and 1Gi with moderate concurrency so a single instance is not
-# overcommitted, while max instances can still absorb interactive bursts.
+# overcommitted. The instance and pool limits share the 25-connection Cloud SQL
+# budget documented in docs/postgres-pool-sizing.md.
 API_CPU="${API_CPU:-1}"
 API_MEMORY="${API_MEMORY:-1Gi}"
 API_CONCURRENCY="${API_CONCURRENCY:-20}"
@@ -63,9 +64,7 @@ API_ENV_VARS=(
   "ASYNC_JOB_COMPLETED_TTL_SECONDS=86400"
   "ASYNC_ANALYZER_COMPLETED_TTL_SECONDS=300"
   "ASYNC_JOB_FAILED_TTL_SECONDS=604800"
-  "POSTGRES_POOL_MAX_SIZE=${POSTGRES_POOL_MAX_SIZE:-4}"
-  # Let interactive read bursts queue within the browser's 60-second timeout.
-  "POSTGRES_POOL_TIMEOUT_SECONDS=${POSTGRES_POOL_TIMEOUT_SECONDS:-30}"
+  "POSTGRES_POOL_MAX_SIZE=${POSTGRES_POOL_MAX_SIZE:-2}"
   "ASYNC_JOB_SUCCESS_READ_AUDIT_ENABLED=${ASYNC_JOB_SUCCESS_READ_AUDIT_ENABLED:-false}"
   "ONTOLOGY_JOB_SUCCESS_READ_AUDIT_ENABLED=${ONTOLOGY_JOB_SUCCESS_READ_AUDIT_ENABLED:-false}"
   "AGENT_DELTA_FLUSH_INTERVAL_MS=${AGENT_DELTA_FLUSH_INTERVAL_MS:-500}"
@@ -94,7 +93,8 @@ gcloud run deploy "${API_SERVICE}" \
   --memory="${API_MEMORY}" \
   --concurrency="${API_CONCURRENCY}" \
   --min-instances="${API_MIN_INSTANCES:-0}" \
-  --max-instances="${API_MAX_INSTANCES:-10}" \
+  --max="${API_MAX_INSTANCES:-2}" \
+  --max-instances="${API_MAX_INSTANCES:-2}" \
   --timeout="${API_TIMEOUT:-300}" \
   --port=8080 \
   --allow-unauthenticated
