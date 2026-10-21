@@ -29,16 +29,8 @@ from api.exceptions import AppError, DataFetchError
 from api.logging_config import configure_logging, generate_request_id, request_id_var
 from api.performance import PerformanceMiddleware
 from api.request_limits import MULTIPART_FORM_DATA_OVERHEAD_BYTES, BodySizeLimitMiddleware
-from api.request_schema import (
-    collect_api_request_schema_definitions,
-    validate_and_upgrade_request_schema,
-)
+from api.request_schema import validate_and_upgrade_request_schema
 from api.safe_import import get_degraded_modules, safe_import_router
-from ontology.schema_definitions import (
-    domain_action_schema_definitions,
-    ontology_schema_definitions,
-    seed_schema_definitions,
-)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -149,9 +141,24 @@ class PerformanceFastAPI(FastAPI):
         return PerformanceMiddleware(super().build_middleware_stack())
 
 
+def _warm_request_imports() -> None:
+    """Pay deferred import costs before the startup probe admits user traffic."""
+    import importlib
+
+    for module in (
+        "numpy",
+        "pandas",
+        "api.agent_tools",
+        "portfolio.risk_dashboard",
+        "equities.sector_metrics.sector_metrics",
+    ):
+        importlib.import_module(module)
+
+
 @asynccontextmanager
 async def _lifespan(_app):
     try:
+        await run_in_threadpool(_warm_request_imports)
         yield
     finally:
         from api.postgres import close_pools
@@ -492,27 +499,6 @@ app.include_router(report_sync.router, prefix=_API_PREFIX, tags=["reports"])
 # Optional routers (gracefully degraded if import failed)
 for _name, (_router, _tag, _healthy) in _optional_routers.items():
     app.include_router(_router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=[_tag])
-
-
-def _seed_runtime_schema_registry() -> None:
-    try:
-        from ontology.repository import OntologyRepository
-
-        repo = OntologyRepository()
-        with repo._connect() as conn:
-            seed_schema_definitions(
-                conn,
-                [
-                    *ontology_schema_definitions(),
-                    *domain_action_schema_definitions(),
-                    *collect_api_request_schema_definitions(app.router.routes),
-                ],
-            )
-    except Exception:
-        logger.warning("schema registry seed failed", exc_info=True)
-
-
-_seed_runtime_schema_registry()
 
 
 # ---------------------------------------------------------------------------

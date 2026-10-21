@@ -18,7 +18,6 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
-from api.agent_tools import execute_tool
 from api.audit import emit_audit_event
 from api.observability import capture_exception, capture_message
 from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
@@ -83,6 +82,13 @@ AVAILABLE_WORKFLOWS = {
 # ---------------------------------------------------------------------------
 # Tool execution helpers
 # ---------------------------------------------------------------------------
+
+
+def execute_tool(name: str, arguments: dict, **kwargs: Any) -> str:
+    """Keep workflow discovery independent of the request-time tool registry."""
+    from api.agent_tools import execute_tool as _execute_tool
+
+    return _execute_tool(name, arguments, **kwargs)
 
 
 def _workflow_tool_context(

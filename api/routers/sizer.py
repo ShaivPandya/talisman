@@ -3,7 +3,6 @@ from __future__ import annotations
 import re
 from typing import Any, Literal
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, model_validator
 
@@ -231,6 +230,8 @@ def get_portfolio_sizer_job(job_id: str):
 
 
 def _leg_conviction(leg: dict[str, Any]) -> int:
+    import pandas as pd
+
     value = pd.to_numeric(leg.get("conviction"), errors="coerce")
     return int(value) if pd.notna(value) else 3
 
@@ -243,6 +244,8 @@ def _representative_leg(legs: list[dict[str, Any]]) -> dict[str, Any]:
 
 @router.get("/portfolio-sizer/prefill")
 def get_sizer_prefill():
+    import pandas as pd
+
     try:
         df = OntologyRuntimeReadService().positions_df()
         if "ticker" not in df.columns:

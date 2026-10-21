@@ -385,6 +385,29 @@ def test_example_config_keeps_the_approved_api_pool_budget(tmp_path):
     assert env["POSTGRES_POOL_TIMEOUT_SECONDS"] == "5"
 
 
+def test_api_deploy_waits_for_http_readiness_and_keeps_one_warm_instance(tmp_path):
+    flags, _ = _render_pool_deploy(tmp_path, "deploy-api.sh")
+    assert flags["--min-instances"] == "1"
+    probe = dict(part.split("=", 1) for part in flags["--startup-probe"].split(","))
+    assert probe["httpGet.path"] == "/api/health"
+    assert probe["httpGet.port"] == "8080"
+    assert int(probe["periodSeconds"]) * int(probe["failureThreshold"]) <= 240
+    script = (ROOT / "infra/gcp/deploy-api.sh").read_text()
+    assert "--cpu-boost" in script
+    assert "--cpu-throttling" in script
+
+
+def test_api_minimum_instance_override_is_preserved(tmp_path):
+    flags, _ = _render_pool_deploy(tmp_path, "deploy-api.sh", overrides={"API_MIN_INSTANCES": "0"})
+    assert flags["--min-instances"] == "0"
+
+
+def test_routine_migration_job_seeds_before_api_deploy():
+    script = (ROOT / "infra/gcp/deploy-backend.sh").read_text()
+    migration = 'run_job_and_wait "${MIGRATION_JOB}" --args=-m,api.migrate'
+    assert script.index(migration) < script.index('"${_repo_root}/infra/gcp/deploy-api.sh"')
+
+
 def test_rendered_stack_fits_live_connection_budget_including_rollout(tmp_path):
     api_flags, api = _render_pool_deploy(tmp_path, "deploy-api.sh", example_config=True)
     agent_flags, agent = _render_pool_deploy(tmp_path, "deploy-agent-worker.sh", example_config=True)

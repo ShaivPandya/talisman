@@ -13,14 +13,17 @@ from __future__ import annotations
 
 import math
 from datetime import date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
-import pandas as pd
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 def serialize_value(v: Any) -> Any:
     """Recursively convert a value to a JSON-serializable type."""
+    import numpy as np
+    import pandas as pd
+
     if isinstance(v, pd.DataFrame):
         return serialize_dataframe(v)
     if isinstance(v, pd.Series):

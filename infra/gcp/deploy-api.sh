@@ -5,7 +5,7 @@
 #
 # Tunables (override via environment):
 #   API_CPU=1  API_MEMORY=1Gi  API_CONCURRENCY=20
-#   API_MIN_INSTANCES=0  API_MAX_INSTANCES=2  API_TIMEOUT=300
+#   API_MIN_INSTANCES=1  API_MAX_INSTANCES=2  API_TIMEOUT=300
 #   ASYNC_JOB_RUNNER_JOB=talisman-async-job
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -92,7 +92,10 @@ gcloud run deploy "${API_SERVICE}" \
   --cpu="${API_CPU}" \
   --memory="${API_MEMORY}" \
   --concurrency="${API_CONCURRENCY}" \
-  --min-instances="${API_MIN_INSTANCES:-0}" \
+  --min-instances="${API_MIN_INSTANCES:-1}" \
+  --cpu-boost \
+  --cpu-throttling \
+  --startup-probe="httpGet.path=/api/health,httpGet.port=8080,periodSeconds=2,timeoutSeconds=1,failureThreshold=30" \
   --max="${API_MAX_INSTANCES:-2}" \
   --max-instances="${API_MAX_INSTANCES:-2}" \
   --timeout="${API_TIMEOUT:-300}" \

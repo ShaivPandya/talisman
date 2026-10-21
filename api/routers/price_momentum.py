@@ -1,7 +1,6 @@
 import json
 from typing import Any, cast
 
-import pandas as pd
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -103,6 +102,8 @@ def _cache_key(req: PriceMomentumRequest) -> str:
 
 
 def _serialize_price_momentum(data: dict) -> dict[str, Any]:
+    import pandas as pd
+
     result: dict[str, Any] = {}
     for k, v in data.items():
         if isinstance(v, pd.DataFrame):
@@ -113,6 +114,8 @@ def _serialize_price_momentum(data: dict) -> dict[str, Any]:
 
 
 def _compute_price_momentum(req: PriceMomentumRequest, progress_callback=None) -> dict[str, Any]:
+    import pandas as pd
+
     tickers = _resolve_tickers(req)
     if not tickers:
         raise ValueError("No tickers resolved for the requested universe/input.")

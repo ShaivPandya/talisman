@@ -55,9 +55,7 @@ from concurrent.futures import as_completed
 from concurrent.futures import wait as cf_wait
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
-
-import pandas as pd
+from typing import TYPE_CHECKING, Any
 
 from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from utils.market_freshness import (
@@ -66,6 +64,9 @@ from utils.market_freshness import (
     market_cache_decision,
     metadata_from_decision,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 DEFAULT_LOOKBACK_WEEKS = 156
 DEFAULT_POSITIONING_INSTRUMENTS = "SP500,NASDAQ,RUSSELL,US10Y,EUR"
@@ -102,6 +103,8 @@ _CLOSE_PROBE_TICKER = "SPY"
 
 def _load_sp500_cache() -> tuple[pd.DataFrame | None, dict[str, Any] | None]:
     """Load cached S&P 500 prices + metadata from disk."""
+    import pandas as pd
+
     try:
         if not _SP500_CACHE_DATA.exists() or not _SP500_CACHE_META.exists():
             return None, None
@@ -162,6 +165,8 @@ def invalidate_sp500_price_cache() -> None:
 
 def _latest_market_close_date() -> str | None:
     """Probe the latest available close date via a lightweight SPY download."""
+    import pandas as pd
+
     from utils.retry import yf_download
 
     try:
@@ -184,6 +189,8 @@ def _latest_market_close_date() -> str | None:
 
 def _sp500_cache_as_of_date(df: pd.DataFrame) -> str | None:
     """Extract the latest date from a price DataFrame's index."""
+    import pandas as pd
+
     try:
         idx = pd.to_datetime(df.index, errors="coerce").dropna()
         if idx.empty:
@@ -227,6 +234,8 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 
 def _as_rows(value: Any) -> list[dict[str, Any]]:
+    import pandas as pd
+
     if isinstance(value, pd.DataFrame):
         if value.empty:
             return []
@@ -509,6 +518,8 @@ def _build_episodes(series_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _normalize_weekly(series: pd.Series, lookback_weeks: int) -> pd.Series:
+    import pandas as pd
+
     s = pd.to_numeric(series, errors="coerce")
     s = s.dropna()
     if s.empty:
@@ -526,6 +537,8 @@ def _build_vix_history_series(
     lookback_weeks: int,
     preloaded: tuple[pd.DataFrame, str] | None = None,
 ) -> pd.Series:
+    import pandas as pd
+
     from equities.market_technicals.vix_term_structure import add_signals, load_term_structure
 
     if preloaded is not None:
@@ -545,6 +558,8 @@ def _build_vix_history_series(
 
 
 def _build_liquidity_history_series(liquidity_raw: dict[str, Any], lookback_weeks: int) -> pd.Series:
+    import pandas as pd
+
     from macro.liquidity.liquidity import classify_regime
 
     composite_series = liquidity_raw.get("composite_series")
@@ -570,6 +585,8 @@ def _build_positioning_history_series(
     instruments_csv: str,
     preloaded_df: pd.DataFrame | None = None,
 ) -> pd.Series:
+    import pandas as pd
+
     from macro.positioning.positioning import DATASETS, DEFAULT_DOMAIN, INSTRUMENTS, fetch_markets_timeseries
 
     aliases = [s.strip().upper() for s in (instruments_csv or "").split(",") if s.strip()]
@@ -631,6 +648,8 @@ def _build_history(
     vix_preloaded: tuple[pd.DataFrame, str] | None = None,
     positioning_preloaded_df: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
+    import pandas as pd
+
     module_status: dict[str, str] = {}
     factors: dict[str, pd.Series] = {}
 
@@ -720,6 +739,8 @@ def _build_history(
 
 def _download_sp500_prices_uncached() -> pd.DataFrame:
     """Download S&P 500 constituent prices from yfinance (no cache)."""
+    import pandas as pd
+
     from equities.market_technicals.market_breadth import get_sp500_tickers
     from utils.retry import yf_download
 
@@ -896,6 +917,8 @@ def _download_sp500_prices_with_meta() -> tuple[pd.DataFrame, dict[str, Any]]:
 def _fetch_current_modules(
     lookback_weeks: int = DEFAULT_LOOKBACK_WEEKS,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    import pandas as pd
+
     from equities.market_technicals.market_breadth import get_data as get_market_breadth
     from equities.market_technicals.top50_breadth import get_data as get_top50_breadth
     from equities.market_technicals.vix_term_structure import add_signals, load_term_structure
@@ -1030,6 +1053,8 @@ def build_signal_aggregator_from_payloads(
     include_history: bool = True,
 ) -> dict[str, Any]:
     """Build a signal-aggregator response from already-fetched module payloads."""
+    import pandas as pd
+
     lookback = max(26, min(int(lookback_weeks), 520))
     _fill_liquidity_snapshot_gap(raw, module_status)
     _attach_source_registry_to_module_status(module_status)

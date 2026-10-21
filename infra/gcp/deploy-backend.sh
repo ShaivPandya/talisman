@@ -187,9 +187,10 @@ log "Deploying migration job"
 
 # Additive schema changes must be available before new workers start polling.
 if [[ "${RUN_DB_MIGRATIONS:-1}" == "1" ]]; then
-  log "Running Alembic migrations"
-  # Override the migration job's one-time state migration entrypoint.
-  run_job_and_wait "${MIGRATION_JOB}" --args=-m,alembic,upgrade,head
+  log "Running Alembic migrations and seeding the schema registry"
+  # Routine deploys migrate and seed current definitions before new workers
+  # poll or API instances start; the job also retains its one-time state copy.
+  run_job_and_wait "${MIGRATION_JOB}" --args=-m,api.migrate
 else
   log "RUN_DB_MIGRATIONS=0; skipping Alembic migrations"
 fi
