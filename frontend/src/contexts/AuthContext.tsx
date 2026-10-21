@@ -10,6 +10,7 @@ import {
 import { authApi } from "@/lib/api"
 import { setAuthMode, type AuthMode } from "@/lib/authMode"
 import { setCsrfToken } from "@/lib/csrfToken"
+import { useQueryClient } from "@tanstack/react-query"
 
 interface AuthState {
   mode: AuthMode
@@ -44,6 +45,7 @@ async function probeCloudflareAccess(): Promise<{ available: boolean; authentica
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
+  const queryClient = useQueryClient()
   const [mode, setMode] = useState<AuthMode>(REQUESTED_AUTH_MODE)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -129,22 +131,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return
       }
       const result = await authApi.login(password, loginUsername)
+      queryClient.clear()
       setUsername(result.username)
       setIsAuthenticated(true)
     },
-    [mode],
+    [mode, queryClient],
   )
 
   const logout = useCallback(async () => {
     if (mode === "cloudflare") {
+      queryClient.clear()
       window.location.href = "/cdn-cgi/access/logout"
       return
     }
     await authApi.logout()
+    queryClient.clear()
     setCsrfToken(null)
     setUsername(null)
     setIsAuthenticated(false)
-  }, [mode])
+  }, [mode, queryClient])
 
   return (
     <AuthContext.Provider

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { useRegisterScreenContext } from "@/contexts/ScreenContext"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useDisplayedQueryParameter } from "@/hooks/useDisplayedQueryParameter"
 import { fetchPortfolio } from "@/lib/api"
 import { TimeSeriesChart, calcReturn, type DataPoint, type SeriesDef } from "@/components/shared/TimeSeriesChart"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
@@ -156,14 +157,17 @@ export function PortfolioDashboard() {
     isLoading,
     error,
     isSuccess,
+    isPlaceholderData,
   } = useApiQuery<PortfolioTimeframeResponse>(
     ["portfolio", timeframe],
     () => fetchPortfolio(timeframe),
     portfolioStaleTime(timeframe),
+    { placeholderData: keepPreviousData },
   )
+  const displayedTimeframe = useDisplayedQueryParameter(timeframe, isPlaceholderData)
 
   useEffect(() => {
-    if (!isSuccess) return
+    if (!isSuccess || isPlaceholderData) return
 
     let cancelled = false
     let timeoutId: number | null = null
@@ -201,7 +205,7 @@ export function PortfolioDashboard() {
       }
       if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
-  }, [isSuccess, queryClient, timeframe])
+  }, [isSuccess, isPlaceholderData, queryClient, timeframe])
 
   const refreshQueryKeys = useMemo(() => [["portfolio", timeframe], ["thesis", "status"]], [timeframe])
   const invalidatePortfolioQueries = async () => {
@@ -256,7 +260,7 @@ export function PortfolioDashboard() {
     if (!timeframeData || order.length === 0) return null
     const metrics: Record<string, string> = {
       "Positions": `${order.length} tickers`,
-      "Timeframe": timeframeLabel(timeframe),
+      "Timeframe": timeframeLabel(displayedTimeframe),
       "View": viewMode,
     }
     const returns = order.slice(0, 10).map(ticker => {
@@ -269,11 +273,11 @@ export function PortfolioDashboard() {
     return {
       pageName: "Portfolio Dashboard",
       metrics,
-      filters: { timeframe: timeframeLabel(timeframe), view: viewMode },
-      summary: `Portfolio with ${order.length} positions, viewing ${timeframeLabel(timeframe)} in ${viewMode} mode`,
+      filters: { timeframe: timeframeLabel(displayedTimeframe), view: viewMode },
+      summary: `Portfolio with ${order.length} positions, viewing ${timeframeLabel(displayedTimeframe)} in ${viewMode} mode`,
       correspondingTools: ["get_portfolio"],
     }
-  }, [timeframeData, order, positions, timeframe, viewMode])
+  }, [timeframeData, order, positions, displayedTimeframe, viewMode])
   useRegisterScreenContext(screenCtx)
 
   const unifiedPerformance = useMemo(
@@ -317,6 +321,11 @@ export function PortfolioDashboard() {
         />
       </div>
 
+      {isPlaceholderData && (
+        <p role="status" className="mb-4 text-sm text-muted">
+          Updating to {timeframeLabel(timeframe)}… Showing {timeframeLabel(displayedTimeframe)} until the new data arrives.
+        </p>
+      )}
       {isLoading && <LoadingSpinner message="Fetching portfolio data..." />}
       {!isLoading && loadError && (
         <ErrorMessage message={loadError} />
@@ -367,7 +376,7 @@ export function PortfolioDashboard() {
                   </span>
                 ) : undefined}
               >
-                <TimeSeriesChart data={series} height={160} timeframe={timeframe} />
+                <TimeSeriesChart data={series} height={160} timeframe={displayedTimeframe} />
               </ChartTile>
             )
           })}
@@ -409,7 +418,7 @@ export function PortfolioDashboard() {
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 className="section-title">Unified Performance</h2>
-                <p className="mt-1 text-sm text-muted">{timeframeLabel(timeframe)} raw price return, normalized to 0%.</p>
+                <p className="mt-1 text-sm text-muted">{timeframeLabel(displayedTimeframe)} raw price return, normalized to 0%.</p>
               </div>
               <span className="text-xs font-medium text-subtle">{unifiedPerformance.sortedPositions.length} positions</span>
             </div>
@@ -417,7 +426,7 @@ export function PortfolioDashboard() {
               multiData={unifiedPerformance.chartData}
               series={unifiedPerformance.series}
               height={360}
-              timeframe={timeframe}
+              timeframe={displayedTimeframe}
               zeroLine
               yFormatter={formatPercent}
               tooltipFormatter={formatPercent}

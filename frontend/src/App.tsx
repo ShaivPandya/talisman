@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from "react"
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { DEFAULT_QUERY_GC_TIME_MS } from "@/lib/queryCache"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
 import { ThemeProvider } from "@/contexts/ThemeContext"
 import { PersonalizationProvider } from "@/contexts/PersonalizationContext"
@@ -156,6 +157,7 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: false,
       staleTime: 5 * 60 * 1000, // 5 min — matches backend TTL cache
+      gcTime: DEFAULT_QUERY_GC_TIME_MS,
     },
   },
 })

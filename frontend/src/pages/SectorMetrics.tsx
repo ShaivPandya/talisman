@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { keepPreviousData, useMutation } from "@tanstack/react-query"
 import { ChevronDown, Sparkles } from "lucide-react"
 import {
   dashboardTimeframeStaleTime,
   useDashboardTimeframePrefetch,
 } from "@/hooks/useDashboardTimeframePrefetch"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useDisplayedQueryParameter } from "@/hooks/useDisplayedQueryParameter"
 import { useSessionAiOverview } from "@/hooks/useSessionAiOverview"
 import { fetchSectorMetrics, fetchSectorMetricsSeries, analyzeSectorMetrics, refreshMarketSnapshots } from "@/lib/api"
 import { DataTable, type ColumnDef } from "@/components/shared/DataTable"
@@ -97,16 +98,19 @@ export function SectorMetrics() {
     isLoading: isSeriesLoading,
     error: seriesError,
     isSuccess: isSeriesSuccess,
+    isPlaceholderData,
   } = useApiQuery<SectorMetricsSeriesResponse>(
     ["sector-metrics-series", timeframe],
     () => fetchSectorMetricsSeries(timeframe),
     dashboardTimeframeStaleTime(timeframe),
+    { placeholderData: keepPreviousData },
   )
+  const displayedTimeframe = useDisplayedQueryParameter(timeframe, isPlaceholderData)
   useDashboardTimeframePrefetch({
     queryKeyRoot: "sector-metrics-series",
     timeframes: TIMEFRAMES,
     activeTimeframe: timeframe,
-    isReady: isSeriesSuccess,
+    isReady: isSeriesSuccess && !isPlaceholderData,
     fetchTimeframe: fetchSectorMetricsSeries,
   })
 
@@ -129,8 +133,8 @@ export function SectorMetrics() {
     return Array.isArray(series) && series.length > 0
   })
   const chartDescription = isRelativeMode
-    ? `${timeframeLabel(timeframe)} sector ETF return versus ${benchmark}, normalized to 0%.`
-    : `${timeframeLabel(timeframe)} sector ETF price return, normalized to 0%.`
+    ? `${timeframeLabel(displayedTimeframe)} sector ETF return versus ${benchmark}, normalized to 0%.`
+    : `${timeframeLabel(displayedTimeframe)} sector ETF price return, normalized to 0%.`
   const chartEmptyMessage = isRelativeMode
     ? `No ${benchmark}-relative sector series available.`
     : "No sector ETF price series available."
@@ -215,6 +219,11 @@ export function SectorMetrics() {
         />
       </div>
 
+      {isPlaceholderData && (
+        <p role="status" className="mb-4 text-sm text-muted">
+          Updating to {timeframeLabel(timeframe)}… Showing {timeframeLabel(displayedTimeframe)} until the new data arrives.
+        </p>
+      )}
       {isSeriesLoading && <LoadingSpinner message="Fetching sector chart data..." />}
       {!isSeriesLoading && seriesError && <ErrorMessage message={String(seriesError)} />}
       {seriesData && !isSeriesLoading && !seriesError && !hasChartSeries && (
@@ -241,7 +250,7 @@ export function SectorMetrics() {
                 <TimeSeriesChart
                   data={chartData}
                   height={160}
-                  timeframe={timeframe}
+                  timeframe={displayedTimeframe}
                   zeroLine={isRelativeMode}
                   yFormatter={isRelativeMode ? formatPercent : undefined}
                   tooltipFormatter={isRelativeMode ? formatPercent : undefined}
@@ -256,8 +265,8 @@ export function SectorMetrics() {
           <UnifiedPerformanceView
             order={order}
             seriesByName={activeSeries}
-            timeframe={timeframe}
-            timeframeLabel={timeframeLabel(timeframe)}
+            timeframe={displayedTimeframe}
+            timeframeLabel={timeframeLabel(displayedTimeframe)}
             itemLabel="sectors"
             title={isRelativeMode ? `Unified Performance vs ${benchmark}` : "Unified Sector Performance"}
             description={chartDescription}

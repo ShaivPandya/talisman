@@ -1,5 +1,6 @@
 import { useEffect } from "react"
 import { useQueryClient } from "@tanstack/react-query"
+import { queryGcTime } from "@/lib/queryCache"
 
 const SHORT_TIMEFRAME_STALE_TIME_MS = 5 * 60 * 1000
 const LONG_TIMEFRAME_STALE_TIME_MS = 60 * 60 * 1000
@@ -44,6 +45,7 @@ export function useDashboardTimeframePrefetch<Timeframe extends string>({
             queryKey: [queryKeyRoot, nextTimeframe],
             queryFn: () => fetchTimeframe(nextTimeframe),
             staleTime: staleTimeForTimeframe(nextTimeframe),
+            gcTime: queryGcTime(staleTimeForTimeframe(nextTimeframe)),
           })
         } catch {
           // Background prefetch is opportunistic; the active query will surface errors when selected.
