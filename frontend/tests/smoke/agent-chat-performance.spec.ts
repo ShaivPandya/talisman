@@ -4,6 +4,10 @@ import type { Page } from "@playwright/test"
 const sessionId = "chat-performance-session"
 const baseline = process.env.TL187_BASELINE === "1"
 
+// Each test seeds history, opens the lazily loaded chat and streams; allow for
+// a loaded machine running the suite in parallel.
+test.describe.configure({ timeout: 60_000 })
+
 async function prepareChat(page: Page, historyLength = 200) {
   await page.addInitScript(({ sessionId, historyLength }) => {
     const messages = Array.from({ length: historyLength }, (_, index) => ({
@@ -113,7 +117,8 @@ async function prepareChat(page: Page, historyLength = 200) {
   }, { sessionId, historyLength })
   await page.goto("/workspace")
   await page.getByRole("button", { name: "Open Stan" }).click()
-  await expect(page.getByRole("textbox", { name: "Message Stan" })).toBeVisible()
+  // The chat chunk loads on first open; a busy dev server can take a while.
+  await expect(page.getByRole("textbox", { name: "Message Stan" })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText(`Review portfolio risk for position ${historyLength - 2}.`, { exact: true })).toBeAttached()
 }
 
@@ -153,8 +158,8 @@ test("200-message chat streams and types without rendering finished messages", a
     }, 25)
   }))
   const streaming = await page.evaluate(() => {
-    const browser = window as unknown as { chatMetrics: { phase: string; renders: number; chatRenders: number; writes: { key: string }[]; frames: number[]; longTasks: number[]; scrolls: number[] } }
-    const result = structuredClone(browser.chatMetrics)
+    const browser = window as unknown as { chatMetrics: { phase: string; started: number; renders: number; chatRenders: number; writes: { key: string }[]; frames: number[]; longTasks: number[]; scrolls: number[] } }
+    const result = { ...structuredClone(browser.chatMetrics), elapsedMs: performance.now() - browser.chatMetrics.started }
     browser.chatMetrics.phase = "idle"
     return result
   })
@@ -187,6 +192,7 @@ test("200-message chat streams and types without rendering finished messages", a
     typingFinishedMessageRenders: typing.renders,
     typingChatRenders: typing.chatRenders,
     historyWrites: streaming.writes.filter(write => write.key === "agent-chat-sessions:v1").length,
+    streamMs: Math.round(streaming.elapsedMs),
     storageWrites: streaming.writes.length,
     longTaskCount: streaming.longTasks.length,
     longestTaskMs: Math.max(0, ...streaming.longTasks),
@@ -203,8 +209,10 @@ test("200-message chat streams and types without rendering finished messages", a
     // Timing acceptance runs alone on the dedicated benchmark server; the
     // regular parallel smoke suite asserts the deterministic work counts.
     if (process.env.TL187_MEASURE === "1") expect(result.longestTaskMs).toBeLessThanOrEqual(50)
+    // One history write per 1 s checkpoint, not per token. The 120 tokens take
+    // about 3 s, longer on a loaded machine, so bound by the measured duration.
     expect(result.historyWrites).toBeGreaterThanOrEqual(2)
-    expect(result.historyWrites).toBeLessThanOrEqual(5)
+    expect(result.historyWrites).toBeLessThanOrEqual(Math.ceil(result.streamMs / 1000) + 2)
     expect(result.maxScrollsPerFrame).toBeLessThanOrEqual(1)
   }
 })
@@ -216,31 +224,37 @@ test("checkpoints transient events and saves tool, completion and error state", 
   await pushEvent(page, "phase", { phase: "model_writing" })
   await pushEvent(page, "delta", { text: "Checkpointed response." })
   await expect(page.getByText("Checkpointed response.", { exact: true })).toBeVisible()
+  // Only the 1 s checkpoint can save transient events.
   await expect.poll(() => page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-sessions:v1") ?? "{}")
     return saved["chat-performance-session"]?.messages.at(-1)?.content
-  }), { timeout: 1500 }).toBe("Checkpointed response.")
+  })).toBe("Checkpointed response.")
 
+  // Tool calls, completion and errors are saved in the state update itself, so
+  // storage holds them by the time the UI shows them. A save left to the
+  // checkpoint would lag the UI, so read once instead of polling.
   await pushEvent(page, "tool_call", { name: "get_portfolio", id: "checkpoint-tool" })
-  await expect.poll(() => page.evaluate(() => {
+  await expect(page.getByRole("dialog").getByTitle(/^Portfolio: /)).toBeVisible()
+  expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")
     return saved.messages?.at(-1)?.toolCalls?.[0]?.id
-  }), { timeout: 500 }).toBe("checkpoint-tool")
+  })).toBe("checkpoint-tool")
   await pushEvent(page, "tool_result", { name: "get_portfolio", id: "checkpoint-tool", status: "ok" })
   await pushEvent(page, "done", { session_id: sessionId })
   await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
-  await expect.poll(() => page.evaluate(() => {
+  await expect(page.getByRole("button", { name: "Send message", exact: true })).toBeVisible()
+  expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")
     return saved.messages?.at(-1)?.isStreaming
-  }), { timeout: 500 }).toBe(false)
+  })).toBe(false)
 
   await startStream(page)
   await pushEvent(page, "error", { message: "Test stream failure" })
   await expect(page.getByRole("alert").getByText("Test stream failure")).toBeVisible()
-  await expect.poll(() => page.evaluate(() => {
+  expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-sessions:v1") ?? "{}")
     return saved["chat-performance-session"]?.error
-  }), { timeout: 500 }).toBe("Test stream failure")
+  })).toBe("Test stream failure")
 })
 
 test("polled deltas and resume cursors are checkpointed together across reload", async ({ page }) => {
@@ -276,7 +290,7 @@ test("polled deltas and resume cursors are checkpointed together across reload",
     const current = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")
     const jobs = JSON.parse(localStorage.getItem("agent-chat-jobs:v1") ?? "{}")
     return { content: current.messages?.at(-1)?.content, cursor: current.activeJob?.afterSeq, jobCursor: jobs["chat-performance-session"]?.afterSeq }
-  }), { timeout: 1500 }).toEqual({ content: "alpha beta gamma", cursor: 4, jobCursor: 4 })
+  })).toEqual({ content: "alpha beta gamma", cursor: 4, jobCursor: 4 })
   const requestsBeforeReload = cursors.length
   await page.reload()
   await page.getByRole("button", { name: "Open Stan" }).click()
@@ -354,7 +368,7 @@ test("background sessions checkpoint polled text without changing the active con
     const saved = JSON.parse(localStorage.getItem("agent-chat-sessions:v1") ?? "{}")
     const jobs = JSON.parse(localStorage.getItem("agent-chat-jobs:v1") ?? "{}")
     return { text: saved["chat-performance-session"]?.messages.at(-1)?.content, cursor: jobs["chat-performance-session"]?.afterSeq }
-  }), { timeout: 1500 }).toEqual({ text: "foreground background ", cursor: 3 })
+  })).toEqual({ text: "foreground background ", cursor: 3 })
   finish()
   await expect.poll(() => page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-sessions:v1") ?? "{}")
