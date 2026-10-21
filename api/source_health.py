@@ -21,6 +21,7 @@ from api.snapshot_keys import (
     SNAPSHOT_VIX_TERM_STRUCTURE,
 )
 from api.snapshot_store import SnapshotRecord, list_snapshot_records
+from api.source_health_cache import cached_source_health_value
 from ontology.sources.reliability import (
     enrich_source_reliability,
     gate_action_for_tier,
@@ -82,6 +83,75 @@ _APPROVAL_SOURCE_DEPENDENCY_FIELDS = (
     "source_ids",
     "required_source_ids",
 )
+
+
+def get_source_health_portfolio_risk() -> dict[str, Any] | None:
+    """Cache only the risk fields used by source health and the Workspace summary."""
+
+    def load() -> dict[str, Any] | None:
+        from api.position_risk import get_latest_portfolio_risk
+
+        try:
+            risk = get_latest_portfolio_risk()
+        except Exception:
+            return None
+        if not isinstance(risk, dict):
+            return None
+        compact = {
+            key: risk[key]
+            for key in (
+                "result_id",
+                "as_of",
+                "computed_at",
+                "quality",
+                "confidence",
+                "position_count",
+                "average_risk_score",
+                "max_risk_score",
+                "risk_level",
+                "risk_buckets",
+                "degraded_modules",
+                "source_status",
+            )
+            if key in risk
+        }
+        contributors = risk.get("top_contributors")
+        compact["top_contributors"] = contributors[:5] if isinstance(contributors, list) else []
+        return compact
+
+    return cached_source_health_value("portfolio_risk", load)
+
+
+def get_source_health_regime(*, allow_live_fallback: bool = False) -> dict[str, Any] | None:
+    """Retain only the compact regime fields needed by health and Workspace."""
+    from api.snapshot_store import snapshots_required
+
+    live_fallback = allow_live_fallback and not snapshots_required()
+
+    def load() -> dict[str, Any] | None:
+        from api.signal_snapshot import get_signal_aggregator_snapshot_or_module_response
+
+        try:
+            regime = get_signal_aggregator_snapshot_or_module_response(
+                lookback_weeks=156,
+                include_raw_modules=False,
+            )
+            if regime is None and live_fallback:
+                from api.signal_aggregator import build_signal_aggregator
+
+                regime = build_signal_aggregator(include_history=False)
+        except Exception:
+            return None
+        if not isinstance(regime, dict):
+            return None
+        return {
+            key: regime[key]
+            for key in ("regime", "composite_score", "signal", "_meta", "module_status", "quality", "as_of", "status")
+            if key in regime
+        }
+
+    # Keep the existing development-only live fallback out of Approvals.
+    return cached_source_health_value("regime_live" if live_fallback else "regime", load)
 
 
 def build_workspace_source_health(

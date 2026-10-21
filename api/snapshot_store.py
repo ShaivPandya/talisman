@@ -13,6 +13,7 @@ from typing import Any
 
 from api.postgres import use_postgres_state
 from api.snapshot_keys import DEFAULT_SNAPSHOT_MAX_AGE_SECONDS
+from api.source_health_cache import invalidate_source_health
 from ontology.sources.source_registry import source_registry_metadata_for_snapshot
 from ontology.temporal_repository import SnapshotVersionWrite, TemporalOntologyRepository, payload_hash
 from utils.market_freshness import evaluate_source_freshness
@@ -156,6 +157,7 @@ def write_snapshot_success(
             (snapshot_key, json.dumps(payload), as_of_date, fetched, int(version), artifact_uri),
         )
         conn.commit()
+    invalidate_source_health()
     record = read_snapshot(snapshot_key)
     assert record is not None
     return record
@@ -200,21 +202,37 @@ def write_snapshot_failure(snapshot_key: str, error: str, *, version: int = 1) -
                 (snapshot_key, _now_iso(), error, int(version)),
             )
         conn.commit()
+    invalidate_source_health()
     return read_snapshot(snapshot_key)
 
 
-def read_snapshot(snapshot_key: str) -> SnapshotRecord | None:
+def read_snapshot(snapshot_key: str, *, include_raw_modules: bool = True) -> SnapshotRecord | None:
     if use_postgres_state():
-        row = TemporalOntologyRepository().read_computed_snapshot_version(snapshot_key)
+        repo = TemporalOntologyRepository()
+        row = (
+            repo.read_computed_snapshot_version(snapshot_key)
+            if include_raw_modules
+            else repo.read_computed_snapshot_version(snapshot_key, include_raw_modules=False)
+        )
         return _row_to_record(row)
 
     with _sqlite_connect() as conn:
-        row = conn.execute("SELECT * FROM computed_snapshots WHERE snapshot_key = ?", (snapshot_key,)).fetchone()
+        columns = (
+            "*"
+            if include_raw_modules
+            else (
+                "snapshot_key, json_remove(payload_json, '$.raw_modules') AS payload_json, "
+                "as_of_date, fetched_at, status, error, version, artifact_uri"
+            )
+        )
+        row = conn.execute(
+            f"SELECT {columns} FROM computed_snapshots WHERE snapshot_key = ?", (snapshot_key,)
+        ).fetchone()
         return _row_to_record(row)
 
 
 def list_snapshot_records() -> list[SnapshotRecord]:
-    """Return current computed snapshot records across the active state backend."""
+    """Return current freshness metadata, without transferring snapshot payloads."""
     if use_postgres_state():
         repo = TemporalOntologyRepository()
         with repo._connect() as conn:
@@ -222,7 +240,11 @@ def list_snapshot_records() -> list[SnapshotRecord]:
             # models, so freshness checks must read the temporal table directly.
             rows = conn.execute(
                 """
-                SELECT DISTINCT ON (snapshot_key) *
+                SELECT DISTINCT ON (snapshot_key)
+                    snapshot_key, as_of, load_time, status, error, artifact_uri, payload_hash,
+                    CASE WHEN quality = 'ok'
+                        THEN COALESCE(payload_json->>'quality', quality)
+                        ELSE quality END AS quality
                 FROM computed_snapshot_versions
                 WHERE tx_to IS NULL
                   AND valid_from <= clock_timestamp()
@@ -233,7 +255,13 @@ def list_snapshot_records() -> list[SnapshotRecord]:
         return [record for record in (_row_to_record(row) for row in rows) if record is not None]
 
     with _sqlite_connect() as conn:
-        rows = conn.execute("SELECT * FROM computed_snapshots ORDER BY snapshot_key").fetchall()
+        rows = conn.execute(
+            """
+            SELECT snapshot_key, as_of_date, fetched_at, status, error, version, artifact_uri,
+                COALESCE(json_extract(payload_json, '$.quality'), 'ok') AS quality
+            FROM computed_snapshots ORDER BY snapshot_key
+            """
+        ).fetchall()
     return [record for record in (_row_to_record(row) for row in rows) if record is not None]
 
 
@@ -253,11 +281,13 @@ def delete_snapshot(snapshot_key: str) -> None:
                 (tx_to, snapshot_key),
             )
             conn.commit()
+        invalidate_source_health()
         return
 
     with _sqlite_connect() as conn:
         conn.execute("DELETE FROM computed_snapshots WHERE snapshot_key = ?", (snapshot_key,))
         conn.commit()
+    invalidate_source_health()
 
 
 def read_snapshot_at(
@@ -337,9 +367,12 @@ def _snapshot_freshness(
 def get_snapshot_response(
     snapshot_key: str,
     *,
+    include_raw_modules: bool = True,
     max_age_seconds: int = DEFAULT_SNAPSHOT_MAX_AGE_SECONDS,
 ) -> dict[str, Any] | None:
-    record = read_snapshot(snapshot_key)
+    record = (
+        read_snapshot(snapshot_key) if include_raw_modules else read_snapshot(snapshot_key, include_raw_modules=False)
+    )
     if record is None or record.payload is None:
         return None
     return attach_snapshot_meta(record.payload, record, max_age_seconds=max_age_seconds)

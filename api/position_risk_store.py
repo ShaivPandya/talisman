@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from api.postgres import connect, retry_read, use_postgres_state
+from api.source_health_cache import invalidate_source_health
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SQLITE_PATH = _REPO_ROOT / "data_cache" / "position_risk.sqlite3"
@@ -61,6 +62,7 @@ def write_portfolio_risk_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         _write_portfolio_postgres(result_id, snapshot)
     else:
         _write_portfolio_sqlite(result_id, snapshot)
+    invalidate_source_health()
     return snapshot
 
 

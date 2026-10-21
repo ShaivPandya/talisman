@@ -112,3 +112,12 @@ def _isolate_app_settings(tmp_path, monkeypatch):
     with llm_settings._lock:
         llm_settings._close_conn()
         monkeypatch.setattr(llm_settings, "_conn", None)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_source_health_cache():
+    from api.source_health_cache import invalidate_source_health
+
+    invalidate_source_health()
+    yield
+    invalidate_source_health()

@@ -71,14 +71,15 @@ def get_signal_aggregator_snapshot_response(
     lookback_weeks: int,
     include_raw_modules: bool,
 ) -> dict[str, Any] | None:
-    snapshot = get_snapshot_response(SNAPSHOT_SIGNAL_AGGREGATOR)
+    snapshot = get_snapshot_response(
+        SNAPSHOT_SIGNAL_AGGREGATOR,
+        include_raw_modules=include_raw_modules,
+    )
     if snapshot is None:
         return None
-    data = copy.deepcopy(snapshot)
-    if not include_raw_modules:
-        data.pop("raw_modules", None)
-    _slice_history(data, lookback_weeks)
-    return data
+    # get_snapshot_response already owns an isolated copy of the projected payload.
+    _slice_history(snapshot, lookback_weeks)
+    return snapshot
 
 
 def _snapshot_meta(payload: dict[str, Any]) -> dict[str, Any]:

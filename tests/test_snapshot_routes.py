@@ -237,7 +237,7 @@ def test_signal_aggregator_route_falls_back_to_module_snapshots(auth_client, mon
         ),
     }
 
-    monkeypatch.setattr(signal_snapshot, "get_snapshot_response", lambda key: payloads.get(key))
+    monkeypatch.setattr(signal_snapshot, "get_snapshot_response", lambda key, **kwargs: payloads.get(key))
 
     resp = auth_client.get("/api/signal-aggregator", params={"lookback_weeks": 104})
 

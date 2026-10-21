@@ -12,6 +12,7 @@ from datetime import UTC, date, datetime
 from typing import Any
 
 from api.postgres import connect, retry_read
+from api.source_health_cache import invalidate_source_health
 
 ConnectionFactory = Callable[[], Any]
 
@@ -721,6 +722,7 @@ class TemporalOntologyRepository:
                 ),
             ).fetchone()
             conn.commit()
+        invalidate_source_health()
         return _normalize_required_row(row)
 
     def read_computed_snapshot_version(
@@ -729,10 +731,19 @@ class TemporalOntologyRepository:
         *,
         as_of: datetime | str | None = None,
         tx_as_of: datetime | str | None = None,
+        include_raw_modules: bool = True,
     ) -> dict[str, Any] | None:
         where, params = _temporal_where("computed_snapshot_versions", as_of=as_of, tx_as_of=tx_as_of)
+        columns = (
+            "*"
+            if include_raw_modules
+            else (
+                "snapshot_key, payload_json - 'raw_modules' AS payload_json, "
+                "as_of, load_time, status, error, artifact_uri, quality, payload_hash"
+            )
+        )
         sql = f"""
-        SELECT *
+        SELECT {columns}
         FROM computed_snapshot_versions
         WHERE snapshot_key = %s
           AND {where}
