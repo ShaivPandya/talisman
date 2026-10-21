@@ -1,20 +1,29 @@
-import { Suspense, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
 import { Link, Outlet, useLocation } from "react-router-dom"
 import { Bell, Menu, MessageCircle, PanelRightOpen, X } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Sidebar } from "./Sidebar"
 import { getRouteLabel } from "./navSections"
 import { SidebarSearchDialog } from "./SidebarSearchDialog"
-import { AgentChat } from "../agent/AgentChat"
 import { ScreenContextProvider, useScreenContext, useAutoScreenContext } from "@/contexts/ScreenContext"
 import { DecisionTraceProvider } from "@/contexts/DecisionTraceContext"
 import { DecisionTraceDrawer } from "@/components/shared/DecisionTraceDrawer"
 import { fetchApprovalSummary, type ApprovalRecord } from "@/lib/api"
 import { approvalSummaryQueryKey } from "@/lib/approvalQueries"
 import { STAN_OPEN_EVENT, type StanOpenDetail } from "@/lib/stanLauncher"
+import { hasResumableActiveJob } from "@/hooks/agentChatSessionStore"
+import { LoadObservabilityAfterRender } from "@/lib/observabilityShim"
 import { cn } from "@/lib/utils"
 
 const ACTION_ITEM_ALERT_LIMIT = 50
+
+// The chat (and react-markdown) stays out of the entry bundle.
+const loadAgentChat = () => import("../agent/AgentChat")
+const AgentChat = lazy(async () => {
+  const mod = await loadAgentChat()
+  if (!mod) throw new TypeError("Failed to fetch dynamically imported module")
+  return { default: mod.AgentChat }
+})
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -61,6 +70,10 @@ function LayoutInner({
   const location = useLocation()
   const routeLabel = getRouteLabel(location.pathname)
   const [pendingStanCommand, setPendingStanCommand] = useState<StanOpenDetail | null>(null)
+  // Mount the chat on first open, or right away when a saved job needs
+  // useAgentChat to resume it. It stays mounted once opened.
+  const [agentChatMounted, setAgentChatMounted] = useState(hasResumableActiveJob)
+  if (agentOpen && !agentChatMounted) setAgentChatMounted(true)
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -143,6 +156,9 @@ function LayoutInner({
 
           <Suspense fallback={<PageLoading />}>
             <Outlet />
+            {/* Mount once the page has loaded, so background downloads don't compete with it. */}
+            <PrefetchAgentChat />
+            <LoadObservabilityAfterRender />
           </Suspense>
         </div>
       </main>
@@ -161,13 +177,17 @@ function LayoutInner({
         <MessageCircle size={20} />
       </button>
 
-      <AgentChat
-        open={agentOpen}
-        onClose={() => setAgentOpen(false)}
-        screenContext={effectiveContext}
-        pendingCommand={pendingStanCommand}
-        onPendingCommandConsumed={() => setPendingStanCommand(null)}
-      />
+      {agentChatMounted && (
+        <Suspense fallback={null}>
+          <AgentChat
+            open={agentOpen}
+            onClose={() => setAgentOpen(false)}
+            screenContext={effectiveContext}
+            pendingCommand={pendingStanCommand}
+            onPendingCommandConsumed={() => setPendingStanCommand(null)}
+          />
+        </Suspense>
+      )}
       <SidebarSearchDialog
         open={pageSearchOpen}
         onOpenChange={setPageSearchOpen}
@@ -257,6 +277,34 @@ function ActionItemApprovalAlert({ agentOpen }: { agentOpen: boolean }) {
       </div>
     </aside>
   )
+}
+
+function PrefetchAgentChat() {
+  useEffect(() => {
+    let idleId: number | null = null
+    let timeoutId: number | null = null
+
+    const prefetchAgentChat = () => {
+      loadAgentChat().catch(() => {
+        // Opportunistic; opening the chat loads it again and surfaces errors.
+      })
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(prefetchAgentChat)
+    } else {
+      timeoutId = window.setTimeout(prefetchAgentChat, 1000)
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+    }
+  }, [])
+
+  return null
 }
 
 function PageLoading() {

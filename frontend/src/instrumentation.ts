@@ -1,4 +1,5 @@
-// Initialize before App evaluates its router instrumentation wrappers.
-import { initFrontendObservability } from "@/lib/observability"
+// Imported first so errors thrown while App evaluates are queued for Sentry,
+// which loads once the first page has rendered.
+import { startFrontendObservability } from "@/lib/observabilityShim"
 
-initFrontendObservability()
+startFrontendObservability()

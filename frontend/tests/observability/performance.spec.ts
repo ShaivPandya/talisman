@@ -74,3 +74,40 @@ test("Sentry records route navigation and browser vitals with scrubbed content",
   expect(envelopes.join("\n")).not.toContain("private-query-value")
   expect(envelopes.join("\n")).not.toContain("Measure interaction")
 })
+
+type ErrorEvent = {
+  exception?: { values?: { value?: string; mechanism?: { type?: string; handled?: boolean } }[] }
+}
+
+test("Sentry reports errors thrown before it finishes loading", async ({ page }) => {
+  const errors: ErrorEvent[] = []
+  await page.route("https://sentry.invalid/**", async route => {
+    const lines = (route.request().postData() ?? "").split("\n")
+    for (let index = 1; index + 1 < lines.length; index += 2) {
+      const header = JSON.parse(lines[index]) as { type: string }
+      if (header.type === "event") errors.push(JSON.parse(lines[index + 1]) as ErrorEvent)
+    }
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" })
+  })
+  // Module scripts have run by DOMContentLoaded; Sentry loads later, on idle.
+  await page.addInitScript(() => {
+    document.addEventListener("DOMContentLoaded", () => {
+      setTimeout(() => {
+        const win = window as typeof window & { __SENTRY__?: unknown; earlyErrorsBeforeSentry?: boolean }
+        win.earlyErrorsBeforeSentry = !win.__SENTRY__
+        void Promise.reject(new Error("early startup rejection"))
+        throw new Error("early startup error")
+      }, 0)
+    })
+  })
+
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Portfolio Dashboard", exact: true })).toBeVisible()
+
+  expect(await page.evaluate(() => (window as typeof window & { earlyErrorsBeforeSentry?: boolean }).earlyErrorsBeforeSentry)).toBe(true)
+  const reported = (message: string, type: string) => errors.some(event => event.exception?.values?.some(value =>
+    value.value === message && value.mechanism?.type === type && value.mechanism?.handled === false,
+  ))
+  await expect.poll(() => reported("early startup error", "onerror"), { timeout: 15_000 }).toBe(true)
+  await expect.poll(() => reported("early startup rejection", "onunhandledrejection"), { timeout: 15_000 }).toBe(true)
+})

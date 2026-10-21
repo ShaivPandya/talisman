@@ -1,6 +1,15 @@
+// Loaded lazily through observabilityShim; import that module instead.
 import * as Sentry from "@sentry/react"
-import { useEffect } from "react"
+import { useEffect, type FC, type ReactNode } from "react"
 import { createRoutesFromChildren, matchRoutes, useLocation, useNavigationType } from "react-router-dom"
+import { envBool } from "@/lib/observabilityShim"
+
+export type RouteTracking = FC<{ children?: ReactNode }>
+
+// Renders nothing. Wrapped by Sentry and mounted beside the app's <Routes>
+// with the same children, it names the pageload span and starts navigation
+// spans, as Sentry's Routes wrapper would.
+const RouteTrackingTarget: RouteTracking = () => null
 
 const DROP_KEYS = new Set([
   "authorization",
@@ -22,15 +31,6 @@ const DROP_KEYS = new Set([
   "portfolio",
   "thesis",
 ])
-
-function envBool(name: keyof ImportMetaEnv, defaultValue: boolean): boolean {
-  const raw = import.meta.env[name]
-  if (raw === undefined || raw === "") return defaultValue
-  const normalized = String(raw).trim().toLowerCase()
-  if (["1", "true", "yes", "on", "enabled"].includes(normalized)) return true
-  if (["0", "false", "no", "off", "disabled"].includes(normalized)) return false
-  return defaultValue
-}
 
 function envFloat(name: keyof ImportMetaEnv, defaultValue: number): number {
   const raw = import.meta.env[name]
@@ -146,16 +146,9 @@ function scrubPerformanceSpan<T extends { op?: string; description?: string; dat
   }
 }
 
-export function sentryFrontendEnabled(): boolean {
+// The shim calls this only when sentryFrontendEnabled() holds.
+export function initFrontendObservability(): RouteTracking {
   const dsn = (import.meta.env.VITE_SENTRY_DSN ?? "").trim()
-  if (!envBool("VITE_SENTRY_ENABLED", true)) return false
-  return Boolean(dsn)
-}
-
-export function initFrontendObservability(): void {
-  const dsn = (import.meta.env.VITE_SENTRY_DSN ?? "").trim()
-  if (!dsn || !envBool("VITE_SENTRY_ENABLED", true)) return
-
   const environment =
     (import.meta.env.VITE_SENTRY_ENVIRONMENT ?? "").trim() || import.meta.env.MODE || "development"
   const release =
@@ -194,13 +187,18 @@ export function initFrontendObservability(): void {
       _experiments: { enableStandaloneClsSpans: true },
     })],
   })
+  return Sentry.withSentryReactRouterV7Routing(RouteTrackingTarget)
+}
+
+// Replays an error the shim queued before Sentry's global handlers existed.
+export function captureUncaughtError(error: unknown, type: "onerror" | "onunhandledrejection"): void {
+  Sentry.captureException(error, { mechanism: { type, handled: false } })
 }
 
 export function captureRouteError(
   error: unknown,
   info: { componentStack?: string | null; route?: string },
 ): void {
-  if (!sentryFrontendEnabled()) return
   Sentry.captureException(error, {
     contexts: {
       react: {
@@ -212,5 +210,3 @@ export function captureRouteError(
     },
   })
 }
-
-export { Sentry }

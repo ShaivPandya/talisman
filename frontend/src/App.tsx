@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, type ComponentType, type ErrorInfo, type ReactNode } from "react"
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate, useLocation, type RoutesProps } from "react-router-dom"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { DEFAULT_QUERY_GC_TIME_MS } from "@/lib/queryCache"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext"
@@ -8,9 +8,21 @@ import { PersonalizationProvider } from "@/contexts/PersonalizationContext"
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute"
 import { Layout } from "@/components/layout/Layout"
 import { isChunkLoadError, maybeReloadForChunkLoadError } from "@/lib/chunkRecovery"
-import { captureRouteError, sentryFrontendEnabled, Sentry } from "@/lib/observability"
+import { captureRouteError, LoadObservabilityAfterRender, useRouteTracking } from "@/lib/observabilityShim"
 
-const SentryRoutes = sentryFrontendEnabled() ? Sentry.withSentryReactRouterV7Routing(Routes) : Routes
+// Sentry loads after the first page renders, so its route tracker mounts
+// beside the routes rather than wrapping them; the route tree never remounts.
+function SentryRoutes(props: RoutesProps) {
+  const RouteTracking = useRouteTracking()
+  return (
+    <>
+      <Routes {...props} />
+      {/* The tracker is created once, when Sentry loads, and never changes. */}
+      {/* eslint-disable-next-line react-hooks/static-components */}
+      {RouteTracking && <RouteTracking>{props.children}</RouteTracking>}
+    </>
+  )
+}
 
 const PAGE_LOAD_RETRY_DELAYS_MS = [300, 1_000, 2_000] as const
 
@@ -173,7 +185,14 @@ function LoginRoute() {
     )
   }
 
-  return isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+  return isAuthenticated ? (
+    <Navigate to="/" replace />
+  ) : (
+    <>
+      <LoginPage />
+      <LoadObservabilityAfterRender />
+    </>
+  )
 }
 
 function RouteLoading() {

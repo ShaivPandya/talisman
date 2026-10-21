@@ -2,6 +2,7 @@ import type { ActiveAgentJob, AgentMessage, QueuedAgentMessage } from "./agentCh
 
 export type { ActiveAgentJob, QueuedAgentMessage } from "./agentChatShared"
 
+export const CURRENT_SESSION_STORAGE_KEY = "agent-chat-current"
 const JOBS_STORAGE_KEY = "agent-chat-jobs:v1"
 const QUEUE_STORAGE_KEY = "agent-chat-queues:v1"
 const SNAPSHOTS_STORAGE_KEY = "agent-chat-sessions:v1"
@@ -54,6 +55,25 @@ export function readSessionSnapshot(sessionId: string): SessionSnapshot | null {
 
 export function readActiveJobs(): Record<string, ActiveAgentJob> {
   return readJsonRecord<ActiveAgentJob>(JOBS_STORAGE_KEY)
+}
+
+// Mirrors useAgentChat's restore: true when mounting the chat would resume an
+// in-flight job for the current session.
+export function hasResumableActiveJob(): boolean {
+  try {
+    const raw = localStorage.getItem(CURRENT_SESSION_STORAGE_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as {
+      messages?: unknown
+      sessionId?: string | null
+      activeJob?: ActiveAgentJob | null
+    }
+    if (!Array.isArray(parsed.messages)) return false
+    const job = (parsed.sessionId ? readActiveJobs()[parsed.sessionId] : undefined) ?? parsed.activeJob
+    return Boolean(job && (job.sessionId || parsed.sessionId))
+  } catch {
+    return false
+  }
 }
 
 export function writeActiveJob(sessionId: string, job: ActiveAgentJob | null) {

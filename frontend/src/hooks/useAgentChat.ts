@@ -11,6 +11,7 @@ import {
   type ToolCall,
 } from "./agentChatShared"
 import {
+  CURRENT_SESSION_STORAGE_KEY as STORAGE_KEY,
   readActiveJobs,
   readMessageQueue,
   readSessionSnapshot,
@@ -101,7 +102,6 @@ interface AgentStreamEvent {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STORAGE_KEY = "agent-chat-current"
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, "")
 const EMPTY_AGENT_RESPONSE_TEXT = "I couldn't generate a response for that request. Please try again."
 const TRANSIENT_JOB_EVENTS: ReadonlySet<AgentJobEvent["event_type"]> = new Set([
