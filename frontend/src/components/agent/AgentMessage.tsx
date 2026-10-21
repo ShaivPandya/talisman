@@ -1,5 +1,6 @@
 import Markdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { memo } from "react"
 import type { ToolCall, EgressRecord, AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
 import { Loader2, CheckCircle2, AlertCircle, Ban, Clock, GitPullRequest, RotateCw, ShieldAlert } from "lucide-react"
 import { DecisionStateBadge, EffectScopeBadge } from "@/components/shared/DecisionStateBadge"
@@ -262,7 +263,7 @@ function EgressChip({ group }: { group: EgressRecordGroup }) {
 // Message component
 // ---------------------------------------------------------------------------
 
-export function AgentMessage({
+export const AgentMessage = memo(function AgentMessage({
   message,
   sessionId,
   onOpenTrace,
@@ -347,4 +348,4 @@ export function AgentMessage({
       </div>
     </div>
   )
-}
+})

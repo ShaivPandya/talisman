@@ -104,6 +104,9 @@ interface AgentStreamEvent {
 const STORAGE_KEY = "agent-chat-current"
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, "")
 const EMPTY_AGENT_RESPONSE_TEXT = "I couldn't generate a response for that request. Please try again."
+const TRANSIENT_JOB_EVENTS: ReadonlySet<AgentJobEvent["event_type"]> = new Set([
+  "delta", "status", "phase", "budget_update",
+])
 
 function mutatingHeaders(method: string, url: string): Record<string, string> {
   return { ...csrfHeaders(), ...schemaHeaders(method, url) }
@@ -601,11 +604,14 @@ export function useAgentChat() {
   const initialActiveJobRef = useRef<ActiveAgentJob | null>(state.activeJob)
   const sessionSnapshotsRef = useRef<Record<string, AgentChatState>>({})
   const jobPollControllersRef = useRef<Map<string, AbortController>>(new Map())
+  const persistedSessionsRef = useRef<Record<string, AgentChatState>>({})
+  const persistedCurrentRef = useRef<AgentChatState | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
 
   const persistActiveSessionSnapshot = useCallback((snapshot: AgentChatState) => {
     if (!snapshot.sessionId) return
+    if (persistedSessionsRef.current[snapshot.sessionId] === snapshot) return
     writeSessionSnapshot(snapshot.sessionId, {
       messages: snapshot.messages,
       sessionTitle: snapshot.sessionTitle,
@@ -615,18 +621,39 @@ export function useAgentChat() {
     writeMessageQueue(snapshot.sessionId, snapshot.queuedMessages)
     if (snapshot.activeJob) writeActiveJob(snapshot.sessionId, snapshot.activeJob)
     else writeActiveJob(snapshot.sessionId, null)
+    persistedSessionsRef.current[snapshot.sessionId] = snapshot
   }, [])
+
+  const persistCurrentState = useCallback((snapshot: AgentChatState) => {
+    if (persistedCurrentRef.current === snapshot) return
+    const messages = snapshot.messages.filter(
+      m => !m.isStreaming || m.content.length > 0 || snapshot.activeJob?.assistantId === m.id,
+    )
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        messages,
+        sessionId: snapshot.sessionId,
+        sessionTitle: snapshot.sessionTitle,
+        sessionTitleSource: snapshot.sessionTitleSource,
+        activeJob: snapshot.activeJob,
+      }))
+    } catch {
+      /* best-effort local recovery */
+    }
+    persistActiveSessionSnapshot(snapshot)
+    persistedCurrentRef.current = snapshot
+  }, [persistActiveSessionSnapshot])
 
   const patchSessionState = useCallback((
     sessionId: string,
-    patch: Partial<AgentChatState>,
+    patch: Partial<AgentChatState> | ((prev: AgentChatState) => Partial<AgentChatState>),
     options?: { persist?: boolean },
   ) => {
     const isActive = stateRef.current.sessionId === sessionId
     if (isActive) {
       setState(prev => {
-        const next = { ...prev, ...patch }
-        if (options?.persist !== false) persistActiveSessionSnapshot(next)
+        const next = { ...prev, ...(typeof patch === "function" ? patch(prev) : patch) }
+        if (options?.persist !== false) persistCurrentState(next)
         return next
       })
       return
@@ -641,48 +668,25 @@ export function useAgentChat() {
       activeJob: null,
       queuedMessages: [],
     }
-    const next = { ...existing, ...patch, sessionId }
+    const next = { ...existing, ...(typeof patch === "function" ? patch(existing) : patch), sessionId }
     sessionSnapshotsRef.current[sessionId] = next
     if (options?.persist !== false) persistActiveSessionSnapshot(next)
-  }, [persistActiveSessionSnapshot])
+  }, [persistActiveSessionSnapshot, persistCurrentState])
 
-  // Persist messages to localStorage. During streaming, debounce this work so
-  // token updates do not synchronously serialize the whole transcript.
+  // Save completed turns immediately. Streaming checkpoints use the latest
+  // state on a fixed interval so a continuous stream cannot postpone the save.
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const toSave = state.messages.filter(
-        m => !m.isStreaming || m.content.length > 0 || state.activeJob?.assistantId === m.id,
-      )
-      localStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({
-          messages: toSave,
-          sessionId: state.sessionId,
-          sessionTitle: state.sessionTitle,
-          sessionTitleSource: state.sessionTitleSource,
-          activeJob: state.activeJob,
-        }),
-      )
-      if (state.sessionId) {
-        writeMessageQueue(state.sessionId, state.queuedMessages)
-        if (state.activeJob) writeActiveJob(state.sessionId, state.activeJob)
-        else writeActiveJob(state.sessionId, null)
-      }
-    }, state.isStreaming ? 1000 : 0)
-    return () => window.clearTimeout(timer)
-  }, [
-    state.messages,
-    state.sessionId,
-    state.sessionTitle,
-    state.sessionTitleSource,
-    state.activeJob,
-    state.isStreaming,
-    state.queuedMessages,
-  ])
+    if (!state.isStreaming) persistCurrentState(state)
+  }, [state, persistCurrentState])
 
   const drainQueueRef = useRef<((sessionId: string) => Promise<void>) | null>(null)
 
-  const applyJobEvents = useCallback((assistantId: string, events: AgentJobEvent[], fallbackSessionId?: string | null) => {
+  const applyJobEvents = useCallback((
+    assistantId: string,
+    events: AgentJobEvent[],
+    fallbackSessionId?: string | null,
+    jobUpdate?: { job: ActiveAgentJob; status: AgentJobResponse["status"] },
+  ) => {
     const assistantOnActiveView = stateRef.current.messages.some(message => message.id === assistantId)
     const targetSessionId = fallbackSessionId ?? stateRef.current.sessionId
 
@@ -850,6 +854,19 @@ export function useAgentChat() {
         }
       }
 
+      if (jobUpdate && next.isStreaming) {
+        next = { ...next, activeJob: jobUpdate.job }
+        if (!events.some(event => event.event_type === "status")) {
+          next = {
+            ...next,
+            messages: next.messages.map(m => {
+              if (m.id !== assistantId) return m
+              const statusText = statusTextForPolledStatus(jobUpdate.status, m.statusText)
+              return statusText ? { ...m, statusText } : m
+            }),
+          }
+        }
+      }
       if (sessionId && next.sessionId !== sessionId) {
         next = { ...next, sessionId }
       }
@@ -872,10 +889,11 @@ export function useAgentChat() {
       }
     }
 
+    const shouldPersist = events.some(event => !TRANSIENT_JOB_EVENTS.has(event.event_type))
     if (applyToLiveView) {
       setState(prev => {
         const next = mutate(prev)
-        if (next.sessionId) persistActiveSessionSnapshot(next)
+        if (shouldPersist) persistCurrentState(next)
         return next
       })
     } else if (targetSessionId) {
@@ -891,14 +909,14 @@ export function useAgentChat() {
       }
       const next = mutate(snap)
       sessionSnapshotsRef.current[targetSessionId] = next
-      persistActiveSessionSnapshot(next)
+      if (shouldPersist) persistActiveSessionSnapshot(next)
     }
 
     if (shouldDrain) {
       const drainSessionId = doneSessionId ?? targetSessionId ?? stateRef.current.sessionId
       if (drainSessionId) void drainQueueRef.current?.(drainSessionId)
     }
-  }, [persistActiveSessionSnapshot])
+  }, [persistActiveSessionSnapshot, persistCurrentState])
 
   const finishJobState = useCallback((
     assistantId: string,
@@ -906,18 +924,14 @@ export function useAgentChat() {
     error: string | undefined,
     sessionId: string,
   ) => {
-    const messages = (stateRef.current.sessionId === sessionId
-      ? stateRef.current.messages
-      : sessionSnapshotsRef.current[sessionId]?.messages ?? []
-    ).map(m =>
-      m.id === assistantId ? { ...m, isStreaming: false, statusText: undefined } : m,
-    )
-    patchSessionState(sessionId, {
+    patchSessionState(sessionId, prev => ({
       ...(status === "error" ? { error: error || "Agent job failed" } : {}),
       isStreaming: false,
       activeJob: null,
-      messages,
-    })
+      messages: prev.messages.map(m =>
+        m.id === assistantId ? { ...m, isStreaming: false, statusText: undefined } : m,
+      ),
+    }))
     if (activeJobRef.current?.sessionId === sessionId) activeJobRef.current = null
     delete inFlightBySessionRef.current[sessionId]
     writeActiveJob(sessionId, null)
@@ -929,27 +943,17 @@ export function useAgentChat() {
     const sessionId = job.sessionId
     activeJobRef.current = job
     inFlightBySessionRef.current[sessionId] = true
-    writeActiveJob(sessionId, job)
     try {
       for (;;) {
         if (controller.signal.aborted) throw new DOMException("Polling cancelled", "AbortError")
         const response = await fetchAgentJobEvents(job.jobId, afterSeq, controller.signal)
         const events = response.events ?? []
         const eventSessionId = response.session_id ?? sessionId
-        applyJobEvents(job.assistantId, events, eventSessionId)
         afterSeq = response.next_seq ?? nextSeqFrom(events, afterSeq)
-        if (!events.some(event => event.event_type === "status")) {
-          const currentMessages = stateRef.current.sessionId === eventSessionId
-            ? stateRef.current.messages
-            : sessionSnapshotsRef.current[eventSessionId]?.messages ?? []
-          patchSessionState(eventSessionId, {
-            messages: currentMessages.map(m => {
-              if (m.id !== job.assistantId) return m
-              const statusText = statusTextForPolledStatus(response.status, m.statusText)
-              return statusText ? { ...m, statusText } : m
-            }),
-          })
-        }
+        const nextJob = { ...job, afterSeq, sessionId: eventSessionId }
+        // Commit the cursor and its transcript together. A cursor saved ahead
+        // of the text would skip those tokens when reconnecting after a reload.
+        applyJobEvents(job.assistantId, events, eventSessionId, { job: nextJob, status: response.status })
         if (events.some(event => event.event_type === "done" || event.event_type === "error")) {
           delete inFlightBySessionRef.current[sessionId]
           return
@@ -964,15 +968,7 @@ export function useAgentChat() {
           return
         }
 
-        const nextJob = { ...job, afterSeq, sessionId: eventSessionId }
         activeJobRef.current = nextJob
-        writeActiveJob(eventSessionId, nextJob)
-        if (stateRef.current.sessionId === eventSessionId) {
-          setState(prev => ({ ...prev, activeJob: nextJob, isStreaming: true }))
-        } else {
-          const snap = sessionSnapshotsRef.current[eventSessionId]
-          if (snap) sessionSnapshotsRef.current[eventSessionId] = { ...snap, activeJob: nextJob, isStreaming: true }
-        }
       }
     } catch (err) {
       if ((err as Error).name === "AbortError") return
@@ -991,10 +987,51 @@ export function useAgentChat() {
       if (activeJobRef.current?.sessionId === sessionId) activeJobRef.current = null
       writeActiveJob(sessionId, null)
     } finally {
-      delete inFlightBySessionRef.current[sessionId]
-      jobPollControllersRef.current.delete(sessionId)
+      if (jobPollControllersRef.current.get(sessionId) === controller) {
+        delete inFlightBySessionRef.current[sessionId]
+        jobPollControllersRef.current.delete(sessionId)
+      }
     }
   }, [applyJobEvents, finishJobState, patchSessionState])
+
+  useEffect(() => {
+    const checkpoint = () => {
+      persistCurrentState(stateRef.current)
+      for (const snapshot of Object.values(sessionSnapshotsRef.current)) {
+        if (snapshot.sessionId !== stateRef.current.sessionId) persistActiveSessionSnapshot(snapshot)
+      }
+    }
+    const suspend = () => {
+      checkpoint()
+      // Navigation aborts fetches too. Abort them explicitly first, so their
+      // error handlers cannot erase the recovery checkpoint during a reload.
+      liveAbortRef.current?.abort()
+      for (const [sessionId, controller] of jobPollControllersRef.current) {
+        delete inFlightBySessionRef.current[sessionId]
+        controller.abort()
+      }
+      jobPollControllersRef.current.clear()
+    }
+    const resume = (event: PageTransitionEvent) => {
+      if (!event.persisted) return
+      for (const snapshot of [stateRef.current, ...Object.values(sessionSnapshotsRef.current)]) {
+        const job = snapshot.activeJob
+        if (!job || inFlightBySessionRef.current[job.sessionId]) continue
+        const controller = new AbortController()
+        jobPollControllersRef.current.set(job.sessionId, controller)
+        void pollJob(job, controller)
+      }
+    }
+    const timer = window.setInterval(checkpoint, 1000)
+    window.addEventListener("pagehide", suspend)
+    window.addEventListener("pageshow", resume)
+    return () => {
+      window.clearInterval(timer)
+      window.removeEventListener("pagehide", suspend)
+      window.removeEventListener("pageshow", resume)
+      suspend()
+    }
+  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob])
 
   const beginDurableResponse = useCallback(async (
     assistantId: string,
@@ -1030,14 +1067,13 @@ export function useAgentChat() {
     activeJobRef.current = activeJob
     const pollController = new AbortController()
     jobPollControllersRef.current.set(resolvedSessionId, pollController)
-    setState(prev => ({
-      ...prev,
-      sessionId: resolvedSessionId,
-      activeJob,
-      isStreaming: true,
-    }))
+    setState(prev => {
+      const next = { ...prev, sessionId: resolvedSessionId, activeJob, isStreaming: true }
+      persistCurrentState(next)
+      return next
+    })
     await pollJob(activeJob, pollController)
-  }, [applyJobEvents, finishJobState, pollJob])
+  }, [applyJobEvents, finishJobState, pollJob, persistCurrentState])
 
   useEffect(() => {
     const activeJob = initialActiveJobRef.current
@@ -1102,7 +1138,7 @@ export function useAgentChat() {
         sessionTitleSource: prev.sessionTitleSource ?? (prev.sessionTitle ? null : "deterministic"),
         activeJob: null,
       }
-      if (next.sessionId) persistActiveSessionSnapshot(next)
+      persistCurrentState(next)
       return next
     })
 
@@ -1215,7 +1251,7 @@ export function useAgentChat() {
       const message = err instanceof Error ? err.message : String(err)
       handleError(`Agent stream interrupted after the response started. ${message}`)
     }
-  }, [applyJobEvents, beginDurableResponse, persistActiveSessionSnapshot])
+  }, [applyJobEvents, beginDurableResponse, persistCurrentState])
 
   const drainQueueForSession = useCallback(async (sessionId: string) => {
     if (sessionIsBusy(sessionId)) return
@@ -1410,7 +1446,7 @@ export function useAgentChat() {
       queuedMessages,
     }
     setState(nextState)
-    persistActiveSessionSnapshot(nextState)
+    persistCurrentState(nextState)
 
     if (activeJob && !inFlightBySessionRef.current[sessionId]) {
       const controller = new AbortController()
@@ -1418,7 +1454,7 @@ export function useAgentChat() {
       activeJobRef.current = activeJob
       void pollJob(activeJob, controller)
     }
-  }, [persistActiveSessionSnapshot, pollJob])
+  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob])
 
   const applySessionTitle = useCallback((sessionId: string, title: string | null, source?: string | null) => {
     setState(prev => {

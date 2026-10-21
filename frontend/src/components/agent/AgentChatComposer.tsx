@@ -1,13 +1,22 @@
 import { ChevronDown, Send, Square, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { resizeChatTextarea } from "./agentChatTextarea"
-import type { KeyboardEvent, ReactNode, RefObject } from "react"
+import { useEffect, useImperativeHandle, useState, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from "react"
+
+export interface AgentChatDraft {
+  value: string
+  selection: { start: number; end: number } | null
+}
+
+export interface AgentChatComposerHandle {
+  setInput: (value: string) => void
+}
 
 interface AgentChatComposerProps {
-  input: string
-  onInputChange: (value: string) => void
-  onInputSelectionChange: (start: number, end: number) => void
-  onSend: () => void
+  ref?: Ref<AgentChatComposerHandle>
+  loadDraft: () => AgentChatDraft
+  onDraftChange: (draft: AgentChatDraft) => void
+  onSend: (content: string) => void
   onStop: () => void
   /** True while the current turn is in progress (stream, job poll, or active tools). */
   isBusy: boolean
@@ -19,9 +28,9 @@ interface AgentChatComposerProps {
 }
 
 export function AgentChatComposer({
-  input,
-  onInputChange,
-  onInputSelectionChange,
+  ref,
+  loadDraft,
+  onDraftChange,
   onSend,
   onStop,
   isBusy,
@@ -31,18 +40,40 @@ export function AgentChatComposer({
   workflowsOpen,
   onToggleWorkflows,
 }: AgentChatComposerProps) {
+  // The ref preserves drafts while the dialog or another panel unmounts this
+  // composer; keystrokes only update local state, never the message list.
+  const [input, setInput] = useState(() => loadDraft().value)
   const hasInput = Boolean(input.trim())
   const showStop = isBusy && !hasInput
+
+  useImperativeHandle(ref, () => ({
+    setInput(value) {
+      onDraftChange({ value, selection: { start: value.length, end: value.length } })
+      setInput(value)
+    },
+  }), [onDraftChange])
+
+  useEffect(() => {
+    if (textareaRef.current) resizeChatTextarea(textareaRef.current)
+  }, [input, textareaRef])
+
+  function handleSend() {
+    const content = input.trim()
+    if (!content) return
+    onDraftChange({ value: "", selection: { start: 0, end: 0 } })
+    setInput("")
+    onSend(content)
+  }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault()
-      onSend()
+      handleSend()
     }
   }
 
   function rememberSelection(element: HTMLTextAreaElement) {
-    onInputSelectionChange(element.selectionStart, element.selectionEnd)
+    onDraftChange({ value: element.value, selection: { start: element.selectionStart, end: element.selectionEnd } })
   }
 
   const sendLabel = isBusy ? "Queue follow-up" : "Send message"
@@ -81,7 +112,8 @@ export function AgentChatComposer({
           ref={textareaRef}
           value={input}
           onChange={event => {
-            onInputChange(event.currentTarget.value)
+            const value = event.currentTarget.value
+            setInput(value)
             rememberSelection(event.currentTarget)
           }}
           onKeyDown={handleKeyDown}
@@ -109,7 +141,7 @@ export function AgentChatComposer({
         ) : (
           <button
             type="button"
-            onClick={onSend}
+            onClick={handleSend}
             disabled={!hasInput}
             className="theme-button-primary flex h-11 w-11 flex-none items-center justify-center rounded-full text-[hsl(var(--accent-foreground))] disabled:cursor-not-allowed disabled:opacity-40"
             aria-label={sendLabel}

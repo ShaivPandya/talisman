@@ -1,5 +1,5 @@
 import * as RadixDialog from "@radix-ui/react-dialog"
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
@@ -9,10 +9,10 @@ import {
   type AgentResponsePreferences,
   type AgentWorkflow,
 } from "@/lib/api"
-import { deleteSession, fetchSessionHistory, renameSessionTitle, useAgentChat, type SessionSummary } from "@/hooks/useAgentChat"
+import { deleteSession, fetchSessionHistory, renameSessionTitle, useAgentChat, type AgentMessage, type SessionSummary } from "@/hooks/useAgentChat"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { StanOpenDetail } from "@/lib/stanLauncher"
-import { AgentChatComposer } from "./AgentChatComposer"
+import { AgentChatComposer, type AgentChatComposerHandle, type AgentChatDraft } from "./AgentChatComposer"
 import { AgentChatQueuePanel } from "./AgentChatQueuePanel"
 import { AgentChatHeader } from "./AgentChatHeader"
 import { AgentContextPane } from "./AgentContextPane"
@@ -125,7 +125,6 @@ export function AgentChat({
   const [viewModeOverride, setViewModeOverride] = useState<AgentViewMode | null>(null)
   const viewMode: AgentViewMode = isDesktop ? viewModeOverride ?? "console" : "compact"
   const [activePanel, setActivePanel] = useState<AgentPanel>("chat")
-  const [input, setInput] = useState("")
   const [history, setHistory] = useState<SessionSummary[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
   const [workflowTicker, setWorkflowTicker] = useState("")
@@ -136,12 +135,17 @@ export function AgentChat({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const inputValueRef = useRef(input)
-  const inputSelectionRef = useRef<{ start: number; end: number } | null>(null)
+  const composerRef = useRef<AgentChatComposerHandle>(null)
+  const draftRef = useRef<AgentChatDraft>({ value: "", selection: null })
   const wasOpenRef = useRef(open)
   const wasStreamingRef = useRef(isStreaming)
   const pendingWorkflowInvalidationRef = useRef<WorkflowInvalidationTarget | null>(null)
   const lastConsumedCommandRef = useRef<string | null>(null)
+
+  const loadComposerDraft = useCallback(() => draftRef.current, [])
+  const saveComposerDraft = useCallback((draft: AgentChatDraft) => {
+    draftRef.current = draft
+  }, [])
 
   const workflowsQuery = useQuery({
     queryKey: ["agent-workflows"],
@@ -175,9 +179,13 @@ export function AgentChat({
   })
 
   const workflows = workflowsQuery.data ?? []
-  const activePreferences = preferencesQuery.data
+  const activePreferences = useMemo(() => preferencesQuery.data
     ? normalizePreferences(preferencesQuery.data)
-    : cachedPreferences
+    : cachedPreferences, [preferencesQuery.data, cachedPreferences])
+
+  const handleOpenTrace = useCallback((message: AgentMessage) => {
+    openDecisionTrace({ kind: "agent_message", record: {}, sessionId, message })
+  }, [openDecisionTrace, sessionId])
 
   const scrollMessagesToBottom = useCallback((behavior: ScrollBehavior) => {
     const container = messagesScrollRef.current
@@ -192,23 +200,22 @@ export function AgentChat({
     const textarea = textareaRef.current
     if (!textarea) return
 
-    const inputValue = inputValueRef.current
-    const selection = inputSelectionRef.current ?? { start: inputValue.length, end: inputValue.length }
+    const inputValue = draftRef.current.value
+    const selection = draftRef.current.selection ?? { start: inputValue.length, end: inputValue.length }
     textarea.focus()
     const start = Math.min(selection.start, inputValue.length)
     const end = Math.min(selection.end, inputValue.length)
     textarea.setSelectionRange(start, end)
   }, [])
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     const wasOpen = wasOpenRef.current
     wasOpenRef.current = open
 
     if (!open || activePanel !== "chat") return
 
     const behavior: ScrollBehavior = isStreaming || !wasOpen ? "auto" : "smooth"
-    scrollMessagesToBottom(behavior)
-
+    // Coalesce token commits into one layout read and scroll per frame.
     const animationFrame = window.requestAnimationFrame(() => {
       scrollMessagesToBottom(behavior)
     })
@@ -231,11 +238,7 @@ export function AgentChat({
 
   useEffect(() => {
     if (textareaRef.current) resizeChatTextarea(textareaRef.current)
-  }, [input, open, viewMode])
-
-  useEffect(() => {
-    inputValueRef.current = input
-  }, [input])
+  }, [open, viewMode])
 
   useEffect(() => {
     if (preferencesQuery.data) {
@@ -276,27 +279,22 @@ export function AgentChat({
     setPreferenceSaveError(null)
   }
 
-  function handleSend() {
-    const trimmed = input.trim()
-    if (!trimmed) return
-    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(trimmed)
-    inputValueRef.current = ""
-    inputSelectionRef.current = { start: 0, end: 0 }
-    setInput("")
+  const handleSend = useCallback((content: string) => {
+    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(content)
     setActivePanel("chat")
     void sendMessage(
-      trimmed,
+      content,
       screenContext,
       activePreferences,
       isComposerBusy ? { mode: "enqueue" } : undefined,
     )
-  }
+  }, [screenContext, activePreferences, isComposerBusy, sendMessage])
 
-  function handleQuickPrompt(prompt: string) {
+  const handleQuickPrompt = useCallback((prompt: string) => {
     pendingWorkflowInvalidationRef.current = null
     setActivePanel("chat")
     sendMessage(prompt, screenContext, activePreferences, isStreaming ? { mode: "enqueue" } : undefined)
-  }
+  }, [screenContext, activePreferences, isStreaming, sendMessage])
 
   function handleWorkflow(workflow: AgentWorkflow) {
     const ticker = workflowTicker.trim().toUpperCase()
@@ -385,15 +383,6 @@ export function AgentChat({
     setActivePanel("chat")
   }
 
-  function handleInputChange(value: string) {
-    inputValueRef.current = value
-    setInput(value)
-  }
-
-  function handleInputSelectionChange(start: number, end: number) {
-    inputSelectionRef.current = { start, end }
-  }
-
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) onClose()
   }
@@ -480,14 +469,7 @@ export function AgentChat({
                     isStreaming={isStreaming}
                     error={error}
                     onPrompt={handleQuickPrompt}
-                    onOpenTrace={message =>
-                      openDecisionTrace({
-                        kind: "agent_message",
-                        record: {},
-                        sessionId,
-                        message,
-                      })
-                    }
+                    onOpenTrace={handleOpenTrace}
                     scrollContainerRef={messagesScrollRef}
                     messagesEndRef={messagesEndRef}
                   />
@@ -496,15 +478,15 @@ export function AgentChat({
                     onSendNow={id => { void sendQueuedMessageNow(id) }}
                     onEdit={id => {
                       const text = editQueuedMessage(id)
-                      if (text != null) setInput(text)
+                      if (text != null) composerRef.current?.setInput(text)
                     }}
                     onRemove={removeQueuedMessage}
                     onClear={clearQueuedMessages}
                   />
                   <AgentChatComposer
-                    input={input}
-                    onInputChange={handleInputChange}
-                    onInputSelectionChange={handleInputSelectionChange}
+                    ref={composerRef}
+                    loadDraft={loadComposerDraft}
+                    onDraftChange={saveComposerDraft}
                     onSend={handleSend}
                     onStop={stopStreaming}
                     isBusy={isComposerBusy}
