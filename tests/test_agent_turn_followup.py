@@ -257,7 +257,7 @@ def test_worker_turn_publishes_done_before_queueing_followup(chat_turn, monkeypa
             chat_turn.events.append("done")
 
     monkeypatch.setattr(agent_chat_worker, "append_job_event", append_job_event)
-    monkeypatch.setattr(agent_chat_worker, "get_job", lambda job_id: {"status": "running"})
+    monkeypatch.setattr(agent_chat_worker, "get_job_status", lambda job_id: "running")
     # The API process begins the turn before queueing it.
     memory_db.begin_turn(
         chat_turn.session_id,

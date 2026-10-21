@@ -50,7 +50,7 @@ from api.agent_models import (
 )
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
 from api.exceptions import ConfigurationError
-from api.job_events import append_job_event, list_job_events
+from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
 from api.job_queue import cancel_job, get_job
 from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from api.performance import emit as emit_performance
@@ -3349,24 +3349,32 @@ def get_agent_chat_async_events(
     wait_ms: int = Query(0, ge=0, le=14_000),
 ):
     from api.async_job_runner import poll_registered_job
+    from api.job_event_notifications import watch_job_events
 
     deadline = time.monotonic() + min(wait_ms, 14_000) / 1000.0
     events: list[dict[str, Any]] = []
     status_payload: dict[str, Any]
-    row = get_job(job_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Unknown job_id")
-
-    while True:
-        try:
-            status_payload = poll_registered_job(job_id)
-        except KeyError:
-            raise HTTPException(status_code=404, detail="Unknown job_id") from None
-        row = get_job(job_id) or row
-        events = list_job_events(job_id, after_seq=after_seq)
-        if events or status_payload.get("status") not in {"queued", "running"} or time.monotonic() >= deadline:
-            break
-        time.sleep(0.25)
+    with watch_job_events(job_id) as watch:
+        row = watch.cached_job(after_seq) if wait_ms else None
+        while True:
+            if row is None:
+                generation = watch.generation
+                row, events = read_job_events_snapshot(job_id, after_seq=after_seq)
+                if row is None:
+                    raise HTTPException(status_code=404, detail="Unknown job_id")
+                cursor = max((int(event["seq"]) for event in events), default=after_seq)
+                watch.record(row, cursor, generation, complete_page=len(events) < 500, has_events=bool(events))
+            try:
+                status_payload = poll_registered_job(job_id, row=row)
+            except KeyError:
+                raise HTTPException(status_code=404, detail="Unknown job_id") from None
+            if status_payload.get("status") not in {"queued", "running"}:
+                watch.record({**row, "status": status_payload.get("status")}, after_seq, watch.generation)
+            remaining = deadline - time.monotonic()
+            if events or status_payload.get("status") not in {"queued", "running"} or remaining <= 0:
+                break
+            watch.wait(after_seq, remaining)
+            row = None
 
     next_seq = max([int(event["seq"]) for event in events], default=after_seq)
     payload: dict[str, Any] = {

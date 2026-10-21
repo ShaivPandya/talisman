@@ -472,6 +472,21 @@ def cancel_job(job_id: str, reason: str = "Job cancelled", *, result_ttl_seconds
         conn.commit()
 
 
+def get_job_status(job_id: str) -> str | None:
+    """Read only status, without fetching a job's request or result blobs."""
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            row = _memory_jobs.get(job_id)
+            return str(row["status"]) if row else None
+
+    def _read() -> str | None:
+        with connect(read_only=True) as conn:
+            row = conn.execute("SELECT status FROM async_jobs WHERE job_id = %s", (job_id,)).fetchone()
+            return str(row["status"]) if row else None
+
+    return retry_read(_read)
+
+
 def get_job(job_id: str) -> dict[str, Any] | None:
     if not postgres_jobs_enabled():
         with _memory_lock:
