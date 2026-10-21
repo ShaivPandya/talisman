@@ -2892,10 +2892,12 @@ def _idea_detail(idea_id: str) -> dict[str, Any]:
 
 @router.get("/ideas")
 def list_ideas(status: str | None = None, include_archived: bool = False, limit: int = 200):
-    ideas = _list_ideas(status=status, include_archived=include_archived, limit=limit)
-    for idea in ideas:
-        latest = _list_idea_evaluations(idea.get("id"), limit=1)
-        idea["latest_evaluation"] = latest[0] if latest else None
+    ideas = [
+        _with_default_idea_instrument_fields(idea)
+        for idea in OntologyRuntimeReadService().ideas_list(
+            status=status, include_archived=include_archived, limit=limit
+        )
+    ]
     return {"ideas": ideas, "count": len(ideas)}
 
 

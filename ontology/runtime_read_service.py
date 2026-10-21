@@ -147,6 +147,30 @@ class OntologyRuntimeReadService:
             "disconfirmed_claims": self._project_read_model_rows(bundle.get("disconfirmed_claims", [])),
         }
 
+    def ideas_list(
+        self, *, status: str | None = None, include_archived: bool = False, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        if self.read_model_repo is None and isinstance(self.objects, _EmptyObjectService):
+            return []
+        rows = self._read_model_repository().fetch_ideas_list(
+            status=status, include_archived=include_archived, limit=limit
+        )
+        ideas = []
+        for row in rows:
+            idea = object_props(row["idea"])
+            evaluation = row["evaluation"]
+            idea["latest_evaluation"] = (
+                self._project_idea_evaluation(
+                    object_props(evaluation),
+                    factor_rows=[object_props(child) for child in row["factor_rows"]],
+                    missing_rows=[object_props(child) for child in row["missing_rows"]],
+                )
+                if evaluation
+                else None
+            )
+            ideas.append(idea)
+        return ideas
+
     def dossier_bundle(self, ticker: str) -> dict[str, Any]:
         repo = self._read_model_repository()
         bundle = repo.fetch_dossier_bundle(ticker)
@@ -735,9 +759,16 @@ class OntologyRuntimeReadService:
             return self._project_management_quality_assessment(row)
         return row
 
-    def _project_idea_evaluation(self, row: dict[str, Any]) -> dict[str, Any]:
+    def _project_idea_evaluation(
+        self,
+        row: dict[str, Any],
+        *,
+        factor_rows: list[dict[str, Any]] | None = None,
+        missing_rows: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         uid = str(row.get("id") or row.get("object_uid") or "")
-        factor_rows = self._raw_objects("FactorScore", filters={"parent_uid": uid}, limit=100) if uid else []
+        if factor_rows is None:
+            factor_rows = self._raw_objects("FactorScore", filters={"parent_uid": uid}, limit=100) if uid else []
         if factor_rows:
             factors: dict[str, dict[str, Any]] = {}
             for factor in sorted(factor_rows, key=lambda item: str(item.get("factor_name") or item.get("id") or "")):
@@ -750,9 +781,12 @@ class OntologyRuntimeReadService:
                     if factor.get(key) is not None
                 }
             row["factor_scores"] = factors
-        missing_rows = (
-            self._raw_objects("MissingInformationRequirement", filters={"parent_uid": uid}, limit=100) if uid else []
-        )
+        if missing_rows is None:
+            missing_rows = (
+                self._raw_objects("MissingInformationRequirement", filters={"parent_uid": uid}, limit=100)
+                if uid
+                else []
+            )
         if missing_rows:
             row["missing_information"] = [
                 {

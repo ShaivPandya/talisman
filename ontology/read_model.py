@@ -39,6 +39,89 @@ class TemporalReadModelRepository:
             if callable(commit):
                 commit()
 
+    def fetch_ideas_list(
+        self, *, status: str | None = None, include_archived: bool = False, limit: int = 200
+    ) -> list[dict[str, Any]]:
+        """Read ideas, their latest evaluations and evaluation children in one statement.
+
+        Read authoritative versions, not a materialized view: a just-written
+        evaluation must be visible immediately. Keep the existing page-before-
+        archive-filter behavior and the 100-child limit for each evaluation/type.
+        """
+        status_clause = "AND properties_json->>'status' = %s" if status else ""
+        params: list[Any] = [status] if status else []
+        page_size = max(1, min(int(limit), 500))
+        params.extend([page_size, include_archived, page_size])
+        sql = f"""
+        WITH idea_page AS MATERIALIZED (
+            SELECT * FROM ontology_object_versions
+            WHERE object_type = 'InvestmentIdea' AND tx_to IS NULL
+              AND valid_from <= CURRENT_TIMESTAMP
+              AND (valid_to IS NULL OR valid_to > CURRENT_TIMESTAMP)
+              {status_clause}
+            ORDER BY business_key, valid_from DESC, tx_from DESC
+            LIMIT %s
+        ), ideas AS (
+            SELECT * FROM idea_page
+            WHERE %s OR lower(COALESCE(properties_json->>'status', '')) <> 'archived'
+        ), latest AS MATERIALIZED (
+            SELECT DISTINCT ON (e.properties_json->>'idea_id')
+                   e.properties_json->>'idea_id' AS idea_id, e.*
+            FROM ontology_object_versions e
+            JOIN ideas i ON e.properties_json->>'idea_id' = i.object_uid
+            WHERE e.object_type = 'IdeaEvaluation' AND e.tx_to IS NULL
+              AND e.valid_from <= CURRENT_TIMESTAMP
+              AND (e.valid_to IS NULL OR e.valid_to > CURRENT_TIMESTAMP)
+            ORDER BY e.properties_json->>'idea_id',
+              CASE WHEN pg_input_is_valid(e.properties_json->>'evaluated_at', 'timestamptz')
+                   THEN (e.properties_json->>'evaluated_at')::timestamptz
+              END DESC NULLS LAST,
+              e.object_uid, e.valid_from DESC, e.tx_from DESC
+            -- There can be at most one evaluation per idea in the page. Expose
+            -- that bound to PG16, which lacks column statistics for CTE scans.
+            LIMIT %s
+        ), children AS (
+            SELECT c.*, row_number() OVER (
+                PARTITION BY c.properties_json->>'parent_uid', c.object_type
+                ORDER BY c.business_key, c.valid_from DESC, c.tx_from DESC
+            ) AS child_number
+            FROM ontology_object_versions c
+            JOIN latest e ON c.properties_json->>'parent_uid' = e.object_uid
+            WHERE c.object_type IN ('FactorScore', 'MissingInformationRequirement')
+              AND c.tx_to IS NULL AND c.valid_from <= CURRENT_TIMESTAMP
+              AND (c.valid_to IS NULL OR c.valid_to > CURRENT_TIMESTAMP)
+        ), child_groups AS (
+            SELECT properties_json->>'parent_uid' AS parent_uid,
+                jsonb_agg(to_jsonb(c) ORDER BY business_key, valid_from DESC, tx_from DESC)
+                    FILTER (WHERE object_type = 'FactorScore') AS factor_rows,
+                jsonb_agg(to_jsonb(c) ORDER BY business_key, valid_from DESC, tx_from DESC)
+                    FILTER (WHERE object_type = 'MissingInformationRequirement') AS missing_rows
+            FROM children c WHERE child_number <= 100
+            GROUP BY properties_json->>'parent_uid'
+        )
+        SELECT to_jsonb(i) AS idea, to_jsonb(e) AS evaluation,
+               COALESCE(c.factor_rows, '[]'::jsonb) AS factor_rows,
+               COALESCE(c.missing_rows, '[]'::jsonb) AS missing_rows
+        FROM ideas i
+        LEFT JOIN latest e ON e.idea_id = i.object_uid
+        LEFT JOIN child_groups c ON c.parent_uid = e.object_uid
+        ORDER BY i.business_key, i.valid_from DESC, i.tx_from DESC
+        """
+
+        def _read():
+            with self._connect(read_only=True) as conn:
+                return conn.execute(sql, tuple(params)).fetchall()
+
+        return [
+            {
+                "idea": _operational_object(row["idea"]),
+                "evaluation": _operational_object(row["evaluation"]) if row["evaluation"] else None,
+                "factor_rows": [_operational_object(child) for child in row["factor_rows"]],
+                "missing_rows": [_operational_object(child) for child in row["missing_rows"]],
+            }
+            for row in retry_read(_read)
+        ]
+
     def query_positions_page(
         self,
         *,
