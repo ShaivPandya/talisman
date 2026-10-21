@@ -40,6 +40,7 @@ def migrated_database():
         "20260429_0001_gcp_state_schema.py",
         "20260502_0002_app_settings.py",
         "20260505_0007_ontology_native_retrieval.py",
+        "20261021_tl193_retrieval_fts.py",
         "20260515_0002_conversation_session_titles.py",
         "20260602_0001_auth_users_sessions.py",
         "20261017_0001_company_research_runs.py",
@@ -109,13 +110,13 @@ def test_stores_and_retrieval_share_a_single_slot_without_nested_checkout(pg_sta
     assert llm_settings.get_settings(["tl181.setting"])["tl181.setting"]["value"] == "saved"
     assert llm_settings.ensure_setting("tl181.setting", "ignored")["value"] == "saved"
 
-    monkeypatch.setattr(retrieval, "_embed", lambda texts: [[1.0] + [0.0] * 383 for _ in texts])
+    def no_embedding(*_args):
+        raise AssertionError("Postgres retrieval must not load an embedding model")
+
+    monkeypatch.setattr(retrieval, "_embed", no_embedding)
     doc_id = retrieval.index_document("thesis", "Postgres connection pool integration test.", ticker="POOL")
     assert retrieval.get_indexed_count()["thesis"] >= 1
-    assert (
-        retrieval._pg_search([1.0] + [0.0] * 383, doc_types=["thesis"], tickers=["POOL"], top_k=1)[0]["doc_id"]
-        == doc_id
-    )
+    assert retrieval.search("connection pool", doc_types=["thesis"], tickers=["POOL"], top_k=1)[0]["doc_id"] == doc_id
     assert (
         retrieval._pg_lexical_search(
             "connection pool", doc_types=["thesis"], tickers=["POOL"], top_k=1, fallback_reason="test"

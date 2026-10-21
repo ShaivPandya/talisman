@@ -1,11 +1,8 @@
 """
-Embedding-based document retrieval for the AI agent.
+Document retrieval for the AI agent.
 
-Indexes thesis files, reports, and conversation summaries into ontology-linked
-retrieval chunks with sentence-transformer embeddings for semantic search.
-Uses all-MiniLM-L6-v2 (~80 MB, runs on CPU).
-
-Follows the same connection pattern as memory_db.py (WAL mode, thread-safe).
+Postgres uses indexed full-text search over ontology-linked chunks. The explicit
+SQLite compatibility path retains optional all-MiniLM-L6-v2 semantic retrieval.
 """
 
 from __future__ import annotations
@@ -335,10 +332,6 @@ def index_document(
     if not raw_chunks:
         raise ValueError("Document produced no chunks")
 
-    # Embed all chunks in one batch
-    chunk_texts = [text for _, text in raw_chunks]
-    embeddings = _embed(chunk_texts)
-
     if use_postgres_state():
         _pg_index_document(
             doc_id=did,
@@ -347,7 +340,6 @@ def index_document(
             ticker=ticker,
             source_path=source_path,
             raw_chunks=raw_chunks,
-            embeddings=embeddings,
             updated_at=now,
             object_uid=object_uid,
             object_version_id=object_version_id,
@@ -369,6 +361,8 @@ def index_document(
         )
         return did
 
+    # Only the SQLite compatibility path needs the optional embedding model.
+    embeddings = _embed([text for _, text in raw_chunks])
     conn = _get_conn()
     with _lock:
         # Delete existing chunks if re-indexing
@@ -439,12 +433,16 @@ def search(
     tickers: list[str] | None = None,
     top_k: int = 5,
 ) -> list[dict[str, Any]]:
-    """Search indexed documents by semantic similarity.
+    """Return the top-K matching chunks, with document and citation metadata.
 
-    Returns top-K results with doc metadata, chunk content, heading, and score.
+    Postgres ranks full-text matches across the entire non-stale corpus. SQLite
+    retains semantic search with a lexical fallback for compatibility.
     """
-    if not query or not query.strip():
+    if not query or not query.strip() or top_k <= 0:
         return []
+
+    if use_postgres_state():
+        return _pg_lexical_search(query, doc_types=doc_types, tickers=tickers, top_k=top_k)
 
     try:
         query_emb = _embed_single(query)
@@ -457,9 +455,6 @@ def search(
             top_k=top_k,
             fallback_reason=str(exc) or exc.__class__.__name__,
         )
-
-    if use_postgres_state():
-        return _pg_search(query_emb, doc_types=doc_types, tickers=tickers, top_k=top_k)
 
     conn = _get_conn()
 
@@ -616,10 +611,13 @@ def _pg_lexical_search(
     doc_types: list[str] | None,
     tickers: list[str] | None,
     top_k: int,
-    fallback_reason: str,
+    fallback_reason: str | None = None,
 ) -> list[dict[str, Any]]:
-    where_parts: list[str] = ["COALESCE(c.is_stale, false) = false"]
-    params: list[Any] = []
+    # OR normalized terms so a conversational question need not occur verbatim
+    # in a chunk. The simple lexemes also preserve tickers such as ON and IT.
+    # quote_literal quotes each lexeme as tsquery data, never query syntax.
+    where_parts = ["c.is_stale = false"]
+    params: list[Any] = [query, query]
     if doc_types:
         where_parts.append("d.doc_type = ANY(%s)")
         params.append(doc_types)
@@ -627,27 +625,49 @@ def _pg_lexical_search(
         where_parts.append("UPPER(d.ticker) = ANY(%s)")
         params.append([t.upper() for t in tickers])
     where_clause = f"WHERE {' AND '.join(where_parts)}"
+    params.append(top_k)
+    # Rank narrow rows first; only fetch content/metadata for the final K hits.
+    filter_join = "JOIN retrieval_documents d ON c.doc_id = d.doc_id" if doc_types or tickers else ""
 
     def _read():
         with connect(read_only=True) as conn:
-            rows = conn.execute(
+            return conn.execute(
                 f"""
+                WITH q AS MATERIALIZED (
+                    SELECT string_agg(quote_literal(term), ' | ')::tsquery AS query
+                    FROM (
+                        SELECT DISTINCT unnest(
+                            tsvector_to_array(to_tsvector('english', %s)) ||
+                            tsvector_to_array(to_tsvector('simple', %s))
+                        ) AS term
+                    ) terms
+                ), ranked AS MATERIALIZED (
+                    SELECT c.chunk_id, ts_rank(c.search_vector, q.query, 32) AS score
+                    FROM q
+                    JOIN retrieval_chunks c ON c.search_vector @@ q.query
+                    {filter_join}
+                    {where_clause}
+                    ORDER BY score DESC, c.doc_id, c.chunk_index, c.chunk_id
+                    LIMIT %s
+                )
                 SELECT c.chunk_id, c.doc_id, c.chunk_index, c.content,
                        c.heading, c.object_uid, c.object_version_id, c.source_record_id,
                        c.source_record_version_id, c.citation_span_start, c.citation_span_end,
                        c.permission_scope, c.freshness_as_of, c.stale_after, c.is_stale,
-                       c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at
-                FROM retrieval_chunks c
+                       c.content_hash, d.doc_type, d.ticker, d.source_path, d.created_at,
+                       ranked.score
+                FROM ranked
+                JOIN retrieval_chunks c ON c.chunk_id = ranked.chunk_id
                 JOIN retrieval_documents d ON c.doc_id = d.doc_id
-                {where_clause}
-                LIMIT 1000
+                ORDER BY ranked.score DESC, c.doc_id, c.chunk_index, c.chunk_id
                 """,
                 tuple(params),
             ).fetchall()
-        return rows
 
-    rows = retry_read(_read)
-    return _rank_lexical_rows(query, rows, top_k=top_k, fallback_reason=fallback_reason)
+    return [
+        _retrieval_result_from_row(row, score=row["score"], mode="full_text", fallback_reason=fallback_reason)
+        for row in retry_read(_read)
+    ]
 
 
 def _rank_lexical_rows(
@@ -819,7 +839,6 @@ def _pg_index_document(
     ticker: str | None,
     source_path: str | None,
     raw_chunks: list[tuple[str | None, str]],
-    embeddings: list[list[float]],
     updated_at: str,
     object_uid: str | None,
     object_version_id: str | None,
@@ -840,7 +859,7 @@ def _pg_index_document(
             i,
             text,
             heading,
-            emb,
+            None,
             object_uid,
             object_version_id,
             source_record_id,
@@ -853,7 +872,7 @@ def _pg_index_document(
             is_stale,
             _content_hash(text),
         )
-        for i, ((heading, text), emb) in enumerate(zip(raw_chunks, embeddings, strict=True))
+        for i, (heading, text) in enumerate(raw_chunks)
     ]
     with connect(register_pgvector=True) as conn:
         conn.execute("DELETE FROM retrieval_chunks WHERE doc_id = %s", (doc_id,))
@@ -896,7 +915,7 @@ def _pg_search(
     from pgvector import Vector
 
     query_vector = Vector(query_emb)
-    where_parts: list[str] = []
+    where_parts: list[str] = ["c.embedding IS NOT NULL"]
     params: list[Any] = [query_vector]
     if doc_types:
         where_parts.append("d.doc_type = ANY(%s)")
