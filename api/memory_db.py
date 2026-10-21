@@ -538,13 +538,25 @@ def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:
         return len(existing)
 
 
-def update_rolling_summary(session_id: str, summary: str) -> bool:
-    """Update the rolling summary for a session. Returns True if session exists."""
+def update_rolling_summary(session_id: str, summary: str, *, expected: str | None = None) -> bool:
+    """Update the rolling summary for a session. Returns True if the row was updated.
+
+    With ``expected``, the update applies only while the stored summary still equals it
+    (an empty string matches no summary), so concurrent summarizers can't overwrite
+    each other.
+    """
     with _get_conn() as conn:
-        cur = conn.execute(
-            "UPDATE conversation_sessions SET rolling_summary = ? WHERE session_id = ?",
-            (summary, session_id),
-        )
+        if expected is None:
+            cur = conn.execute(
+                "UPDATE conversation_sessions SET rolling_summary = ? WHERE session_id = ?",
+                (summary, session_id),
+            )
+        else:
+            cur = conn.execute(
+                "UPDATE conversation_sessions SET rolling_summary = ? "
+                "WHERE session_id = ? AND COALESCE(rolling_summary, '') = ?",
+                (summary, session_id, expected),
+            )
         conn.commit()
         return cur.rowcount > 0
 

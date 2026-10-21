@@ -161,6 +161,18 @@ JOB_SPECS: dict[str, JobSpec] = {
         stale_grace_s=_env_int("ASYNC_STALE_GRACE_AGENT_CHAT_SECONDS", 60),
         error_message="Agent chat turn failed",
     ),
+    "agent_turn_followup": JobSpec(
+        job_type="agent_turn_followup",
+        request_model="api.agent_turn_followup.AgentTurnFollowupRequest",
+        compute_func="api.agent_turn_followup.run_agent_turn_followup",
+        cache_key_func="api.agent_turn_followup.followup_cache_key",
+        queue_name=_env_queue("ASYNC_QUEUE_AGENT", "agent"),
+        timeout_s=_env_int("ASYNC_TIMEOUT_AGENT_TURN_FOLLOWUP_SECONDS", 10 * 60),
+        # The payload repeats the turn's trajectory; keep finished rows briefly.
+        completed_ttl_s=60 * 60,
+        failed_ttl_s=DEFAULT_FAILED_TTL_S,
+        error_message="Agent turn follow-up failed",
+    ),
     "sizer": JobSpec(
         job_type="sizer",
         request_model="api.routers.sizer.SizerRequest",

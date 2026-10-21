@@ -773,3 +773,97 @@ def test_put_agent_response_preferences_rejects_invalid_values(temp_llm_settings
     )
 
     assert response.status_code == 422
+
+
+def _count_settings_reads(settings, monkeypatch) -> list[str]:
+    """Record each app_settings SELECT the settings module sends."""
+    from contextlib import contextmanager
+
+    reads: list[str] = []
+    original = settings._get_conn
+
+    class CountingConnection:
+        def __init__(self, conn):
+            self._conn = conn
+
+        def execute(self, sql, *args):
+            if sql.lstrip().upper().startswith("SELECT"):
+                reads.append(sql)
+            return self._conn.execute(sql, *args)
+
+        def __getattr__(self, name):
+            return getattr(self._conn, name)
+
+    @contextmanager
+    def counting_get_conn(*args, **kwargs):
+        with original(*args, **kwargs) as conn:
+            yield CountingConnection(conn)
+
+    monkeypatch.setattr(settings, "_get_conn", counting_get_conn)
+    return reads
+
+
+def test_llm_settings_share_one_query_until_written(temp_llm_settings, monkeypatch):
+    settings = temp_llm_settings
+    settings.set_setting("llm.provider", "openai")
+    settings.set_setting("llm.provider_mode", "custom")
+    settings.set_setting("llm.provider_by_tier", json.dumps({"low": "openai", "mid": "gemini", "high": "openai"}))
+    settings.set_setting(settings.FRONTIER_REASONING_MIGRATION_KEY, "1")  # already migrated, as in a live database
+    reads = _count_settings_reads(settings, monkeypatch)
+
+    # The provider lookups a chat turn repeats several times.
+    for _ in range(3):
+        assert llm_utils.selected_provider_for_tier("mid") == "gemini"
+        assert llm_utils.reasoning_effort_for_tier("mid", "gemini") == "medium"
+    assert len(reads) == 1
+
+    settings.set_llm_provider_by_tier_setting(
+        {"low": "openai", "mid": "anthropic", "high": "openai"}, fallback_provider="openai"
+    )
+    assert llm_utils.selected_provider_for_tier("mid") == "anthropic"
+    assert len(reads) == 3  # set_setting reads its row back, then one fresh snapshot
+
+
+def test_llm_settings_cache_expires(temp_llm_settings, monkeypatch):
+    settings = temp_llm_settings
+    settings.set_setting("llm.provider", "openai")
+    reads = _count_settings_reads(settings, monkeypatch)
+    now = [1000.0]
+    monkeypatch.setattr(settings.time, "monotonic", lambda: now[0])
+
+    assert settings.get_setting("llm.provider")["value"] == "openai"
+    now[0] += settings.LLM_SETTINGS_CACHE_TTL_S - 1
+    assert settings.get_setting("llm.provider")["value"] == "openai"
+    assert len(reads) == 1
+
+    now[0] += 2
+    assert settings.get_setting("llm.provider")["value"] == "openai"
+    assert len(reads) == 2
+
+
+def test_non_llm_settings_are_not_cached(temp_llm_settings, monkeypatch):
+    settings = temp_llm_settings
+    settings.set_setting("workspace.dismissals", "[]")
+    reads = _count_settings_reads(settings, monkeypatch)
+
+    assert settings.get_setting("workspace.dismissals")["value"] == "[]"
+    assert settings.get_setting("workspace.dismissals")["value"] == "[]"
+    assert len(reads) == 2
+
+
+def test_llm_settings_snapshot_is_per_database(tmp_path, monkeypatch, temp_llm_settings):
+    import sqlite3
+
+    settings = temp_llm_settings
+    settings.set_setting("llm.provider", "openai")
+    assert settings.get_setting("llm.provider")["value"] == "openai"
+
+    # Written outside the module, so nothing clears the cached snapshot of the first database.
+    other = tmp_path / "other_settings.db"
+    with sqlite3.connect(other) as conn:
+        conn.execute(settings._CREATE_APP_SETTINGS)
+        conn.execute("INSERT INTO app_settings (key, value, updated_at) VALUES ('llm.provider', 'gemini', 'now')")
+    settings._close_conn()
+    monkeypatch.setattr(settings, "DB_PATH", other)
+
+    assert settings.get_setting("llm.provider")["value"] == "gemini"

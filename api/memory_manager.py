@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 VERBATIM_WINDOW = 8  # keep last 8 messages (~4 exchanges) verbatim
 SUMMARIZE_THRESHOLD = 16  # trigger rolling summarization when total exceeds this
 RETRIEVAL_TOP_K = 3  # semantic retrieval hits to include
+TURN_MESSAGE_COUNT = 2  # a finished turn adds one user and one assistant message
 
 # ---------------------------------------------------------------------------
 # Context assembly
@@ -50,6 +51,7 @@ def build_conversation_context(
     *,
     enable_retrieval: bool = True,
     client_turn_id: str | None = None,
+    session: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, object]], str]:
     """Build the ``messages`` list for a Claude API call.
 
@@ -58,9 +60,11 @@ def build_conversation_context(
       2. The last ``VERBATIM_WINDOW`` messages from the session
       3. The new user message
 
+    Pass *session* when the turn already loaded it, to skip a second read.
     The caller should pass *conversation* directly to ``client.messages.stream()``.
     """
-    session = memory_db.get_or_create_session(session_id)
+    if session is None:
+        session = memory_db.get_or_create_session(session_id)
     sid = session["session_id"]
     server_msgs: list[dict[str, Any]] = session["server_messages"]
     rolling_summary: str | None = session.get("rolling_summary")
@@ -117,6 +121,16 @@ def build_conversation_context(
         conversation.append({"role": "user", "content": new_user_message})
 
     return conversation, sid
+
+
+def messages_before_turn(session: dict[str, Any], client_turn_id: str | None) -> int:
+    """Count the session messages that precede this turn's own messages."""
+    messages = session.get("server_messages") or []
+    if client_turn_id:
+        for index, msg in enumerate(messages):
+            if isinstance(msg, dict) and str(msg.get("client_turn_id")) == client_turn_id:
+                return index
+    return len(messages)
 
 
 # ---------------------------------------------------------------------------
@@ -187,11 +201,16 @@ def complete_turn(
     user_message: dict[str, Any],
     assistant_message: dict[str, Any],
 ) -> None:
-    """Finalize a turn, using in-place update when incremental persistence exists."""
+    """Finalize a turn, using in-place update when incremental persistence exists.
+
+    Rolling summarization is not done here: it runs in the turn's follow-up job
+    (``api.agent_turn_followup``) after the client has the answer.
+    """
     client_turn_id = str(user_message.get("client_turn_id") or assistant_message.get("client_turn_id") or "")
     final_assistant = {**assistant_message, "is_streaming": False}
     try:
-        if client_turn_id and memory_db.turn_exists(session_id, client_turn_id):
+        if client_turn_id:
+            # Completes the begun turn in place, or appends it when it was never begun.
             total = memory_db.complete_turn_messages(
                 session_id,
                 client_turn_id,
@@ -205,9 +224,6 @@ def complete_turn(
         return
 
     _ensure_session_title(session_id, user_message, final_assistant, total)
-
-    if total >= SUMMARIZE_THRESHOLD:
-        _maybe_summarize(session_id)
 
 
 def complete_turn_async(
@@ -259,10 +275,7 @@ def finalize_turn(
     user_message: dict[str, Any],
     assistant_message: dict[str, Any],
 ) -> None:
-    """Persist the turn and trigger rolling summarization if needed.
-
-    Designed to be called in a background thread so it doesn't block SSE.
-    """
+    """Persist the turn. Rolling summarization runs later, in the turn's follow-up job."""
     complete_turn(session_id, user_message, assistant_message)
 
 
@@ -411,55 +424,68 @@ def _clean_generated_title(value: str | None) -> str | None:
             return None
 
 
-def _maybe_summarize(session_id: str) -> None:
-    """Summarize older messages if they exceed the verbatim window."""
-    try:
+def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -> bool:
+    """Fold the messages a finished turn pushed out of the verbatim window into the summary.
+
+    Only those messages go to the LLM, since everything older is already summarized.
+    The first summary covers every message older than the window. Message positions
+    never shift (the transcript only appends), so this can run any time after the turn.
+    Returns True when the summary changed.
+    """
+    total = messages_before_turn + TURN_MESSAGE_COUNT
+    if total < SUMMARIZE_THRESHOLD:
+        return False
+    window_start = total - VERBATIM_WINDOW
+
+    from llm_utils import has_llm_api_key
+
+    if not has_llm_api_key():
+        logger.debug("No valid API key for rolling summarization")
+        return False
+
+    from api.routers.memory import _summarize_with_haiku
+
+    # A second pass only happens when another summarizer changed the summary meanwhile.
+    for _attempt in range(2):
         session = memory_db.get_or_create_session(session_id)
-        server_msgs: list[dict[str, Any]] = session["server_messages"]
-
-        if len(server_msgs) <= VERBATIM_WINDOW:
-            return
-
-        old_msgs = server_msgs[:-VERBATIM_WINDOW]
         existing_summary = session.get("rolling_summary") or ""
+        start = max(0, window_start - TURN_MESSAGE_COUNT) if existing_summary else 0
+        departed: list[dict[str, Any]] = session["server_messages"][start:window_start]
 
-        # Build text for Haiku
         lines: list[str] = []
         if existing_summary:
             lines.append(f"[Previous summary]\n{existing_summary}\n")
         lines.append("[New messages to incorporate]")
-        for msg in old_msgs:
+        new_lines = 0
+        for msg in departed:
             role = msg.get("role", "?")
             content = str(msg.get("content", "")).strip()
             if content:
                 lines.append(f"[{role}] {content[:2000]}")
+                new_lines += 1
+        if not new_lines:
+            return False
 
         text = "\n".join(lines[-60:])  # cap input
+        summary, tickers, _topics = _summarize_with_haiku(text)
+        if memory_db.update_rolling_summary(session_id, summary, expected=existing_summary):
+            _index_rolling_summary(session_id, summary, tickers)
+            return True
+    logger.warning("Rolling summary for session %s kept changing; skipped this turn's messages", session_id)
+    return False
 
-        from llm_utils import has_llm_api_key
 
-        if not has_llm_api_key():
-            logger.debug("No valid API key for rolling summarization")
-            return
+def _index_rolling_summary(session_id: str, summary: str, tickers: list[str]) -> None:
+    """Index the summary for retrieval in later sessions."""
+    try:
+        from api.retrieval import index_document
 
-        from api.routers.memory import _summarize_with_haiku
-
-        summary, tickers, topics = _summarize_with_haiku(text)
-        memory_db.update_rolling_summary(session_id, summary)
-
-        # Also index the summary for future retrieval
-        try:
-            from api.retrieval import index_document
-
-            ticker_str = ", ".join(tickers) if tickers else ""
-            index_document(
-                doc_type="conversation_summary",
-                content=f"Tickers: {ticker_str}\n\n{summary}" if ticker_str else summary,
-                ticker=tickers[0] if tickers else None,
-                doc_id=f"rolling-{session_id}",
-            )
-        except Exception:
-            logger.debug("Failed to index rolling summary", exc_info=True)
-
+        ticker_str = ", ".join(tickers) if tickers else ""
+        index_document(
+            doc_type="conversation_summary",
+            content=f"Tickers: {ticker_str}\n\n{summary}" if ticker_str else summary,
+            ticker=tickers[0] if tickers else None,
+            doc_id=f"rolling-{session_id}",
+        )
     except Exception:
-        logger.exception("Rolling summarization failed for session %s", session_id)
+        logger.debug("Failed to index rolling summary", exc_info=True)

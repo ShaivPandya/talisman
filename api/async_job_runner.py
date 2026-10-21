@@ -146,7 +146,8 @@ def _job_dispatch_backend(job_type: str) -> str | None:
 def _dispatch_backend_for_job(job_type: str) -> str:
     if override := _job_dispatch_backend(job_type):
         return override
-    if job_type == "agent_chat_turn":
+    if job_type in {"agent_chat_turn", "agent_turn_followup"}:
+        # Turn follow-ups ride the agent worker too, instead of a Cloud Run job per turn.
         return _agent_chat_dispatch_backend() or _env_backend()
     return _env_backend()
 

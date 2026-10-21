@@ -48,6 +48,7 @@ from api.agent_models import (
     ChatMessage,
     ScreenContextModel,
 )
+from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events
 from api.job_queue import cancel_job, get_job
@@ -502,62 +503,27 @@ def _owned_model_shadow_prompt_from_conversation(
     return ""
 
 
-def _run_owned_model_shadow_synthesis(
+def _owned_model_shadow_inputs(
     *,
     rollout_decision: Any,
-    rollout_telemetry: Any,
     instructions: str,
     prompt_text: str,
     reasoning_effort: str,
     baseline_result: dict[str, Any],
     max_tokens: int,
-) -> None:
-    from api.owned_model_rollout import finalize_shadow_comparison
-
+) -> dict[str, Any] | None:
+    """Inputs for the shadow candidate call, which the turn's follow-up job makes after "done"."""
     if rollout_decision.mode != "shadow" or not prompt_text.strip():
-        return
-    started = time.perf_counter()
-    candidate_result: dict[str, Any]
-    try:
-        from llm_utils import call_llm_text
-
-        candidate_model = rollout_decision.candidate_model or resolve_model(
-            MODEL_MID, rollout_decision.candidate_provider
-        )
-        text, _citations, response = call_llm_text(
-            prompt=prompt_text,
-            model=candidate_model,
-            api_key=require_api_key(rollout_decision.candidate_provider),
-            max_tokens=max_tokens,
-            system=instructions,
-            provider=rollout_decision.candidate_provider,
-            reasoning_effort=reasoning_effort,
-        )
-        candidate_result = {
-            "provider": rollout_decision.candidate_provider,
-            "model": candidate_model,
-            "output_text": text,
-            "tool_names": [],
-            "latency_ms": _elapsed_ms(started),
-            "usage": getattr(response, "usage", {}) if response is not None else {},
-            "status": "ok",
-        }
-    except Exception as exc:
-        candidate_result = {
-            "provider": rollout_decision.candidate_provider,
-            "model": rollout_decision.candidate_model,
-            "output_text": "",
-            "tool_names": [],
-            "latency_ms": _elapsed_ms(started),
-            "usage": {},
-            "status": "error",
-            "error": str(exc) or exc.__class__.__name__,
-        }
-    finalize_shadow_comparison(
-        rollout_telemetry,
-        baseline=baseline_result,
-        candidate=candidate_result,
-    )
+        return None
+    return {
+        "candidate_provider": rollout_decision.candidate_provider,
+        "candidate_model": rollout_decision.candidate_model,
+        "instructions": instructions,
+        "prompt_text": prompt_text,
+        "reasoning_effort": reasoning_effort,
+        "baseline_result": baseline_result,
+        "max_tokens": max_tokens,
+    }
 
 
 def _owned_model_canary_should_fallback(
@@ -596,7 +562,7 @@ def _owned_model_apply_fallback(
     return updated_decision, provider, resolved_api_key, client, conversation
 
 
-def _record_agent_trajectory(
+def _turn_followup(
     *,
     req: AgentChatRequest,
     session_id: str,
@@ -613,10 +579,76 @@ def _record_agent_trajectory(
     gate_outcomes: list[dict[str, Any]] | None = None,
     provenance_event_id: str | None = None,
     raw_payload: dict[str, Any] | None = None,
-) -> None:
-    """Best-effort training trajectory capture that never changes chat behavior."""
+    messages_before_turn: int | None = None,
+    shadow: dict[str, Any] | None = None,
+) -> AgentTurnFollowupRequest:
+    """Collect the work that runs on the worker queue after "done".
+
+    That is trajectory capture, the rolling summary (pass ``messages_before_turn``
+    for a turn whose messages were saved) and the shadow candidate call. The
+    trajectory is built here, so its timings end where the answer did.
+    """
+    return AgentTurnFollowupRequest(
+        session_id=session_id,
+        client_turn_id=req.client_turn_id,
+        messages_before_turn=messages_before_turn,
+        trajectory=_agent_trajectory_payload(
+            req=req,
+            session_id=session_id,
+            turn_started=turn_started,
+            timings=timings,
+            final_disposition=final_disposition,
+            messages=messages,
+            usage=usage,
+            provider=provider,
+            model=model,
+            route_decision=route_decision,
+            route_meta=route_meta,
+            tool_calls=tool_calls,
+            gate_outcomes=gate_outcomes,
+            provenance_event_id=provenance_event_id,
+            raw_payload=raw_payload,
+        ),
+        shadow=shadow,
+    )
+
+
+def _done_then_followup(done_frame: str, followup: AgentTurnFollowupRequest):
+    """Send "done", then queue the turn's follow-up job, even if the client has gone."""
     try:
-        from api.agent_trajectories import insert_trajectory, trajectory_id_for
+        yield done_frame
+    finally:
+        try:
+            queue_agent_turn_followup(followup)
+        except Exception:
+            logger.exception(
+                "agent_turn_followup_enqueue_failed session_id=%s client_turn_id=%s",
+                followup.session_id,
+                followup.client_turn_id,
+            )
+
+
+def _agent_trajectory_payload(
+    *,
+    req: AgentChatRequest,
+    session_id: str,
+    turn_started: float,
+    timings: dict[str, Any],
+    final_disposition: str,
+    messages: list[dict[str, Any]],
+    usage: dict[str, Any] | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    route_decision: RouteDecision | None = None,
+    route_meta: dict[str, Any] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
+    gate_outcomes: list[dict[str, Any]] | None = None,
+    provenance_event_id: str | None = None,
+    raw_payload: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort training trajectory record that never changes chat behavior."""
+    try:
+        from api.agent_trajectories import trajectory_id_for
 
         captured_at = datetime.fromtimestamp(time.time() - (time.perf_counter() - turn_started), tz=UTC).isoformat()
         trajectory_id = trajectory_id_for(
@@ -709,37 +741,36 @@ def _record_agent_trajectory(
             except Exception:
                 provider_model = None
 
-        insert_trajectory(
-            {
-                "trajectory_id": trajectory_id,
+        return {
+            "trajectory_id": trajectory_id,
+            "session_id": session_id,
+            "client_turn_id": req.client_turn_id,
+            "captured_at": captured_at,
+            "completed_at": datetime.now(UTC).isoformat(),
+            "final_disposition": final_disposition,
+            "provider": provider,
+            "model": provider_model,
+            "prompt_version": "agent_system_v1",
+            "code_version": os.getenv("RELEASE_SHA") or os.getenv("GIT_SHA"),
+            "route": route_payload,
+            "messages": messages,
+            "steps": steps,
+            "gate_outcomes": gate_outcomes or [],
+            "usage": usage or {},
+            "latency_ms": _elapsed_ms(turn_started),
+            "provenance": {"agent_turn_event_id": provenance_event_id} if provenance_event_id else {},
+            "source_provenance": {
+                "source": "agent_chat",
                 "session_id": session_id,
                 "client_turn_id": req.client_turn_id,
-                "captured_at": captured_at,
-                "completed_at": datetime.now(UTC).isoformat(),
-                "final_disposition": final_disposition,
-                "provider": provider,
-                "model": provider_model,
-                "prompt_version": "agent_system_v1",
-                "code_version": os.getenv("RELEASE_SHA") or os.getenv("GIT_SHA"),
-                "route": route_payload,
-                "messages": messages,
-                "steps": steps,
-                "gate_outcomes": gate_outcomes or [],
-                "usage": usage or {},
-                "latency_ms": _elapsed_ms(turn_started),
-                "provenance": {"agent_turn_event_id": provenance_event_id} if provenance_event_id else {},
-                "source_provenance": {
-                    "source": "agent_chat",
-                    "session_id": session_id,
-                    "client_turn_id": req.client_turn_id,
-                },
-                "raw_payload": raw_payload or {},
-            }
-        )
+            },
+            "raw_payload": raw_payload or {},
+        }
     except Exception:
         logger.exception(
             "agent_trajectory_capture_failed session_id=%s client_turn_id=%s", session_id, req.client_turn_id
         )
+        return None
 
 
 def _domain_guardrail_stream(classification: AgentDomainClassification):
@@ -750,7 +781,7 @@ def _domain_guardrail_stream(classification: AgentDomainClassification):
 
 def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDomainClassification):
     from api import memory_db
-    from api.memory_manager import finalize_turn, finalize_turn_async
+    from api.memory_manager import finalize_turn, finalize_turn_async, messages_before_turn
 
     turn_started = time.perf_counter()
     timings = _new_agent_timings()
@@ -766,7 +797,8 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     timings["first_token_ms"] = _elapsed_ms(turn_started)
     yield _sse("delta", {"text": text})
     finalize_turn_fn(session_id, user_msg, assistant_msg)
-    _record_agent_trajectory(
+    followup = _turn_followup(
+        messages_before_turn=messages_before_turn(session, req.client_turn_id),
         req=req,
         session_id=session_id,
         turn_started=turn_started,
@@ -784,13 +816,16 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
         ],
         raw_payload={"domain_classification": classification.__dict__},
     )
-    yield _sse(
-        "done",
-        _done_payload(
-            {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
-            timings,
-            turn_started,
+    yield from _done_then_followup(
+        _sse(
+            "done",
+            _done_payload(
+                {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
+                timings,
+                turn_started,
+            ),
         ),
+        followup,
     )
 
 
@@ -823,11 +858,21 @@ def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
     return {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
 
 
-def _agent_turn_begin(req: AgentChatRequest, session_id: str) -> None:
-    """Persist user + streaming assistant at turn start (idempotent)."""
+def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str, Any] | None = None) -> None:
+    """Persist user + streaming assistant at turn start (idempotent).
+
+    Pass the already-loaded *session* to skip the write when the turn is saved
+    (the API process begins a turn before queueing it for the worker).
+    """
     if not req.client_turn_id:
         return
     from api.memory_manager import begin_turn, begin_turn_async
+
+    if session is not None and any(
+        isinstance(msg, dict) and str(msg.get("client_turn_id")) == req.client_turn_id
+        for msg in session.get("server_messages") or []
+    ):
+        return
 
     meta = _agent_turn_meta(req)
     user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
@@ -1980,10 +2025,7 @@ def _resolve_chat_route(
     )
 
 
-def _load_recent_conversation_for_routing(session_id: str | None) -> list[dict[str, Any]]:
-    from api import memory_db
-
-    session = memory_db.get_or_create_session(session_id)
+def _recent_conversation_for_routing(session: dict[str, Any]) -> list[dict[str, Any]]:
     server_messages = session.get("server_messages") or []
     if not isinstance(server_messages, list):
         return []
@@ -3405,6 +3447,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     }
     workflow_name = route_decision.workflow_name
     workflow_ticker = route_decision.workflow_ticker
+    # The session is read once per turn; routing and the turn itself share this copy.
+    turn_session: dict[str, Any] | None = None
     if workflow_name and req.allow_workflow_handoff:
         provider_label = "deferred"
         active_tool_names: list[str] = []
@@ -3418,8 +3462,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         active_tool_names = [] if casual else list(route_decision.tool_names)
         tool_defs = _tool_definitions_from_names(provider, active_tool_names)
         if not casual:
+            from api import memory_db
+
             llm_credentials = _read_llm_api_key()
-            recent_conversation = _load_recent_conversation_for_routing(req.session_id)
+            turn_session = memory_db.get_or_create_session(req.session_id)
+            recent_conversation = _recent_conversation_for_routing(turn_session)
             route_decision, route_meta = _resolve_chat_route(
                 user_text=req.message,
                 screen_context=req.screen_context,
@@ -3466,15 +3513,21 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             return
 
         from api import memory_db
-        from api.memory_manager import build_conversation_context, finalize_turn, finalize_turn_async
+        from api.memory_manager import (
+            build_conversation_context,
+            finalize_turn,
+            finalize_turn_async,
+            messages_before_turn,
+        )
 
         finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
+        session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
+        prior_message_count = messages_before_turn(session, req.client_turn_id)
 
         agent_turn_event_id: str | None = None
         if casual and not workflow_name:
-            session = memory_db.get_or_create_session(req.session_id)
             session_id = str(session["session_id"])
-            _agent_turn_begin(req, session_id)
+            _agent_turn_begin(req, session_id, session)
             agent_turn_event_id = _start_agent_turn_provenance(
                 session_id=session_id,
                 message=req.message,
@@ -3495,7 +3548,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 output_value=text,
                 usage={},
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
+                messages_before_turn=prior_message_count,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -3507,7 +3561,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "casual"},
             )
-            yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+            yield from _done_then_followup(
+                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                followup,
+            )
             return
 
         provider, api_key = llm_credentials or _read_llm_api_key()
@@ -3521,14 +3578,14 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         )
         client = _get_provider_client(provider, api_key)
         budget = AgentBudgetState()
-        pre_session = memory_db.get_or_create_session(req.session_id)
-        session_id = str(pre_session["session_id"])
-        _agent_turn_begin(req, session_id)
+        session_id = str(session["session_id"])
+        _agent_turn_begin(req, session_id, session)
         raw_conversation, session_id = build_conversation_context(
             session_id,
             req.message,
             enable_retrieval=enable_retrieval,
             client_turn_id=req.client_turn_id,
+            session=session,
         )
         agent_turn_event_id = _start_agent_turn_provenance(
             session_id=session_id,
@@ -3761,7 +3818,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 output_value=synthesis_text,
                 usage=_usage_dict(final_message),
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
+                messages_before_turn=prior_message_count,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -3779,18 +3837,21 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "portfolio_summary", "tool_result": portfolio_result},
             )
-            yield _sse(
-                "done",
-                _done_payload(
-                    {
-                        "usage": _usage_dict(final_message),
-                        "session_id": session_id,
-                        "tool_calls": [tool_payload],
-                        "tools_used": [call_info["name"]],
-                    },
-                    timings,
-                    turn_started,
+            yield from _done_then_followup(
+                _sse(
+                    "done",
+                    _done_payload(
+                        {
+                            "usage": _usage_dict(final_message),
+                            "session_id": session_id,
+                            "tool_calls": [tool_payload],
+                            "tools_used": [call_info["name"]],
+                        },
+                        timings,
+                        turn_started,
+                    ),
                 ),
+                followup,
             )
             return
 
@@ -4330,7 +4391,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     output_value=synthesis_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4365,13 +4427,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "decision_quality_chat", "oc_result": oc_result, "dq_result": dq_result},
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        done_payload_data,
-                        timings,
-                        turn_started,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            done_payload_data,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
             except Exception as exc:
@@ -4382,7 +4447,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     usage={},
                     error=str(exc) or exc.__class__.__name__,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4401,27 +4466,30 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     raw_payload={"path": "decision_quality_chat", "error": str(exc) or exc.__class__.__name__},
                 )
                 yield _sse("error", {"message": _format_stream_error(exc)})
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": {},
-                            "session_id": session_id,
-                            "tool_calls": tool_payloads,
-                            "tools_used": [call["name"] for call in tool_payloads],
-                            "context_pack": locals().get("context_bundle", {}).get("context_pack")
-                            if isinstance(locals().get("context_bundle"), dict)
-                            else None,
-                            "opportunity_candidate_preflight": _opportunity_candidate_done_meta(oc_result),
-                            "decision_quality_chat": _decision_quality_chat_done_meta(dq_result),
-                            "intent_router": {
-                                "applied": route_decision.to_meta(),
-                                "telemetry": route_meta,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": {},
+                                "session_id": session_id,
+                                "tool_calls": tool_payloads,
+                                "tools_used": [call["name"] for call in tool_payloads],
+                                "context_pack": locals().get("context_bundle", {}).get("context_pack")
+                                if isinstance(locals().get("context_bundle"), dict)
+                                else None,
+                                "opportunity_candidate_preflight": _opportunity_candidate_done_meta(oc_result),
+                                "decision_quality_chat": _decision_quality_chat_done_meta(dq_result),
+                                "intent_router": {
+                                    "applied": route_decision.to_meta(),
+                                    "telemetry": route_meta,
+                                },
                             },
-                        },
-                        timings,
-                        turn_started,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -4604,7 +4672,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     output_value=synthesis_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4622,19 +4691,22 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "workflow", "workflow_run_id": run_id, "workflow_name": workflow_name},
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": usage,
-                            "session_id": session_id,
-                            "workflow_run_id": run_id,
-                            "tool_calls": workflow_tool_calls,
-                            "tools_used": [call["name"] for call in workflow_tool_calls],
-                        },
-                        timings,
-                        turn_started,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": usage,
+                                "session_id": session_id,
+                                "workflow_run_id": run_id,
+                                "tool_calls": workflow_tool_calls,
+                                "tools_used": [call["name"] for call in workflow_tool_calls],
+                            },
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -4652,7 +4724,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     usage={},
                     error=str(exc) or exc.__class__.__name__,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4674,7 +4746,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     },
                 )
                 yield _sse("error", {"message": f"Workflow failed: {exc}"})
-                yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+                yield from _done_then_followup(
+                    _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                    followup,
+                )
                 return
 
         # --- Normal tool-calling path ---
@@ -5098,9 +5173,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     logger.warning("Agent chat model returned empty text; using deterministic empty-response fallback")
                     full_text = EMPTY_AGENT_RESPONSE_TEXT
                     yield _sse("delta", {"text": full_text})
-                _run_owned_model_shadow_synthesis(
+                shadow = _owned_model_shadow_inputs(
                     rollout_decision=rollout_decision,
-                    rollout_telemetry=rollout_telemetry,
                     instructions=instructions,
                     prompt_text=_owned_model_shadow_prompt_from_conversation(provider, conversation),
                     reasoning_effort=reasoning_effort,
@@ -5127,7 +5201,9 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     output_value=full_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
+                    shadow=shadow,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5149,25 +5225,28 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         "owned_model_rollout": rollout_telemetry.to_meta(),
                     },
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": usage,
-                            "session_id": session_id,
-                            "intent_router": {
-                                "applied": route_decision.to_meta(),
-                                "telemetry": route_meta,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": usage,
+                                "session_id": session_id,
+                                "intent_router": {
+                                    "applied": route_decision.to_meta(),
+                                    "telemetry": route_meta,
+                                },
+                                **_owned_rollout_done_payload(
+                                    rollout_decision=rollout_decision,
+                                    rollout_telemetry=rollout_telemetry,
+                                    timings=timings,
+                                ),
                             },
-                            **_owned_rollout_done_payload(
-                                rollout_decision=rollout_decision,
-                                rollout_telemetry=rollout_telemetry,
-                                timings=timings,
-                            ),
-                        },
-                        timings,
-                        turn_started,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -5179,7 +5258,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 usage={},
                 error=str(exc) or exc.__class__.__name__,
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -5198,7 +5277,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 raw_payload={"path": "agent_chat", "error": str(exc) or exc.__class__.__name__},
             )
             yield _sse("error", {"message": _format_stream_error(exc)})
-            yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+            yield from _done_then_followup(
+                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                followup,
+            )
 
     return StreamingResponse(
         generate(),

@@ -6,6 +6,7 @@ import json
 import os
 import sqlite3
 import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -74,9 +75,15 @@ DEFAULT_GATEWAY_POLICY: dict[str, Any] = {
     },
 }
 DEFAULT_PROVIDER_MODE = "single"
+LLM_SETTINGS_PREFIX = "llm."
+LLM_SETTINGS_CACHE_TTL_S = 30.0
 
 _lock = threading.RLock()
 _conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
+# One snapshot of every llm.* row serves the many provider lookups in a chat turn.
+# Writes in this process clear it; other processes see a change within the TTL.
+_llm_rows_cache: tuple[tuple[Any, ...], float, dict[str, dict[str, Any]]] | None = None
+_llm_rows_generation = 0
 
 _CREATE_APP_SETTINGS = """
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -132,9 +139,48 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
 
+def clear_llm_settings_cache() -> None:
+    global _llm_rows_cache, _llm_rows_generation
+    with _lock:
+        _llm_rows_cache = None
+        _llm_rows_generation += 1
+
+
+def _llm_rows_scope() -> tuple[Any, ...]:
+    """Identify the settings store, so a snapshot never answers for another database."""
+    return (use_postgres_state(), str(DB_PATH), os.getenv("DATABASE_URL") or "")
+
+
+def _cached_llm_rows() -> dict[str, dict[str, Any]]:
+    global _llm_rows_cache
+    scope = _llm_rows_scope()
+    with _lock:
+        cached = _llm_rows_cache
+        if cached is not None and cached[0] == scope and time.monotonic() - cached[1] < LLM_SETTINGS_CACHE_TTL_S:
+            return cached[2]
+        generation = _llm_rows_generation
+
+    def _read():
+        with _get_conn(read_only=True) as conn:
+            return conn.execute(
+                "SELECT key, value, updated_at FROM app_settings WHERE key LIKE ?",
+                (f"{LLM_SETTINGS_PREFIX}%",),
+            ).fetchall()
+
+    rows = {str(row["key"]): _row_to_dict(row) for row in retry_read(_read)}
+    with _lock:
+        # A write during the read cleared the cache; keep it clear rather than store older rows.
+        if generation == _llm_rows_generation:
+            _llm_rows_cache = (scope, time.monotonic(), rows)
+    return rows
+
+
 def get_setting(key: str) -> dict[str, Any] | None:
     if not use_postgres_state() and not DB_PATH.exists():
         return None
+    if key.startswith(LLM_SETTINGS_PREFIX):
+        cached = _cached_llm_rows().get(key)
+        return dict(cached) if cached else None
     with _lock:
 
         def _read():
@@ -180,6 +226,7 @@ def set_setting(key: str, value: str) -> dict[str, Any]:
                 (key, value, updated_at),
             )
             conn.commit()
+            clear_llm_settings_cache()
             row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
@@ -197,6 +244,7 @@ def ensure_setting(key: str, default_value: str) -> dict[str, Any]:
                 (key, default_value, _now()),
             )
             conn.commit()
+            clear_llm_settings_cache()
             row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
