@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import threading
+from collections.abc import Callable
 from datetime import UTC, datetime
 from functools import wraps
 from pathlib import Path
@@ -23,9 +24,9 @@ _client: Client | None = None
 _client_lock = threading.Lock()
 
 
-def _observe_read(function):
+def _observe_read[**P, T](function: Callable[P, T]) -> Callable[P, T]:
     @wraps(function)
-    def observed(*args, **kwargs):
+    def observed(*args: P.args, **kwargs: P.kwargs) -> T:
         count("storage_gcs_reads" if use_gcs_state() else "storage_disk_reads")
         with measure("storage_ms"):
             return function(*args, **kwargs)

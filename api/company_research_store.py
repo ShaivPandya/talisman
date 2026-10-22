@@ -71,7 +71,7 @@ def _decode(row: Any) -> dict[str, Any] | None:
 
 
 def get_run(run_id: str) -> dict[str, Any]:
-    def _read():
+    def _read() -> dict[str, Any] | None:
         with _connection(read_only=True) as (conn, pg):
             mark = "%s" if pg else "?"
             state = _decode(
