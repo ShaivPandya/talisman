@@ -17,7 +17,7 @@ VALID_SERIES_TIMEFRAMES = {"This Week", "Daily", "Weekly", "Monthly"}
 
 
 @router.get("/sector-metrics")
-def get_sector_metrics():
+def get_sector_metrics(force_refresh: bool = False):
     key = "sector_metrics"
 
     def loader():
@@ -43,7 +43,7 @@ def get_sector_metrics():
             "timestamp": serialize_value(data.get("timestamp")),
         }
 
-    return normalize_sector_metrics_payload(get_or_set_cached(long_cache, key, loader))
+    return normalize_sector_metrics_payload(get_or_set_cached(long_cache, key, loader, force_refresh=force_refresh))
 
 
 @router.get("/sector-metrics/series")

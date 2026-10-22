@@ -1171,8 +1171,8 @@ export const fetchAgentResponseFeedback = (params: {
 
 // ─── GET endpoints ───────────────────────────────────────────────────────────
 
-export const fetchPortfolio = (timeframe: string) =>
-  client.get(`/portfolio?timeframe=${encodeURIComponent(timeframe)}`).then(r => r.data)
+export const fetchPortfolio = (timeframe: string, options?: { force_refresh?: boolean }) =>
+  client.get(`/portfolio?timeframe=${encodeURIComponent(timeframe)}`, { params: options }).then(r => r.data)
 
 export const fetchPortfolioAllTimeframes = () =>
   client.get("/portfolio?all_timeframes=true").then(r => r.data)
@@ -2180,8 +2180,8 @@ export const deletePortfolioNewsDigest = (digestId: string) =>
     .delete(`/portfolio-news/${encodeURIComponent(digestId)}`)
     .then(r => r.data as NewsDigestDeleteResponse)
 
-export const fetchSectorMetrics = () =>
-  client.get("/sector-metrics").then(r => r.data)
+export const fetchSectorMetrics = (options?: { force_refresh?: boolean }) =>
+  client.get("/sector-metrics", { params: options }).then(r => r.data)
 
 export const fetchSectorMetricsSeries = (timeframe: string) =>
   client.get(`/sector-metrics/series?timeframe=${encodeURIComponent(timeframe)}`).then(r => r.data)

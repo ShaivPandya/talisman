@@ -45,7 +45,7 @@ const routeQueries = {
   "/fx-dashboard": initialQuery(["fx-dashboard", "This Week"], () => fetchFxDashboard("This Week")),
   "/commodities": initialQuery(["commodities", "This Week"], () => fetchCommodities("This Week")),
   "/market-technicals": initialQuery(["vix-term-structure"], fetchVixTermStructure),
-  "/sector-metrics": initialQuery(["sector-metrics"], fetchSectorMetrics, 3_600_000),
+  "/sector-metrics": initialQuery(["sector-metrics"], () => fetchSectorMetrics(), 3_600_000),
   "/positioning": initialQuery(["positioning-instruments"], fetchPositioningInstruments),
   "/sentiment": initialQuery(["sentiment-put-call"], () => fetchSentimentPutCall(180)),
   "/fx-model": initialQuery(["fx-model-pairs"], fetchFxModelPairs),

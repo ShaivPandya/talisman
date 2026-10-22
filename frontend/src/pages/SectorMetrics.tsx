@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { keepPreviousData, useMutation } from "@tanstack/react-query"
+import { keepPreviousData, useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Sparkles } from "lucide-react"
 import {
   dashboardTimeframeStaleTime,
@@ -80,6 +80,7 @@ export function SectorMetrics() {
   const [performanceMode, setPerformanceMode] = useState<PerformanceMode>("ETF Returns")
   const [viewMode, setViewMode] = useState<UnifiedViewMode>("Grid")
   const { analysis: persistedAnalysis, isOpen, setIsOpen, setAnalysis: setPersistedAnalysis } = useSessionAiOverview("ai-overview:sector-metrics")
+  const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: analyzeSectorMetrics,
     onSuccess: data => {
@@ -90,7 +91,7 @@ export function SectorMetrics() {
 
   const { data, isLoading, error } = useApiQuery(
     ["sector-metrics"],
-    fetchSectorMetrics,
+    () => fetchSectorMetrics(),
     60 * 60 * 1000,
   )
   const {
@@ -118,10 +119,13 @@ export function SectorMetrics() {
   const liveAnalysis = typeof mutation.data?.analysis === "string" ? mutation.data.analysis : null
   const analysisText = liveAnalysis ?? persistedAnalysis
   const showPanel = Boolean(analysisText || mutation.isPending || mutation.isError)
-  const refreshQueryKeys = useMemo(
-    () => [["sector-metrics"], ["sector-metrics-series", timeframe]],
-    [timeframe],
-  )
+  const refreshQueryKeys = useMemo(() => [["sector-metrics-series", timeframe]], [timeframe])
+  // The snapshot job writes a new table, so read it past the hour-long backend cache.
+  const refreshSectorMetrics = async () => {
+    await refreshMarketSnapshots()
+    await queryClient.cancelQueries({ queryKey: ["sector-metrics"], exact: true })
+    queryClient.setQueryData(["sector-metrics"], await fetchSectorMetrics({ force_refresh: true }))
+  }
   const sectorPrices = seriesData?.sector_prices ?? {}
   const sectorRelativePrices = seriesData?.sector_relative_prices ?? {}
   const normalizedRelativePrices = useMemo(() => Object.fromEntries(
@@ -161,7 +165,7 @@ export function SectorMetrics() {
             <Sparkles size={14} />
             AI Overview
           </button>
-          <RefreshButton queryKeys={refreshQueryKeys} beforeRefetch={refreshMarketSnapshots} />
+          <RefreshButton queryKeys={refreshQueryKeys} beforeRefetch={refreshSectorMetrics} />
         </div>
       </div>
 

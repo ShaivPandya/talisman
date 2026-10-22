@@ -670,7 +670,7 @@ export function Sentiment() {
             <Sparkles size={14} />
             AI Overview
           </button>
-          <RefreshButton />
+          <RefreshButton queryKeys={[["sentiment-put-call"], ["sentiment-surveys"], ["sentiment-volatility"]]} />
         </div>
       </div>
 

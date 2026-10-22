@@ -279,9 +279,11 @@ export function PortfolioDashboard() {
     }
   }, [isSuccess, isPlaceholderData, queryClient, timeframe])
 
-  const refreshQueryKeys = useMemo(() => [["portfolio", timeframe], ["thesis", "status"]], [timeframe])
-  const invalidatePortfolioQueries = async () => {
+  const refreshPortfolio = async () => {
     await queryClient.invalidateQueries({ queryKey: ["portfolio"], refetchType: "none" })
+    await queryClient.cancelQueries({ queryKey: ["portfolio", timeframe], exact: true })
+    // Longer timeframes sit in an hour-long backend cache, so force the open one past it.
+    queryClient.setQueryData(["portfolio", timeframe], await fetchPortfolio(timeframe, { force_refresh: true }))
   }
 
   const loadError = error
@@ -373,8 +375,8 @@ export function PortfolioDashboard() {
               Edit Portfolio
             </Link>
             <RefreshButton
-              queryKeys={refreshQueryKeys}
-              beforeRefetch={invalidatePortfolioQueries}
+              queryKeys={[["thesis", "status"]]}
+              beforeRefetch={refreshPortfolio}
             />
           </>
         )}

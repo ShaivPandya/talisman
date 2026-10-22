@@ -39,6 +39,30 @@ def test_sector_metrics_route_uses_snapshot(auth_client, monkeypatch):
     assert body["_meta"]["snapshot"]["key"] == router.SNAPSHOT_SECTOR_METRICS
 
 
+def test_sector_metrics_route_force_refresh_bypasses_the_response_cache(auth_client, monkeypatch):
+    import api.routers.sector_metrics as router
+
+    cache_calls = []
+
+    def fake_get_or_set_cached(cache, key, loader, *, force_refresh=False):
+        cache_calls.append((cache, key, force_refresh))
+        return loader()
+
+    monkeypatch.setattr(router, "get_or_set_cached", fake_get_or_set_cached)
+    monkeypatch.setattr(
+        router,
+        "get_snapshot_response",
+        lambda key: {"weights_df": [{"Sector": "Technology", "Weight_Now": 30.0}], "_meta": {"snapshot": {"key": key}}},
+    )
+
+    assert auth_client.get("/api/sector-metrics").status_code == 200
+    assert auth_client.get("/api/sector-metrics", params={"force_refresh": "true"}).status_code == 200
+    assert cache_calls == [
+        (router.long_cache, "sector_metrics", False),
+        (router.long_cache, "sector_metrics", True),
+    ]
+
+
 def test_sector_metrics_route_repairs_current_snapshot_without_sector(auth_client, monkeypatch):
     import api.routers.sector_metrics as router
 

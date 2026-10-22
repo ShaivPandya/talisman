@@ -26,8 +26,8 @@ def test_portfolio_single_timeframe_uses_freshness_cache(auth_client, monkeypatc
     cache_calls = []
     loader_calls = []
 
-    def fake_get_or_set_cached(cache, key, loader):
-        cache_calls.append((cache, key))
+    def fake_get_or_set_cached(cache, key, loader, *, force_refresh=False):
+        cache_calls.append((cache, key, force_refresh))
         return loader()
 
     def fake_get_data(*, timeframe: str = "Daily", all_timeframes: bool = False):
@@ -43,12 +43,41 @@ def test_portfolio_single_timeframe_uses_freshness_cache(auth_client, monkeypatc
     assert resp.status_code == 200
     expected_cache = getattr(portfolio_router, expected_cache_name)
     assert len(cache_calls) == 1
-    cache, key = cache_calls[0]
+    cache, key, force_refresh = cache_calls[0]
     assert cache is expected_cache
     assert f"portfolio:v3:{timeframe}:" in key
+    assert force_refresh is False
     assert loader_calls == [(timeframe, False)]
     assert resp.json()["timeframe"] == timeframe
     assert resp.json()["holdings"] == [{"ticker": "MU", "role": "position"}]
+
+
+def test_portfolio_force_refresh_bypasses_the_response_cache(auth_client, monkeypatch):
+    from api.routers import portfolio as portfolio_router
+    from portfolio import portfolio_dashboard
+
+    cache_calls = []
+
+    def fake_get_or_set_cached(cache, key, loader, *, force_refresh=False):
+        cache_calls.append((cache, key, force_refresh))
+        return loader()
+
+    monkeypatch.setattr(portfolio_router, "_current_holdings", lambda: [])
+    monkeypatch.setattr(portfolio_router, "get_or_set_cached", fake_get_or_set_cached)
+    monkeypatch.setattr(
+        portfolio_dashboard,
+        "get_data",
+        lambda *, timeframe="Daily", all_timeframes=False: _portfolio_payload(timeframe),
+    )
+
+    resp = auth_client.get("/api/portfolio", params={"timeframe": "Daily", "force_refresh": "true"})
+
+    assert resp.status_code == 200
+    assert len(cache_calls) == 1
+    cache, key, force_refresh = cache_calls[0]
+    assert cache is portfolio_router.long_cache
+    assert "portfolio:v3:Daily:" in key
+    assert force_refresh is True
 
 
 def test_portfolio_all_timeframes_is_deprecated_but_compatible(auth_client, monkeypatch):
@@ -58,8 +87,8 @@ def test_portfolio_all_timeframes_is_deprecated_but_compatible(auth_client, monk
     cache_calls = []
     loader_calls = []
 
-    def fake_get_or_set_cached(cache, key, loader):
-        cache_calls.append((cache, key))
+    def fake_get_or_set_cached(cache, key, loader, *, force_refresh=False):
+        cache_calls.append((cache, key, force_refresh))
         return loader()
 
     def fake_get_data(*, timeframe: str = "Daily", all_timeframes: bool = False):
@@ -75,7 +104,7 @@ def test_portfolio_all_timeframes_is_deprecated_but_compatible(auth_client, monk
     assert resp.status_code == 200
     assert resp.headers["Deprecation"] == "true"
     assert len(cache_calls) == 1
-    cache, key = cache_calls[0]
+    cache, key, _force_refresh = cache_calls[0]
     assert cache is portfolio_router.short_cache
     assert "portfolio:all_timeframes:v3:" in key
     assert loader_calls == [("Daily", True)]

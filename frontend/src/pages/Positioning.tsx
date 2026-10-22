@@ -136,7 +136,13 @@ export function Positioning() {
             ))}
           </div>
           <div className="w-full sm:w-auto [&>button]:w-full sm:[&>button]:w-auto">
-            <RefreshButton />
+            <RefreshButton
+              queryKeys={[
+                ["positioning-instruments"],
+                ["positioning-summary", selectedInstruments.join(",")],
+                ["positioning-ts", selectedAlias],
+              ]}
+            />
           </div>
         </div>
       </div>

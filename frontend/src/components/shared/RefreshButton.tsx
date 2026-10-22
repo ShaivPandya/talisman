@@ -3,11 +3,12 @@ import { useQueryClient } from "@tanstack/react-query"
 import { clearCache } from "@/lib/api"
 
 interface RefreshButtonProps {
-  queryKeys?: unknown[][]
+  queryKeys: unknown[][]
   beforeRefetch?: () => Promise<unknown>
   onRefresh?: () => Promise<unknown>
   onError?: (error: unknown) => void
   onSuccess?: () => void
+  // Clears the shared backend cache for every user; prefer a force_refresh fetch in onRefresh or beforeRefetch.
   clearBackendCache?: boolean
 }
 
@@ -17,7 +18,7 @@ export function RefreshButton({
   onRefresh,
   onError,
   onSuccess,
-  clearBackendCache = true,
+  clearBackendCache = false,
 }: RefreshButtonProps) {
   const qc = useQueryClient()
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -35,10 +36,9 @@ export function RefreshButton({
       if (beforeRefetch) await beforeRefetch()
       if (onRefresh) {
         await onRefresh()
-      } else if (queryKeys && queryKeys.length > 0) {
-        await Promise.all(queryKeys.map(key => qc.refetchQueries({ queryKey: key })))
       } else {
-        await qc.refetchQueries()
+        // An empty key matches every cached query, so skip it rather than refetch other pages.
+        await Promise.all(queryKeys.filter(key => key.length > 0).map(key => qc.refetchQueries({ queryKey: key })))
       }
       onSuccess?.()
     } catch (err) {

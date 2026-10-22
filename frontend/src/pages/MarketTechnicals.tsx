@@ -306,7 +306,9 @@ export function MarketTechnicals() {
             <Sparkles size={14} />
             AI Overview
           </button>
-          <RefreshButton />
+          <RefreshButton
+            queryKeys={[["vix-term-structure"], ["market-breadth"], ["top50-breadth"], ["price-volume-signals"]]}
+          />
         </div>
       </div>
 
