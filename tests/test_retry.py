@@ -26,7 +26,8 @@ def fresh_rate_limits(monkeypatch):
 @pytest.fixture
 def sleep(monkeypatch):
     sleeper = Mock()
-    monkeypatch.setattr(retry.time, "sleep", sleeper)
+    # Replacing stdlib time.sleep also captures unrelated background-worker waits.
+    monkeypatch.setattr(retry, "time", SimpleNamespace(sleep=sleeper))
     return sleeper
 
 

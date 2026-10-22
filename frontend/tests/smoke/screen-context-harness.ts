@@ -4,8 +4,9 @@ import { flushSync } from "react-dom"
 import { ScreenContextProvider, useScreenContext } from "../../src/contexts/ScreenContext"
 
 export async function measureContext(baseline: boolean) {
+  const baselinePath = "/tmp/ScreenContext.before.tsx"
   const context = baseline
-    ? await import(/* @vite-ignore */ "/tmp/ScreenContext.before.tsx")
+    ? await import(/* @vite-ignore */ baselinePath)
     : { ScreenContextProvider, useScreenContext }
   let renders = 0
   let advance!: () => void
