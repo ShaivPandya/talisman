@@ -15,10 +15,15 @@ window.addEventListener('vite:preloadError', (event: VitePreloadErrorEvent) => {
   reloadOnceForStaleAssetLoad('vite-preload', event.payload)
 })
 
-// Start all three before React mounts. Route loaders and AuthProvider reuse
-// these promises, including during Strict Mode's repeated mount.
+// Start session, route, and route-data loads before React mounts. Route loaders
+// and AuthProvider reuse these promises, including during Strict Mode's remount.
 void bootstrapAuth()
 void preloadRoute(window.location.pathname).catch(() => {})
+// Home renders the landing page only after /auth/me redirects. Load that chunk
+// during the check so it is not a third serial request.
+if (window.location.pathname === "/") {
+  void preloadRoute("/login").catch(() => {})
+}
 preloadRouteData(window.location.href)
 
 createRoot(document.getElementById('root')!).render(

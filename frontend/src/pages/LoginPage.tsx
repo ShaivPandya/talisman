@@ -32,17 +32,91 @@ import { useAuth } from "@/contexts/AuthContext"
 import { SegmentedControl } from "@/components/shared/FormControls"
 import { Notice } from "@/components/shared/Notice"
 
-import centralBankImg from "@/assets/central-bank-monitor.jpg"
-import commoditiesCurveImg from "@/assets/commodities-curve.png"
-import economicGrowthImg from "@/assets/economic-growth.jpg"
-import industryImg from "@/assets/industry.jpg"
-import laborMarketImg from "@/assets/labor-market.jpg"
-import ontologyWorkbenchImg from "@/assets/ontology-workbench.png"
-import portfolioImg from "@/assets/portfolio.jpg"
-import sectorMetricsImg from "@/assets/sector-metrics.png"
-import sentimentImg from "@/assets/sentiment.jpg"
+import centralBank800 from "@/assets/landing/central-bank-monitor-800.avif"
+import centralBank1200 from "@/assets/landing/central-bank-monitor-1200.avif"
+import commoditiesCurve800 from "@/assets/landing/commodities-curve-800.avif"
+import commoditiesCurve1200 from "@/assets/landing/commodities-curve-1200.avif"
+import economicGrowth800 from "@/assets/landing/economic-growth-800.avif"
+import economicGrowth1200 from "@/assets/landing/economic-growth-1200.avif"
+import industry800 from "@/assets/landing/industry-800.avif"
+import industry1200 from "@/assets/landing/industry-1200.avif"
+import laborMarket800 from "@/assets/landing/labor-market-800.avif"
+import laborMarket1200 from "@/assets/landing/labor-market-1200.avif"
+import ontologyWorkbench800 from "@/assets/landing/ontology-workbench-800.avif"
+import ontologyWorkbench1200 from "@/assets/landing/ontology-workbench-1200.avif"
+import portfolio800 from "@/assets/landing/portfolio-800.avif"
+import portfolio1200 from "@/assets/landing/portfolio-1200.avif"
+import sectorMetrics800 from "@/assets/landing/sector-metrics-800.avif"
+import sectorMetrics1200 from "@/assets/landing/sector-metrics-1200.avif"
+import sentiment800 from "@/assets/landing/sentiment-800.avif"
+import sentiment1200 from "@/assets/landing/sentiment-1200.avif"
 
 import "./LoginPage.css"
+
+type LandingShot = {
+  src: string
+  srcSet: string
+  width: number
+  height: number
+}
+
+function landingShot(src800: string, src1200: string, width: number, height: number): LandingShot {
+  return { src: src1200, srcSet: `${src800} 800w, ${src1200} 1200w`, width, height }
+}
+
+const HERO_SIZES = "(min-width: 1152px) 1152px, 100vw"
+const FEATURED_SIZES = "(min-width: 860px) 640px, 100vw"
+const CARD_SIZES = "(min-width: 900px) 360px, (min-width: 600px) 50vw, 100vw"
+
+const portfolioShot = landingShot(portfolio800, portfolio1200, 1200, 686)
+const sectorMetricsShot = landingShot(sectorMetrics800, sectorMetrics1200, 1200, 675)
+const economicGrowthShot = landingShot(economicGrowth800, economicGrowth1200, 1200, 684)
+const centralBankShot = landingShot(centralBank800, centralBank1200, 1200, 681)
+const sentimentShot = landingShot(sentiment800, sentiment1200, 1200, 683)
+const industryShot = landingShot(industry800, industry1200, 1200, 682)
+const laborMarketShot = landingShot(laborMarket800, laborMarket1200, 1200, 683)
+const commoditiesCurveShot = landingShot(commoditiesCurve800, commoditiesCurve1200, 1200, 675)
+const ontologyWorkbenchShot = landingShot(ontologyWorkbench800, ontologyWorkbench1200, 1200, 675)
+
+// The hero URL is inside this chunk, so a preload here starts the image fetch as
+// soon as the module evaluates — while /auth/me is still in flight — instead of
+// after LoginRoute commits.
+if (typeof document !== "undefined" && !document.head.querySelector("link[data-talisman-hero]")) {
+  const heroPreload = document.createElement("link")
+  heroPreload.rel = "preload"
+  heroPreload.as = "image"
+  heroPreload.setAttribute("imagesrcset", portfolioShot.srcSet)
+  heroPreload.setAttribute("imagesizes", HERO_SIZES)
+  heroPreload.setAttribute("fetchpriority", "high")
+  heroPreload.dataset.talismanHero = "true"
+  document.head.appendChild(heroPreload)
+}
+
+function LandingImg({
+  shot,
+  alt,
+  sizes,
+  priority = false,
+}: {
+  shot: LandingShot
+  alt: string
+  sizes: string
+  priority?: boolean
+}) {
+  return (
+    <img
+      src={shot.src}
+      srcSet={shot.srcSet}
+      sizes={sizes}
+      width={shot.width}
+      height={shot.height}
+      alt={alt}
+      decoding="async"
+      fetchPriority={priority ? "high" : "auto"}
+      loading={priority ? "eager" : "lazy"}
+    />
+  )
+}
 
 type PublicTab = "product" | "architecture" | "agent"
 
@@ -506,7 +580,7 @@ const PROOF_POINTS: { icon: LucideIcon; t: string; d: string }[] = [
 /* ──────────────────────────── product data ───────────────────────────────── */
 
 const FEATURED_PRODUCT = {
-  img: portfolioImg,
+  img: portfolioShot,
   cat: "Core",
   title: "Your whole book, at a glance",
   body:
@@ -514,51 +588,51 @@ const FEATURED_PRODUCT = {
   chips: ["Real-time P&L", "Per-position charts", "Theme grouping"],
 }
 
-const PRODUCT_FEATURES: { img: string; cat: string; title: string; body: string }[] = [
+const PRODUCT_FEATURES: { img: LandingShot; cat: string; title: string; body: string }[] = [
   {
-    img: sectorMetricsImg,
+    img: sectorMetricsShot,
     cat: "Markets",
     title: "Sector Metrics",
     body: "Relative performance across all 11 sectors — ETF returns, breadth, and rotation, normalized so leaders and laggards are obvious.",
   },
   {
-    img: economicGrowthImg,
+    img: economicGrowthShot,
     cat: "Macro",
     title: "Economic Growth",
     body: "The macro cycle in real time: commodities, equities vs. benchmark, and leading indicators that gauge where growth is heading.",
   },
   {
-    img: centralBankImg,
+    img: centralBankShot,
     cat: "Macro",
     title: "Central Bank Monitor",
     body: "AI-summarized policy across 10 central banks — rate decisions, minutes, and forward guidance, with the key lines pulled out.",
   },
   {
-    img: sentimentImg,
+    img: sentimentShot,
     cat: "Markets",
     title: "Sentiment",
     body: "Investor positioning and mood — put/call, AAII surveys, volatility, and the NAAIM exposure index — to spot crowded trades.",
   },
   {
-    img: industryImg,
+    img: industryShot,
     cat: "Research",
     title: "Industry Monitor",
     body: "Macro signals pulled straight from earnings-call transcripts across housing, trucking, banks, retail, and capital goods.",
   },
   {
-    img: laborMarketImg,
+    img: laborMarketShot,
     cat: "Macro",
     title: "Labor Market",
     body: "Jobless claims, JOLTS, wage growth, and hours worked — the health of the consumer in a single dashboard.",
   },
   {
-    img: commoditiesCurveImg,
+    img: commoditiesCurveShot,
     cat: "Markets",
     title: "Commodities Curve",
     body: "Forward term structure vs. 30 days ago — front month, spreads, and contango or backwardation at a glance.",
   },
   {
-    img: ontologyWorkbenchImg,
+    img: ontologyWorkbenchShot,
     cat: "Research",
     title: "Ontology Workbench",
     body: "Query portfolio-linked risk snapshots in natural language. Read-only evidence, fully versioned — the memory behind every decision.",
@@ -1439,7 +1513,7 @@ function ProductShowcase() {
 
       <div className="landing-featured">
         <div className="landing-shot-frame">
-          <img src={FEATURED_PRODUCT.img} alt={FEATURED_PRODUCT.title} />
+          <LandingImg shot={FEATURED_PRODUCT.img} alt={FEATURED_PRODUCT.title} sizes={FEATURED_SIZES} />
         </div>
         <div className="feat-body">
           <span className="landing-feature-cat">{FEATURED_PRODUCT.cat}</span>
@@ -1460,7 +1534,7 @@ function ProductShowcase() {
         {PRODUCT_FEATURES.map(f => (
           <div className="landing-feature-card" key={f.title}>
             <div className="landing-shot-frame">
-              <img src={f.img} alt={f.title} loading="lazy" />
+              <LandingImg shot={f.img} alt={f.title} sizes={CARD_SIZES} />
             </div>
             <div className="fc-body">
               <span className="landing-feature-cat">{f.cat}</span>
@@ -1641,7 +1715,7 @@ function Hero() {
             app.talisman — Portfolio Dashboard
           </span>
         </div>
-        <img src={portfolioImg} alt="Talisman portfolio dashboard" />
+        <LandingImg shot={portfolioShot} alt="Talisman portfolio dashboard" sizes={HERO_SIZES} priority />
       </div>
     </div>
   )
