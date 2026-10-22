@@ -8,7 +8,8 @@ import {
   type ReactNode,
 } from "react"
 import { authApi } from "@/lib/api"
-import { setAuthMode, type AuthMode } from "@/lib/authMode"
+import { getAuthMode, setAuthenticatedSession, type AuthMode } from "@/lib/authMode"
+import { bootstrapAuth, getBootstrapSession } from "@/lib/authBootstrap"
 import { setCsrfToken } from "@/lib/csrfToken"
 import { useQueryClient } from "@tanstack/react-query"
 
@@ -23,106 +24,26 @@ interface AuthState {
 
 const AuthContext = createContext<AuthState | null>(null)
 
-const REQUESTED_AUTH_MODE: AuthMode =
-  (import.meta.env.VITE_AUTH_MODE ?? "password").toLowerCase() === "cloudflare"
-    ? "cloudflare"
-    : "password"
-
-async function probeCloudflareAccess(): Promise<{ available: boolean; authenticated: boolean }> {
-  try {
-    const res = await fetch("/cdn-cgi/access/get-identity", {
-      method: "GET",
-      redirect: "manual",
-      credentials: "include",
-      cache: "no-store",
-    })
-
-    if (res.status === 404) return { available: false, authenticated: false }
-    return { available: true, authenticated: res.ok }
-  } catch {
-    return { available: false, authenticated: false }
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient()
-  const [mode, setMode] = useState<AuthMode>(REQUESTED_AUTH_MODE)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
-  const [username, setUsername] = useState<string | null>(null)
+  const initialSession = getBootstrapSession()
+  const [mode, setMode] = useState<AuthMode>(initialSession?.mode ?? getAuthMode())
+  const [isAuthenticated, setIsAuthenticated] = useState(initialSession?.isAuthenticated ?? false)
+  const [isLoading, setIsLoading] = useState(!initialSession)
+  const [username, setUsername] = useState<string | null>(initialSession?.username ?? null)
 
   useEffect(() => {
     let cancelled = false
-
-    async function checkPasswordSession() {
-      try {
-        const me = await authApi.me()
-        if (!cancelled) {
-          setUsername(me.username)
-          setIsAuthenticated(true)
-        }
-      } catch {
-        if (!cancelled) {
-          setCsrfToken(null)
-          setUsername(null)
-          setIsAuthenticated(false)
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false)
-      }
-    }
-
-    async function init() {
-      if (REQUESTED_AUTH_MODE !== "cloudflare") {
-        setAuthMode("password")
-        setMode("password")
-        await checkPasswordSession()
-        return
-      }
-
-      const probe = await probeCloudflareAccess()
+    void bootstrapAuth().then(session => {
       if (cancelled) return
-
-      if (!probe.available) {
-        setAuthMode("password")
-        setMode("password")
-        await checkPasswordSession()
-        return
-      }
-
-      setAuthMode("cloudflare")
-      setMode("cloudflare")
-      if (probe.authenticated) {
-        try {
-          const me = await authApi.me()
-          if (!cancelled) {
-            setUsername(me.username)
-            setIsAuthenticated(true)
-          }
-        } catch {
-          if (!cancelled) setIsAuthenticated(probe.authenticated)
-        }
-      } else {
-        setIsAuthenticated(false)
-      }
-      if (!cancelled) setIsLoading(false)
-    }
-
-    init().catch(() => {
-      if (!cancelled) {
-        setAuthMode("password")
-        setMode("password")
-        setCsrfToken(null)
-        setUsername(null)
-        setIsAuthenticated(false)
-        setIsLoading(false)
-      }
+      if (!session.isAuthenticated) queryClient.clear()
+      setMode(session.mode)
+      setUsername(session.username)
+      setIsAuthenticated(session.isAuthenticated)
+      setIsLoading(false)
     })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
+    return () => { cancelled = true }
+  }, [queryClient])
 
   const login = useCallback(
     async (password: string, loginUsername?: string) => {
@@ -132,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const result = await authApi.login(password, loginUsername)
       queryClient.clear()
+      setAuthenticatedSession(true)
       setUsername(result.username)
       setIsAuthenticated(true)
     },
@@ -146,6 +68,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     await authApi.logout()
     queryClient.clear()
+    setAuthenticatedSession(false)
     setCsrfToken(null)
     setUsername(null)
     setIsAuthenticated(false)

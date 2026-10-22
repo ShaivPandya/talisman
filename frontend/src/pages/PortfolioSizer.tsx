@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { sizerPrefillQuery } from "@/lib/routeData"
 import { useQueryClient } from "@tanstack/react-query"
 import { Info, Layers, Plus, X } from "lucide-react"
 
@@ -8,7 +9,7 @@ import { ErrorMessage, LoadingSpinner } from "@/components/shared/LoadingSpinner
 import { MetricCard } from "@/components/shared/MetricCard"
 import { DecisionStateBadge, EffectScopeBadge, QualityStateBadge } from "@/components/shared/DecisionStateBadge"
 import { colorPositiveNegative } from "@/lib/colors"
-import { fetchPortfolioPositions, fetchSizerJob, fetchSizerPrefill, startSizerJob, type BetaHedgeMode } from "@/lib/api"
+import { fetchPortfolioPositions, fetchSizerJob, startSizerJob, type BetaHedgeMode } from "@/lib/api"
 import { groupKey, normalizeGroupConviction, normalizeGroupName } from "@/lib/positionGroups"
 import { cn } from "@/lib/utils"
 
@@ -677,7 +678,7 @@ export function PortfolioSizer() {
 
   useEffect(() => {
     let canceled = false
-    fetchSizerPrefill()
+    queryClient.fetchQuery(sizerPrefillQuery)
       .then(data => {
         if (canceled) return
         const configuredBookSize = toNumber(data.book_size)
@@ -706,7 +707,7 @@ export function PortfolioSizer() {
       .catch(() => { })
 
     return () => { canceled = true }
-  }, [hasCachedBookSize, hasCachedRows])
+  }, [hasCachedBookSize, hasCachedRows, queryClient])
 
   const refreshCurrentHoldings = useCallback(() => {
     fetchPortfolioPositions(true)

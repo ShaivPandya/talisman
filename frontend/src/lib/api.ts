@@ -1,6 +1,6 @@
 import axios from "axios"
 
-import { getAuthMode } from "@/lib/authMode"
+import { getAuthMode, hasAuthenticatedSession } from "@/lib/authMode"
 import { csrfHeaders, setCsrfToken } from "@/lib/csrfToken"
 import type { DecisionState, DecisionStateFields, EffectScope } from "@/lib/decisionState"
 import type { ManagementQualityAssessment, ParsedManagementQuality } from "@/lib/managementQualityTypes"
@@ -856,6 +856,9 @@ export type IdeaComparisonJobResponse =
   | { job_id: string; status: "error" | "cancelled"; timeout_s?: number; error?: string; progress?: Record<string, unknown> }
 
 function shouldRedirectUnauthorizedToLogin(err: unknown): boolean {
+  // The auth bootstrap owns the initial redirect. Speculative route reads can
+  // also return 401 during it; they must not trigger a second document load.
+  if (!hasAuthenticatedSession()) return false
   if (getAuthMode() === "cloudflare") return false
   if (!axios.isAxiosError(err) || err.response?.status !== 401) return false
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/login")) return false

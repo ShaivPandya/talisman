@@ -1,13 +1,11 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
+import { portfolioPositionsQuery, hedgePositionsQuery, portfolioSettingsQuery } from "@/lib/routeData"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Layers, Plus, Trash2, Upload } from "lucide-react"
 import { Dialog } from "@/components/shared/Dialog"
 import { ActionButton, SegmentedControl, SelectInput } from "@/components/shared/FormControls"
 import { StagedProposalNotice } from "@/components/shared/StagedProposalNotice"
 import {
-  fetchHedgePositions,
-  fetchPortfolioSettings,
-  fetchPortfolioPositions,
   importIbkrFlexPortfolioPositions,
   saveHedgePositions,
   savePortfolioPositions,
@@ -1291,9 +1289,9 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
     setLastProposals([])
     setIsLoading(true)
     Promise.all([
-      fetchPortfolioPositions(),
-      fetchHedgePositions(),
-      fetchPortfolioSettings().catch(err => {
+      queryClient.fetchQuery(portfolioPositionsQuery),
+      queryClient.fetchQuery(hedgePositionsQuery),
+      queryClient.fetchQuery(portfolioSettingsQuery).catch(err => {
         setSettingsValidationError(`Failed to load book size: ${String(err)}`)
         return null
       }),
@@ -1305,7 +1303,7 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
       })
       .catch(err => setLoadError(String(err)))
       .finally(() => setIsLoading(false))
-  }, [])
+  }, [queryClient])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSaved(result: StagedMutationResponse | StagedMutationResponse[]) {
