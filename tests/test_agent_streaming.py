@@ -1916,3 +1916,115 @@ def test_agent_chat_openai_continues_after_output_token_limit(auth_client, monke
     assert continuation_input[-1]["role"] == "user"
     assert "Continue exactly from where" in continuation_input[-1]["content"][0]["text"]
     assert finalized[-1]["content"] == "The BOJ should hike because imported inflation is accelerating."
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_cache_catalog_survives_discovery_output_limit_and_next_turn(auth_client, monkeypatch, provider):
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    monkeypatch.setenv(f"{provider.upper()}_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr("api.memory_manager._retrieve_relevant", lambda _message: "")
+    monkeypatch.setattr(agent_router, "_build_memory_context", lambda: "Synthetic memory")
+    monkeypatch.setattr(
+        agent_router, "execute_tool", lambda *_args, **_kwargs: json.dumps({"matches": [{"name": "get_fx_dashboard"}]})
+    )
+    if provider == "anthropic":
+
+        def response(content, limited=False):
+            return SimpleNamespace(
+                content=content,
+                stop_reason="max_tokens" if limited else "end_turn",
+                usage=SimpleNamespace(
+                    input_tokens=10, output_tokens=2, cache_read_input_tokens=6000, cache_creation_input_tokens=0
+                ),
+            )
+
+        streams = [
+            (
+                [_event_tool_use_start("search_agent_capabilities", "discover-1")],
+                response(
+                    [
+                        {
+                            "type": "tool_use",
+                            "name": "search_agent_capabilities",
+                            "id": "discover-1",
+                            "input": {"query": "currency"},
+                        }
+                    ]
+                ),
+            ),
+            ([_event_text_delta("First. ")], response([{"type": "text", "text": "First. "}], limited=True)),
+            ([_event_text_delta("Last.")], response([{"type": "text", "text": "Last."}])),
+            ([_event_text_delta("Rates.")], response([{"type": "text", "text": "Rates."}])),
+        ]
+        fake = _install_fake_anthropic(monkeypatch, streams)
+        calls = fake.messages.kwargs_history
+    else:
+
+        def response(output, limited=False):
+            return SimpleNamespace(
+                output=output,
+                status="incomplete" if limited else "completed",
+                incomplete_details={"reason": "max_output_tokens"} if limited else None,
+                usage=SimpleNamespace(
+                    input_tokens=6010, output_tokens=2, input_tokens_details=SimpleNamespace(cached_tokens=6000)
+                ),
+            )
+
+        streams = [
+            (
+                [_openai_event_function_call("search_agent_capabilities", "discover-1")],
+                response(
+                    [
+                        {
+                            "type": "function_call",
+                            "name": "search_agent_capabilities",
+                            "call_id": "discover-1",
+                            "arguments": '{"query":"currency"}',
+                        }
+                    ]
+                ),
+            ),
+            *[
+                (
+                    [_openai_event_text_delta(text)],
+                    response(
+                        [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]}],
+                        limited=limited,
+                    ),
+                )
+                for text, limited in [("First. ", True), ("Last.", False), ("Rates.", False)]
+            ],
+        ]
+        fake = _install_fake_openai(monkeypatch, streams)
+        calls = fake.responses.kwargs_history
+    first = auth_client.post("/api/agent/chat", json={"message": "Chart NVDA", "finalize_synchronously": True})
+    first_events = _parse_sse(first.text)
+    assert not any(event == "error" for event, _ in first_events), first.text
+    first_done = next(payload for event, payload in first_events if event == "done")
+    second = auth_client.post(
+        "/api/agent/chat",
+        json={
+            "message": "How do rates affect my portfolio?",
+            "session_id": first_done["session_id"],
+            "screen_context": {"page_name": "Rates", "route": "/rates", "summary": "Synthetic yields"},
+            "response_preferences": {"custom_instructions": "Use a brief answer"},
+            "finalize_synchronously": True,
+        },
+    )
+    second_events = _parse_sse(second.text)
+    assert not any(event == "error" for event, _ in second_events), second.text
+    assert len(calls) == 4
+    assert all(call["tools"] == calls[0]["tools"] for call in calls)
+    assert calls[2]["tool_choice"] == ({"type": "none"} if provider == "anthropic" else "none")
+    for events in (first_events, second_events):
+        done = next(payload for event, payload in events if event == "done")
+        assert all(model["cache_read_input_tokens"] == 6000 for model in done["timings"]["models"])
+        assert all(model["cached_input_percent"] > 99 for model in done["timings"]["models"])
+    if provider == "openai":
+        assert len({call["prompt_cache_key"] for call in calls}) == 1
+        assert calls[0]["instructions"] != calls[-1]["instructions"]
+    else:
+        assert calls[0]["system"][0] == calls[-1]["system"][0]
+        assert calls[0]["system"][1:] != calls[-1]["system"][1:]

@@ -879,3 +879,37 @@ def test_gemini_pdf_input_shape(monkeypatch):
     assert fake_models.kwargs["contents"][0]["parts"][0]["inline_data"]["data"].startswith("JVBERi10ZXN0")
     assert fake_models.kwargs["contents"][0]["parts"][1] == {"text": "read"}
     assert fake_models.kwargs["config"]["thinking_config"] == {"thinking_level": "minimal"}
+
+
+def test_json_cache_key_survives_repair_and_reaches_openai_transport(monkeypatch):
+    calls = []
+    responses = iter(["not JSON", '{"ok":true}'])
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(output_text=next(responses))
+
+    monkeypatch.setattr(
+        llm_utils, "get_llm_client", lambda *args, **kwargs: SimpleNamespace(responses=SimpleNamespace(create=create))
+    )
+    parsed, _, _, diagnostics = llm_utils.call_llm_json(
+        prompt="return JSON", model=llm_utils.MODEL_MID, provider="openai", prompt_cache_key="session-key"
+    )
+    assert parsed == {"ok": True}
+    assert diagnostics["status"] == "repaired"
+    assert len(calls) == 2
+    assert all(call["prompt_cache_key"] == "session-key" for call in calls)
+
+
+def test_default_openai_calls_do_not_add_a_cache_key(monkeypatch):
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(output_text="Ready")
+
+    monkeypatch.setattr(
+        llm_utils, "get_llm_client", lambda *args, **kwargs: SimpleNamespace(responses=SimpleNamespace(create=create))
+    )
+    llm_utils.call_llm_text(prompt="hello", model=llm_utils.MODEL_MID, provider="openai")
+    assert "prompt_cache_key" not in calls[0]

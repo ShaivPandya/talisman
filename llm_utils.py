@@ -617,6 +617,7 @@ def call_llm_text(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
     stream: bool = False,
 ) -> tuple[str, list[tuple[str, str]], Any]:
     resolved_provider = _provider_for_model_argument(model, provider)
@@ -657,6 +658,7 @@ def call_llm_text(
             reasoning_effort=reasoning_effort,
             json_schema=json_schema,
             json_schema_name=json_schema_name,
+            prompt_cache_key=prompt_cache_key,
         )
     elif resolved_provider == PROVIDER_TALISMAN:
         if web_search_enabled:
@@ -702,6 +704,7 @@ def call_llm_json(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
     require_object: bool = True,
 ) -> tuple[Any, list[tuple[str, str]], Any, dict[str, Any]]:
     """Call an LLM and return parsed JSON with sanitized diagnostics."""
@@ -743,6 +746,7 @@ def call_llm_json(
             reasoning_effort=reasoning_effort,
             json_schema=json_schema,
             json_schema_name=json_schema_name,
+            prompt_cache_key=prompt_cache_key,
         )
 
     def parsed_object(text: str) -> Any:
@@ -1162,6 +1166,7 @@ def _call_openai_response(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
 ) -> Any:
     resolved_provider = _normalize_provider(provider)
     client = get_llm_client(resolved_provider, api_key=api_key)
@@ -1178,6 +1183,8 @@ def _call_openai_response(
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
     )
+    if prompt_cache_key:
+        kwargs["prompt_cache_key"] = prompt_cache_key
     if system:
         kwargs["instructions"] = system
     if json_schema:

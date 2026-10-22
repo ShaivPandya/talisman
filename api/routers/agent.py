@@ -1727,6 +1727,7 @@ def _run_decision_quality_structured_pass(
     provider: str,
     api_key: str,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     parsed, citations, response, diagnostics = call_llm_json(
         prompt=_build_decision_quality_structured_prompt(context_bundle),
@@ -1739,6 +1740,7 @@ def _run_decision_quality_structured_pass(
         reasoning_effort=reasoning_effort,
         json_schema=decision_quality_schema(),
         json_schema_name="decision_quality_chat",
+        prompt_cache_key=_session_prompt_cache_key(session_id),
     )
     raw_decision_quality = (
         parsed.get("decision_quality") if isinstance(parsed, dict) and "decision_quality" in parsed else parsed
@@ -1840,6 +1842,7 @@ def _run_opportunity_candidate_structured_pass(
     provider: str,
     api_key: str,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     parsed, citations, response, diagnostics = call_llm_json(
         prompt=_build_opportunity_candidate_structured_prompt(context_bundle),
@@ -1852,6 +1855,7 @@ def _run_opportunity_candidate_structured_pass(
         reasoning_effort=reasoning_effort,
         json_schema=opportunity_candidate_schema(),
         json_schema_name="opportunity_candidate_chat",
+        prompt_cache_key=_session_prompt_cache_key(session_id),
     )
     raw_candidate = (
         parsed.get("opportunity_candidate")
@@ -2614,6 +2618,42 @@ def _tool_definitions_for_provider(provider: str) -> list[dict]:
     return list(_tool_definition_by_name_for_provider(provider).values())
 
 
+def _chat_tool_definitions(provider: str, selected_names: list[str]) -> list[dict]:
+    """Freeze the catalog within a provider's current egress-policy envelope.
+
+    Routing remains a hint for workflows/follow-ups, rather than changing the
+    provider prefix. Execution still authorizes every actual tool call.
+    """
+    if provider not in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}:
+        return _tool_definitions_from_names(provider, selected_names)
+    from api.agent_governance import _model_gateway_decision
+
+    model = resolve_model(MODEL_MID, provider)
+    allowed: dict[tuple[str, str], bool] = {}
+    tools = []
+    for tool in sorted(_tool_definitions_for_provider(provider), key=lambda tool: tool["name"]):
+        exposure = get_tool_exposure(tool["name"])
+        envelope = (exposure.data_sensitivity, exposure.provider_egress)
+        if envelope not in allowed:
+            decision = _model_gateway_decision(
+                provider=provider,
+                model=model,
+                sensitivity="public_market",
+                stream_kwargs={"tools": [tool]},
+            )
+            allowed[envelope] = decision.decision != "blocked"
+        if allowed[envelope]:
+            tools.append(tool)
+    return tools
+
+
+def _session_prompt_cache_key(session_id: str | None) -> str | None:
+    if not session_id:
+        return None
+    # Bound the key length and avoid exposing raw session identifiers.
+    return "agent:" + hashlib.sha256(session_id.encode()).hexdigest()[:56]
+
+
 def _anthropic_system_blocks(instructions: str) -> list[dict]:
     """Cache only the known static prefix, ahead of all per-request context."""
     stable = _build_agent_base_instructions()
@@ -2666,6 +2706,7 @@ def _model_stream_kwargs(
     force_tool_use: bool = False,
     disable_tool_use: bool = False,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, object]:
     if provider == PROVIDER_ANTHROPIC:
         resolved_model = resolve_model(MODEL_MID, PROVIDER_ANTHROPIC)
@@ -2748,9 +2789,13 @@ def _model_stream_kwargs(
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
     )
+    if cache_key := _session_prompt_cache_key(session_id):
+        kwargs["prompt_cache_key"] = cache_key
     if tool_defs:
-        kwargs["tools"] = tool_defs
-    if force_tool_use and tool_defs:
+        kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
+    if disable_tool_use and tool_defs:
+        kwargs["tool_choice"] = "none"
+    elif force_tool_use and tool_defs:
         kwargs["tool_choice"] = "required"
     return kwargs
 
@@ -2839,6 +2884,19 @@ def _stream_llm_response(
         if turn_timings is not None and turn_started is not None and turn_timings.get("first_token_ms") is None:
             turn_timings["first_token_ms"] = _elapsed_ms(turn_started)
 
+    def record_usage(message: object | None) -> None:
+        usage = _usage_dict(message)
+        if model_timing is not None:
+            model_timing.update(usage)
+        if provider in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}:
+            logger.info(
+                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d provider=%s",
+                stream_kwargs.get("model"),
+                usage.get("cache_read_input_tokens", 0),
+                usage.get("cache_creation_input_tokens", 0),
+                provider,
+            )
+
     def emit_final_text_if_missing(final_message: object | None):
         if text_parts is None or any(part.strip() for part in text_parts):
             return
@@ -2867,17 +2925,7 @@ def _stream_llm_response(
                         },
                     )
             final_message = stream.get_final_message()
-            usage = _usage_dict(final_message)
-            cache_usage = {key: usage.get(key, 0) for key in ("cache_read_input_tokens", "cache_creation_input_tokens")}
-            if model_timing is not None:
-                model_timing.update(usage)
-                model_timing.update(cache_usage)
-            logger.info(
-                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d",
-                stream_kwargs.get("model"),
-                cache_usage["cache_read_input_tokens"],
-                cache_usage["cache_creation_input_tokens"],
-            )
+            record_usage(final_message)
             yield from emit_final_text_if_missing(final_message)
             return final_message
 
@@ -2914,6 +2962,7 @@ def _stream_llm_response(
                         text_parts.append(delta)
                     yield _sse("delta", {"text": delta})
         final_response = _gemini_aggregate_response(aggregate_parts, last_chunk)
+        record_usage(final_response)
         yield from emit_final_text_if_missing(final_response)
         return final_response
 
@@ -2934,6 +2983,7 @@ def _stream_llm_response(
                 if payload.get("text"):
                     record_first_token()
             yield chunk
+        record_usage(final_message)
         yield from emit_final_text_if_missing(final_message)
         return final_message
 
@@ -2959,11 +3009,13 @@ def _stream_llm_response(
         get_final = getattr(stream, "get_final_response", None)
         if callable(get_final):
             final_response = get_final()
+            record_usage(final_response)
             yield from emit_final_text_if_missing(final_response)
             return final_response
         get_final = getattr(stream, "get_final_message", None)
         if callable(get_final):
             final_message = get_final()
+            record_usage(final_message)
             yield from emit_final_text_if_missing(final_message)
             return final_message
         return None
@@ -2995,6 +3047,11 @@ def _usage_dict(message: object) -> dict:
             # Anthropic's input_tokens excludes cache reads AND writes. Preserve
             # total input accounting for budgets, provenance and the chat UI.
             out["uncached_input_tokens"] = input_tokens
+    details = _obj_value(usage, "input_tokens_details") or _obj_value(usage, "prompt_tokens_details")
+    cached_tokens = _obj_value(details, "cached_tokens")
+    if isinstance(input_tokens, int) and isinstance(cached_tokens, int):
+        out["cache_read_input_tokens"] = cached_tokens
+        out["uncached_input_tokens"] = input_tokens - cached_tokens
     if isinstance(output_tokens, int):
         out["output_tokens"] = output_tokens
     return out
@@ -3214,6 +3271,11 @@ def _record_model_timing(
 ) -> None:
     model_timing["duration_ms"] = _elapsed_ms(started)
     model_timing["status"] = status
+    total = model_timing.get("input_tokens")
+    cached = model_timing.get("cache_read_input_tokens")
+    model_timing["cached_input_percent"] = (
+        round(100 * cached / total, 3) if isinstance(total, int) and total > 0 and isinstance(cached, int) else None
+    )
     emit_performance("chat_model", provider=provider, model=str(model), **model_timing)
     models = timings.setdefault("models", [])
     if isinstance(models, list):
@@ -3880,6 +3942,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     )
                     stream_kwargs = _model_stream_kwargs(
                         provider=provider,
+                        session_id=session_id,
                         instructions=instructions,
                         conversation=synthesis_conversation,
                         max_tokens=PORTFOLIO_SUMMARY_MAX_TOKENS,
@@ -4169,9 +4232,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             oc_result = _run_opportunity_candidate_structured_pass(
                                 context_bundle=context_bundle,
                                 provider=provider,
+                                session_id=session_id,
                                 api_key=api_key,
                                 reasoning_effort=reasoning_effort,
                             )
+                            model_timing.update(oc_result.get("usage") or {})
                             _record_model_timing(
                                 timings,
                                 model_timing,
@@ -4241,9 +4306,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             dq_result = _run_decision_quality_structured_pass(
                                 context_bundle=context_bundle,
                                 provider=provider,
+                                session_id=session_id,
                                 api_key=api_key,
                                 reasoning_effort=reasoning_effort,
                             )
+                            model_timing.update(dq_result.get("usage") or {})
                             _record_model_timing(
                                 timings,
                                 model_timing,
@@ -4304,6 +4371,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             )
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=synthesis_instructions,
                                 conversation=synthesis_conversation,
                                 max_tokens=DECISION_QUALITY_CHAT_SYNTHESIS_MAX_TOKENS,
@@ -4424,6 +4492,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             )
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=synthesis_instructions,
                                 conversation=synthesis_conversation,
                                 max_tokens=DECISION_QUALITY_CHAT_SYNTHESIS_MAX_TOKENS,
@@ -4729,6 +4798,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         synthesis_conversation = _user_prompt_for_provider(provider, synthesis_prompt)
                         stream_kwargs = _model_stream_kwargs(
                             provider=provider,
+                            session_id=session_id,
                             instructions=instructions,
                             conversation=synthesis_conversation,
                             max_tokens=LLM_MAX_TOKENS,
@@ -4929,6 +4999,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 return
 
         # --- Normal tool-calling path ---
+        tool_defs = _chat_tool_definitions(provider, active_tool_names)
         has_rich_screen_data = req.screen_context is not None and (
             req.screen_context.metrics or req.screen_context.summary
         )
@@ -4951,12 +5022,15 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 begin_chat_round(continuation_round)
                 final_synthesis_round = continuation_round >= MAX_TOOL_CONTINUATION_ROUNDS
                 round_text_only = final_synthesis_round or text_only_continuation
-                round_tool_defs = tool_defs if provider == PROVIDER_ANTHROPIC or not round_text_only else []
+                round_tool_defs = (
+                    tool_defs if provider in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI} or not round_text_only else []
+                )
                 round_force_tool_use = False if round_text_only else force_tool_use
                 text_only_continuation = False
 
                 stream_kwargs = _model_stream_kwargs(
                     provider=provider,
+                    session_id=session_id,
                     instructions=instructions,
                     conversation=conversation,
                     max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -5059,8 +5133,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 api_key=baseline_api_key,
                                 raw_conversation=raw_conversation,
                             )
+                            tool_defs = _chat_tool_definitions(provider, active_tool_names)
+                            round_tool_defs = tool_defs
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=instructions,
                                 conversation=conversation,
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -5102,8 +5179,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 api_key=baseline_api_key,
                                 raw_conversation=raw_conversation,
                             )
+                            tool_defs = _chat_tool_definitions(provider, active_tool_names)
+                            round_tool_defs = tool_defs
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=instructions,
                                 conversation=conversation,
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -5269,7 +5349,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 "status": result_status,
                             }
                         )
-                        if call_info["name"] == "search_agent_capabilities" and not err_msg:
+                        if (
+                            call_info["name"] == "search_agent_capabilities"
+                            and not err_msg
+                            and provider not in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}
+                        ):
                             discovered = [
                                 tool_name
                                 for tool_name in _capability_names_from_search_result(result_str)

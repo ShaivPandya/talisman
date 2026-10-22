@@ -45,12 +45,149 @@ def test_unrecognized_instructions_are_not_assumed_static():
     ]
 
 
-def test_anthropic_tools_have_stable_order_without_changing_other_providers():
+def test_both_cache_providers_have_stable_tool_order():
     tools = [{"name": "z_tool"}, {"name": "a_tool"}]
     kwargs = dict(instructions="instructions", conversation=[], max_tokens=100, tool_defs=tools)
     assert agent._model_stream_kwargs(provider="anthropic", **kwargs)["tools"] == list(reversed(tools))
-    assert agent._model_stream_kwargs(provider="openai", **kwargs)["tools"] == tools
+    assert agent._model_stream_kwargs(provider="openai", **kwargs)["tools"] == list(reversed(tools))
     assert tools == [{"name": "z_tool"}, {"name": "a_tool"}]
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_catalog_is_identical_for_different_topics_and_retains_discovery_tools(provider):
+    first = agent._chat_tool_definitions(provider, agent._select_tool_names("Chart NVDA"))
+    second = agent._chat_tool_definitions(provider, agent._select_tool_names("Find the latest Fed minutes"))
+    assert first == second
+    names = [tool["name"] for tool in first]
+    assert names == sorted(agent._tool_names())
+    assert {"search_agent_capabilities", "get_financials", "get_central_banks"} <= set(names)
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+@pytest.mark.parametrize("private_mode", ["allow_with_warning", "deny"])
+def test_catalog_respects_existing_gateway_policy(monkeypatch, provider, private_mode):
+    from api import agent_governance, llm_settings
+
+    policy = llm_settings.default_gateway_policy()
+    policy["private_egress_mode"] = private_mode
+    policy["denied_rules"] = [{"provider": provider, "model": "*", "data_sensitivity": "research_private"}]
+    monkeypatch.setattr(llm_settings, "get_gateway_policy_setting", lambda: policy)
+    tools = agent._chat_tool_definitions(provider, [])
+    assert tools
+    for tool in tools:
+        sensitivity = agent.get_tool_exposure(tool["name"]).data_sensitivity
+        assert sensitivity != "research_private"
+        if private_mode == "deny":
+            assert sensitivity == "public_market"
+    decision = agent_governance._model_gateway_decision(
+        provider=provider,
+        model=agent.resolve_model(agent.MODEL_MID, provider),
+        sensitivity="public_market",
+        stream_kwargs={"tools": tools},
+    )
+    assert decision.decision != "blocked"
+    # Actual private input is still blocked; filtering is not an egress bypass.
+    if private_mode == "deny":
+        assert (
+            agent_governance._model_gateway_decision(
+                provider=provider, model="test", sensitivity="portfolio_private", stream_kwargs={"tools": tools}
+            ).decision
+            == "blocked"
+        )
+
+
+def test_catalog_excludes_local_only_and_disabled_models(monkeypatch):
+    from dataclasses import replace
+
+    from api import llm_settings
+
+    original = agent.get_tool_exposure
+    monkeypatch.setattr(
+        agent,
+        "get_tool_exposure",
+        lambda name: (
+            replace(original(name), provider_egress="local_only") if name == "get_liquidity" else original(name)
+        ),
+    )
+    # Both the catalog and gateway consult the same exposure registry.
+    monkeypatch.setattr("ontology.action_registry.get_tool_exposure", agent.get_tool_exposure)
+    assert "get_liquidity" not in {tool["name"] for tool in agent._chat_tool_definitions("openai", [])}
+    policy = llm_settings.default_gateway_policy()
+    policy["provider_lifecycle"] = {"openai": "disabled"}
+    monkeypatch.setattr(llm_settings, "get_gateway_policy_setting", lambda: policy)
+    assert agent._chat_tool_definitions("openai", []) == []
+
+
+def test_session_cache_key_is_stable_private_and_only_sent_to_openai():
+    kwargs = dict(instructions="test", conversation=[], max_tokens=100, session_id="session-secret" * 20)
+    first = agent._model_stream_kwargs(provider="openai", **kwargs)
+    assert first["prompt_cache_key"] == agent._model_stream_kwargs(provider="openai", **kwargs)["prompt_cache_key"]
+    assert len(first["prompt_cache_key"]) <= 64
+    assert "session-secret" not in first["prompt_cache_key"]
+    assert first["prompt_cache_key"] != agent._session_prompt_cache_key("another-session")
+    assert "prompt_cache_key" not in agent._model_stream_kwargs(provider="anthropic", **kwargs)
+    assert agent._session_prompt_cache_key(None) is None
+
+
+@pytest.mark.parametrize("as_dict", [False, True])
+@pytest.mark.parametrize("cached", [0, 6000])
+def test_openai_cached_tokens_are_a_subset_of_total_input(as_dict, cached):
+    usage = {"input_tokens": 6500, "output_tokens": 7, "input_tokens_details": {"cached_tokens": cached}}
+    response = (
+        {"usage": usage}
+        if as_dict
+        else SimpleNamespace(
+            usage=SimpleNamespace(**{**usage, "input_tokens_details": SimpleNamespace(cached_tokens=cached)})
+        )
+    )
+    parsed = agent._usage_dict(response)
+    assert parsed == {
+        "input_tokens": 6500,
+        "output_tokens": 7,
+        "cache_read_input_tokens": cached,
+        "uncached_input_tokens": 6500 - cached,
+    }
+    budget = AgentBudgetState()
+    budget.record_model_usage(parsed)
+    assert budget.actual_input_tokens == 6500
+
+
+def test_openai_stream_usage_reaches_timing_logs_and_done_payload(caplog):
+    response = {"usage": {"input_tokens": 10000, "output_tokens": 5, "input_tokens_details": {"cached_tokens": 8000}}}
+
+    class Stream:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def __iter__(self):
+            return iter([])
+
+        def get_final_response(self):
+            return response
+
+    caplog.set_level(logging.INFO)
+    client = SimpleNamespace(responses=SimpleNamespace(stream=lambda **kwargs: Stream()))
+    timing = {"round_index": 1}
+    timings = {}
+    started = time.perf_counter()
+    list(agent._stream_llm_response(client, "openai", {"model": "gpt-test"}, model_timing=timing))
+    agent._record_model_timing(timings, timing, started=started, status="ok", provider="openai", model="gpt-test")
+    assert timing["input_tokens"] == 10000
+    assert timing["cache_read_input_tokens"] == 8000
+    assert timing["cached_input_percent"] == 80.0
+    metrics = [getattr(record, "performance", {}) for record in caplog.records]
+    assert any(metric.get("cached_input_percent") == 80.0 for metric in metrics)
+    assert agent._done_payload({}, timings, started)["timings"]["models"][0]["cached_input_percent"] == 80.0
+
+
+@pytest.mark.parametrize("input_tokens", [None, 0])
+def test_missing_or_empty_usage_does_not_claim_a_cache_hit(input_tokens):
+    timing = {"input_tokens": input_tokens, "cache_read_input_tokens": 0}
+    agent._record_model_timing({}, timing, started=time.perf_counter(), status="error", provider="openai", model="test")
+    assert timing["cached_input_percent"] is None
 
 
 @pytest.mark.parametrize(
@@ -234,3 +371,61 @@ def test_benchmark_summary_distinguishes_full_prefix_reads_and_missing_ttft():
     assert result["cached"]["continuation_ttft_samples"] == 1
     assert result["cached"]["continuation_ttft_p50_ms"] == 40
     assert result["verification"] == {"continuations": 2, "cache_hits": 2, "reads_cover_first_request": 1}
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_benchmark_reconstructs_old_discovery_and_synthesis_requests(provider):
+    from scripts.benchmark_agent_prompt_cache import stable_tool_request, stable_tool_scenarios
+
+    scenarios = stable_tool_scenarios(provider)
+    before = [stable_tool_request(provider, scenario, after=False, namespace="before") for scenario in scenarios]
+    after = [stable_tool_request(provider, scenario, after=True, namespace="after") for scenario in scenarios]
+    assert all(request["tools"] == after[0]["tools"] for request in after)
+    assert before[0]["tools"] != before[1]["tools"]
+    assert before[0]["tools"] != before[4]["tools"]
+    if provider == "openai":
+        assert "tools" not in before[3]
+        assert all("prompt_cache_key" not in request for request in before)
+        assert len({request["prompt_cache_key"] for request in after}) == 1
+    else:
+        assert after[0]["system"][0] == after[4]["system"][0]
+        assert before[0]["system"][0]["cache_control"] == {"type": "ephemeral"}
+    for old, new in zip(before, after, strict=True):
+        assert (
+            old["messages" if provider == "anthropic" else "input"]
+            == new["messages" if provider == "anthropic" else "input"]
+        )
+
+
+def test_allowed_catalog_cannot_mask_a_denied_actual_input(monkeypatch):
+    from api import agent_governance, llm_settings
+
+    policy = llm_settings.default_gateway_policy()
+    policy["denied_rules"] = [{"provider": "openai", "model": "*", "data_sensitivity": "portfolio_private"}]
+    monkeypatch.setattr(llm_settings, "get_gateway_policy_setting", lambda: policy)
+    tools = agent._chat_tool_definitions("openai", [])
+    assert any(agent.get_tool_exposure(tool["name"]).data_sensitivity == "operational_private" for tool in tools)
+    assert (
+        agent_governance._model_gateway_decision(
+            provider="openai", model="test", sensitivity="portfolio_private", stream_kwargs={"tools": tools}
+        ).reason
+        == "explicit_denied_rule"
+    )
+    assert (
+        agent_governance._model_gateway_decision(
+            provider="openai", model="test", sensitivity="public_market", stream_kwargs={"tools": tools}
+        ).decision
+        != "blocked"
+    )
+
+
+def test_catalog_policy_change_removes_tools_without_reusing_a_stale_catalog(monkeypatch):
+    from api import llm_settings
+
+    policy = llm_settings.default_gateway_policy()
+    monkeypatch.setattr(llm_settings, "get_gateway_policy_setting", lambda: policy)
+    before = agent._chat_tool_definitions("anthropic", [])
+    policy["private_egress_mode"] = "deny"
+    after = agent._chat_tool_definitions("anthropic", [])
+    assert len(after) < len(before)
+    assert all(agent.get_tool_exposure(tool["name"]).data_sensitivity == "public_market" for tool in after)

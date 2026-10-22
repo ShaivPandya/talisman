@@ -507,8 +507,11 @@ def _model_gateway_decision(
             local_only_required=True,
         )
     for rule in policy.get("denied_rules") or []:
-        if isinstance(rule, Mapping) and _rule_matches(
-            rule, provider=provider_l, model=model, sensitivity=resolved_sensitivity
+        # A broad, stable tool catalog must not hide a denied payload/tool class
+        # behind another tool's higher sensitivity in the aggregate label.
+        if isinstance(rule, Mapping) and any(
+            _rule_matches(rule, provider=provider_l, model=model, sensitivity=item)
+            for item in {sensitivity, *tool_sensitivities}
         ):
             return ModelGatewayDecision(
                 decision="blocked",

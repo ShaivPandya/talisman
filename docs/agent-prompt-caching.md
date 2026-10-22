@@ -1,17 +1,36 @@
-# Anthropic agent prompt caching (TL-190)
+# Agent prompt caching (TL-190, TL-221)
 
 The chat router sends the contents of `system.md` and `agent_system.md` as
 one system text block with an ephemeral cache breakpoint. Memory, screen
 context, response preferences and domain instructions follow in a separate
-block. The combined instruction text is unchanged. Other providers retain
-their existing request formats.
+block. OpenAI receives the same stable-first instruction text.
 
-Anthropic tool definitions are sorted by name. Because Anthropic orders its
-cache prefix as tools → system → messages, the stable system breakpoint also
-covers the tools. Tool discovery can expand the set, causing an expected cache
-miss. Final synthesis and output-limit continuations keep the same definitions
-and use `tool_choice: {"type": "none"}` to prohibit additional calls rather than
-removing tools and invalidating the prefix.
+Anthropic and OpenAI normal chat calls send the full agent-exposed tool catalog
+in name order (82 tools at measurement time), filtered by the provider/model's
+current gateway policy. Regex and intent routing still choose workflows, ticker
+context and follow-up hints; they no longer determine these providers' wire tool
+lists. Discovery therefore does not change schemas mid-turn. Gemini and Talisman
+keep their selected/discovered tool behavior. Execution still authorizes every
+tool call; advertising a schema does not grant execution permission.
+
+Because Anthropic orders its cache prefix as tools → system → messages, the
+stable system breakpoint also covers the tools. Final synthesis and output-limit
+continuations retain definitions with `tool_choice: {"type": "none"}` on Anthropic
+and `tool_choice: "none"` on OpenAI. Dedicated workflow/structured synthesis paths
+keep their existing prompt/tool shapes.
+
+The catalog is rebuilt once per normal turn and on a provider fallback. Gateway
+policy changes intentionally change it: private tools are excluded when private
+egress is denied, local-only tools are excluded from external providers, and
+explicit provider/model/sensitivity denials still apply. Gateway rules check the
+actual input sensitivity and each schema sensitivity, so a higher-sensitivity
+schema cannot mask a denial for another class. The usual gateway check still
+runs on every actual request, including when policy changes during a turn.
+
+Every OpenAI chat request uses a bounded, hashed `prompt_cache_key` derived from
+the actual server session ID, including newly created sessions, retries, output
+continuations and structured passes. Keys contain no raw session ID. No extended
+retention is enabled. See OpenAI's [prompt caching guide](https://developers.openai.com/api/docs/guides/prompt-caching).
 
 A second breakpoint marks the last eligible content block of the latest
 message, including tool results. Stored history is not annotated, so markers
@@ -21,12 +40,20 @@ or new configuration is required.
 
 ## Observations
 
-Each completed Anthropic streaming call logs `agent_chat_prompt_cache` with
-`model`, `cache_read_input_tokens` and `cache_creation_input_tokens`. The same
-counts are included in the existing TL-179 `chat_model` performance event and
-the model timings in the SSE `done` payload. Existing phase, round, duration
-and TTFT fields can be used to compare continuation calls. No prompts, tool
-arguments or response text are added to logs.
+Each completed Anthropic/OpenAI streaming call logs `agent_chat_prompt_cache`
+with the model, provider and cache token counts. The TL-179 `chat_model` event and
+SSE `done.timings.models` include total input, cache reads, uncached input and
+`cached_input_percent = 100 * cache_read_input_tokens / input_tokens` (rounded
+to three decimal places). Anthropic additionally reports cache writes. Structured
+passes attach their usage to their existing model timing. Failed/empty calls or
+providers without cache usage report a null share rather than a fabricated hit.
+Existing phase, round, duration and TTFT fields allow comparisons. No prompts,
+tool arguments, raw session IDs or response text are added to these logs.
+
+OpenAI's `usage.input_tokens_details.cached_tokens` is a subset of its total
+`input_tokens`; it is never added to the total. Chat-Completions-style
+`prompt_tokens_details.cached_tokens` is parsed the same way. Anthropic excludes
+cache reads and writes from its raw input count, so those are added exactly once.
 
 The chat usage field `input_tokens` remains total input for budgets, provenance
 and the UI. Anthropic's raw input count is exposed as `uncached_input_tokens`:
@@ -41,6 +68,82 @@ request/output limits still apply. Five-minute writes cost 1.25 times ordinary
 input, and reads cost 0.1 times ordinary input for this model. See Anthropic's
 [rate limits](https://platform.claude.com/docs/en/api/rate-limits) and
 [prompt caching](https://platform.claude.com/docs/en/build-with-claude/prompt-caching).
+
+## Stable-tool comparison (TL-221)
+
+Run each provider serially from the issue worktree:
+
+```bash
+.venv/bin/python -m scripts.benchmark_agent_prompt_cache \
+  --protocol stable-tools --provider anthropic --pairs 3 --runs 2 \
+  --output outputs/TL-221-anthropic.json
+.venv/bin/python -m scripts.benchmark_agent_prompt_cache \
+  --protocol stable-tools --provider openai --pairs 3 --runs 2 \
+  --output outputs/TL-221-openai.json
+```
+
+These are paid provider calls using committed static prompts and tool schemas,
+synthetic memory/screen/preferences, and fabricated tool results. The harness
+loads only the provider key/model from the worktree's `.env`; it does not execute
+tools, start a server, read real conversation history or connect to production
+state. Reports contain numeric observations and source/SDK/model metadata, not
+request/response content or credentials.
+
+The before arm reconstructs TL-221's prior wire behavior: per-message tool
+selection, expansion after discovery, no OpenAI key, and removed OpenAI schemas
+at synthesis. The after arm uses the actual current catalog and request builder.
+Six fixed histories cover initial input, discovery, another tool result,
+text-only synthesis, a second turn with changed dynamic context, and its tool
+continuation. Both arms receive identical transcripts, output limits (64) and
+reasoning settings (disabled); model output is not fed back. Cold namespaces
+are inserted before cacheable instructions and into the earliest tool description.
+Arms alternate within each phase, concurrency is one, and two separate batches
+are retained. This measures synthetic provider streaming, not complete user turns
+or tool-choice quality. Initial tool use is not forced in this replay.
+
+On 2026-10-22, both providers completed all 72 calls (36 per arm), with six
+observations per phase/arm. Models were `claude-sonnet-4-6` / `gpt-5.4`, SDKs
+0.84.0 / 2.17.0. All **30/30 after-first calls per provider** read the cache;
+before missed at discovery and the next turn, and OpenAI also missed at synthesis.
+The following p50 and p95 values use nearest rank; six samples make tail estimates
+particularly noisy. No observations were removed.
+
+| Provider / phase | Before hits | After hits | After cached input | Before TTFT p50 / p95 ms | After TTFT p50 / p95 ms |
+| --- | --- | --- | --- | --- | --- |
+| anthropic / initial | 0/6 | 0/6 | 0.00% | 902.4 / 1999.4 | 1098.7 / 1766.7 |
+| anthropic / discovery | 0/6 | 6/6 | 99.48% | 1016.2 / 2325.5 | 933.0 / 1834.6 |
+| anthropic / tool_continuation | 6/6 | 6/6 | 99.51% | 899.2 / 1242.9 | 993.4 / 2326.2 |
+| anthropic / synthesis | 6/6 | 6/6 | 99.98% | 1143.1 / 10361.9 | 1145.6 / 1745.3 |
+| anthropic / next_turn | 0/6 | 6/6 | 97.75% | 896.1 / 1523.7 | 1115.9 / 4970.9 |
+| anthropic / next_turn_continuation | 6/6 | 6/6 | 99.51% | 792.8 / 856.8 | 936.9 / 1238.4 |
+| openai / initial | 0/6 | 0/6 | 0.00% | 731.4 / 4404.1 | 1072.9 / 1356.8 |
+| openai / discovery | 0/6 | 6/6 | 93.75% | 685.4 / 1343.3 | 979.1 / 1436.6 |
+| openai / tool_continuation | 6/6 | 6/6 | 93.30% | 1239.5 / 6758.1 | 1058.6 / 1381.6 |
+| openai / synthesis | 0/6 | 6/6 | 92.19% | 659.6 / 735.8 | 954.8 / 1107.5 |
+| openai / next_turn | 0/6 | 6/6 | 93.97% | 718.7 / 896.5 | 1154.0 / 1406.5 |
+| openai / next_turn_continuation | 6/6 | 6/6 | 93.49% | 666.6 / 877.2 | 1002.3 / 1312.1 |
+
+The full catalog increases cold input substantially. Totals across 36 calls per
+arm show the resulting tradeoff:
+
+| Provider / arm | Total input | Cache reads | Cache writes | Ordinary input |
+| --- | --- | --- | --- | --- |
+| anthropic / before | 293,448 | 146,826 | 146,514 | 108 |
+| anthropic / after | 618,312 | 511,950 | 106,254 | 108 |
+| openai / before | 226,298 | 67,584 | 0 | 158,714 |
+| openai / after | 413,208 | 321,792 | 0 | 91,416 |
+
+Anthropic's cache-write volume falls, and OpenAI's ordinary input falls. Total
+input rises on both providers. These runs establish reliable cache reuse, **not
+a latency improvement**: several median TTFTs regress with the larger catalog.
+Benefits depend on conversation length, workload and provider pricing; short or
+cold sessions can cost more. Provider/network variance and concurrent agents on
+the host also affect timings. Raw reports retain batch, pair, phase and host load
+for inspection. Production timing collection is still needed before claiming
+faster user turns or overall savings.
+
+The legacy TL-190 replay remains available as the default `--protocol legacy`.
+The experiments below predate TL-221 and describe that earlier request shape.
 
 ## Repeatable comparison
 
