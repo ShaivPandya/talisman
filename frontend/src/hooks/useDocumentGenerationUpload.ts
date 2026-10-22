@@ -1,3 +1,5 @@
+import { useQuery } from "@tanstack/react-query"
+import { jobStatusQueryOptions, JobPollingTimeout } from "@/lib/jobQueries"
 import axios from "axios"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
@@ -208,59 +210,52 @@ export function useDocumentGenerationUpload<TResult>({
     reportError(terminalJobMessage(job as DocumentGenerationJobResponse<unknown>))
   }, [reportError, setActiveJobAndPersist])
 
-  useEffect(() => {
-    if (!activeJob) return
-    const currentJob = activeJob
-    let stopped = false
-    let transientPollErrors = 0
-    const deadline = jobDeadline(currentJob)
-
-    async function pollActiveJob() {
-      if (Date.now() > deadline) {
-        setActiveJobAndPersist(null)
-        reportError("Timeout: Document generation is taking too long. Try again.")
-        return
+  const handledJobs = useRef(new Set<string>())
+  const pollErrors = useRef({ jobId: "", count: 0 })
+  const jobStatus = useQuery(jobStatusQueryOptions(
+    ["document-generation-job", activeJob?.jobId],
+    async () => {
+      const currentJob = activeJob!
+      if (Date.now() > jobDeadline(currentJob)) {
+        throw new JobPollingTimeout("Timeout: Document generation is taking too long. Try again.")
       }
-
+      if (pollErrors.current.jobId !== currentJob.jobId) pollErrors.current = { jobId: currentJob.jobId, count: 0 }
       try {
         const job = await fetchDocumentGenerationJob<TResult>(currentJob.jobId)
-        if (stopped) return
-        transientPollErrors = 0
-
-        if (job.status === "queued" || job.status === "running") {
-          if (job.status !== currentJob.status || job.timeout_s !== currentJob.timeoutS) {
-            setActiveJobAndPersist({
-              ...currentJob,
-              status: job.status,
-              timeoutS: job.timeout_s ?? currentJob.timeoutS,
-            })
-          }
-          return
-        }
-
-        await handleTerminalJob(job)
+        pollErrors.current.count = 0
+        return job
       } catch (err) {
-        if (stopped) return
-        if (isMissingJobError(err)) {
-          setActiveJobAndPersist(null)
-          reportError("Document generation job no longer exists. Please upload again.")
-          return
-        }
-        transientPollErrors += 1
-        if (!isRetryableDocumentGenerationError(err) || transientPollErrors >= MAX_TRANSIENT_POLL_ERRORS) {
-          setActiveJobAndPersist(null)
-          reportError(errorMessage(err, "Unable to poll document generation upload."))
-        }
+        pollErrors.current.count += 1
+        throw err
       }
+    },
+    Boolean(activeJob && activeJob.kind === kind && activeJob.ticker === normalizedTicker),
+    POLL_INTERVAL_MS,
+  ))
+  useEffect(() => {
+    const job = jobStatus.data
+    if (!activeJob || activeJob.kind !== kind || activeJob.ticker !== normalizedTicker || !job) return
+    if (job.status === "queued" || job.status === "running") {
+      const timeoutS = job.timeout_s ?? activeJob.timeoutS
+      if (job.status !== activeJob.status || timeoutS !== activeJob.timeoutS) {
+        setActiveJobAndPersist({ ...activeJob, status: job.status, timeoutS })
+      }
+    } else if (!handledJobs.current.has(activeJob.jobId)) {
+      handledJobs.current.add(activeJob.jobId)
+      void handleTerminalJob(job)
     }
-
-    void pollActiveJob()
-    const handle = window.setInterval(() => void pollActiveJob(), POLL_INTERVAL_MS)
-    return () => {
-      stopped = true
-      window.clearInterval(handle)
+  }, [activeJob, kind, normalizedTicker, jobStatus.data, handleTerminalJob, setActiveJobAndPersist])
+  useEffect(() => {
+    const err = jobStatus.error
+    if (!err || !activeJob || activeJob.kind !== kind || activeJob.ticker !== normalizedTicker) return
+    if (isMissingJobError(err)) {
+      setActiveJobAndPersist(null)
+      reportError("Document generation job no longer exists. Please upload again.")
+    } else if (err instanceof JobPollingTimeout || !isRetryableDocumentGenerationError(err) || pollErrors.current.count >= MAX_TRANSIENT_POLL_ERRORS) {
+      setActiveJobAndPersist(null)
+      reportError(errorMessage(err, "Unable to poll document generation upload."))
     }
-  }, [activeJob, handleTerminalJob, reportError, setActiveJobAndPersist])
+  }, [activeJob, kind, normalizedTicker, jobStatus.error, jobStatus.errorUpdateCount, reportError, setActiveJobAndPersist])
 
   const startUpload = useCallback(async (file: File) => {
     const existing = readStoredJob(storageKey)

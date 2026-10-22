@@ -389,7 +389,11 @@ export function EconomicGrowth() {
             </button>
             <RefreshButton
               clearBackendCache={false}
-              beforeRefetch={() => fetchEconomicGrowth({ force_refresh: true })}
+              onRefresh={async () => {
+                await queryClient.cancelQueries({ queryKey: ["economic-growth"] })
+                const result = await fetchEconomicGrowth({ force_refresh: true })
+                queryClient.setQueryData(["economic-growth"], result)
+              }}
               queryKeys={[["economic-growth"]]}
             />
           </div>

@@ -389,13 +389,13 @@ export function PositionDossier() {
     String(data?.position?.instrument_type ?? "security") !== "future"
 
   useEffect(() => {
-    if (!ticker || !isEquity) return
+    if (!ticker || (data?.position && !isEquity)) return
     void qc.prefetchQuery({
-      queryKey: ["valuation", ticker],
+      queryKey: ["valuation", ticker.trim().toUpperCase()],
       queryFn: () => fetchPositionValuation(ticker),
       staleTime: 300_000,
     })
-  }, [isEquity, qc, ticker])
+  }, [data?.position, isEquity, qc, ticker])
 
 
   function toggleExpanded(key: string) {

@@ -906,7 +906,8 @@ function ValuationFootballField({ valuation }: { valuation: PositionValuation })
   )
 }
 
-export function PositionValuationTab({ ticker }: { ticker: string }) {
+export function PositionValuationTab({ ticker: inputTicker }: { ticker: string }) {
+  const ticker = inputTicker.trim().toUpperCase()
   const qc = useQueryClient()
   const [valuationView, setValuationView] = useState<ValuationTabView>("inputs")
   const { data, isLoading, error } = useApiQuery<PositionValuation>(
@@ -917,22 +918,25 @@ export function PositionValuationTab({ ticker }: { ticker: string }) {
 
   const profileMutation = useMutation({
     mutationFn: (profileId: string | null) => updatePositionValuationProfileOverride(ticker, profileId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["valuation", ticker] })
+    onMutate: () => qc.cancelQueries({ queryKey: ["valuation", ticker] }),
+    onSuccess: result => {
+      qc.setQueryData(["valuation", result.valuation.ticker], result.valuation)
     },
   })
 
   const valueRangeMutation = useMutation({
     mutationFn: (body: PositionValueRangeRequest) => updatePositionValueRange(ticker, body),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["valuation", ticker] })
+    onMutate: () => qc.cancelQueries({ queryKey: ["valuation", ticker] }),
+    onSuccess: result => {
+      qc.setQueryData(["valuation", result.valuation.ticker], result.valuation)
     },
   })
 
   const clearValueRangeMutation = useMutation({
     mutationFn: (metric: ValueRangeMetricKey) => deletePositionValueRange(ticker, metric),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["valuation", ticker] })
+    onMutate: () => qc.cancelQueries({ queryKey: ["valuation", ticker] }),
+    onSuccess: result => {
+      qc.setQueryData(["valuation", result.valuation.ticker], result.valuation)
     },
   })
 

@@ -5,6 +5,7 @@ import { clearCache } from "@/lib/api"
 interface RefreshButtonProps {
   queryKeys?: unknown[][]
   beforeRefetch?: () => Promise<unknown>
+  onRefresh?: () => Promise<unknown>
   onError?: (error: unknown) => void
   onSuccess?: () => void
   clearBackendCache?: boolean
@@ -13,6 +14,7 @@ interface RefreshButtonProps {
 export function RefreshButton({
   queryKeys,
   beforeRefetch,
+  onRefresh,
   onError,
   onSuccess,
   clearBackendCache = true,
@@ -31,7 +33,9 @@ export function RefreshButton({
     }
     try {
       if (beforeRefetch) await beforeRefetch()
-      if (queryKeys && queryKeys.length > 0) {
+      if (onRefresh) {
+        await onRefresh()
+      } else if (queryKeys && queryKeys.length > 0) {
         await Promise.all(queryKeys.map(key => qc.refetchQueries({ queryKey: key })))
       } else {
         await qc.refetchQueries()

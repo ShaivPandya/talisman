@@ -2998,13 +2998,13 @@ export const fetchPositionValuation = (ticker: string) =>
   client.get(`/valuation/${encodeURIComponent(ticker)}`).then(r => r.data as PositionValuation)
 
 export const updatePositionValuationProfileOverride = (ticker: string, profile_id: string | null) =>
-  client.put(`/valuation/${encodeURIComponent(ticker)}/profile-override`, { profile_id }).then(r => r.data)
+  client.put(`/valuation/${encodeURIComponent(ticker)}/profile-override`, { profile_id }).then(r => r.data as { valuation: PositionValuation })
 
 export const updatePositionValueRange = (ticker: string, body: PositionValueRangeRequest) =>
-  client.put(`/valuation/${encodeURIComponent(ticker)}/value-range`, body).then(r => r.data)
+  client.put(`/valuation/${encodeURIComponent(ticker)}/value-range`, body).then(r => r.data as { valuation: PositionValuation })
 
 export const deletePositionValueRange = (ticker: string, metric: string) =>
-  client.delete(`/valuation/${encodeURIComponent(ticker)}/value-range/${encodeURIComponent(metric)}`).then(r => r.data)
+  client.delete(`/valuation/${encodeURIComponent(ticker)}/value-range/${encodeURIComponent(metric)}`).then(r => r.data as { valuation: PositionValuation })
 
 // DCF Model
 export const fetchDCFHistorical = (ticker: string) =>

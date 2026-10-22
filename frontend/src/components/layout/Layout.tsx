@@ -240,8 +240,9 @@ function ActionItemApprovalAlert({ agentOpen }: { agentOpen: boolean }) {
   const summaryQuery = useQuery({
     queryKey: approvalSummaryQueryKey({ status: "pending", limit: ACTION_ITEM_ALERT_LIMIT }),
     queryFn: () => fetchApprovalSummary({ status: "pending", limit: ACTION_ITEM_ALERT_LIMIT }),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 
   const approval = useMemo(() => {

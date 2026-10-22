@@ -17,13 +17,14 @@ function initialQuery<T>(queryKey: QueryKey, queryFn: () => Promise<T>, staleTim
   return { queryKey, queryFn, staleTime, retry: 1 as const }
 }
 
-// These forms load their defaults in effects. Share the startup request while
-// retaining their existing form state and refresh behavior.
+// Route prefetch and form observers share requests and freshness. The portfolio
+// prefix also lets dashboard/approval invalidations refresh their source data.
 export const hedgingPrefillQuery = initialQuery(["hedging-tool", "prefill"], fetchHedgingToolPrefill, 5_000)
-export const sizerPrefillQuery = initialQuery(["portfolio-sizer", "prefill"], fetchSizerPrefill, 5_000)
-export const portfolioPositionsQuery = initialQuery(["portfolio-editor", "positions"], () => fetchPortfolioPositions(), 5_000)
-export const hedgePositionsQuery = initialQuery(["portfolio-editor", "hedges"], fetchHedgePositions, 5_000)
-export const portfolioSettingsQuery = initialQuery(["portfolio-editor", "settings"], fetchPortfolioSettings, 5_000)
+export const sizerPrefillQuery = initialQuery(["portfolio", "sizer-prefill"], fetchSizerPrefill, 300_000)
+export const portfolioPositionsQuery = initialQuery(["portfolio", "positions"], () => fetchPortfolioPositions(), 300_000)
+export const allPortfolioPositionsQuery = initialQuery(["portfolio", "positions", "with-hedges"], () => fetchPortfolioPositions(true))
+export const hedgePositionsQuery = initialQuery(["portfolio", "hedges"], fetchHedgePositions, 300_000)
+export const portfolioSettingsQuery = initialQuery(["portfolio", "settings"], fetchPortfolioSettings, 300_000)
 
 // Only the first automatic query is started here. Remaining queries and
 // user-triggered analyses stay with their page. Keys and freshness match the

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Sparkles } from "lucide-react"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { useSessionAiOverview } from "@/hooks/useSessionAiOverview"
@@ -69,6 +69,7 @@ function yFormatter(unit: string) {
 }
 
 export function Housing() {
+  const queryClient = useQueryClient()
   const [timeframe, setTimeframe] = useState<Timeframe>("3Y")
 
   const { analysis: persistedAnalysis, isOpen, setIsOpen, setAnalysis: setPersistedAnalysis } =
@@ -131,7 +132,11 @@ export function Housing() {
           </button>
           <RefreshButton
             clearBackendCache={false}
-            beforeRefetch={() => fetchHousing({ force_refresh: true })}
+            onRefresh={async () => {
+              await queryClient.cancelQueries({ queryKey: ["housing"] })
+              const result = await fetchHousing({ force_refresh: true })
+              queryClient.setQueryData(["housing"], result)
+            }}
             queryKeys={[["housing"]]}
           />
         </div>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
 import { portfolioPositionsQuery, hedgePositionsQuery, portfolioSettingsQuery } from "@/lib/routeData"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Layers, Plus, Trash2, Upload } from "lucide-react"
 import { Dialog } from "@/components/shared/Dialog"
 import { ActionButton, SegmentedControl, SelectInput } from "@/components/shared/FormControls"
@@ -1265,45 +1265,38 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
   const [positionRows, setPositionRows] = useState<EditorRow[]>([])
   const [hedgeRows, setHedgeRows] = useState<HedgeEditorRow[]>([])
   const [bookSizeInput, setBookSizeInput] = useState(String(DEFAULT_BOOK_SIZE))
-  const [loadError, setLoadError] = useState<string | null>(null)
+  const positionsQuery = useQuery(portfolioPositionsQuery)
+  const hedgesQuery = useQuery(hedgePositionsQuery)
+  const settingsQuery = useQuery(portfolioSettingsQuery)
+  const loadError = positionsQuery.error || hedgesQuery.error
+  const hydrated = useRef({ positions: false, hedges: false, settings: false })
   const [settingsValidationError, setSettingsValidationError] = useState<string | null>(null)
   const [settingsSavedMessage, setSettingsSavedMessage] = useState<string | null>(null)
   const [positionValidationError, setPositionValidationError] = useState<string | null>(null)
   const [hedgeValidationError, setHedgeValidationError] = useState<string | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const isLoading = positionsQuery.isPending || hedgesQuery.isPending
   const [lastProposals, setLastProposals] = useState<StagedMutationResponse[]>([])
   const [ibkrImportSummary, setIbkrImportSummary] = useState<string | null>(null)
   const [ibkrImportError, setIbkrImportError] = useState<string | null>(null)
   const ibkrImportInputRef = useRef<HTMLInputElement | null>(null)
 
+  // Hydrate defaults once; background cache updates must not replace drafts.
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    setTab("Positions")
-    setLoadError(null)
-    setSettingsValidationError(null)
-    setSettingsSavedMessage(null)
-    setPositionValidationError(null)
-    setHedgeValidationError(null)
-    setIbkrImportError(null)
-    setIbkrImportSummary(null)
-    setLastProposals([])
-    setIsLoading(true)
-    Promise.all([
-      queryClient.fetchQuery(portfolioPositionsQuery),
-      queryClient.fetchQuery(hedgePositionsQuery),
-      queryClient.fetchQuery(portfolioSettingsQuery).catch(err => {
-        setSettingsValidationError(`Failed to load book size: ${String(err)}`)
-        return null
-      }),
-    ])
-      .then(([portfolioData, hedgeData, settingsData]) => {
-        setPositionRows(portfolioData.positions.map(positionToRow))
-        setHedgeRows(hedgeData.positions.map(hedgeToRow))
-        if (settingsData) setBookSizeInput(String(settingsData.book_size ?? DEFAULT_BOOK_SIZE))
-      })
-      .catch(err => setLoadError(String(err)))
-      .finally(() => setIsLoading(false))
-  }, [queryClient])
+    if (positionsQuery.data && !hydrated.current.positions) {
+      hydrated.current.positions = true
+      setPositionRows(positionsQuery.data.positions.map(positionToRow))
+    }
+    if (hedgesQuery.data && !hydrated.current.hedges) {
+      hydrated.current.hedges = true
+      setHedgeRows(hedgesQuery.data.positions.map(hedgeToRow))
+    }
+    if (settingsQuery.data && !hydrated.current.settings) {
+      hydrated.current.settings = true
+      setBookSizeInput(String(settingsQuery.data.book_size ?? DEFAULT_BOOK_SIZE))
+    }
+    if (settingsQuery.error) setSettingsValidationError(`Failed to load book size: ${String(settingsQuery.error)}`)
+  }, [positionsQuery.data, hedgesQuery.data, settingsQuery.data, settingsQuery.error])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSaved(result: StagedMutationResponse | StagedMutationResponse[]) {
@@ -1350,6 +1343,8 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
   const settingsMutation = useMutation({
     mutationFn: (bookSize: number) => updatePortfolioSettings({ book_size: bookSize }),
     onSuccess: settings => {
+      queryClient.setQueryData(portfolioSettingsQuery.queryKey, settings)
+      void queryClient.invalidateQueries({ queryKey: ["portfolio", "sizer-prefill"] })
       setBookSizeInput(String(settings.book_size))
       setSettingsValidationError(null)
       setSettingsSavedMessage(`Book size saved at ${formatBaseCurrency(settings.book_size)}.`)
@@ -1588,7 +1583,7 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
 
   if (loadError) {
     return (
-      <div className="theme-notice theme-notice-error">{loadError}</div>
+      <div className="theme-notice theme-notice-error">{String(loadError)}</div>
     )
   }
 

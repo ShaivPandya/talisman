@@ -106,13 +106,19 @@ function PromptEditor({ onClose }: { onClose: () => void }) {
 
 function FullResearchReport({ ticker, kind, jobId, status }: { ticker: string; kind: CompanyResearchKind; jobId?: string; status: CompanyResearchReportStatus["status"] }) {
   const [expanded, setExpanded] = useState(false)
+  const qc = useQueryClient()
   const query = useQuery({
-    queryKey: ["company-research-report", ticker, kind, jobId, status],
+    queryKey: ["company-research-report", ticker, kind, jobId],
     queryFn: () => fetchCompanyResearchReport(ticker, kind, jobId),
     enabled: expanded,
     staleTime: 60_000,
     refetchInterval: expanded && (status === "running" || status === "queued") ? 10_000 : false,
   })
+  useEffect(() => {
+    if (status === "running" || status === "queued") return
+    // A run can finish with partial evidence as well as a completed report.
+    void qc.invalidateQueries({ queryKey: ["company-research-report", ticker, kind, jobId] })
+  }, [qc, ticker, kind, jobId, status])
   return (
     <details onToggle={event => setExpanded(event.currentTarget.open)} className="min-w-0 rounded-lg border border-app">
       <summary className="flex min-h-10 cursor-pointer items-center gap-2 px-3 py-2 text-sm font-medium text-app">
@@ -158,7 +164,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
   const query = useQuery({
     queryKey: ["company-research", normalizedTicker],
     queryFn: () => fetchCompanyResearchStatus(normalizedTicker),
-    refetchIntervalInBackground: true,
+    refetchIntervalInBackground: false,
     refetchInterval: state => KINDS.some(kind => isActive(state.state.data?.reports[kind])) ? 5000 : false,
   })
   const mutation = useMutation({

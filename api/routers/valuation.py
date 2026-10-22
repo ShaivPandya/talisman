@@ -39,6 +39,11 @@ def delete_valuation_cache_variants(ticker: str, profile_overrides: list[str | N
         delete_cached(long_cache, valuation_cache_key(ticker, profile_override))
 
 
+def _valuation_mutation_result(ticker: str, result: dict) -> dict:
+    # Reuse the GET loader so the returned valuation also warms its cache.
+    return stamp_fresh({**serialize_value(result), "valuation": get_position_valuation_endpoint(ticker)})
+
+
 def _valid_valuation_payload(value: object) -> bool:
     if not isinstance(value, dict):
         return False
@@ -88,7 +93,7 @@ def update_position_valuation_profile_override(ticker: str, req: ValuationProfil
         previous = read_profile_override(normalized)
         result = write_profile_override(normalized, req.profile_id)
         delete_valuation_cache_variants(normalized, [previous, result.get("profile_override")])
-        return stamp_fresh(result)
+        return _valuation_mutation_result(normalized, result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -108,7 +113,7 @@ def update_position_valuation_value_range(ticker: str, req: ValuationValueRangeR
         result = write_value_range_assumption(normalized, req.model_dump(mode="python"))
         profile_ids = [option["id"] for option in profile_options()]
         delete_valuation_cache_variants(normalized, [profile_override, *profile_ids])
-        return stamp_fresh(serialize_value(result))
+        return _valuation_mutation_result(normalized, result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -132,7 +137,7 @@ def delete_position_valuation_value_range(ticker: str, metric: str):
         result = delete_value_range_assumption(normalized, metric)
         profile_ids = [option["id"] for option in profile_options()]
         delete_valuation_cache_variants(normalized, [profile_override, *profile_ids])
-        return stamp_fresh(serialize_value(result))
+        return _valuation_mutation_result(normalized, result)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
