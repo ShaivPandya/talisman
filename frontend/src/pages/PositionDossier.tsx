@@ -359,12 +359,8 @@ export function PositionDossier() {
   const qc = useQueryClient()
   const [processingIds, setProcessingIds] = useState<Set<number | string>>(new Set())
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
-  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
-  const [newStatus, setNewStatus] = useState<ThesisStatusValue>("under_review")
-  const [statusReason, setStatusReason] = useState("")
   const [lastProposal, setLastProposal] = useState<StagedMutationResponse | null>(null)
   const [approvalReview, setApprovalReview] = useState<{ approval: ApprovalRecord; action: "approve" | "reject" } | null>(null)
-  const [approvalNote, setApprovalNote] = useState("")
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [triggerEdit, setTriggerEdit] = useState<TriggerEditState | null>(null)
   const [triggerEditError, setTriggerEditError] = useState<string | null>(null)
@@ -401,17 +397,6 @@ export function PositionDossier() {
     })
   }, [isEquity, qc, ticker])
 
-  const statusMutation = useMutation({
-    mutationFn: () => updateThesisStatus(ticker!, newStatus, statusReason),
-    onSuccess: result => {
-      setLastProposal(result as StagedMutationResponse)
-      void invalidateApprovalSummaries(qc)
-      qc.invalidateQueries({ queryKey: ["dossier", ticker] })
-      qc.invalidateQueries({ queryKey: ["thesis"] })
-      setStatusDialogOpen(false)
-      setStatusReason("")
-    },
-  })
 
   function toggleExpanded(key: string) {
     setExpandedIds(prev => {
@@ -424,7 +409,6 @@ export function PositionDossier() {
 
   function openApprovalReview(approval: ApprovalRecord, action: "approve" | "reject") {
     setApprovalReview({ approval, action })
-    setApprovalNote("")
     setApprovalError(null)
   }
 
@@ -445,7 +429,6 @@ export function PositionDossier() {
       }
       patchResolvedApprovalSummaries(qc, resolved, approval)
       setApprovalReview(null)
-      setApprovalNote("")
       invalidateAfterApprovalResolution(qc, approval)
     } catch (err) {
       setApprovalError(formatApprovalResolutionError(err))
@@ -462,7 +445,6 @@ export function PositionDossier() {
       const result = await rejectAndRestageApproval(approval.id, note?.trim() || undefined)
       patchResolvedApprovalSummaries(qc, result.original, approval)
       setApprovalReview(null)
-      setApprovalNote("")
       invalidateAfterApprovalResolution(qc, approval)
     } catch (err) {
       setApprovalError(formatApprovalResolutionError(err))
@@ -517,7 +499,6 @@ export function PositionDossier() {
         patchResolvedApprovalSummaries(qc, result.original, triggerEdit.approval)
         invalidateAfterApprovalResolution(qc, triggerEdit.approval)
         setApprovalReview(null)
-        setApprovalNote("")
       }
       setTriggerEdit(null)
     } catch (err) {
@@ -587,18 +568,7 @@ export function PositionDossier() {
           </div>
         </div>
         <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
-          {meta && (
-            <button
-              type="button"
-              onClick={() => {
-                setNewStatus(meta.status === "active" ? "under_review" : "active")
-                setStatusDialogOpen(true)
-              }}
-              className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors"
-            >
-              Propose Status Change
-            </button>
-          )}
+          {meta && <ThesisStatusDialog key={ticker} ticker={ticker!} currentStatus={meta.status} onProposed={setLastProposal} />}
           <RefreshButton queryKeys={[["dossier", ticker]]} />
         </div>
       </div>
@@ -939,137 +909,24 @@ export function PositionDossier() {
         </div>
       )}
 
-      <Dialog
-        open={approvalReview !== null}
-        onOpenChange={open => {
-          if (!open) {
-            setApprovalReview(null)
-            setApprovalNote("")
-            setApprovalError(null)
-          }
-        }}
-        title={approvalReview?.action === "approve" ? "Approve And Apply Internal State" : "Reject Proposal"}
-        description={
-          approvalReview?.action === "approve"
-            ? "Approval applies the staged internal state change."
-            : "Rejecting leaves the proposal in audit history and does not apply the staged change."
-        }
-        maxWidth="max-w-3xl"
-      >
-        {approvalReview && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <DecisionStateBadge state={approvalDecisionState(approvalReview.approval)} />
-              <BaseStateBadge
-                state={approvalReview.approval.base_state_status}
-                message={approvalReview.approval.base_state_message}
-              />
-              <EffectScopeBadge scope={approvalReview.approval.effect_scope ?? "internal_state"} />
-              <PolicyStateBadge state={approvalReview.approval.policy_state ?? approvalReview.approval.policy_gate?.decision ?? "missing"} />
-              <QualityStateBadge state={approvalReview.approval.quality_state ?? "missing"} />
-            </div>
-            <div className="rounded-lg border border-app bg-[hsl(var(--muted-2))] p-3 text-xs text-muted">
-              <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
-                <span>{formatApprovalDisplayLabel(approvalReview.approval.id, "Approval")}</span>
-                <span>{subjectLabel(approvalReview.approval.entity_type)}</span>
-                <span>
-                  Application: {approvalReview.approval.base_state_status === "stale" ? "state changed" : approvalReview.approval.application_status || "pending"}
-                </span>
-              </div>
-              {approvalReview.approval.reason && <p className="mb-2">{approvalReview.approval.reason}</p>}
-              <ApprovalProgressSummary approval={approvalReview.approval} />
-              <ApprovalChangeSummary approval={approvalReview.approval} />
-            </div>
-            {approvalReview.approval.base_state_status === "stale" && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                {approvalReview.approval.base_state_message || "The underlying state changed after this proposal was created."}
-              </div>
-            )}
-            <TraceTriggerButton
-              label="View decision trace"
-              onClick={() =>
-                openDecisionTrace({
-                  kind: "approval",
-                  record: approvalReview.approval as unknown as Record<string, unknown>,
-                })
-              }
-            />
-            <div>
-              <label htmlFor="dossier-approval-note" className="theme-field-label">
-                {approvalReview.action === "approve" ? "Approval note" : "Rejection note"}
-              </label>
-              <textarea
-                id="dossier-approval-note"
-                value={approvalNote}
-                onChange={e => setApprovalNote(e.target.value)}
-                className="theme-input mt-1 min-h-[90px] w-full"
-                placeholder={approvalReview.action === "approve" ? "State why this internal change is approved." : "Optional reason for rejecting this proposal."}
-              />
-              {approvalReview.action === "approve" && (
-                <p className="theme-field-caption mt-1">Required. Approval applies app state only.</p>
-              )}
-            </div>
-            {approvalError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {approvalError}
-              </div>
-            )}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-              <button
-                type="button"
-                onClick={() => setApprovalReview(null)}
-                className="w-full rounded-lg border border-app px-3 py-2.5 text-sm font-medium text-muted hover:text-app sm:w-auto sm:py-2"
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={() => handleApproval(approvalReview.approval, approvalReview.action, approvalNote)}
-                loading={processingIds.has(approvalReview.approval.id)}
-                loadingText={
-                  approvalReview.action === "approve" && approvalActionLabel(approvalReview.approval) === "Record Approval"
-                    ? "Recording..."
-                    : approvalReview.action === "approve" ? "Applying..." : "Rejecting..."
-                }
-                disabled={
-                  approvalReview.action === "approve" &&
-                  (!approvalNote.trim() || approvalReview.approval.can_approve === false)
-                }
-                className={cn(
-                  "w-full px-4 sm:w-auto",
-                  approvalReview.action === "approve" ? "theme-button-success" : "theme-button-destructive",
-                )}
-              >
-                {approvalReview.action === "approve" ? approvalActionLabel(approvalReview.approval) : "Reject Proposal"}
-              </ActionButton>
-              {approvalReview.approval.can_restage && (
-                <ActionButton
-                  onClick={() => handleRejectAndRestage(approvalReview.approval, approvalNote)}
-                  loading={processingIds.has(approvalReview.approval.id)}
-                  loadingText="Restaging..."
-                  className="w-full bg-amber-600 px-4 hover:bg-amber-700 sm:w-auto"
-                >
-                  Reject & Restage
-                </ActionButton>
-              )}
-              {watchTriggerProposalFromApproval(approvalReview.approval) && (
-                <ActionButton
-                  onClick={() => {
-                    const trigger = watchTriggerProposalFromApproval(approvalReview.approval)
-                    if (!trigger) return
-                    setTriggerEdit({ kind: "approval", approval: approvalReview.approval, trigger })
-                    setTriggerEditError(null)
-                  }}
-                  loading={triggerEditSubmitting}
-                  loadingText="Opening..."
-                  className="w-full px-4 sm:w-auto"
-                >
-                  Edit Proposal
-                </ActionButton>
-              )}
-            </div>
-          </div>
-        )}
-      </Dialog>
+      {approvalReview && (
+        <DossierApprovalDialog
+          key={`${approvalReview.approval.id}:${approvalReview.action}`}
+          approvalReview={approvalReview}
+          onClose={() => { setApprovalReview(null); setApprovalError(null) }}
+          approvalError={approvalError}
+          processing={processingIds.has(approvalReview.approval.id)}
+          triggerEditSubmitting={triggerEditSubmitting}
+          onSubmit={handleApproval}
+          onRestage={handleRejectAndRestage}
+          onEditTrigger={approval => {
+            const trigger = watchTriggerProposalFromApproval(approval)
+            if (!trigger) return
+            setTriggerEdit({ kind: "approval", approval, trigger })
+            setTriggerEditError(null)
+          }}
+        />
+      )}
 
       <WatchTriggerEditDialog
         open={triggerEdit !== null}
@@ -1092,7 +949,193 @@ export function PositionDossier() {
         onSubmit={handleSubmitTriggerEdit}
       />
 
-      {/* Status change dialog */}
+      <PostMortemReviewDialog
+        open={postMortemReview !== null}
+        onOpenChange={open => {
+          if (!open) setPostMortemReview(null)
+        }}
+        outcome={postMortemReview}
+        onFinalized={() => {
+          void qc.invalidateQueries({ queryKey: ["dossier", ticker] })
+        }}
+      />
+    </div>
+  )
+}
+
+function DossierApprovalDialog({
+  approvalReview, onClose, approvalError, processing, triggerEditSubmitting, onSubmit, onRestage, onEditTrigger,
+}: {
+  approvalReview: { approval: ApprovalRecord; action: "approve" | "reject" }
+  onClose: () => void
+  approvalError: string | null
+  processing: boolean
+  triggerEditSubmitting: boolean
+  onSubmit: (approval: ApprovalRecord, action: "approve" | "reject", note?: string) => Promise<void>
+  onRestage: (approval: ApprovalRecord, note?: string) => Promise<void>
+  onEditTrigger: (approval: ApprovalRecord) => void
+}) {
+  const [approvalNote, setApprovalNote] = useState("")
+  const { openDecisionTrace } = useDecisionTrace()
+  return (
+    <Dialog
+      open
+      onOpenChange={open => { if (!open) onClose() }}
+      title={approvalReview?.action === "approve" ? "Approve And Apply Internal State" : "Reject Proposal"}
+      description={
+        approvalReview?.action === "approve"
+          ? "Approval applies the staged internal state change."
+          : "Rejecting leaves the proposal in audit history and does not apply the staged change."
+      }
+      maxWidth="max-w-3xl"
+    >
+      {approvalReview && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <DecisionStateBadge state={approvalDecisionState(approvalReview.approval)} />
+            <BaseStateBadge
+              state={approvalReview.approval.base_state_status}
+              message={approvalReview.approval.base_state_message}
+            />
+            <EffectScopeBadge scope={approvalReview.approval.effect_scope ?? "internal_state"} />
+            <PolicyStateBadge state={approvalReview.approval.policy_state ?? approvalReview.approval.policy_gate?.decision ?? "missing"} />
+            <QualityStateBadge state={approvalReview.approval.quality_state ?? "missing"} />
+          </div>
+          <div className="rounded-lg border border-app bg-[hsl(var(--muted-2))] p-3 text-xs text-muted">
+            <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
+              <span>{formatApprovalDisplayLabel(approvalReview.approval.id, "Approval")}</span>
+              <span>{subjectLabel(approvalReview.approval.entity_type)}</span>
+              <span>
+                Application: {approvalReview.approval.base_state_status === "stale" ? "state changed" : approvalReview.approval.application_status || "pending"}
+              </span>
+            </div>
+            {approvalReview.approval.reason && <p className="mb-2">{approvalReview.approval.reason}</p>}
+            <ApprovalProgressSummary approval={approvalReview.approval} />
+            <ApprovalChangeSummary approval={approvalReview.approval} />
+          </div>
+          {approvalReview.approval.base_state_status === "stale" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {approvalReview.approval.base_state_message || "The underlying state changed after this proposal was created."}
+            </div>
+          )}
+          <TraceTriggerButton
+            label="View decision trace"
+            onClick={() =>
+              openDecisionTrace({
+                kind: "approval",
+                record: approvalReview.approval as unknown as Record<string, unknown>,
+              })
+            }
+          />
+          <div>
+            <label htmlFor="dossier-approval-note" className="theme-field-label">
+              {approvalReview.action === "approve" ? "Approval note" : "Rejection note"}
+            </label>
+            <textarea
+              id="dossier-approval-note"
+              value={approvalNote}
+              onChange={e => setApprovalNote(e.target.value)}
+              className="theme-input mt-1 min-h-[90px] w-full"
+              placeholder={approvalReview.action === "approve" ? "State why this internal change is approved." : "Optional reason for rejecting this proposal."}
+            />
+            {approvalReview.action === "approve" && (
+              <p className="theme-field-caption mt-1">Required. Approval applies app state only.</p>
+            )}
+          </div>
+          {approvalError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {approvalError}
+            </div>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={() => onClose()}
+              className="w-full rounded-lg border border-app px-3 py-2.5 text-sm font-medium text-muted hover:text-app sm:w-auto sm:py-2"
+            >
+              Cancel
+            </button>
+            <ActionButton
+              onClick={() => onSubmit(approvalReview.approval, approvalReview.action, approvalNote)}
+              loading={processing}
+              loadingText={
+                approvalReview.action === "approve" && approvalActionLabel(approvalReview.approval) === "Record Approval"
+                  ? "Recording..."
+                  : approvalReview.action === "approve" ? "Applying..." : "Rejecting..."
+              }
+              disabled={
+                approvalReview.action === "approve" &&
+                (!approvalNote.trim() || approvalReview.approval.can_approve === false)
+              }
+              className={cn(
+                "w-full px-4 sm:w-auto",
+                approvalReview.action === "approve" ? "theme-button-success" : "theme-button-destructive",
+              )}
+            >
+              {approvalReview.action === "approve" ? approvalActionLabel(approvalReview.approval) : "Reject Proposal"}
+            </ActionButton>
+            {approvalReview.approval.can_restage && (
+              <ActionButton
+                onClick={() => onRestage(approvalReview.approval, approvalNote)}
+                loading={processing}
+                loadingText="Restaging..."
+                className="w-full bg-amber-600 px-4 hover:bg-amber-700 sm:w-auto"
+              >
+                Reject & Restage
+              </ActionButton>
+            )}
+            {watchTriggerProposalFromApproval(approvalReview.approval) && (
+              <ActionButton
+                onClick={() => {
+                  onEditTrigger(approvalReview.approval)
+                }}
+                loading={triggerEditSubmitting}
+                loadingText="Opening..."
+                className="w-full px-4 sm:w-auto"
+              >
+                Edit Proposal
+              </ActionButton>
+            )}
+          </div>
+        </div>
+      )}
+    </Dialog>
+  )
+}
+
+function ThesisStatusDialog({ ticker, currentStatus, onProposed }: {
+  ticker: string
+  currentStatus: string
+  onProposed: (proposal: StagedMutationResponse) => void
+}) {
+  const qc = useQueryClient()
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false)
+  const [newStatus, setNewStatus] = useState<ThesisStatusValue>("under_review")
+  const [statusReason, setStatusReason] = useState("")
+  const statusMutation = useMutation({
+    mutationFn: () => updateThesisStatus(ticker!, newStatus, statusReason),
+    onSuccess: result => {
+      onProposed(result as StagedMutationResponse)
+      void invalidateApprovalSummaries(qc)
+      qc.invalidateQueries({ queryKey: ["dossier", ticker] })
+      qc.invalidateQueries({ queryKey: ["thesis"] })
+      setStatusDialogOpen(false)
+      setStatusReason("")
+    },
+  })
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setNewStatus(currentStatus === "active" ? "under_review" : "active")
+          setStatusDialogOpen(true)
+        }}
+        className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors"
+      >
+        Propose Status Change
+      </button>
       <Dialog
         open={statusDialogOpen}
         onOpenChange={setStatusDialogOpen}
@@ -1130,17 +1173,7 @@ export function PositionDossier() {
           </ActionButton>
         </div>
       </Dialog>
-      <PostMortemReviewDialog
-        open={postMortemReview !== null}
-        onOpenChange={open => {
-          if (!open) setPostMortemReview(null)
-        }}
-        outcome={postMortemReview}
-        onFinalized={() => {
-          void qc.invalidateQueries({ queryKey: ["dossier", ticker] })
-        }}
-      />
-    </div>
+    </>
   )
 }
 

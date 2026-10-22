@@ -498,7 +498,7 @@ export function CommodityResearch() {
                       data={selectedResult.price_series}
                       height={220}
                       timeframe="Daily"
-                      tooltipFormatter={value => fmtNum(value)}
+                      tooltipFormatter={fmtNum}
                     />
 
                     <div className="mt-4 grid grid-cols-3 gap-3">

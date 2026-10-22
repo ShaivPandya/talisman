@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { runFxModel, fetchFxModelPairs } from "@/lib/api"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -24,6 +24,11 @@ const FORECAST_COLUMN_LABELS: Record<string, string> = {
   nobs: "Observations",
 }
 
+function toFiniteNumberOrNull(v: unknown): number | null {
+  const n = Number(v)
+  return Number.isFinite(n) ? n : null
+}
+
 export function FXModel() {
   const { data: pairsData } = useApiQuery(["fx-model-pairs"], fetchFxModelPairs)
   const availablePairs: string[] = pairsData?.pairs ?? DEFAULT_PAIRS
@@ -41,11 +46,6 @@ export function FXModel() {
 
   const data = mutation.data
   const errorMessage = mutation.error instanceof Error ? mutation.error.message : String(mutation.error)
-
-  function toFiniteNumberOrNull(v: unknown): number | null {
-    const n = Number(v)
-    return Number.isFinite(n) ? n : null
-  }
 
   function formatSigned(v: unknown, decimals = 4): string {
     const n = toFiniteNumberOrNull(v)
@@ -67,10 +67,10 @@ export function FXModel() {
     : []
 
   // Confidence interval chart
-  const ciData: DataPoint[] = (data?.ci_series ?? []).map((r: Record<string, unknown>) => ({
+  const ciData = useMemo<DataPoint[]>(() => (data?.ci_series ?? []).map((r: Record<string, unknown>) => ({
     date: String(r["date"] ?? r["horizon"] ?? ""),
     value: toFiniteNumberOrNull(r["p50"] ?? r["median"] ?? r["value"]),
-  }))
+  })), [data?.ci_series])
   const driverBreakdown: Record<string, unknown>[] = data?.driver_breakdown ?? []
 
   return (

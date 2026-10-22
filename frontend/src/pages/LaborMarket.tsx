@@ -60,17 +60,14 @@ function fmtChange(change: number | null, unit: string): string | null {
   return `${sign}${change.toFixed(2)}`
 }
 
+const formatOneDecimal = (v: number) => v.toFixed(1)
+const formatPercent = (v: number) => `${v.toFixed(1)}%`
+const formatThousands = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}M` : `${Math.round(v)}K`
+
 function yFormatter(unit: string) {
-  return (v: number) => {
-    if (unit === "%") return `${v.toFixed(1)}%`
-    if (unit === "hours") return `${v.toFixed(1)}`
-    if (unit === "weeks") return `${v.toFixed(1)}`
-    if (unit === "thousands") {
-      if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}M`
-      return `${Math.round(v)}K`
-    }
-    return v.toFixed(1)
-  }
+  if (unit === "%") return formatPercent
+  if (unit === "thousands") return formatThousands
+  return formatOneDecimal
 }
 
 export function LaborMarket() {

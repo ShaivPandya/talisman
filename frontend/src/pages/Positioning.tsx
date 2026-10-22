@@ -235,13 +235,20 @@ export function Positioning() {
 }
 
 function SingleMarketView({ rows }: { rows: Record<string, unknown>[] }) {
-  const sorted = [...rows].sort((a, b) => String(a["report_date"]).localeCompare(String(b["report_date"])))
+  const sorted = useMemo(() => [...rows].sort((a, b) => String(a["report_date"]).localeCompare(String(b["report_date"]))), [rows])
   const latest = sorted[sorted.length - 1]
 
-  const mkSeries = (key: string) =>
-    sorted
+  const chartSeries = useMemo(() => {
+    const mkSeries = (key: string) => sorted
       .filter(r => r[key] != null)
       .map(r => ({ date: String(r["report_date"]), value: Number(r[key]) }))
+    return {
+      net: mkSeries("lf_net"),
+      percent: mkSeries("lf_net_pct_oi"),
+      zscore: mkSeries("lf_z"),
+      deleveraging: mkSeries("lf_deleveraging_z"),
+    }
+  }, [sorted])
 
   const histCols: ColumnDef[] = [
     { key: "report_date", header: "Date" },
@@ -265,10 +272,10 @@ function SingleMarketView({ rows }: { rows: Record<string, unknown>[] }) {
       </div>
 
       <div className="space-y-4 mb-6">
-        <TimeSeriesChart data={mkSeries("lf_net")} height={180} label="Net Position Over Time" zeroLine />
-        <TimeSeriesChart data={mkSeries("lf_net_pct_oi")} height={180} label="Net % Open Interest" zeroLine />
-        <TimeSeriesChart data={mkSeries("lf_z")} height={180} label="Z-Score" zeroLine />
-        <TimeSeriesChart data={mkSeries("lf_deleveraging_z")} height={180} label="Deleveraging Z (forced flows proxy)" zeroLine />
+        <TimeSeriesChart data={chartSeries.net} height={180} label="Net Position Over Time" zeroLine />
+        <TimeSeriesChart data={chartSeries.percent} height={180} label="Net % Open Interest" zeroLine />
+        <TimeSeriesChart data={chartSeries.zscore} height={180} label="Z-Score" zeroLine />
+        <TimeSeriesChart data={chartSeries.deleveraging} height={180} label="Deleveraging Z (forced flows proxy)" zeroLine />
       </div>
 
       <h2 className="text-xs font-semibold tracking-widest uppercase text-gray-400 mb-3">Recent History</h2>

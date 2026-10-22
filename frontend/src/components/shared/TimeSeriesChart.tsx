@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useMemo, useState } from "react"
+import { memo, useCallback, useMemo, useState } from "react"
 import {
   LineChart,
   Line,
@@ -11,7 +11,7 @@ import {
   ReferenceLine,
   Legend,
 } from "recharts"
-import type { LegendPayload, YAxisOrientation } from "recharts"
+import type { LegendPayload, YAxisOrientation, YAxisProps } from "recharts"
 
 export interface DataPoint {
   date: string
@@ -62,10 +62,51 @@ const DEFAULT_SERIES_COLORS = {
   neutral: "hsl(var(--neutral))",
 }
 
+const EMPTY_DATA: DataPoint[] = []
+const AXIS_TICK = { fontSize: 10, fill: "hsl(var(--chart-axis))" }
+const AXIS_LINE = { stroke: "hsl(var(--chart-grid))" }
+const LEFT_MARGIN = { top: 4, right: 8, left: 0, bottom: 0 }
+const RIGHT_MARGIN = { top: 4, right: 0, left: 8, bottom: 0 }
+const AUTO_DOMAIN: YAxisProps["domain"] = ["auto", "auto"]
+const LOG_DOMAIN: YAxisProps["domain"] = ["dataMin", "dataMax"]
+const ZERO_DOMAIN: YAxisProps["domain"] = [(dataMin: number) => Math.min(0, dataMin), "auto"]
+const TOOLTIP_STYLE = {
+  backgroundColor: "hsl(var(--chart-tooltip-bg))",
+  borderColor: "hsl(var(--chart-tooltip-border))",
+  borderRadius: "0.75rem",
+  color: "hsl(var(--foreground))",
+}
+const TOOLTIP_TEXT_STYLE = { color: "hsl(var(--foreground))" }
+const LEGEND_STYLE = { fontSize: 11, color: "hsl(var(--muted-foreground))", cursor: "default" }
+const TOGGLEABLE_LEGEND_STYLE = { ...LEGEND_STYLE, cursor: "pointer" }
+// Recharts formats candidate ticks for each chart. Reuse the locale formatters
+// rather than constructing one for every tick in every portfolio position.
+const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric" })
+const MONTH_FORMATTER = new Intl.DateTimeFormat("en-US", { month: "short" })
+const DATE_LABELS = new Map<string, string>()
+const MONTH_LABELS = new Map<string, string>()
+const YEAR_LABELS = new Map<string, string>()
+const MAX_CACHED_DATE_LABELS = 512
+
+function cachedDateLabel(isoDate: string, cache: Map<string, string>, formatter?: Intl.DateTimeFormat): string {
+  const cached = cache.get(isoDate)
+  if (cached !== undefined) return cached
+  const date = new Date(isoDate)
+  const label = formatter
+    ? Number.isNaN(date.getTime()) ? "Invalid Date" : formatter.format(date)
+    : String(date.getFullYear())
+  if (cache.size >= MAX_CACHED_DATE_LABELS) cache.delete(cache.keys().next().value!)
+  cache.set(isoDate, label)
+  return label
+}
+
+function tooltipLabel(l: unknown): string {
+  return new Date(String(l)).toLocaleDateString()
+}
+
 function shortDate(isoDate: string): string {
   try {
-    const d = new Date(isoDate)
-    return d.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    return cachedDateLabel(isoDate, DATE_LABELS, DATE_FORMATTER)
   } catch {
     return isoDate
   }
@@ -73,7 +114,7 @@ function shortDate(isoDate: string): string {
 
 function shortMonth(isoDate: string): string {
   try {
-    return new Date(isoDate).toLocaleDateString("en-US", { month: "short" })
+    return cachedDateLabel(isoDate, MONTH_LABELS, MONTH_FORMATTER)
   } catch {
     return isoDate
   }
@@ -81,7 +122,7 @@ function shortMonth(isoDate: string): string {
 
 function shortYear(isoDate: string): string {
   try {
-    return String(new Date(isoDate).getFullYear())
+    return cachedDateLabel(isoDate, YEAR_LABELS)
   } catch {
     return isoDate
   }
@@ -158,8 +199,8 @@ function getYearTicks(data: ChartRow[]): string[] {
   return ticks
 }
 
-export function TimeSeriesChart({
-  data = [],
+export const TimeSeriesChart = memo(function TimeSeriesChart({
+  data = EMPTY_DATA,
   height = 200,
   color = DEFAULT_SERIES_COLORS.primary,
   label,
@@ -176,6 +217,18 @@ export function TimeSeriesChart({
 }: TimeSeriesChartProps) {
   const isMulti = multiData != null && series != null
   const chartData: ChartRow[] = isMulti ? multiData : data
+  const ticks = useMemo(() => {
+    if (timeframe === "This Week") return getThisWeekTicks(chartData)
+    if (timeframe === "Monthly") return getYearTicks(chartData)
+    // Weekly labels show months too; avoid measuring every weekly point as
+    // a candidate tick in each position's chart.
+    if (timeframe === "Daily" || timeframe === "Weekly") return getMonthTicks(chartData)
+    return undefined
+  }, [chartData, timeframe])
+  const formatTooltip = useCallback((v: unknown) => {
+    const n = v as number | undefined
+    return tooltipFormatter && n != null ? tooltipFormatter(n) : n?.toFixed(2) ?? ""
+  }, [tooltipFormatter])
   const seriesSignature = useMemo(
     () => (series ?? []).map(s => `${s.key}:${s.name ?? s.key}`).join("|"),
     [series],
@@ -188,7 +241,7 @@ export function TimeSeriesChart({
     ? legendVisibility.hiddenKeys
     : EMPTY_HIDDEN_KEYS
 
-  const toggleLegendSeries = (payload: LegendPayload) => {
+  const toggleLegendSeries = useCallback((payload: LegendPayload) => {
     if (!toggleableLegend) return
     const dataKey = payload.dataKey != null ? String(payload.dataKey) : null
     if (!dataKey) return
@@ -203,9 +256,9 @@ export function TimeSeriesChart({
       }
       return { seriesSignature, hiddenKeys: next }
     })
-  }
+  }, [toggleableLegend, seriesSignature])
 
-  const formatLegendLabel = (value: unknown, entry: LegendPayload) => {
+  const formatLegendLabel = useCallback((value: unknown, entry: LegendPayload) => {
     const dataKey = entry.dataKey != null ? String(entry.dataKey) : null
     const isHidden = dataKey != null && hiddenSeries.has(dataKey)
     return (
@@ -219,7 +272,7 @@ export function TimeSeriesChart({
         {String(value ?? "")}
       </span>
     )
-  }
+  }, [hiddenSeries])
 
   if (!chartData || chartData.length === 0) {
     return (
@@ -238,54 +291,35 @@ export function TimeSeriesChart({
       <ResponsiveContainer width="100%" height={height}>
         <LineChart
           data={chartData}
-          margin={{ top: 4, right: yAxisOrientation === "right" ? 0 : 8, left: yAxisOrientation === "right" ? 8 : 0, bottom: 0 }}
+          margin={yAxisOrientation === "right" ? RIGHT_MARGIN : LEFT_MARGIN}
         >
           <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--chart-grid))" />
           <XAxis
             dataKey="date"
             tickFormatter={timeframe === "Monthly" ? shortYear : timeframe === "Weekly" ? shortMonth : shortDate}
-            ticks={
-              timeframe === "This Week" ? getThisWeekTicks(chartData) :
-              timeframe === "Monthly" ? getYearTicks(chartData) :
-              timeframe === "Daily" ? getMonthTicks(chartData) :
-              undefined
-            }
-            tick={{ fontSize: 10, fill: "hsl(var(--chart-axis))" }}
+            ticks={ticks}
+            tick={AXIS_TICK}
             tickLine={false}
-            axisLine={{ stroke: "hsl(var(--chart-grid))" }}
+            axisLine={AXIS_LINE}
             minTickGap={30}
           />
           <YAxis
             orientation={yAxisOrientation}
             scale={yScale === "log" ? "log" : undefined}
-            domain={
-              yScale === "log"
-                ? ["dataMin", "dataMax"]
-                : zeroLine
-                  ? [(dataMin: number) => Math.min(0, dataMin), "auto"]
-                  : ["auto", "auto"]
-            }
-            tick={{ fontSize: 10, fill: "hsl(var(--chart-axis))" }}
+            domain={yScale === "log" ? LOG_DOMAIN : zeroLine ? ZERO_DOMAIN : AUTO_DOMAIN}
+            tick={AXIS_TICK}
             tickLine={false}
             axisLine={false}
             width={50}
             tickFormatter={yFormatter}
           />
           <Tooltip
-            contentStyle={{
-              backgroundColor: "hsl(var(--chart-tooltip-bg))",
-              borderColor: "hsl(var(--chart-tooltip-border))",
-              borderRadius: "0.75rem",
-              color: "hsl(var(--foreground))",
-            }}
-            labelStyle={{ color: "hsl(var(--foreground))" }}
-            itemStyle={{ color: "hsl(var(--foreground))" }}
-            labelFormatter={(l: unknown) => new Date(String(l)).toLocaleDateString()}
+            contentStyle={TOOLTIP_STYLE}
+            labelStyle={TOOLTIP_TEXT_STYLE}
+            itemStyle={TOOLTIP_TEXT_STYLE}
+            labelFormatter={tooltipLabel}
             itemSorter={tooltipSortByValueDesc ? tooltipValueDescSorter : undefined}
-            formatter={(v: unknown) => {
-              const n = v as number | undefined
-              return tooltipFormatter && n != null ? tooltipFormatter(n) : n?.toFixed(2) ?? ""
-            }}
+            formatter={formatTooltip}
           />
           {zeroLine && <ReferenceLine y={0} stroke="hsl(var(--chart-axis))" strokeDasharray="4 2" />}
           {isMulti
@@ -302,6 +336,7 @@ export function TimeSeriesChart({
                   strokeDasharray={s.strokeDasharray}
                   hide={hiddenSeries.has(s.key)}
                   connectNulls={false}
+                  isAnimationActive={false}
                 />
               ))
             : (
@@ -312,16 +347,13 @@ export function TimeSeriesChart({
                   dot={false}
                   strokeWidth={1.8}
                   connectNulls={false}
+                  isAnimationActive={false}
                 />
               )
           }
           {isMulti && (
             <Legend
-              wrapperStyle={{
-                fontSize: 11,
-                color: "hsl(var(--muted-foreground))",
-                cursor: toggleableLegend ? "pointer" : "default",
-              }}
+              wrapperStyle={toggleableLegend ? TOGGLEABLE_LEGEND_STYLE : LEGEND_STYLE}
               onClick={toggleableLegend ? toggleLegendSeries : undefined}
               formatter={toggleableLegend ? formatLegendLabel : undefined}
               inactiveColor="hsl(var(--muted-foreground))"
@@ -331,4 +363,4 @@ export function TimeSeriesChart({
       </ResponsiveContainer>
     </div>
   )
-}
+})

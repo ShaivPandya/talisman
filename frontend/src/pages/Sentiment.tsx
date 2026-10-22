@@ -9,7 +9,7 @@ import {
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { useSessionAiOverview } from "@/hooks/useSessionAiOverview"
 import { fetchSentimentPutCall, fetchSentimentSurveys, fetchSentimentVolatility, analyzeSentiment } from "@/lib/api"
-import { TimeSeriesChart } from "@/components/shared/TimeSeriesChart"
+import { TimeSeriesChart, type SeriesDef } from "@/components/shared/TimeSeriesChart"
 import { MetricCard } from "@/components/shared/MetricCard"
 import { DataTable } from "@/components/shared/DataTable"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
@@ -135,6 +135,19 @@ function parsePCEntry(v: unknown): PCEntry | null {
   }
 }
 
+const PUT_CALL_SERIES: SeriesDef[] = [
+  { key: "Equity", color: "#111827", strokeWidth: 2 },
+  { key: "SPY", color: "#2563eb", strokeWidth: 1.6 },
+  { key: "QQQ", color: "#16a34a", strokeWidth: 1.6 },
+  { key: "IWM", color: "#f59e0b", strokeWidth: 1.6 },
+]
+const formatTwoDecimals = (v: number) => v.toFixed(2)
+const formatThreeDecimals = (v: number) => v.toFixed(3)
+const formatInteger = (v: number) => v.toFixed(0)
+const formatOneDecimal = (v: number) => v.toFixed(1)
+const formatSpread = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`
+const EMPTY_SURVEYS: SurveysPayload = { aaii: [], naaim: [] }
+
 function PutCallTab() {
   const { data, isLoading, error } = useApiQuery(
     ["sentiment-put-call"],
@@ -142,14 +155,16 @@ function PutCallTab() {
     SENTIMENT_PUT_CALL_STALE_TIME_MS,
   )
 
-  const payload = isRecord(data) ? data : {}
-  const equity = parsePCEntry(payload.equity)
-  const spy = parsePCEntry(payload.spy)
-  const qqq = parsePCEntry(payload.qqq)
-  const iwm = parsePCEntry(payload.iwm)
+  const { equity, spy, qqq, iwm } = useMemo(() => {
+    const payload = isRecord(data) ? data : {}
+    return {
+      equity: parsePCEntry(payload.equity), spy: parsePCEntry(payload.spy),
+      qqq: parsePCEntry(payload.qqq), iwm: parsePCEntry(payload.iwm),
+    }
+  }, [data])
   const asOf = spy?.as_of ?? equity?.as_of ?? ""
 
-  const expiryCurveData = (() => {
+  const expiryCurveData = useMemo(() => {
     const byExpiry = new Map<string, {
       date: string
       SPY: number | null
@@ -191,7 +206,7 @@ function PutCallTab() {
         Equity: r.equityCalls > 0 ? Number((r.equityPuts / r.equityCalls).toFixed(3)) : null,
       }))
       .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-  })()
+  }, [spy, qqq, iwm])
 
   if (isLoading) return <LoadingSpinner message="Computing Put/Call ratios from options chains..." />
   if (error || !data) return <ErrorMessage message={String(error)} />
@@ -240,17 +255,12 @@ function PutCallTab() {
         <div className="mb-6">
           <TimeSeriesChart
             multiData={expiryCurveData}
-            series={[
-              { key: "Equity", color: "#111827", strokeWidth: 2 },
-              { key: "SPY", color: "#2563eb", strokeWidth: 1.6 },
-              { key: "QQQ", color: "#16a34a", strokeWidth: 1.6 },
-              { key: "IWM", color: "#f59e0b", strokeWidth: 1.6 },
-            ]}
+            series={PUT_CALL_SERIES}
             height={200}
             label="Put/Call Curve by Expiry (Current Snapshot)"
             zeroLine={false}
-            yFormatter={v => v.toFixed(2)}
-            tooltipFormatter={v => v.toFixed(3)}
+            yFormatter={formatTwoDecimals}
+            tooltipFormatter={formatThreeDecimals}
           />
           <p className="text-[11px] text-gray-400 mt-1">
             This is a per-expiry curve from today&apos;s options chains.
@@ -298,7 +308,7 @@ function SurveysTab() {
   const hasCachedPayload = cached?.payload != null
   const payload: SurveysPayload = hasLivePayload
     ? data
-    : cached?.payload ?? { aaii: [], naaim: [] }
+    : cached?.payload ?? EMPTY_SURVEYS
   const usingCachedFallback = !hasLivePayload && hasCachedPayload
   const feedErrors = payload.errors && typeof payload.errors === "object"
     ? payload.errors as Record<string, unknown>
@@ -306,6 +316,9 @@ function SurveysTab() {
   const aaiiError = typeof feedErrors.aaii === "string" ? feedErrors.aaii : null
   const naaimError = typeof feedErrors.naaim === "string" ? feedErrors.naaim : null
   const hasSourceError = Boolean(aaiiError || naaimError)
+
+  const spreadSeries = useMemo(() => mkSeries(payload.aaii.slice(-52), "date", "spread"), [payload.aaii])
+  const naaimSeries = useMemo(() => mkSeries(payload.naaim, "date", "exposure"), [payload.naaim])
 
   if (isLoading && !hasLivePayload && !hasCachedPayload) {
     return <LoadingSpinner message="Fetching AAII and NAAIM data..." />
@@ -316,9 +329,6 @@ function SurveysTab() {
 
   const latestAaii = aaii[aaii.length - 1] ?? {}
   const latestNaaim = naaim[naaim.length - 1] ?? {}
-
-  const spreadSeries = mkSeries(aaii.slice(-52), "date", "spread")
-  const naaimSeries = mkSeries(naaim, "date", "exposure")
 
   return (
     <div className="space-y-8">
@@ -414,7 +424,7 @@ function SurveysTab() {
                   height={140}
                   label="Bull-Bear Spread"
                   zeroLine
-                  yFormatter={v => `${v >= 0 ? "+" : ""}${v.toFixed(0)}%`}
+                  yFormatter={formatSpread}
                 />
               </div>
             )}
@@ -454,7 +464,7 @@ function SurveysTab() {
               height={180}
               label="NAAIM Exposure Index"
               zeroLine
-              yFormatter={v => v.toFixed(0)}
+              yFormatter={formatInteger}
             />
           </>
         ) : (
@@ -476,15 +486,19 @@ function VolatilityTab() {
     SENTIMENT_VOLATILITY_STALE_TIME_MS,
   )
 
+  const { vixSeries, vxnSeries, vvixSeries } = useMemo(() => {
+    const rows: Record<string, unknown>[] = Array.isArray(data) ? data : []
+    return {
+      vixSeries: mkSeries(rows, "date", "vix"),
+      vxnSeries: mkSeries(rows, "date", "vxn"),
+      vvixSeries: mkSeries(rows, "date", "vvix"),
+    }
+  }, [data])
   if (isLoading) return <LoadingSpinner message="Fetching VIX, VXN, VVIX..." />
   if (error || !data) return <ErrorMessage message={String(error)} />
 
   const rows: Record<string, unknown>[] = Array.isArray(data) ? data : []
   const latest = rows[rows.length - 1] ?? {}
-
-  const vixSeries = mkSeries(rows, "date", "vix")
-  const vxnSeries = mkSeries(rows, "date", "vxn")
-  const vvixSeries = mkSeries(rows, "date", "vvix")
 
   return (
     <div>
@@ -510,7 +524,7 @@ function VolatilityTab() {
             color="#ef4444"
             label="VIX (S&P 500 Implied Vol)"
             zeroLine={false}
-            yFormatter={v => v.toFixed(1)}
+            yFormatter={formatOneDecimal}
           />
           <TimeSeriesChart
             data={vxnSeries}
@@ -518,7 +532,7 @@ function VolatilityTab() {
             color="#f97316"
             label="VXN (NASDAQ 100 Implied Vol)"
             zeroLine={false}
-            yFormatter={v => v.toFixed(1)}
+            yFormatter={formatOneDecimal}
           />
           <TimeSeriesChart
             data={vvixSeries}
@@ -526,7 +540,7 @@ function VolatilityTab() {
             color="#8b5cf6"
             label="VVIX (Volatility of VIX)"
             zeroLine={false}
-            yFormatter={v => v.toFixed(1)}
+            yFormatter={formatOneDecimal}
           />
         </div>
       )}

@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { type ReactNode } from "react"
+import { memo, useMemo, type ReactNode } from "react"
 
 type ListType = "ul" | "ol"
 
@@ -363,6 +363,7 @@ export function renderMarkdownLite(markdown: string) {
     return blocks.length ? blocks : <p>{markdown}</p>
 }
 
-export function MarkdownRenderer({ content }: { content: string }) {
-    return <div>{renderMarkdownLite(content)}</div>
-}
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: { content: string }) {
+    const rendered = useMemo(() => renderMarkdownLite(content), [content])
+    return <div>{rendered}</div>
+})

@@ -35,6 +35,9 @@ interface BondDashboardResponse {
   countries: Record<string, CountryData>
 }
 
+const formatYieldTick = (v: number) => `${v.toFixed(1)}%`
+const formatYieldTooltip = (v: number) => `${v.toFixed(3)}%`
+
 export function BondDashboard() {
   const [tenor, setTenor] = useState<Tenor>("10Y")
   const { data, isLoading, error } = useApiQuery<BondDashboardResponse>(
@@ -93,8 +96,8 @@ export function BondDashboard() {
                   <TimeSeriesChart
                     data={series}
                     height={160}
-                    yFormatter={v => `${v.toFixed(1)}%`}
-                    tooltipFormatter={v => `${v.toFixed(3)}%`}
+                    yFormatter={formatYieldTick}
+                    tooltipFormatter={formatYieldTooltip}
                   />
                 ) : (
                   <p className="body-copy pt-4">No data available.</p>

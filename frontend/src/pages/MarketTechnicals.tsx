@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Sparkles } from "lucide-react"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -173,6 +173,9 @@ function PriceVolumeTab() {
 
 function VIXTab() {
   const { data, isLoading, error } = useApiQuery(["vix-term-structure"], fetchVixTermStructure)
+  const chartData = useMemo(() => ((data?.recent_df ?? []) as Record<string, unknown>[])
+    .map(r => ({ date: String(r["Date"]), value: r["Ratio"] as number }))
+    .filter(d => d.date && d.value != null), [data?.recent_df])
   if (isLoading) return <LoadingSpinner />
   if (error || !data) return <ErrorMessage message={String(error)} />
 
@@ -180,9 +183,6 @@ function VIXTab() {
   const recent: Record<string, unknown>[] = data.recent_df ?? []
   const hits: Record<string, unknown>[] = data.hits_df ?? []
 
-  const chartData = recent
-    .map((r: Record<string, unknown>) => ({ date: String(r["Date"]), value: r["Ratio"] as number }))
-    .filter(d => d.date && d.value != null)
   const recentTableRows = recent
     .slice(-10)
     .sort((a, b) => String(b["Date"]).localeCompare(String(a["Date"])))

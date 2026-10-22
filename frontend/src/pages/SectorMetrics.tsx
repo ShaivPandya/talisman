@@ -124,6 +124,9 @@ export function SectorMetrics() {
   )
   const sectorPrices = seriesData?.sector_prices ?? {}
   const sectorRelativePrices = seriesData?.sector_relative_prices ?? {}
+  const normalizedRelativePrices = useMemo(() => Object.fromEntries(
+    Object.entries(seriesData?.sector_relative_prices ?? {}).map(([name, series]) => [name, normalizeReturnSeries(series)]),
+  ), [seriesData?.sector_relative_prices])
   const order = seriesData?.sector_order ?? Object.keys(sectorPrices)
   const benchmark = seriesData?.benchmark ?? "SPY"
   const isRelativeMode = performanceMode === "vs SPY"
@@ -235,7 +238,7 @@ export function SectorMetrics() {
             const series = activeSeries[sector]
             if (!series || series.length === 0) return null
             const ret = calcReturn(series)
-            const chartData = isRelativeMode ? normalizeReturnSeries(series) : series
+            const chartData = isRelativeMode ? normalizedRelativePrices[sector] : series
             return (
               <ChartTile
                 key={sector}

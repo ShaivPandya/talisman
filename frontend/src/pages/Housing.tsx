@@ -56,16 +56,16 @@ function fmtChange(change: number | null, unit: string): string | null {
   return `${sign}${change.toFixed(2)}`
 }
 
+const formatOneDecimal = (v: number) => v.toFixed(1)
+const formatThousands = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}M` : `${Math.round(v)}K`
+const formatMillions = (v: number) => `${v.toFixed(1)}M`
+const formatIndex = (v: number) => `${Math.round(v)}`
+
 function yFormatter(unit: string) {
-  return (v: number) => {
-    if (unit === "thousands") {
-      if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}M`
-      return `${Math.round(v)}K`
-    }
-    if (unit === "millions") return `${v.toFixed(1)}M`
-    if (unit === "index") return `${Math.round(v)}`
-    return v.toFixed(1)
-  }
+  if (unit === "thousands") return formatThousands
+  if (unit === "millions") return formatMillions
+  if (unit === "index") return formatIndex
+  return formatOneDecimal
 }
 
 export function Housing() {

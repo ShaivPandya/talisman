@@ -11,6 +11,8 @@ import { TimeSeriesChart, type SeriesDef } from "@/components/shared/TimeSeriesC
 import { fetchDossier, runChart } from "@/lib/api"
 import type { ParsedOverview } from "@/lib/overviewTypes"
 
+const formatPrice = (value: number) => PRICE_FORMATTER.format(value)
+
 const CLOSE_SERIES: SeriesDef[] = [
   { key: "Close", name: "Close", color: "hsl(var(--accent))", strokeWidth: 2 },
 ]
@@ -139,8 +141,8 @@ function PriceChart({ ticker }: { ticker: string }) {
             multiData={points}
             series={CLOSE_SERIES}
             height={200}
-            yFormatter={value => PRICE_FORMATTER.format(value)}
-            tooltipFormatter={value => PRICE_FORMATTER.format(value)}
+            yFormatter={formatPrice}
+            tooltipFormatter={formatPrice}
           />
         </div>
       )}
