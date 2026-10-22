@@ -6,7 +6,8 @@ import hashlib
 import json
 import logging
 import time
-from concurrent.futures import Future, ThreadPoolExecutor, as_completed
+from collections.abc import Callable, Iterable
+from concurrent.futures import Future, as_completed
 from datetime import UTC, date, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -39,6 +40,7 @@ from api.company_research_evidence import (
     validate_sources,
 )
 from api.company_research_provider import ResearchProvider, ResearchTruncated
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from ontology.policy import actor_from_dict
 
 logger = logging.getLogger(__name__)
@@ -110,6 +112,22 @@ def narrative_bundle(evidence: Any) -> str:
 
     records = walk(json.loads(_json(evidence)))
     return _json({"records": records, "sources": sources})
+
+
+def _in_order[T](function: Callable[[Any], T], items: Iterable[Any]) -> list[T]:
+    """Run independent provider units concurrently and return results in input order.
+
+    The pool matches MAX_INFLIGHT; the store's reservations still cap calls in flight run-wide.
+    On failure, units that have not started are cancelled; running units finish and stay checkpointed.
+    """
+    with ThreadPoolExecutor(max_workers=store.MAX_INFLIGHT) as pool:
+        futures = [pool.submit(function, item) for item in items]
+        try:
+            return [future.result() for future in futures]
+        except BaseException:
+            for future in futures:
+                future.cancel()
+            raise
 
 
 class Workflow:
@@ -375,16 +393,13 @@ class Workflow:
             if batches[-1] and len(_json(batches[-1] + [record]).encode()) > 75_000:
                 batches.append([])
             batches[-1].append(record)
-        accepted: list[Any] = []
-        rejected: list[str] = []
-        for batch in batches:
-            if not batch:
-                continue
+        batches = [batch for batch in batches if batch]
 
+        def check(batch: list[Any]) -> EvidenceDecisions:
             def validate(checked: EvidenceDecisions, original: list[Any] = batch) -> None:
                 apply_decisions(original, checked, management=kind == "management_quality", as_of=self.as_of)
 
-            checked = self.provider.request(
+            return self.provider.request(
                 f"{kind}/verification-decisions/{hashlib.sha256(_json(batch).encode()).hexdigest()[:20]}",
                 EvidenceDecisions,
                 web=True,
@@ -401,6 +416,10 @@ class Workflow:
                 known_urls=source_urls(batch),
                 validate=validate,
             )
+
+        accepted: list[Any] = []
+        rejected: list[str] = []
+        for batch, checked in zip(batches, _in_order(check, batches), strict=True):
             records, exclusions = apply_decisions(
                 batch, checked, management=kind == "management_quality", as_of=self.as_of
             )
@@ -410,9 +429,9 @@ class Workflow:
 
     def write(self, kind: str, sections: list[str], evidence: list[Any], gaps: list[str]) -> list[str]:
         self.progress(kind, phase="report")
-        rendered: list[str] = []
+
         # Two related sections share context, while every packet stays independently recoverable.
-        for index in range(0, len(sections), 2):
+        def write_pair(index: int) -> list[str]:
             titles = sections[index : index + 2]
             relevant = evidence if kind == "management_quality" else [f for f in evidence if f.section in titles]
             compact = narrative_bundle(relevant)
@@ -454,8 +473,9 @@ class Workflow:
                     validate=validate,
                 )
                 self.audit(f"{kind}/sections-audit/{index}/repair", _json(written), relevant)
-            rendered.extend(f"## {section.title}\n\n{section.markdown}" for section in written.sections)
-        return rendered
+            return [f"## {section.title}\n\n{section.markdown}" for section in written.sections]
+
+        return [part for pair in _in_order(write_pair, range(0, len(sections), 2)) for part in pair]
 
     def retain_verified_partial(
         self, kind: str, plan: ResearchPlan, quarters: list[QuarterReview], packets: list[OverviewPacket]

@@ -194,18 +194,6 @@ export function ChartPage() {
     staleTime: Infinity,
   })
 
-  const ratioQuery5Y = useQuery({
-    queryKey: ["chart", "ratio", submittedRatioBase, "5Y"],
-    queryFn: () => runPriceRatioChart(buildRatioPayload(
-      submittedRatioBase!.symbol_a,
-      submittedRatioBase!.symbol_b,
-      computeWindowStartDate("5Y"),
-      submittedRatioBase!.end_date,
-    )),
-    enabled: Boolean(submittedRatioBase),
-    staleTime: Infinity,
-  })
-
   const ratioQuery10Y = useQuery({
     queryKey: ["chart", "ratio", submittedRatioBase, "10Y"],
     queryFn: () => runPriceRatioChart(buildRatioPayload(
@@ -218,9 +206,9 @@ export function ChartPage() {
     staleTime: Infinity,
   })
 
-  const activeRatioQuery = ratioWindow === "10Y" ? ratioQuery10Y : ratioQuery5Y
+  const activeRatioQuery = ratioQuery10Y
   const isLoading = mode === "ratio"
-    ? ratioQuery5Y.isFetching || ratioQuery10Y.isFetching
+    ? ratioQuery10Y.isFetching
     : singleQuery.isFetching
   const isError = mode === "ratio" ? activeRatioQuery.isError : singleQuery.isError
   const error = mode === "ratio" ? activeRatioQuery.error : singleQuery.error
@@ -372,7 +360,7 @@ export function ChartPage() {
         priceB: toNumber(r["Price B"]),
         ratio: toNumber(r["Ratio"]),
       }))
-      .filter(r => r.date.length > 0)
+      .filter(r => r.date.length > 0 && (ratioWindow === "10Y" || r.date >= computeWindowStartDate("5Y")))
       .sort((a, b) => {
         const aTs = toDateSortKey(a.date)
         const bTs = toDateSortKey(b.date)
@@ -381,11 +369,26 @@ export function ChartPage() {
         if (bTs != null) return 1
         return a.date.localeCompare(b.date)
       })
-  }, [ratioData])
+  }, [ratioData, ratioWindow])
 
-  const ratioStats = (ratioData?.stats && typeof ratioData.stats === "object")
-    ? ratioData.stats as Record<string, unknown>
-    : {}
+  const ratioStats = useMemo(() => {
+    const values = ratioRows.map(row => row.ratio).filter((value): value is number => value != null)
+    const start = values[0] ?? null
+    const end = values.at(-1) ?? null
+    const average = values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null
+    return {
+      start_date: ratioRows[0]?.date,
+      end_date: ratioRows.at(-1)?.date,
+      observations: values.length,
+      start_ratio: start,
+      end_ratio: end,
+      historical_avg: average,
+      change_pct: start && end != null ? end / start - 1 : null,
+      current_vs_historical_avg_pct: average && end != null ? end / average - 1 : null,
+      min_ratio: values.length ? Math.min(...values) : null,
+      max_ratio: values.length ? Math.max(...values) : null,
+    }
+  }, [ratioRows])
 
   const activeRatioSymbolA = String(ratioData?.symbol_a ?? ratioSymbolA).trim().toUpperCase()
   const activeRatioSymbolB = String(ratioData?.symbol_b ?? ratioSymbolB).trim().toUpperCase()

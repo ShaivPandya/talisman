@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { memo, useMemo, useState } from "react"
+import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   runQualityScreen,
   runShortScreen,
@@ -19,6 +19,39 @@ import {
   Toggle, ActionButton, ControlPanel,
 } from "@/components/shared/FormControls"
 import { colorPositiveNegative, colorZscore } from "@/lib/colors"
+
+const EMPTY_ROWS: Record<string, unknown>[] = []
+
+type ScreenerSnapshot<T> = { result: T; benchmark?: string }
+
+function useScreenerResult<T>(screen: ScreenerTab) {
+  return useQuery<ScreenerSnapshot<T>>({
+    queryKey: ["screeners", screen],
+    queryFn: skipToken,
+    staleTime: Infinity,
+  })
+}
+
+function useScreenerMutation<T, Body>(screen: ScreenerTab, options: { mutationFn: (body: Body) => Promise<T> }) {
+  const queryClient = useQueryClient()
+  const { data } = useScreenerResult<T>(screen)
+  const mutation = useMutation({
+    mutationFn: options.mutationFn,
+    onMutate: () => ({ query: queryClient.getQueryCache().find({ queryKey: ["screeners", screen] }) }),
+    onSuccess: (result, body, context) => {
+      // An in-flight run from a signed-out session must not repopulate a
+      // cleared cache after another user signs in.
+      if (!context?.query || context.query !== queryClient.getQueryCache().find({ queryKey: ["screeners", screen] })) return
+      const benchmark = body && typeof body === "object" && "benchmark" in body && typeof body.benchmark === "string"
+        ? body.benchmark
+        : undefined
+      // Keep the last completed run across tab/route unmounts. Auth clears this
+      // cache on logout; inactive results use the app's bounded retention.
+      queryClient.setQueryData<ScreenerSnapshot<T>>(["screeners", screen], { result, benchmark })
+    },
+  })
+  return { mutation, hasResult: data !== undefined }
+}
 
 const UNIVERSE_OPTIONS = [
   "S&P 500", "Russell 2000", "S&P 400",
@@ -147,38 +180,21 @@ function FailedTickerNotice({ failed }: { failed: unknown }) {
 
 /* ─── Quality Screen ─── */
 
-function QualityPanel() {
+function QualityForm() {
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("S&P 500")
   const [tickers, setTickers] = useState("")
   const [benchmark, setBenchmark] = useState("Same as Input")
   const [progress, setProgress] = useState<ScreenJobProgress | undefined>(undefined)
 
-  const mutation = useMutation({
+  const { mutation, hasResult } = useScreenerMutation("Quality", {
     mutationFn: (body: QualityScreenRequest) => runQualityScreen(body, setProgress),
   })
-
-  useEffect(() => {
-    mutation.reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   function handleRun() {
     setProgress({ phase: "queued", done: 0, total: 0 })
     mutation.mutate({ universe, tickers, benchmark, input_mode: inputMode })
   }
-
-  const rows: Record<string, unknown>[] = mutation.data?.results_df ?? []
-  const columns: ColumnDef[] = rows.length > 0
-    ? orderQualityColumns(Object.keys(rows[0])).map(k => ({
-        key: k,
-        header: formatHeader(k),
-        colorFn: k.toLowerCase().includes("z") || k.toLowerCase().includes("score")
-          ? colorZscore
-          : k.toLowerCase().includes("pct") ? colorPositiveNegative : undefined,
-        format: (v: unknown) => v != null ? (typeof v === "number" ? (v >= 0 ? "+" : "") + v.toFixed(2) : String(v)) : "N/A",
-      }))
-    : []
 
   return (
     <>
@@ -231,17 +247,43 @@ function QualityPanel() {
       )}
       {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
 
-      {mutation.data && !mutation.isPending && (
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
+      )}
+    </>
+  )
+}
+
+const QualityResults = memo(function QualityResults() {
+  const { data: snapshot } = useScreenerResult<Awaited<ReturnType<typeof runQualityScreen>>>("Quality")
+  const data = snapshot?.result
+  const benchmark = snapshot?.benchmark ?? "—"
+
+  const rows: Record<string, unknown>[] = data?.results_df ?? EMPTY_ROWS
+  const columns = useMemo<ColumnDef[]>(() => rows.length > 0
+    ? orderQualityColumns(Object.keys(rows[0])).map(k => ({
+        key: k,
+        header: formatHeader(k),
+        colorFn: k.toLowerCase().includes("z") || k.toLowerCase().includes("score")
+          ? colorZscore
+          : k.toLowerCase().includes("pct") ? colorPositiveNegative : undefined,
+        format: (v: unknown) => v != null ? (typeof v === "number" ? (v >= 0 ? "+" : "") + v.toFixed(2) : String(v)) : "N/A",
+      }))
+    : [], [rows])
+
+  return (
+    <>
+      {data && (
         <>
           <div className="flex gap-6 text-sm text-gray-600 mb-4">
-            <span>Input: <strong>{mutation.data.input_count ?? "—"}</strong></span>
-            <span>Universe size: <strong>{mutation.data.universe_size ?? "—"}</strong></span>
-            <span>Scored: <strong>{mutation.data.scored_count ?? rows.length}</strong></span>
-            <span>Benchmark: <strong>{mutation.data.benchmark_name ?? benchmark}</strong></span>
+            <span>Input: <strong>{data.input_count ?? "—"}</strong></span>
+            <span>Universe size: <strong>{data.universe_size ?? "—"}</strong></span>
+            <span>Scored: <strong>{data.scored_count ?? rows.length}</strong></span>
+            <span>Benchmark: <strong>{data.benchmark_name ?? benchmark}</strong></span>
           </div>
-          {Array.isArray(mutation.data.failed) && mutation.data.failed.length > 0 && (
+          {Array.isArray(data.failed) && data.failed.length > 0 && (
             <div className="mb-4 rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-              <strong>Some tickers failed:</strong> {mutation.data.failed.join(", ")}
+              <strong>Some tickers failed:</strong> {data.failed.join(", ")}
             </div>
           )}
           {rows.length > 0 ? (
@@ -252,11 +294,12 @@ function QualityPanel() {
         </>
       )}
 
-      {!mutation.data && !mutation.isPending && !mutation.isError && (
-        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
-      )}
     </>
   )
+})
+
+function QualityPanel() {
+  return <><QualityForm /><QualityResults /></>
 }
 
 /* ─── Short Screen ─── */
@@ -297,7 +340,7 @@ function buildShortColumns(rows: Record<string, unknown>[]): ColumnDef[] {
   return cols
 }
 
-function ShortPanel() {
+function ShortForm() {
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("Russell 2000")
   const [tickers, setTickers] = useState("")
@@ -324,7 +367,7 @@ function ShortPanel() {
   const [relMomentumBenchmark, setRelMomentumBenchmark] = useState("Same as Input")
   const [progress, setProgress] = useState<ScreenJobProgress | undefined>(undefined)
 
-  const mutation = useMutation({
+  const { mutation, hasResult } = useScreenerMutation("Short", {
     mutationFn: (body: ShortScreenRequest) => runShortScreen(body, setProgress),
   })
 
@@ -351,9 +394,6 @@ function ShortPanel() {
       rel_momentum_benchmark: relMomentumBenchmark,
     })
   }
-
-  const rows: Record<string, unknown>[] = mutation.data?.results_df ?? []
-  const columns = buildShortColumns(rows)
 
   return (
     <>
@@ -556,17 +596,33 @@ function ShortPanel() {
       )}
       {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
 
-      {mutation.data && !mutation.isPending && (
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">Configure criteria above and click Run Screen.</p>
+      )}
+    </>
+  )
+}
+
+const ShortResults = memo(function ShortResults() {
+  const { data: snapshot } = useScreenerResult<Awaited<ReturnType<typeof runShortScreen>>>("Short")
+  const data = snapshot?.result
+
+  const rows: Record<string, unknown>[] = data?.results_df ?? EMPTY_ROWS
+  const columns = useMemo(() => buildShortColumns(rows), [rows])
+
+  return (
+    <>
+      {data && (
         <>
           <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">
-            <span>Universe: <strong>{mutation.data.phase1_count ?? "—"}</strong></span>
-            <span>Pass P/B + Loss: <strong>{mutation.data.phase1_pass_count ?? "—"}</strong></span>
-            {mutation.data.phase3_pass_count != null && (
-              <span>Pass price filters: <strong>{mutation.data.phase3_pass_count}</strong></span>
+            <span>Universe: <strong>{data.phase1_count ?? "—"}</strong></span>
+            <span>Pass P/B + Loss: <strong>{data.phase1_pass_count ?? "—"}</strong></span>
+            {data.phase3_pass_count != null && (
+              <span>Pass price filters: <strong>{data.phase3_pass_count}</strong></span>
             )}
-            <span>Final candidates: <strong>{mutation.data.final_count ?? rows.length}</strong></span>
+            <span>Final candidates: <strong>{data.final_count ?? rows.length}</strong></span>
           </div>
-          <FailedTickerNotice failed={mutation.data.failed_tickers} />
+          <FailedTickerNotice failed={data.failed_tickers} />
           {rows.length > 0 ? (
             <DataTable columns={columns} rows={rows} />
           ) : (
@@ -575,11 +631,12 @@ function ShortPanel() {
         </>
       )}
 
-      {!mutation.data && !mutation.isPending && !mutation.isError && (
-        <p className="text-gray-400 text-sm">Configure criteria above and click Run Screen.</p>
-      )}
     </>
   )
+})
+
+function ShortPanel() {
+  return <><ShortForm /><ShortResults /></>
 }
 
 /* ─── Long Screen ─── */
@@ -603,7 +660,7 @@ function buildLongColumns(rows: Record<string, unknown>[]): ColumnDef[] {
   return cols
 }
 
-function LongPanel() {
+function LongForm() {
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("S&P 500")
   const [tickers, setTickers] = useState("")
@@ -632,7 +689,7 @@ function LongPanel() {
   const [relMomentumBenchmark, setRelMomentumBenchmark] = useState("Same as Input")
   const [progress, setProgress] = useState<ScreenJobProgress | undefined>(undefined)
 
-  const mutation = useMutation({
+  const { mutation, hasResult } = useScreenerMutation("Long", {
     mutationFn: (body: LongScreenRequest) => runLongScreen(body, setProgress),
   })
 
@@ -661,9 +718,6 @@ function LongPanel() {
       rel_momentum_benchmark: relMomentumBenchmark,
     })
   }
-
-  const rows: Record<string, unknown>[] = mutation.data?.results_df ?? []
-  const columns = buildLongColumns(rows)
 
   return (
     <>
@@ -885,17 +939,33 @@ function LongPanel() {
       )}
       {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
 
-      {mutation.data && !mutation.isPending && (
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">Configure criteria above and click Run Screen.</p>
+      )}
+    </>
+  )
+}
+
+const LongResults = memo(function LongResults() {
+  const { data: snapshot } = useScreenerResult<Awaited<ReturnType<typeof runLongScreen>>>("Long")
+  const data = snapshot?.result
+
+  const rows: Record<string, unknown>[] = data?.results_df ?? EMPTY_ROWS
+  const columns = useMemo(() => buildLongColumns(rows), [rows])
+
+  return (
+    <>
+      {data && (
         <>
           <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">
-            <span>Universe: <strong>{mutation.data.phase1_count ?? "—"}</strong></span>
-            <span>Pass P/B + Profit: <strong>{mutation.data.phase1_pass_count ?? "—"}</strong></span>
-            {mutation.data.phase3_pass_count != null && (
-              <span>Pass price filters: <strong>{mutation.data.phase3_pass_count}</strong></span>
+            <span>Universe: <strong>{data.phase1_count ?? "—"}</strong></span>
+            <span>Pass P/B + Profit: <strong>{data.phase1_pass_count ?? "—"}</strong></span>
+            {data.phase3_pass_count != null && (
+              <span>Pass price filters: <strong>{data.phase3_pass_count}</strong></span>
             )}
-            <span>Final candidates: <strong>{mutation.data.final_count ?? rows.length}</strong></span>
+            <span>Final candidates: <strong>{data.final_count ?? rows.length}</strong></span>
           </div>
-          <FailedTickerNotice failed={mutation.data.failed_tickers} />
+          <FailedTickerNotice failed={data.failed_tickers} />
           {rows.length > 0 ? (
             <DataTable columns={columns} rows={rows} />
           ) : (
@@ -904,11 +974,12 @@ function LongPanel() {
         </>
       )}
 
-      {!mutation.data && !mutation.isPending && !mutation.isError && (
-        <p className="text-gray-400 text-sm">Configure criteria above and click Run Screen.</p>
-      )}
     </>
   )
+})
+
+function LongPanel() {
+  return <><LongForm /><LongResults /></>
 }
 
 /* ─── Price Momentum ─── */
@@ -943,14 +1014,14 @@ const PRICE_MOMENTUM_COLUMNS: ColumnDef[] = [
   { key: "benchmark", header: "Benchmark" },
 ]
 
-function PriceMomentumPanel() {
+function PriceMomentumForm() {
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("S&P 500")
   const [tickers, setTickers] = useState("")
   const [benchmark, setBenchmark] = useState("Same as Input")
   const [progress, setProgress] = useState<ScreenJobProgress | undefined>(undefined)
 
-  const mutation = useMutation({
+  const { mutation, hasResult } = useScreenerMutation("Price Momentum", {
     mutationFn: (body: PriceMomentumRequest) => runPriceMomentum(body, setProgress),
   })
 
@@ -963,8 +1034,6 @@ function PriceMomentumPanel() {
       benchmark,
     })
   }
-
-  const rows: Record<string, unknown>[] = mutation.data?.results_df ?? []
 
   return (
     <>
@@ -1017,17 +1086,33 @@ function PriceMomentumPanel() {
       )}
       {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
 
-      {mutation.data && !mutation.isPending && (
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
+      )}
+    </>
+  )
+}
+
+const PriceMomentumResults = memo(function PriceMomentumResults() {
+  const { data: snapshot } = useScreenerResult<Awaited<ReturnType<typeof runPriceMomentum>>>("Price Momentum")
+  const data = snapshot?.result
+  const benchmark = snapshot?.benchmark ?? "—"
+
+  const rows: Record<string, unknown>[] = data?.results_df ?? EMPTY_ROWS
+
+  return (
+    <>
+      {data && (
         <>
           <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">
-            <span>Input: <strong>{mutation.data.input_count ?? "—"}</strong></span>
-            <span>Scored: <strong>{mutation.data.scored_count ?? rows.length}</strong></span>
-            <span>Benchmark: <strong>{mutation.data.benchmark_name ?? benchmark}</strong></span>
-            {mutation.data.date != null && (
-              <span>Date: <strong>{String(mutation.data.date)}</strong></span>
+            <span>Input: <strong>{data.input_count ?? "—"}</strong></span>
+            <span>Scored: <strong>{data.scored_count ?? rows.length}</strong></span>
+            <span>Benchmark: <strong>{data.benchmark_name ?? benchmark}</strong></span>
+            {data.date != null && (
+              <span>Date: <strong>{String(data.date)}</strong></span>
             )}
           </div>
-          <FailedTickerNotice failed={mutation.data.failed_tickers} />
+          <FailedTickerNotice failed={data.failed_tickers} />
           {rows.length > 0 ? (
             <DataTable columns={PRICE_MOMENTUM_COLUMNS} rows={rows} />
           ) : (
@@ -1036,16 +1121,17 @@ function PriceMomentumPanel() {
         </>
       )}
 
-      {!mutation.data && !mutation.isPending && !mutation.isError && (
-        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
-      )}
     </>
   )
+})
+
+function PriceMomentumPanel() {
+  return <><PriceMomentumForm /><PriceMomentumResults /></>
 }
 
 /* ─── Fundamental Momentum ─── */
 
-function FundamentalMomentumPanel() {
+function FundamentalMomentumForm() {
   const [screenType, setScreenType] = useState<"EPS" | "Revenue" | "Both">("Both")
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("S&P 500")
@@ -1053,12 +1139,7 @@ function FundamentalMomentumPanel() {
   const [benchmark, setBenchmark] = useState("Same as Input")
   const [isRunning, setIsRunning] = useState(false)
 
-  const mutation = useMutation({ mutationFn: runFundamentalMomentum })
-
-  useEffect(() => {
-    mutation.reset()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  const { mutation, hasResult } = useScreenerMutation("Fundamental Momentum", { mutationFn: runFundamentalMomentum })
 
   async function handleRun() {
     if (isRunning) return
@@ -1081,9 +1162,6 @@ function FundamentalMomentumPanel() {
       setIsRunning(false)
     }
   }
-
-  const epsRows: Record<string, unknown>[] = mutation.data?.eps?.results_df ?? []
-  const revRows: Record<string, unknown>[] = mutation.data?.rev?.results_df ?? []
 
   return (
     <>
@@ -1140,18 +1218,37 @@ function FundamentalMomentumPanel() {
       {isRunning && <LoadingSpinner message="Running fundamental momentum screen..." />}
       {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
 
-      {mutation.data && !mutation.isPending && (
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
+      )}
+    </>
+  )
+}
+
+const FundamentalMomentumResults = memo(function FundamentalMomentumResults() {
+  const { data: snapshot } = useScreenerResult<Awaited<ReturnType<typeof runFundamentalMomentum>>>("Fundamental Momentum")
+  const data = snapshot?.result
+
+  const epsRows: Record<string, unknown>[] = data?.eps?.results_df ?? EMPTY_ROWS
+  const revRows: Record<string, unknown>[] = data?.rev?.results_df ?? EMPTY_ROWS
+
+  const epsColumns = useMemo(() => buildCols(epsRows), [epsRows])
+  const revColumns = useMemo(() => buildCols(revRows), [revRows])
+
+  return (
+    <>
+      {data && (
         <div className="space-y-6">
           {epsRows.length > 0 && (
             <div>
               <h2 className="text-base font-semibold mb-2">EPS Momentum</h2>
-              <DataTable columns={buildCols(epsRows)} rows={epsRows} />
+              <DataTable columns={epsColumns} rows={epsRows} />
             </div>
           )}
           {revRows.length > 0 && (
             <div>
               <h2 className="text-base font-semibold mb-2">Revenue Momentum</h2>
-              <DataTable columns={buildCols(revRows)} rows={revRows} />
+              <DataTable columns={revColumns} rows={revRows} />
             </div>
           )}
           {epsRows.length === 0 && revRows.length === 0 && (
@@ -1160,11 +1257,12 @@ function FundamentalMomentumPanel() {
         </div>
       )}
 
-      {!mutation.data && !mutation.isPending && !mutation.isError && (
-        <p className="text-gray-400 text-sm">Configure inputs above and click Run Screen.</p>
-      )}
     </>
   )
+})
+
+function FundamentalMomentumPanel() {
+  return <><FundamentalMomentumForm /><FundamentalMomentumResults /></>
 }
 
 /* ─── Main Screeners Page ─── */

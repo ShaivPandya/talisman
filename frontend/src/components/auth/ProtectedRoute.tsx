@@ -1,15 +1,12 @@
 import { Navigate, Outlet } from "react-router-dom"
 import { useAuth } from "@/contexts/AuthContext"
+import { Layout } from "@/components/layout/Layout"
 
-export function ProtectedRoute() {
+export function ProtectedRoute({ bootstrapping = false }: { bootstrapping?: boolean }) {
   const { isAuthenticated, isLoading } = useAuth()
 
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-app px-4 text-sm text-muted">
-        Loading...
-      </div>
-    )
+  if (isLoading || (bootstrapping && isAuthenticated)) {
+    return <Layout bootstrapping />
   }
 
   return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />

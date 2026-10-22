@@ -1,22 +1,33 @@
-import { Suspense, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
-import { Link, Outlet, useLocation } from "react-router-dom"
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react"
+import { Link, Outlet, useLocation, useNavigation } from "react-router-dom"
 import { Bell, Menu, MessageCircle, PanelRightOpen, X } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
 import { Sidebar } from "./Sidebar"
 import { getRouteLabel } from "./navSections"
 import { SidebarSearchDialog } from "./SidebarSearchDialog"
-import { AgentChat } from "../agent/AgentChat"
 import { ScreenContextProvider, useScreenContext, useAutoScreenContext } from "@/contexts/ScreenContext"
 import { DecisionTraceProvider } from "@/contexts/DecisionTraceContext"
 import { DecisionTraceDrawer } from "@/components/shared/DecisionTraceDrawer"
 import { fetchApprovalSummary, type ApprovalRecord } from "@/lib/api"
 import { approvalSummaryQueryKey } from "@/lib/approvalQueries"
 import { STAN_OPEN_EVENT, type StanOpenDetail } from "@/lib/stanLauncher"
+import { hasResumableActiveJob } from "@/hooks/agentChatSessionStore"
+import { LoadObservabilityAfterRender } from "@/lib/observabilityShim"
 import { cn } from "@/lib/utils"
+import { useAuth } from "@/contexts/AuthContext"
+import { preloadRoute } from "@/lib/pageRoutes"
 
 const ACTION_ITEM_ALERT_LIMIT = 50
 
-export function Layout() {
+// The chat (and react-markdown) stays out of the entry bundle.
+const loadAgentChat = () => import("../agent/AgentChat")
+const AgentChat = lazy(async () => {
+  const mod = await loadAgentChat()
+  if (!mod) throw new TypeError("Failed to fetch dynamically imported module")
+  return { default: mod.AgentChat }
+})
+
+export function Layout({ bootstrapping = false }: { bootstrapping?: boolean }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [agentOpen, setAgentOpen] = useState(false)
   const [pageSearchOpen, setPageSearchOpen] = useState(false)
@@ -25,6 +36,7 @@ export function Layout() {
     <ScreenContextProvider>
       <DecisionTraceProvider>
         <LayoutInner
+          bootstrapping={bootstrapping}
           sidebarOpen={sidebarOpen}
           setSidebarOpen={setSidebarOpen}
           agentOpen={agentOpen}
@@ -39,6 +51,7 @@ export function Layout() {
 }
 
 interface LayoutInnerProps {
+  bootstrapping: boolean
   sidebarOpen: boolean
   setSidebarOpen: (v: boolean) => void
   agentOpen: boolean
@@ -48,6 +61,7 @@ interface LayoutInnerProps {
 }
 
 function LayoutInner({
+  bootstrapping,
   sidebarOpen,
   setSidebarOpen,
   agentOpen,
@@ -59,8 +73,16 @@ function LayoutInner({
   const autoContext = useAutoScreenContext()
   const effectiveContext = screenContext ?? autoContext
   const location = useLocation()
+  const navigation = useNavigation()
+  const { isAuthenticated, isLoading } = useAuth()
+  const pending = bootstrapping || navigation.state !== "idle"
+  const canUseActions = isAuthenticated && !isLoading && !bootstrapping
   const routeLabel = getRouteLabel(location.pathname)
   const [pendingStanCommand, setPendingStanCommand] = useState<StanOpenDetail | null>(null)
+  // Mount the chat on first open, or right away when a saved job needs
+  // useAgentChat to resume it. It stays mounted once opened.
+  const [agentChatMounted, setAgentChatMounted] = useState(hasResumableActiveJob)
+  if (agentOpen && !agentChatMounted) setAgentChatMounted(true)
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -103,6 +125,11 @@ function LayoutInner({
 
   return (
     <div className="flex min-h-screen bg-app text-app">
+      {pending && (
+        <div role="progressbar" aria-label="Loading page" className="fixed inset-x-0 top-0 z-[70] h-1 overflow-hidden bg-selected">
+          <div className="h-full w-1/3 animate-pulse bg-[hsl(var(--accent))] motion-reduce:animate-none" />
+        </div>
+      )}
       {sidebarOpen && (
         <div
           className="fixed inset-0 z-20 bg-black/40 md:hidden"
@@ -116,7 +143,7 @@ function LayoutInner({
         onOpenSearch={openPageSearch}
       />
 
-      <main className="theme-page flex-1 overflow-auto min-w-0">
+      <main aria-busy={pending} className="theme-page flex-1 overflow-auto min-w-0">
         <div className="theme-page-content">
           <div className="theme-floating mb-4 flex items-center justify-between gap-3 px-3 py-3 md:hidden">
             <button
@@ -135,6 +162,7 @@ function LayoutInner({
               type="button"
               className="theme-icon-button"
               onClick={() => setAgentOpen(true)}
+              disabled={!canUseActions}
               aria-label="Open Stan"
             >
               <PanelRightOpen size={18} />
@@ -142,16 +170,23 @@ function LayoutInner({
           </div>
 
           <Suspense fallback={<PageLoading />}>
-            <Outlet />
+            {bootstrapping ? <PageLoading /> : <Outlet />}
+            {/* Mount once the page has loaded, so background downloads don't compete with it. */}
+            {canUseActions && <>
+              <PrefetchRoutes />
+              <PrefetchAgentChat />
+              <LoadObservabilityAfterRender />
+            </>}
           </Suspense>
         </div>
       </main>
 
-      <ActionItemApprovalAlert agentOpen={agentOpen} />
+      {canUseActions && <ActionItemApprovalAlert agentOpen={agentOpen} />}
 
       <button
         type="button"
         onClick={() => setAgentOpen(true)}
+        disabled={!canUseActions}
         className={cn(
           "theme-floating fixed bottom-[max(1.25rem,calc(1.25rem+var(--safe-bottom)))] right-[max(1rem,calc(1rem+var(--safe-right)))] z-40 flex h-14 w-14 items-center justify-center text-link transition-colors hover:bg-selected md:flex",
           agentOpen && "max-md:hidden",
@@ -161,13 +196,17 @@ function LayoutInner({
         <MessageCircle size={20} />
       </button>
 
-      <AgentChat
-        open={agentOpen}
-        onClose={() => setAgentOpen(false)}
-        screenContext={effectiveContext}
-        pendingCommand={pendingStanCommand}
-        onPendingCommandConsumed={() => setPendingStanCommand(null)}
-      />
+      {canUseActions && agentChatMounted && (
+        <Suspense fallback={null}>
+          <AgentChat
+            open={agentOpen}
+            onClose={() => setAgentOpen(false)}
+            screenContext={effectiveContext}
+            pendingCommand={pendingStanCommand}
+            onPendingCommandConsumed={() => setPendingStanCommand(null)}
+          />
+        </Suspense>
+      )}
       <SidebarSearchDialog
         open={pageSearchOpen}
         onOpenChange={setPageSearchOpen}
@@ -201,8 +240,9 @@ function ActionItemApprovalAlert({ agentOpen }: { agentOpen: boolean }) {
   const summaryQuery = useQuery({
     queryKey: approvalSummaryQueryKey({ status: "pending", limit: ACTION_ITEM_ALERT_LIMIT }),
     queryFn: () => fetchApprovalSummary({ status: "pending", limit: ACTION_ITEM_ALERT_LIMIT }),
-    staleTime: 15_000,
-    refetchInterval: 30_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   })
 
   const approval = useMemo(() => {
@@ -257,6 +297,67 @@ function ActionItemApprovalAlert({ agentOpen }: { agentOpen: boolean }) {
       </div>
     </aside>
   )
+}
+
+function PrefetchRoutes() {
+  const location = useLocation()
+  useEffect(() => {
+    let cancelled = false
+    let idleId: number | undefined
+    let timer: number | undefined
+    const routes = ["/", "/workspace", "/risk"].filter(path => path !== location.pathname)
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean; effectiveType?: string } }).connection
+    if (connection?.saveData || connection?.effectiveType?.includes("2g")) return
+
+    async function next() {
+      const path = routes.shift()
+      if (cancelled || !path) return
+      await preloadRoute(path).catch(() => {})
+      if (!cancelled) schedule()
+    }
+    function schedule() {
+      if (typeof window.requestIdleCallback === "function") {
+        idleId = window.requestIdleCallback(() => { void next() })
+      } else {
+        timer = window.setTimeout(() => { void next() }, 1_000)
+      }
+    }
+    schedule()
+    return () => {
+      cancelled = true
+      if (idleId !== undefined) window.cancelIdleCallback(idleId)
+      if (timer !== undefined) window.clearTimeout(timer)
+    }
+  }, [location.pathname])
+  return null
+}
+
+function PrefetchAgentChat() {
+  useEffect(() => {
+    let idleId: number | null = null
+    let timeoutId: number | null = null
+
+    const prefetchAgentChat = () => {
+      loadAgentChat().catch(() => {
+        // Opportunistic; opening the chat loads it again and surfaces errors.
+      })
+    }
+
+    if (typeof window.requestIdleCallback === "function") {
+      idleId = window.requestIdleCallback(prefetchAgentChat)
+    } else {
+      timeoutId = window.setTimeout(prefetchAgentChat, 1000)
+    }
+
+    return () => {
+      if (idleId !== null && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleId)
+      }
+      if (timeoutId !== null) window.clearTimeout(timeoutId)
+    }
+  }, [])
+
+  return null
 }
 
 function PageLoading() {

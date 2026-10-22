@@ -17,6 +17,20 @@ test.describe("password auth entry", () => {
     await expect(page).toHaveURL(/\/$/)
     await expect(page.getByRole("heading", { name: "Portfolio Dashboard" })).toBeVisible()
   })
+
+  test("loads no chat, markdown or chart code on the login page", async ({ page }) => {
+    const scripts: string[] = []
+    page.on("request", request => {
+      if (request.resourceType() === "script") scripts.push(new URL(request.url()).pathname)
+    })
+
+    await page.goto("/login")
+    await expect(page.getByText("Sign in with your username and password.")).toBeVisible()
+    await page.waitForLoadState("networkidle")
+
+    expect(scripts.length).toBeGreaterThan(0)
+    expect(scripts.filter(path => /react-markdown|remark-gfm|recharts|\/components\/agent\//.test(path))).toEqual([])
+  })
 })
 
 test("renders the portfolio dashboard happy path with deterministic holdings", async ({ page }) => {
@@ -296,6 +310,35 @@ test("opens the agent chat shell with workflow and preference fixtures", async (
   await page.getByRole("textbox", { name: "Conversation title" }).fill("Renamed NVDA Chat")
   await page.keyboard.press("Enter")
   await expect(page.getByText("Renamed NVDA Chat").first()).toBeVisible()
+})
+
+test("resumes a saved in-flight chat job on load without opening Stan", async ({ page }) => {
+  await authenticate(page)
+  await page.addInitScript(() => {
+    localStorage.setItem("agent-chat-current", JSON.stringify({
+      messages: [
+        { id: "user-resume", role: "user", content: "Summarize my book", timestamp: 1 },
+        { id: "assistant-resume", role: "assistant", content: "", timestamp: 2 },
+      ],
+      sessionId: "smoke-agent-session",
+      activeJob: {
+        jobId: "agent-smoke-job",
+        assistantId: "assistant-resume",
+        afterSeq: 0,
+        clientTurnId: "turn-resume",
+        sessionId: "smoke-agent-session",
+      },
+    }))
+  })
+  const resumed = page.waitForRequest(request =>
+    request.url().includes("/api/agent/chat/async/agent-smoke-job/events"),
+  )
+
+  await page.goto("/")
+
+  await expect(page.getByRole("heading", { name: "Portfolio Dashboard" })).toBeVisible()
+  await resumed
+  await expect(page.getByRole("dialog")).toBeHidden()
 })
 
 test("renders position dossier scenario comparison disclosure", async ({ page }) => {

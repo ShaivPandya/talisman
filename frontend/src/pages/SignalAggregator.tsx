@@ -131,6 +131,10 @@ export function SignalAggregator() {
 
   const factors = useMemo(() => data?.factors ?? [], [data?.factors])
   const historySeries = useMemo(() => data?.history?.series ?? [], [data?.history?.series])
+  const chartData = useMemo<DataPoint[]>(() => historySeries.map((p: HistoryPoint) => ({
+    date: p.date,
+    value: p.score,
+  })), [historySeries])
   const historyEpisodes = useMemo(() => data?.history?.episodes ?? [], [data?.history?.episodes])
   const failedModules = useMemo(() => data?.failed_modules ?? [], [data?.failed_modules])
   const isDegraded = data?.status === "degraded" || failedModules.length > 0
@@ -284,11 +288,6 @@ export function SignalAggregator() {
     detail: state?.detail || "—",
   }))
   const episodeRows: Record<string, unknown>[] = historyEpisodes.map(e => ({ ...e }))
-
-  const chartData: DataPoint[] = historySeries.map((p: HistoryPoint) => ({
-    date: p.date,
-    value: p.score,
-  }))
 
   const topFactors = [...factors]
     .filter(f => typeof f.contribution === "number")

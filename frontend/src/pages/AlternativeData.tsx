@@ -31,10 +31,13 @@ function chartDate(value: string) {
 }
 
 function AlternativeDataResultView({ result }: { result: AlternativeResult }) {
-  const metrics = [...new Set(result.observations.map(r => r.metric))]
   const [chosenMetric, setChosenMetric] = useState<string | null>(null)
-  const metric = chosenMetric && metrics.includes(chosenMetric) ? chosenMetric : metrics[0]
-  const series = result.observations.filter(r => r.metric === metric)
+  const { metrics, metric, series, chartData } = useMemo(() => {
+    const metrics = [...new Set(result.observations.map(r => r.metric))]
+    const metric = chosenMetric && metrics.includes(chosenMetric) ? chosenMetric : metrics[0]
+    const series = result.observations.filter(r => r.metric === metric)
+    return { metrics, metric, series, chartData: series.map(r => ({ date: chartDate(r.date), value: r.value })) }
+  }, [result.observations, chosenMetric])
   return <SurfaceCard className="space-y-5 p-5">
     <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="section-title">Source result</h2><p className="mt-1 text-xs text-muted">{result.attribution}</p></div>
       <span className="rounded-full border border-app px-3 py-1 text-xs">{result.status.replace(/_/g, " ")}</span></div>
@@ -49,7 +52,7 @@ function AlternativeDataResultView({ result }: { result: AlternativeResult }) {
     {metrics.length > 0 ? <>
       <label className="block text-sm">Measurement<select aria-label="Measurement" className={`${inputClass} mt-1`} value={metric} onChange={e => setChosenMetric(e.target.value)}>
         {metrics.map(m => <option key={m} value={m}>{m.replace(/_/g, " ")}</option>)}</select></label>
-      <TimeSeriesChart data={series.map(r => ({ date: chartDate(r.date), value: r.value }))} label={metric} height={260} timeframe="1y" />
+      <TimeSeriesChart data={chartData} label={metric} height={260} timeframe="1y" />
       <div className="max-h-72 overflow-auto"><table className="w-full text-left text-xs"><thead><tr><th className="p-2">Date</th><th className="p-2">Value</th><th className="p-2">Unit</th><th className="p-2">Coverage / dimensions</th></tr></thead>
         <tbody>{series.map((r, i) => <tr key={`${r.date}-${i}`} className="border-t border-app"><td className="p-2">{r.date}</td><td className="p-2">{r.value == null ? "Insufficient data" : r.value.toLocaleString(undefined, { maximumFractionDigits: 4 })}</td><td className="p-2">{r.unit}</td><td className="p-2">{r.dimensions ? JSON.stringify(r.dimensions) : "—"}</td></tr>)}</tbody>
       </table></div>

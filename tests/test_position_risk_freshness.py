@@ -105,3 +105,24 @@ def test_scheduled_risk_refresh_forces_only_optional_inputs(monkeypatch):
     position_risk.load_global_risk_input_bundle(refresh_optional_sources=True)
     assert all(calls[name] for name in position_risk.OPTIONAL_MODULES)
     assert not any(calls[name] for name in position_risk.REQUIRED_MODULES if name != "portfolio")
+
+
+def test_risk_input_modules_load_concurrently_in_module_order(monkeypatch):
+    import threading
+
+    from api import position_risk
+
+    names = [*position_risk.REQUIRED_MODULES[1:], *position_risk.OPTIONAL_MODULES]
+    in_flight = threading.Barrier(len(names), timeout=5)
+
+    def load(config, **_kwargs):
+        in_flight.wait()  # passes only once every module loads at the same time
+        return {"status": "ok", "snapshot_key": config.snapshot_key}, {"module": config.name}
+
+    monkeypatch.setattr(position_risk, "_load_module", load)
+    monkeypatch.setattr(position_risk, "_compute_components", lambda _: {})
+    bundle = position_risk.load_global_risk_input_bundle()
+
+    assert list(bundle.source_status) == names
+    assert list(bundle.input_snapshots) == names
+    assert bundle.module_data == {name: {"module": name} for name in names}

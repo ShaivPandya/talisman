@@ -1,6 +1,7 @@
 import os
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel, Field
 
 from api.cache import daily_cache
@@ -27,13 +28,15 @@ def load_housing_payload() -> dict:
 @router.get("/housing")
 def get_housing(force_refresh: bool = Query(False)):
     key = "housing"
-    return get_snapshot_backed_response(
-        snapshot_key=SNAPSHOT_HOUSING,
-        cache=daily_cache,
-        cache_key=key,
-        source="housing",
-        load_payload=load_housing_payload,
-        force_refresh=force_refresh,
+    return ORJSONResponse(
+        get_snapshot_backed_response(
+            snapshot_key=SNAPSHOT_HOUSING,
+            cache=daily_cache,
+            cache_key=key,
+            source="housing",
+            load_payload=load_housing_payload,
+            force_refresh=force_refresh,
+        )
     )
 
 

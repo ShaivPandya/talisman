@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 from typing import Any
 
@@ -21,7 +20,14 @@ from api.decision_state import (
     normalize_recommendation,
 )
 from api.llm_settings import get_setting, set_setting
-from api.source_health import build_approval_source_health_review, build_workspace_source_health
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
+from api.source_health import (
+    build_approval_source_health_review,
+    build_workspace_source_health,
+    get_source_health_portfolio_risk,
+    get_source_health_regime,
+)
+from api.source_health_cache import cached_source_health_value
 from decision_quality.opportunity_scout import (
     normalize_candidate_queue_item,
     rank_opportunity_candidates,
@@ -350,17 +356,7 @@ def get_workspace(since: str | None = None):
     def _fetch_regime():
         nonlocal regime_data
         try:
-            from api.signal_snapshot import get_signal_aggregator_snapshot_or_module_response
-            from api.snapshot_store import snapshots_required
-
-            regime_data = get_signal_aggregator_snapshot_or_module_response(
-                lookback_weeks=156,
-                include_raw_modules=False,
-            )
-            if regime_data is None and not snapshots_required():
-                from api.signal_aggregator import build_signal_aggregator
-
-                regime_data = build_signal_aggregator(include_history=False)
+            regime_data = get_source_health_regime(allow_live_fallback=True)
         except Exception:
             regime_data = None
 
@@ -413,9 +409,7 @@ def get_workspace(since: str | None = None):
     portfolio_summary = None
     portfolio_risk = None
     try:
-        from api.position_risk import get_latest_portfolio_risk
-
-        portfolio_risk = get_latest_portfolio_risk()
+        portfolio_risk = get_source_health_portfolio_risk()
     except Exception:
         portfolio_risk = None
     if isinstance(portfolio_data, dict):
@@ -443,11 +437,16 @@ def get_workspace(since: str | None = None):
             if isinstance(portfolio_risk, dict)
             else None,
         }
-    source_health = _safe_call(
-        build_workspace_source_health,
-        portfolio_risk=portfolio_risk,
-        portfolio_data=portfolio_data if isinstance(portfolio_data, dict) else None,
-        regime_data=regime_data if isinstance(regime_data, dict) else None,
+    source_health = cached_source_health_value(
+        "source_health",
+        lambda: _safe_call(
+            build_workspace_source_health,
+            # Reacquire cache inputs inside the fill: a snapshot write may
+            # have invalidated the earlier summary reads in this request.
+            portfolio_risk=_safe_call(get_source_health_portfolio_risk),
+            portfolio_data=portfolio_data if isinstance(portfolio_data, dict) else None,
+            regime_data=_safe_call(get_source_health_regime, allow_live_fallback=True),
+        ),
     )
 
     # Positions under thesis pressure

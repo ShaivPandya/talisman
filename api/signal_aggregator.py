@@ -51,20 +51,22 @@ import math
 import os
 import time
 from collections.abc import Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import as_completed
 from concurrent.futures import wait as cf_wait
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import pandas as pd
-
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
 from utils.market_freshness import (
     build_market_cache_metadata,
     expected_market_date,
     market_cache_decision,
     metadata_from_decision,
 )
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 DEFAULT_LOOKBACK_WEEKS = 156
 DEFAULT_POSITIONING_INSTRUMENTS = "SP500,NASDAQ,RUSSELL,US10Y,EUR"
@@ -84,7 +86,6 @@ MISSING_HISTORY_FACTORS = {"breadth", "sector", "momentum"}
 
 MODULE_TIMEOUT = 90  # seconds per module in ThreadPoolExecutor
 SP500_CHUNK_SIZE = 50
-SP500_BATCH_DELAY = 1.0  # seconds between yfinance batch downloads
 
 _log = logging.getLogger(__name__)
 
@@ -101,6 +102,8 @@ _CLOSE_PROBE_TICKER = "SPY"
 
 def _load_sp500_cache() -> tuple[pd.DataFrame | None, dict[str, Any] | None]:
     """Load cached S&P 500 prices + metadata from disk."""
+    import pandas as pd
+
     try:
         if not _SP500_CACHE_DATA.exists() or not _SP500_CACHE_META.exists():
             return None, None
@@ -161,6 +164,8 @@ def invalidate_sp500_price_cache() -> None:
 
 def _latest_market_close_date() -> str | None:
     """Probe the latest available close date via a lightweight SPY download."""
+    import pandas as pd
+
     from utils.retry import yf_download
 
     try:
@@ -183,6 +188,8 @@ def _latest_market_close_date() -> str | None:
 
 def _sp500_cache_as_of_date(df: pd.DataFrame) -> str | None:
     """Extract the latest date from a price DataFrame's index."""
+    import pandas as pd
+
     try:
         idx = pd.to_datetime(df.index, errors="coerce").dropna()
         if idx.empty:
@@ -226,6 +233,8 @@ def _as_dict(value: Any) -> dict[str, Any]:
 
 
 def _as_rows(value: Any) -> list[dict[str, Any]]:
+    import pandas as pd
+
     if isinstance(value, pd.DataFrame):
         if value.empty:
             return []
@@ -508,6 +517,8 @@ def _build_episodes(series_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _normalize_weekly(series: pd.Series, lookback_weeks: int) -> pd.Series:
+    import pandas as pd
+
     s = pd.to_numeric(series, errors="coerce")
     s = s.dropna()
     if s.empty:
@@ -525,6 +536,8 @@ def _build_vix_history_series(
     lookback_weeks: int,
     preloaded: tuple[pd.DataFrame, str] | None = None,
 ) -> pd.Series:
+    import pandas as pd
+
     from equities.market_technicals.vix_term_structure import add_signals, load_term_structure
 
     if preloaded is not None:
@@ -544,6 +557,8 @@ def _build_vix_history_series(
 
 
 def _build_liquidity_history_series(liquidity_raw: dict[str, Any], lookback_weeks: int) -> pd.Series:
+    import pandas as pd
+
     from macro.liquidity.liquidity import classify_regime
 
     composite_series = liquidity_raw.get("composite_series")
@@ -569,6 +584,8 @@ def _build_positioning_history_series(
     instruments_csv: str,
     preloaded_df: pd.DataFrame | None = None,
 ) -> pd.Series:
+    import pandas as pd
+
     from macro.positioning.positioning import DATASETS, DEFAULT_DOMAIN, INSTRUMENTS, fetch_markets_timeseries
 
     aliases = [s.strip().upper() for s in (instruments_csv or "").split(",") if s.strip()]
@@ -630,6 +647,8 @@ def _build_history(
     vix_preloaded: tuple[pd.DataFrame, str] | None = None,
     positioning_preloaded_df: pd.DataFrame | None = None,
 ) -> dict[str, Any]:
+    import pandas as pd
+
     module_status: dict[str, str] = {}
     factors: dict[str, pd.Series] = {}
 
@@ -718,60 +737,16 @@ def _build_history(
 
 
 def _download_sp500_prices_uncached() -> pd.DataFrame:
-    """Download S&P 500 constituent prices from yfinance (no cache)."""
+    """Download S&P 500 prices with bounded, overlapping chunks (no cache)."""
     from equities.market_technicals.market_breadth import get_sp500_tickers
-    from utils.retry import yf_download
+    from utils.yf_jobs import download_price_chunks
 
-    tickers = get_sp500_tickers()
-    chunks = [tickers[i : i + SP500_CHUNK_SIZE] for i in range(0, len(tickers), SP500_CHUNK_SIZE)]
-    all_data: list[pd.DataFrame] = []
-
-    for idx, chunk in enumerate(chunks, 1):
-        _log.info("S&P 500 shared download batch %d/%d (%d tickers)", idx, len(chunks), len(chunk))
-        try:
-            df = yf_download(
-                tickers=chunk,
-                period="2y",
-                interval="1d",
-                auto_adjust=True,
-                progress=False,
-            )
-            if df is not None and not df.empty:
-                all_data.append(df)
-            if idx < len(chunks):
-                time.sleep(SP500_BATCH_DELAY)
-        except Exception:
-            _log.warning("S&P 500 batch %d failed, skipping", idx)
-
-    if not all_data:
-        return pd.DataFrame()
-
-    if len(all_data) == 1:
-        return all_data[0]
-
-    # Merge chunks while preserving MultiIndex structure
-    fields: set[str] = set()
-    for df in all_data:
-        if isinstance(df.columns, pd.MultiIndex):
-            fields.update(df.columns.get_level_values(0).unique().tolist())
-        else:
-            fields.update(df.columns.tolist())
-
-    merged: dict[str, pd.DataFrame] = {}
-    for field in fields:
-        parts: list[pd.DataFrame] = []
-        for df in all_data:
-            if isinstance(df.columns, pd.MultiIndex):
-                if field in df.columns.get_level_values(0):
-                    parts.append(df[field])
-            elif field in df.columns:
-                parts.append(df[[field]])
-        if parts:
-            merged[field] = pd.concat(parts, axis=1)
-
-    if not merged:
-        return pd.DataFrame()
-    return pd.concat(merged, axis=1)
+    prices, failed = download_price_chunks(
+        get_sp500_tickers(), chunk_size=SP500_CHUNK_SIZE, period="2y", interval="1d", auto_adjust=True
+    )
+    if failed:
+        _log.warning("S&P 500 prices unavailable for %d tickers", len(failed))
+    return prices
 
 
 def _download_sp500_prices_with_meta() -> tuple[pd.DataFrame, dict[str, Any]]:
@@ -895,6 +870,8 @@ def _download_sp500_prices_with_meta() -> tuple[pd.DataFrame, dict[str, Any]]:
 def _fetch_current_modules(
     lookback_weeks: int = DEFAULT_LOOKBACK_WEEKS,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
+    import pandas as pd
+
     from equities.market_technicals.market_breadth import get_data as get_market_breadth
     from equities.market_technicals.top50_breadth import get_data as get_top50_breadth
     from equities.market_technicals.vix_term_structure import add_signals, load_term_structure
@@ -1029,6 +1006,8 @@ def build_signal_aggregator_from_payloads(
     include_history: bool = True,
 ) -> dict[str, Any]:
     """Build a signal-aggregator response from already-fetched module payloads."""
+    import pandas as pd
+
     lookback = max(26, min(int(lookback_weeks), 520))
     _fill_liquidity_snapshot_gap(raw, module_status)
     _attach_source_registry_to_module_status(module_status)

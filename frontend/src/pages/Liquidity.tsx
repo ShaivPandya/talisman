@@ -1,5 +1,5 @@
 import { useMemo } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { AlertTriangle, ChevronDown, Sparkles } from "lucide-react"
 import { useRegisterScreenContext } from "@/contexts/ScreenContext"
 import { useApiQuery } from "@/hooks/useApiQuery"
@@ -50,6 +50,7 @@ function liquidityQualityWarnings(data: unknown): string[] {
 }
 
 export function Liquidity() {
+  const queryClient = useQueryClient()
   const { analysis: persistedAnalysis, isOpen, setIsOpen, setAnalysis: setPersistedAnalysis } = useSessionAiOverview("ai-overview:liquidity")
   const mutation = useMutation({
     mutationFn: analyzeLiquidity,
@@ -150,7 +151,11 @@ export function Liquidity() {
           </button>
           <RefreshButton
             clearBackendCache={false}
-            beforeRefetch={() => fetchLiquidity({ force_refresh: true })}
+            onRefresh={async () => {
+              await queryClient.cancelQueries({ queryKey: ["liquidity"] })
+              const result = await fetchLiquidity({ force_refresh: true })
+              queryClient.setQueryData(["liquidity"], result)
+            }}
             queryKeys={[["liquidity"]]}
           />
         </div>

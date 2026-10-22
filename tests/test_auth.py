@@ -225,6 +225,123 @@ def test_csrf_required_for_mutating_session_requests(client):
     assert allowed.status_code == 200
 
 
+def test_me_rotates_csrf_in_one_auth_statement(auth_client):
+    from api import auth_store
+
+    statements = []
+    with auth_store._get_conn() as conn:
+        conn.set_trace_callback(lambda sql: statements.append(sql) if "auth_sessions" in sql else None)
+    try:
+        previous_csrf = auth_client._csrf_token
+        response = auth_client.get("/api/auth/me")
+        assert response.status_code == 200
+        assert len(statements) == 1
+        new_csrf = response.json()["csrfToken"]
+        assert new_csrf != previous_csrf
+        assert auth_client.post("/api/auth/logout", headers={"X-CSRF-Token": previous_csrf}).status_code == 403
+        assert auth_client.post("/api/auth/logout", headers={"X-CSRF-Token": new_csrf}).status_code == 200
+    finally:
+        conn.set_trace_callback(None)
+
+
+def test_read_and_mutation_auth_budgets_and_request_reuse(auth_client):
+    from typing import Annotated
+
+    from fastapi import Depends, FastAPI
+    from fastapi.testclient import TestClient
+
+    from api import auth_store
+    from api.main import ApiMiddleware
+    from api.routers.auth import require_actor, require_auth
+    from ontology.policy import Actor
+
+    app = FastAPI()
+    app.add_middleware(ApiMiddleware, schema_app=app)
+
+    @app.api_route("/api/auth-budget", methods=["GET", "POST"])
+    def endpoint(username: Annotated[str, Depends(require_auth)], actor: Annotated[Actor, Depends(require_actor)]):
+        return {"username": username, "roles": list(actor.roles)}
+
+    test_client = TestClient(app, cookies=auth_client.cookies)
+    statements = []
+    with auth_store._get_conn() as conn:
+        conn.set_trace_callback(lambda sql: statements.append(sql) if "FROM auth_sessions" in sql else None)
+    try:
+        assert test_client.get("/api/auth-budget").status_code == 200
+        assert len(statements) == 1
+        statements.clear()
+        assert test_client.get("/api/auth-budget").status_code == 200
+        assert statements == []
+        response = test_client.post("/api/auth-budget", headers={"X-CSRF-Token": auth_client._csrf_token})
+        assert response.status_code == 200
+        assert len(statements) == 1
+    finally:
+        conn.set_trace_callback(None)
+
+
+@pytest.mark.parametrize("path", ["/api/admin/health", "/api/approvals", "/api/provenance/trace", "/api/policy-gate"])
+def test_sensitive_reads_bypass_cached_session(auth_client, path):
+    from fastapi import HTTPException
+    from starlette.requests import Request
+
+    from api import auth_store
+    from api.routers.auth import _resolve_session_user
+
+    session_token = auth_client.cookies.get("__session")
+    assert auth_store.lookup_session(session_token) is not None
+    # Simulate revocation by another instance, without local cache invalidation.
+    with auth_store._get_conn() as conn:
+        conn.execute("UPDATE auth_sessions SET revoked_at = ?", (auth_store._now(),))
+        conn.commit()
+    request = Request({"type": "http", "method": "GET", "path": path, "headers": []})
+    with pytest.raises(HTTPException) as exc:
+        _resolve_session_user(request, session_token)
+    assert exc.value.status_code == 401
+
+
+def test_csrf_validation_and_denial_audit_leave_event_loop_responsive(monkeypatch):
+    import asyncio
+    import threading
+
+    from starlette.requests import Request
+
+    import api.main as main
+
+    entered = threading.Event()
+    release = threading.Event()
+    worker_threads = []
+
+    def verify(request):
+        worker_threads.append(threading.get_ident())
+        entered.set()
+        assert release.wait(2), "CSRF validation blocked the event loop"
+        return False
+
+    def audit(*args, **kwargs):
+        worker_threads.append(threading.get_ident())
+
+    monkeypatch.setattr(main, "verify_request_csrf", verify)
+    monkeypatch.setattr(main, "emit_audit_event", audit)
+    monkeypatch.setattr(main, "is_machine_authenticated_request", lambda request: False)
+
+    async def run():
+        loop_thread = threading.get_ident()
+        request = Request({"type": "http", "method": "POST", "path": "/api/portfolio", "headers": []})
+
+        task = asyncio.create_task(main._check_csrf(request))
+        try:
+            assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 1), 1.5)
+            release.set()
+            response = await task
+            assert response.status_code == 403
+            assert len(worker_threads) == 2 and loop_thread not in worker_threads
+        finally:
+            release.set()
+            await task
+
+    asyncio.run(run())
+
+
 def test_smoke_password_login_succeeds_when_hash_configured(client, monkeypatch):
     import bcrypt
 

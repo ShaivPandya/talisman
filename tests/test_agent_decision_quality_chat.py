@@ -299,7 +299,9 @@ def test_gate_downgrade_is_visible_to_synthesis_prompt(auth_client, monkeypatch)
     assert resp.status_code == 200
     parsed = _parse_sse(resp.text)
     done = [payload for event, payload in parsed if event == "done"][-1]
-    synthesis_prompt = fake.messages.kwargs_history[0]["messages"][0]["content"]
+    synthesis_prompt = "".join(
+        block["text"] for block in fake.messages.kwargs_history[0]["messages"][0]["content"] if block["type"] == "text"
+    )
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["decision_quality_chat"]["gate_status"] == "downgraded"
     assert done["decision_quality_chat"]["final_action"] == "watch"

@@ -12,7 +12,13 @@ from api.action_execution import execute_api_action
 from api.decision_state import normalize_approval
 from api.exceptions import AppError, ConflictError, NotFoundError, ValidationError
 from api.routers.auth import ActorDep
-from api.source_health import build_approval_source_health_review, build_workspace_source_health
+from api.source_health import (
+    build_approval_source_health_review,
+    build_workspace_source_health,
+    get_source_health_portfolio_risk,
+    get_source_health_regime,
+)
+from api.source_health_cache import cached_source_health_value
 from ontology.command_service import (
     OntologyCommandConflict,
     OntologyCommandContext,
@@ -72,13 +78,15 @@ def _get_approval_record(approval_id: str, *, actor) -> dict[str, Any]:
 
 
 def _current_source_health_context() -> dict[str, Any] | None:
+    return cached_source_health_value("source_health", _load_source_health_context)
+
+
+def _load_source_health_context() -> dict[str, Any] | None:
     portfolio_risk = None
     portfolio_data = None
     regime_data = None
     try:
-        from api.position_risk import get_latest_portfolio_risk
-
-        portfolio_risk = get_latest_portfolio_risk()
+        portfolio_risk = get_source_health_portfolio_risk()
     except Exception:
         portfolio_risk = None
     try:
@@ -89,12 +97,7 @@ def _current_source_health_context() -> dict[str, Any] | None:
     except Exception:
         portfolio_data = None
     try:
-        from api.signal_snapshot import get_signal_aggregator_snapshot_or_module_response
-
-        regime_data = get_signal_aggregator_snapshot_or_module_response(
-            lookback_weeks=156,
-            include_raw_modules=False,
-        )
+        regime_data = get_source_health_regime()
     except Exception:
         regime_data = None
     try:

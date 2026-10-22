@@ -1,6 +1,12 @@
 import json
+import os
 import re
+import shutil
+import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 ARGS_RE = re.compile(r"--args=([^\\\s]+)")
@@ -95,12 +101,12 @@ def test_analyzer_worker_deploy_uses_env_for_duplicate_analyzer_values() -> None
     assert '--memory="${ANALYZER_WORKER_MEMORY:-1Gi}"' in script
 
 
-def test_api_deploy_routes_only_heavier_noninteractive_jobs_to_cloud_run_jobs() -> None:
+def test_api_deploy_routes_interactive_analysis_to_warm_workers() -> None:
     script = (ROOT / "infra/gcp/deploy-api.sh").read_text()
 
-    assert '"ASYNC_DISPATCH_BACKEND_ANALYZER=cloud_run_jobs"' in script
+    assert '"ASYNC_DISPATCH_BACKEND_ANALYZER=warm_worker"' in script
     assert '"ASYNC_DISPATCH_BACKEND_SIZER=inline"' in script
-    assert '"ASYNC_DISPATCH_BACKEND_ONTOLOGY=cloud_run_jobs"' in script
+    assert '"ASYNC_DISPATCH_BACKEND_ONTOLOGY=warm_worker"' in script
     assert '"AGENT_CHAT_DISPATCH_BACKEND=warm_worker"' in script
     assert '"ASYNC_QUEUE_ANALYZER=analyzer"' in script
     assert '"ASYNC_ANALYZER_COMPLETED_TTL_SECONDS=300"' in script
@@ -268,3 +274,246 @@ def test_config_example_includes_smoke_hash_secret() -> None:
     config = (ROOT / "infra/gcp/config.example.sh").read_text()
 
     assert "AUTH_SMOKE_PASSWORD_HASH" in config
+
+
+def _render_pool_deploy(tmp_path, script_name, *, overrides=None, example_config=False):
+    """Run real deployment scripts against a capturing gcloud, never the cloud."""
+    root = tmp_path / Path(script_name).stem
+    scripts = root / "infra/gcp"
+    scripts.mkdir(parents=True)
+    for filename in ("lib.sh", script_name):
+        shutil.copyfile(ROOT / "infra/gcp" / filename, scripts / filename)
+    if example_config:
+        shutil.copyfile(ROOT / "infra/gcp/config.example.sh", scripts / "config.sh")
+    else:
+        (scripts / "config.sh").write_text(
+            """PROJECT_ID=pool-test
+REGION=us-central1
+ARTIFACT_REPO=pool-test
+IMAGE_NAME=api
+API_SERVICE=api
+API_SA=api@example.invalid
+WORKER_SA=worker@example.invalid
+MIGRATOR_SA=migrator@example.invalid
+CLOUDSQL_INSTANCE=pool-test:us-central1:test
+GCS_STATE_BUCKET=pool-test
+TOP50_REFRESH_JOB=top50
+CORS_ORIGINS=https://example.invalid
+ANALYZER_WORKER_INSTANCES=0
+ONTOLOGY_WORKER_INSTANCES=0
+API_SECRETS=(DATABASE_URL=fake:latest)
+WORKER_SECRETS=(DATABASE_URL=fake:latest)
+"""
+        )
+    binary = root / "bin"
+    binary.mkdir()
+    gcloud = binary / "gcloud"
+    gcloud.write_text(
+        f"#!{sys.executable}\n"
+        "import json, os, sys\n"
+        "from pathlib import Path\n"
+        "if sys.argv[1] != 'config':\n"
+        "    Path(os.environ['DEPLOY_ARGUMENTS']).write_text(json.dumps(sys.argv[1:]))\n"
+    )
+    gcloud.chmod(0o755)
+    captured = root / "arguments.json"
+    env = {key: value for key, value in os.environ.items() if not key.startswith(("POSTGRES_POOL_", "API_MAX_"))}
+    env.update(
+        PATH=f"{binary}{os.pathsep}{os.environ['PATH']}",
+        DEPLOY_ARGUMENTS=str(captured),
+        IMAGE_TAG="pool-test",
+        SKIP_IMAGE_CHECK="1",
+    )
+    env.update(overrides or {})
+    subprocess.run(
+        [shutil.which("bash") or "/bin/bash", str(scripts / script_name)],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=15,
+    )
+    args = json.loads(captured.read_text())
+    flags = dict(arg.split("=", 1) for arg in args if arg.startswith("--") and "=" in arg)
+    pairs = [pair.split("=", 1) for pair in flags["--set-env-vars"].removeprefix("^|^").split("|")]
+    pool_keys = [key for key, _ in pairs if key.startswith("POSTGRES_POOL_")]
+    assert len(pool_keys) == len(set(pool_keys)), "duplicate pool settings in rendered deployment"
+    return flags, dict(pairs)
+
+
+@pytest.mark.parametrize(
+    "script_name,minimum,maximum",
+    [
+        ("deploy-api.sh", 2, 2),
+        ("deploy-agent-worker.sh", 2, 2),
+        ("deploy-analyzer-worker.sh", 2, 2),
+        ("deploy-ontology-worker.sh", 2, 2),
+        ("deploy-async-job.sh", 2, 2),
+        ("deploy-top50-refresh-job.sh", 0, 1),
+    ],
+)
+def test_rendered_production_pool_settings(tmp_path, script_name, minimum, maximum):
+    _, env = _render_pool_deploy(tmp_path, script_name)
+    assert int(env["POSTGRES_POOL_MIN_SIZE"]) == minimum
+    assert int(env["POSTGRES_POOL_MAX_SIZE"]) == maximum
+    assert float(env["POSTGRES_POOL_TIMEOUT_SECONDS"]) == 5
+    assert minimum <= maximum
+
+
+def test_pool_overrides_and_api_service_cap_are_rendered_consistently(tmp_path):
+    flags, env = _render_pool_deploy(
+        tmp_path,
+        "deploy-api.sh",
+        overrides={
+            "POSTGRES_POOL_MIN_SIZE": "0",
+            "POSTGRES_POOL_MAX_SIZE": "1",
+            "POSTGRES_POOL_TIMEOUT_SECONDS": "1.25",
+            "API_MAX_INSTANCES": "1",
+        },
+    )
+    assert flags["--max"] == flags["--max-instances"] == "1"
+    assert env["POSTGRES_POOL_MIN_SIZE"] == "0"
+    assert env["POSTGRES_POOL_MAX_SIZE"] == "1"
+    assert env["POSTGRES_POOL_TIMEOUT_SECONDS"] == "1.25"
+
+
+def test_example_config_keeps_the_approved_api_pool_budget(tmp_path):
+    flags, env = _render_pool_deploy(tmp_path, "deploy-api.sh", example_config=True)
+    assert flags["--max"] == flags["--max-instances"] == "2"
+    assert env["POSTGRES_POOL_MIN_SIZE"] == env["POSTGRES_POOL_MAX_SIZE"] == "2"
+    assert env["POSTGRES_POOL_TIMEOUT_SECONDS"] == "5"
+
+
+def test_api_deploy_waits_for_http_readiness_and_keeps_one_warm_instance(tmp_path):
+    flags, _ = _render_pool_deploy(tmp_path, "deploy-api.sh")
+    assert flags["--min-instances"] == "1"
+    probe = dict(part.split("=", 1) for part in flags["--startup-probe"].split(","))
+    assert probe["httpGet.path"] == "/api/health"
+    assert probe["httpGet.port"] == "8080"
+    assert int(probe["periodSeconds"]) * int(probe["failureThreshold"]) <= 240
+    script = (ROOT / "infra/gcp/deploy-api.sh").read_text()
+    assert "--cpu-boost" in script
+    assert "--cpu-throttling" in script
+
+
+def test_api_minimum_instance_override_is_preserved(tmp_path):
+    flags, _ = _render_pool_deploy(tmp_path, "deploy-api.sh", overrides={"API_MIN_INSTANCES": "0"})
+    assert flags["--min-instances"] == "0"
+
+
+def test_routine_migration_job_seeds_before_api_deploy():
+    script = (ROOT / "infra/gcp/deploy-backend.sh").read_text()
+    migration = 'run_job_and_wait "${MIGRATION_JOB}" --args=-m,api.migrate'
+    assert script.index(migration) < script.index('"${_repo_root}/infra/gcp/deploy-api.sh"')
+
+
+def test_rendered_stack_fits_live_connection_budget_including_rollout(tmp_path):
+    api_flags, api = _render_pool_deploy(tmp_path, "deploy-api.sh", example_config=True)
+    agent_flags, agent = _render_pool_deploy(tmp_path, "deploy-agent-worker.sh", example_config=True)
+    analyzer_flags, analyzer = _render_pool_deploy(tmp_path, "deploy-analyzer-worker.sh", example_config=True)
+    ontology_flags, ontology = _render_pool_deploy(tmp_path, "deploy-ontology-worker.sh", example_config=True)
+    _, async_job = _render_pool_deploy(tmp_path, "deploy-async-job.sh", example_config=True)
+    _, top50 = _render_pool_deploy(tmp_path, "deploy-top50-refresh-job.sh", example_config=True)
+    assert api_flags["--max"] == api_flags["--max-instances"] == "2"
+    api_connections = int(api_flags["--max"]) * int(api["POSTGRES_POOL_MAX_SIZE"])
+    agent_connections = int(agent_flags["--instances"]) * int(agent["POSTGRES_POOL_MAX_SIZE"])
+    analysis_connections = sum(
+        int(flags["--instances"]) * int(env["POSTGRES_POOL_MAX_SIZE"])
+        for flags, env in ((analyzer_flags, analyzer), (ontology_flags, ontology))
+    )
+    # Two async executions, one migration connection, and two admin slots are
+    # explicit operational allowances, not scheduler-enforced execution limits.
+    steady = (
+        api_connections
+        + agent_connections
+        + analysis_connections
+        + 2 * int(async_job["POSTGRES_POOL_MAX_SIZE"])
+        + int(top50["POSTGRES_POOL_MAX_SIZE"])
+        + 1
+        + 2
+    )
+    assert int(analyzer_flags["--instances"]) == int(ontology_flags["--instances"]) == 1
+    assert steady == 18
+    # Rollouts drain generic async executions. Worker pools update before the
+    # API fleet, so their extra replicas do not overlap the extra API fleet.
+    drained_async_connections = 2 * int(async_job["POSTGRES_POOL_MAX_SIZE"])
+    worker_rollout = agent_connections + analysis_connections
+    assert worker_rollout == 6
+    assert steady - drained_async_connections + worker_rollout + 3 == 23 < 25
+    assert steady - drained_async_connections + api_connections + 3 == 21 < 25
+
+
+@pytest.mark.parametrize("parallel", ["0", "1"])
+def test_backend_applies_schema_before_starting_new_workers(tmp_path, parallel):
+    scripts = tmp_path / "infra/gcp"
+    scripts.mkdir(parents=True)
+    for filename in ("lib.sh", "deploy-backend.sh"):
+        shutil.copyfile(ROOT / "infra/gcp" / filename, scripts / filename)
+    (scripts / "config.sh").write_text(
+        """PROJECT_ID=claim-test
+REGION=us-central1
+ARTIFACT_REPO=claim-test
+IMAGE_NAME=api
+MIGRATION_JOB=migrate
+API_SECRETS=()
+WORKER_SECRETS=()
+"""
+    )
+    for name in (
+        "deploy-migration-job.sh",
+        "deploy-top50-refresh-job.sh",
+        "deploy-async-job.sh",
+        "deploy-agent-worker.sh",
+        "deploy-analyzer-worker.sh",
+        "deploy-ontology-worker.sh",
+        "deploy-api.sh",
+    ):
+        script = scripts / name
+        script.write_text(f'#!/bin/sh\nprintf "%s\\n" "{name}" >> "$DEPLOY_EVENTS"\n')
+        script.chmod(0o755)
+    binary = tmp_path / "bin"
+    binary.mkdir()
+    commands = {
+        "git": f'#!/bin/sh\nprintf "%s\\n" "{tmp_path}"\n',
+        "python": "#!/bin/sh\nexit 0\n",
+        "gcloud": (
+            '#!/bin/sh\nif [ "$1 $2 $3" = "run jobs execute" ]; then\n'
+            '  printf "%s\\n" "migration-complete" >> "$DEPLOY_EVENTS"\nfi\n'
+        ),
+    }
+    for name, content in commands.items():
+        command = binary / name
+        command.write_text(content)
+        command.chmod(0o755)
+    events_path = tmp_path / "events.log"
+    env = {
+        **os.environ,
+        "PATH": f"{binary}{os.pathsep}{os.environ['PATH']}",
+        "PYTHON": str(binary / "python"),
+        "DEPLOY_EVENTS": str(events_path),
+        "IMAGE_TAG": "claim-test",
+        "SKIP_BUILD": "1",
+        "SKIP_IMAGE_CHECK": "1",
+        "ALLOW_DIRTY": "1",
+        "RUN_DB_MIGRATIONS": "1",
+        "PARALLEL_JOB_DEPLOYS": parallel,
+        "FULL_SYNC": "0",
+        "SYNC_IAM": "0",
+        "SYNC_SCHEDULER": "0",
+        "SYNC_MONITORING": "0",
+    }
+    subprocess.run(
+        [shutil.which("bash") or "/bin/bash", str(scripts / "deploy-backend.sh")],
+        cwd=tmp_path,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=15,
+    )
+    events = events_path.read_text().splitlines()
+    assert events[0:2] == ["deploy-migration-job.sh", "migration-complete"]
+    assert events[-1] == "deploy-api.sh"
+    assert "deploy-analyzer-worker.sh" in events[2:-1]
+    assert "deploy-ontology-worker.sh" in events[2:-1]

@@ -15,9 +15,11 @@ import logging
 import os
 import re
 import time
+import uuid
 from collections import Counter
 from collections.abc import Sized
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import FIRST_COMPLETED, wait
+from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache, lru_cache
 from pathlib import Path
@@ -36,6 +38,7 @@ from api.agent_domain_policy import (
 from api.agent_governance import (
     AgentBudgetExceeded,
     AgentBudgetState,
+    ModelEgressScanState,
     ModelGatewayDenied,
     blocked_tool_payload,
     prepare_model_egress,
@@ -48,9 +51,13 @@ from api.agent_models import (
     ChatMessage,
     ScreenContextModel,
 )
+from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
 from api.exceptions import ConfigurationError
-from api.job_events import append_job_event, list_job_events
+from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
 from api.job_queue import cancel_job, get_job
+from api.performance import ContextThreadPoolExecutor as ThreadPoolExecutor
+from api.performance import emit as emit_performance
+from api.performance_chat import begin_chat_round, observe_chat_response
 from api.routers.auth import require_actor
 from api.tool_data_quality import aggregate_tool_data_quality
 from api.workflows import AVAILABLE_WORKFLOWS, execute_workflow
@@ -211,7 +218,7 @@ def _build_screen_context_section(ctx: ScreenContextModel | None) -> str:
     return "\n".join(lines)
 
 
-def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
+def _build_agent_base_instructions() -> str:
     core_md = _load_required_prompt_file("system.md")
     try:
         agent_md = _load_required_prompt_file("agent_system.md")
@@ -219,7 +226,11 @@ def _build_agent_instructions(screen_context: ScreenContextModel | None = None) 
         logger.warning("Failed to load agent_system.md, using core prompt only")
         agent_md = None
     parts = [core_md] + ([agent_md] if agent_md else [])
-    base = "\n\n---\n\n".join(parts)
+    return "\n\n---\n\n".join(parts)
+
+
+def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
+    base = _build_agent_base_instructions()
 
     memory_section = _build_memory_context()
     if memory_section:
@@ -499,62 +510,27 @@ def _owned_model_shadow_prompt_from_conversation(
     return ""
 
 
-def _run_owned_model_shadow_synthesis(
+def _owned_model_shadow_inputs(
     *,
     rollout_decision: Any,
-    rollout_telemetry: Any,
     instructions: str,
     prompt_text: str,
     reasoning_effort: str,
     baseline_result: dict[str, Any],
     max_tokens: int,
-) -> None:
-    from api.owned_model_rollout import finalize_shadow_comparison
-
+) -> dict[str, Any] | None:
+    """Inputs for the shadow candidate call, which the turn's follow-up job makes after "done"."""
     if rollout_decision.mode != "shadow" or not prompt_text.strip():
-        return
-    started = time.perf_counter()
-    candidate_result: dict[str, Any]
-    try:
-        from llm_utils import call_llm_text
-
-        candidate_model = rollout_decision.candidate_model or resolve_model(
-            MODEL_MID, rollout_decision.candidate_provider
-        )
-        text, _citations, response = call_llm_text(
-            prompt=prompt_text,
-            model=candidate_model,
-            api_key=require_api_key(rollout_decision.candidate_provider),
-            max_tokens=max_tokens,
-            system=instructions,
-            provider=rollout_decision.candidate_provider,
-            reasoning_effort=reasoning_effort,
-        )
-        candidate_result = {
-            "provider": rollout_decision.candidate_provider,
-            "model": candidate_model,
-            "output_text": text,
-            "tool_names": [],
-            "latency_ms": _elapsed_ms(started),
-            "usage": getattr(response, "usage", {}) if response is not None else {},
-            "status": "ok",
-        }
-    except Exception as exc:
-        candidate_result = {
-            "provider": rollout_decision.candidate_provider,
-            "model": rollout_decision.candidate_model,
-            "output_text": "",
-            "tool_names": [],
-            "latency_ms": _elapsed_ms(started),
-            "usage": {},
-            "status": "error",
-            "error": str(exc) or exc.__class__.__name__,
-        }
-    finalize_shadow_comparison(
-        rollout_telemetry,
-        baseline=baseline_result,
-        candidate=candidate_result,
-    )
+        return None
+    return {
+        "candidate_provider": rollout_decision.candidate_provider,
+        "candidate_model": rollout_decision.candidate_model,
+        "instructions": instructions,
+        "prompt_text": prompt_text,
+        "reasoning_effort": reasoning_effort,
+        "baseline_result": baseline_result,
+        "max_tokens": max_tokens,
+    }
 
 
 def _owned_model_canary_should_fallback(
@@ -593,7 +569,7 @@ def _owned_model_apply_fallback(
     return updated_decision, provider, resolved_api_key, client, conversation
 
 
-def _record_agent_trajectory(
+def _turn_followup(
     *,
     req: AgentChatRequest,
     session_id: str,
@@ -610,10 +586,78 @@ def _record_agent_trajectory(
     gate_outcomes: list[dict[str, Any]] | None = None,
     provenance_event_id: str | None = None,
     raw_payload: dict[str, Any] | None = None,
-) -> None:
-    """Best-effort training trajectory capture that never changes chat behavior."""
+    messages_before_turn: int | None = None,
+    shadow: dict[str, Any] | None = None,
+    intent_router_shadow: dict[str, Any] | None = None,
+) -> AgentTurnFollowupRequest:
+    """Collect the work that runs on the worker queue after "done".
+
+    That is trajectory capture, the rolling summary (pass ``messages_before_turn``
+    for a turn whose messages were saved) and the shadow candidate call. The
+    trajectory is built here, so its timings end where the answer did.
+    """
+    return AgentTurnFollowupRequest(
+        session_id=session_id,
+        client_turn_id=req.client_turn_id,
+        messages_before_turn=messages_before_turn,
+        trajectory=_agent_trajectory_payload(
+            req=req,
+            session_id=session_id,
+            turn_started=turn_started,
+            timings=timings,
+            final_disposition=final_disposition,
+            messages=messages,
+            usage=usage,
+            provider=provider,
+            model=model,
+            route_decision=route_decision,
+            route_meta=route_meta,
+            tool_calls=tool_calls,
+            gate_outcomes=gate_outcomes,
+            provenance_event_id=provenance_event_id,
+            raw_payload=raw_payload,
+        ),
+        shadow=shadow,
+        intent_router_shadow=intent_router_shadow,
+    )
+
+
+def _done_then_followup(done_frame: str, followup: AgentTurnFollowupRequest):
+    """Send "done", then queue the turn's follow-up job, even if the client has gone."""
     try:
-        from api.agent_trajectories import insert_trajectory, trajectory_id_for
+        yield done_frame
+    finally:
+        try:
+            queue_agent_turn_followup(followup)
+        except Exception:
+            logger.exception(
+                "agent_turn_followup_enqueue_failed session_id=%s client_turn_id=%s",
+                followup.session_id,
+                followup.client_turn_id,
+            )
+
+
+def _agent_trajectory_payload(
+    *,
+    req: AgentChatRequest,
+    session_id: str,
+    turn_started: float,
+    timings: dict[str, Any],
+    final_disposition: str,
+    messages: list[dict[str, Any]],
+    usage: dict[str, Any] | None = None,
+    provider: str | None = None,
+    model: str | None = None,
+    route_decision: RouteDecision | None = None,
+    route_meta: dict[str, Any] | None = None,
+    tool_calls: list[dict[str, Any]] | None = None,
+    gate_outcomes: list[dict[str, Any]] | None = None,
+    provenance_event_id: str | None = None,
+    raw_payload: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    """Best-effort training trajectory record that never changes chat behavior."""
+    try:
+        from api.agent_trajectories import trajectory_id_for
 
         captured_at = datetime.fromtimestamp(time.time() - (time.perf_counter() - turn_started), tz=UTC).isoformat()
         trajectory_id = trajectory_id_for(
@@ -706,37 +750,36 @@ def _record_agent_trajectory(
             except Exception:
                 provider_model = None
 
-        insert_trajectory(
-            {
-                "trajectory_id": trajectory_id,
+        return {
+            "trajectory_id": trajectory_id,
+            "session_id": session_id,
+            "client_turn_id": req.client_turn_id,
+            "captured_at": captured_at,
+            "completed_at": datetime.now(UTC).isoformat(),
+            "final_disposition": final_disposition,
+            "provider": provider,
+            "model": provider_model,
+            "prompt_version": "agent_system_v1",
+            "code_version": os.getenv("RELEASE_SHA") or os.getenv("GIT_SHA"),
+            "route": route_payload,
+            "messages": messages,
+            "steps": steps,
+            "gate_outcomes": gate_outcomes or [],
+            "usage": usage or {},
+            "latency_ms": _elapsed_ms(turn_started),
+            "provenance": {"agent_turn_event_id": provenance_event_id} if provenance_event_id else {},
+            "source_provenance": {
+                "source": "agent_chat",
                 "session_id": session_id,
                 "client_turn_id": req.client_turn_id,
-                "captured_at": captured_at,
-                "completed_at": datetime.now(UTC).isoformat(),
-                "final_disposition": final_disposition,
-                "provider": provider,
-                "model": provider_model,
-                "prompt_version": "agent_system_v1",
-                "code_version": os.getenv("RELEASE_SHA") or os.getenv("GIT_SHA"),
-                "route": route_payload,
-                "messages": messages,
-                "steps": steps,
-                "gate_outcomes": gate_outcomes or [],
-                "usage": usage or {},
-                "latency_ms": _elapsed_ms(turn_started),
-                "provenance": {"agent_turn_event_id": provenance_event_id} if provenance_event_id else {},
-                "source_provenance": {
-                    "source": "agent_chat",
-                    "session_id": session_id,
-                    "client_turn_id": req.client_turn_id,
-                },
-                "raw_payload": raw_payload or {},
-            }
-        )
+            },
+            "raw_payload": raw_payload or {},
+        }
     except Exception:
         logger.exception(
             "agent_trajectory_capture_failed session_id=%s client_turn_id=%s", session_id, req.client_turn_id
         )
+        return None
 
 
 def _domain_guardrail_stream(classification: AgentDomainClassification):
@@ -747,7 +790,7 @@ def _domain_guardrail_stream(classification: AgentDomainClassification):
 
 def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDomainClassification):
     from api import memory_db
-    from api.memory_manager import finalize_turn, finalize_turn_async
+    from api.memory_manager import finalize_turn, finalize_turn_async, messages_before_turn
 
     turn_started = time.perf_counter()
     timings = _new_agent_timings()
@@ -763,7 +806,8 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     timings["first_token_ms"] = _elapsed_ms(turn_started)
     yield _sse("delta", {"text": text})
     finalize_turn_fn(session_id, user_msg, assistant_msg)
-    _record_agent_trajectory(
+    followup = _turn_followup(
+        messages_before_turn=messages_before_turn(session, req.client_turn_id),
         req=req,
         session_id=session_id,
         turn_started=turn_started,
@@ -781,13 +825,16 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
         ],
         raw_payload={"domain_classification": classification.__dict__},
     )
-    yield _sse(
-        "done",
-        _done_payload(
-            {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
-            timings,
-            turn_started,
+    yield from _done_then_followup(
+        _sse(
+            "done",
+            _done_payload(
+                {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
+                timings,
+                turn_started,
+            ),
         ),
+        followup,
     )
 
 
@@ -820,11 +867,21 @@ def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
     return {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
 
 
-def _agent_turn_begin(req: AgentChatRequest, session_id: str) -> None:
-    """Persist user + streaming assistant at turn start (idempotent)."""
+def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str, Any] | None = None) -> None:
+    """Persist user + streaming assistant at turn start (idempotent).
+
+    Pass the already-loaded *session* to skip the write when the turn is saved
+    (the API process begins a turn before queueing it for the worker).
+    """
     if not req.client_turn_id:
         return
     from api.memory_manager import begin_turn, begin_turn_async
+
+    if session is not None and any(
+        isinstance(msg, dict) and str(msg.get("client_turn_id")) == req.client_turn_id
+        for msg in session.get("server_messages") or []
+    ):
+        return
 
     meta = _agent_turn_meta(req)
     user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
@@ -1944,6 +2001,7 @@ def _resolve_chat_route(
     opportunity_candidate_metadata: dict[str, Any] | None = None,
     llm_credentials: tuple[str, str] | None = None,
     reasoning_effort: str | None = None,
+    defer_shadow: bool = False,
 ) -> tuple[RouteDecision, dict[str, Any]]:
     regex_baseline = build_regex_route_decision(
         user_text=user_text,
@@ -1974,13 +2032,11 @@ def _resolve_chat_route(
         api_key=api_key,
         system_prompt=system_prompt,
         reasoning_effort=reasoning_effort,
+        defer_shadow=defer_shadow,
     )
 
 
-def _load_recent_conversation_for_routing(session_id: str | None) -> list[dict[str, Any]]:
-    from api import memory_db
-
-    session = memory_db.get_or_create_session(session_id)
+def _recent_conversation_for_routing(session: dict[str, Any]) -> list[dict[str, Any]]:
     server_messages = session.get("server_messages") or []
     if not isinstance(server_messages, list):
         return []
@@ -2510,6 +2566,48 @@ def _tool_definitions_for_provider(provider: str) -> list[dict]:
     return list(_tool_definition_by_name_for_provider(provider).values())
 
 
+def _anthropic_system_blocks(instructions: str) -> list[dict]:
+    """Cache only the known static prefix, ahead of all per-request context."""
+    stable = _build_agent_base_instructions()
+    if not instructions.startswith(stable):
+        return [{"type": "text", "text": instructions}]
+    blocks = [{"type": "text", "text": stable, "cache_control": {"type": "ephemeral"}}]
+    if suffix := instructions[len(stable) :]:
+        blocks.append({"type": "text", "text": suffix})
+    return blocks
+
+
+def _anthropic_cached_messages(conversation: list[dict]) -> list[dict]:
+    """Move the message breakpoint forward without annotating stored history."""
+    messages = list(conversation)
+    if not messages:
+        return messages
+    latest = dict(messages[-1])
+    content = latest.get("content")
+    if isinstance(content, str):
+        content = [{"type": "text", "text": content}]
+    if not isinstance(content, list):
+        return messages
+    blocks = list(content)
+    for index in range(len(blocks) - 1, -1, -1):
+        block = blocks[index]
+        if not isinstance(block, dict) or block.get("type") not in {
+            "text",
+            "image",
+            "document",
+            "tool_use",
+            "tool_result",
+        }:
+            continue
+        if block.get("type") == "text" and not str(block.get("text", "")).strip():
+            continue
+        blocks[index] = {**block, "cache_control": {"type": "ephemeral"}}
+        latest["content"] = blocks
+        messages[-1] = latest
+        break
+    return messages
+
+
 def _model_stream_kwargs(
     *,
     provider: str,
@@ -2518,6 +2616,7 @@ def _model_stream_kwargs(
     max_tokens: int,
     tool_defs: list[dict] | None = None,
     force_tool_use: bool = False,
+    disable_tool_use: bool = False,
     reasoning_effort: str | None = None,
 ) -> dict[str, object]:
     if provider == PROVIDER_ANTHROPIC:
@@ -2526,8 +2625,8 @@ def _model_stream_kwargs(
         kwargs: dict[str, object] = {
             "model": resolved_model,
             "max_tokens": max_tokens,
-            "system": instructions,
-            "messages": conversation,
+            "system": _anthropic_system_blocks(instructions),
+            "messages": _anthropic_cached_messages(conversation),
         }
         apply_reasoning_config(
             kwargs,
@@ -2537,8 +2636,10 @@ def _model_stream_kwargs(
             reasoning_effort=reasoning_effort,
         )
         if tool_defs:
-            kwargs["tools"] = tool_defs
-        if force_tool_use and tool_defs and reasoning_effort is None:
+            kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
+        if disable_tool_use and tool_defs:
+            kwargs["tool_choice"] = {"type": "none"}
+        elif force_tool_use and tool_defs and reasoning_effort is None:
             kwargs["tool_choice"] = {"type": "any"}
         return kwargs
 
@@ -2704,7 +2805,8 @@ def _stream_llm_response(
         with client.messages.stream(**stream_kwargs) as stream:
             for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
-                    record_first_token()
+                    if event.delta.text:
+                        record_first_token()
                     if text_parts is not None:
                         text_parts.append(event.delta.text)
                     yield _sse("delta", {"text": event.delta.text})
@@ -2717,6 +2819,17 @@ def _stream_llm_response(
                         },
                     )
             final_message = stream.get_final_message()
+            usage = _usage_dict(final_message)
+            cache_usage = {key: usage.get(key, 0) for key in ("cache_read_input_tokens", "cache_creation_input_tokens")}
+            if model_timing is not None:
+                model_timing.update(usage)
+                model_timing.update(cache_usage)
+            logger.info(
+                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d",
+                stream_kwargs.get("model"),
+                cache_usage["cache_read_input_tokens"],
+                cache_usage["cache_creation_input_tokens"],
+            )
             yield from emit_final_text_if_missing(final_message)
             return final_message
 
@@ -2757,11 +2870,22 @@ def _stream_llm_response(
         return final_response
 
     if provider == PROVIDER_TALISMAN:
-        final_message = yield from stream_chat_completions_events(
+        stream = stream_chat_completions_events(
             client=client,
             stream_kwargs=stream_kwargs,
             text_parts=text_parts,
         )
+        while True:
+            try:
+                chunk = next(stream)
+            except StopIteration as done:
+                final_message = done.value
+                break
+            if chunk.startswith("event: delta\n"):
+                payload = json.loads(chunk.split("data: ", 1)[1])
+                if payload.get("text"):
+                    record_first_token()
+            yield chunk
         yield from emit_final_text_if_missing(final_message)
         return final_message
 
@@ -2814,6 +2938,15 @@ def _usage_dict(message: object) -> dict:
     out: dict[str, int] = {}
     if isinstance(input_tokens, int):
         out["input_tokens"] = input_tokens
+        for key in ("cache_read_input_tokens", "cache_creation_input_tokens"):
+            cached_tokens = _obj_value(usage, key)
+            if isinstance(cached_tokens, int):
+                out[key] = cached_tokens
+                out["input_tokens"] += cached_tokens
+        if "cache_read_input_tokens" in out or "cache_creation_input_tokens" in out:
+            # Anthropic's input_tokens excludes cache reads AND writes. Preserve
+            # total input accounting for budgets, provenance and the chat UI.
+            out["uncached_input_tokens"] = input_tokens
     if isinstance(output_tokens, int):
         out["output_tokens"] = output_tokens
     return out
@@ -2886,10 +3019,11 @@ def _start_agent_turn_provenance(
             "pv:agent_turn",
             session_id or "session",
             provenance.stable_hash(message),
-            int(time.time() * 1_000_000),
+            uuid.uuid4().hex,
         )
         provenance.start_event(
             event_id=event_id,
+            unique_event_id=True,
             event_type="agent_turn",
             event_name="agent_chat",
             actor=actor,
@@ -2958,10 +3092,11 @@ def _start_model_call_provenance(
             purpose,
             round_index,
             attempt,
-            int(time.time() * 1_000_000),
+            uuid.uuid4().hex,
         )
         provenance.start_event(
             event_id=event_id,
+            unique_event_id=True,
             event_type="model_call",
             event_name=str(model or provider),
             actor=actor,
@@ -3031,6 +3166,7 @@ def _record_model_timing(
 ) -> None:
     model_timing["duration_ms"] = _elapsed_ms(started)
     model_timing["status"] = status
+    emit_performance("chat_model", provider=provider, model=str(model), **model_timing)
     models = timings.setdefault("models", [])
     if isinstance(models, list):
         models.append(dict(model_timing))
@@ -3291,24 +3427,32 @@ def get_agent_chat_async_events(
     wait_ms: int = Query(0, ge=0, le=14_000),
 ):
     from api.async_job_runner import poll_registered_job
+    from api.job_event_notifications import watch_job_events
 
     deadline = time.monotonic() + min(wait_ms, 14_000) / 1000.0
     events: list[dict[str, Any]] = []
     status_payload: dict[str, Any]
-    row = get_job(job_id)
-    if row is None:
-        raise HTTPException(status_code=404, detail="Unknown job_id")
-
-    while True:
-        try:
-            status_payload = poll_registered_job(job_id)
-        except KeyError:
-            raise HTTPException(status_code=404, detail="Unknown job_id") from None
-        row = get_job(job_id) or row
-        events = list_job_events(job_id, after_seq=after_seq)
-        if events or status_payload.get("status") not in {"queued", "running"} or time.monotonic() >= deadline:
-            break
-        time.sleep(0.25)
+    with watch_job_events(job_id) as watch:
+        row = watch.cached_job(after_seq) if wait_ms else None
+        while True:
+            if row is None:
+                generation = watch.generation
+                row, events = read_job_events_snapshot(job_id, after_seq=after_seq)
+                if row is None:
+                    raise HTTPException(status_code=404, detail="Unknown job_id")
+                cursor = max((int(event["seq"]) for event in events), default=after_seq)
+                watch.record(row, cursor, generation, complete_page=len(events) < 500, has_events=bool(events))
+            try:
+                status_payload = poll_registered_job(job_id, row=row)
+            except KeyError:
+                raise HTTPException(status_code=404, detail="Unknown job_id") from None
+            if status_payload.get("status") not in {"queued", "running"}:
+                watch.record({**row, "status": status_payload.get("status")}, after_seq, watch.generation)
+            remaining = deadline - time.monotonic()
+            if events or status_payload.get("status") not in {"queued", "running"} or remaining <= 0:
+                break
+            watch.wait(after_seq, remaining)
+            row = None
 
     next_seq = max([int(event["seq"]) for event in events], default=after_seq)
     payload: dict[str, Any] = {
@@ -3353,6 +3497,10 @@ def cancel_agent_chat_async(job_id: str):
 
 @router.post("/agent/chat")
 def agent_chat(req: AgentChatRequest, actor: ActorDep):
+    return observe_chat_response(lambda started: _agent_chat_impl(req, actor, turn_started=started))
+
+
+def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: float):
     tool_actor = agent_actor(actor)
     """Chat endpoint with server-managed conversation memory.
 
@@ -3385,6 +3533,9 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
     }
     workflow_name = route_decision.workflow_name
     workflow_ticker = route_decision.workflow_ticker
+    # The session is read once per turn; routing and the turn itself share this copy.
+    turn_session: dict[str, Any] | None = None
+    router_shadow: dict[str, Any] | None = None
     if workflow_name and req.allow_workflow_handoff:
         provider_label = "deferred"
         active_tool_names: list[str] = []
@@ -3398,21 +3549,40 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
         active_tool_names = [] if casual else list(route_decision.tool_names)
         tool_defs = _tool_definitions_from_names(provider, active_tool_names)
         if not casual:
+            from api import memory_db
+
             llm_credentials = _read_llm_api_key()
-            recent_conversation = _load_recent_conversation_for_routing(req.session_id)
+            turn_session = memory_db.get_or_create_session(req.session_id)
+            recent_conversation = _recent_conversation_for_routing(turn_session)
             route_decision, route_meta = _resolve_chat_route(
                 user_text=req.message,
                 screen_context=req.screen_context,
                 recent_conversation=recent_conversation,
                 llm_credentials=llm_credentials,
                 reasoning_effort=_chat_reasoning_effort(provider, req.response_preferences),
+                defer_shadow=True,
             )
-            _capture_intent_router_training_row(
-                req=req,
-                route_decision=route_decision,
-                route_meta=route_meta,
-                recent_conversation=recent_conversation,
-            )
+            if route_meta.get("shadow_pending"):
+                router_shadow = {
+                    "provider": llm_credentials[0],
+                    "route_meta": route_meta,
+                    "context": asdict(
+                        build_route_context(
+                            user_text=req.message,
+                            screen_context=req.screen_context,
+                            recent_conversation=recent_conversation,
+                            allowed_tool_names=list(_tool_names()),
+                            workflow_hints=list(AVAILABLE_WORKFLOWS),
+                        )
+                    ),
+                }
+            else:
+                _capture_intent_router_training_row(
+                    req=req,
+                    route_decision=route_decision,
+                    route_meta=route_meta,
+                    recent_conversation=recent_conversation,
+                )
             workflow_name = route_decision.workflow_name
             workflow_ticker = route_decision.workflow_ticker
             if not (workflow_name and req.allow_workflow_handoff):
@@ -3438,7 +3608,6 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
 
     def generate():  # noqa: C901
         nonlocal tool_defs
-        turn_started = time.perf_counter()
         timings = _new_agent_timings()
         yield _sse_ping()
         if workflow_name and req.allow_workflow_handoff:
@@ -3447,15 +3616,21 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
             return
 
         from api import memory_db
-        from api.memory_manager import build_conversation_context, finalize_turn, finalize_turn_async
+        from api.memory_manager import (
+            build_conversation_context,
+            finalize_turn,
+            finalize_turn_async,
+            messages_before_turn,
+        )
 
         finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
+        session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
+        prior_message_count = messages_before_turn(session, req.client_turn_id)
 
         agent_turn_event_id: str | None = None
         if casual and not workflow_name:
-            session = memory_db.get_or_create_session(req.session_id)
             session_id = str(session["session_id"])
-            _agent_turn_begin(req, session_id)
+            _agent_turn_begin(req, session_id, session)
             agent_turn_event_id = _start_agent_turn_provenance(
                 session_id=session_id,
                 message=req.message,
@@ -3476,7 +3651,8 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 output_value=text,
                 usage={},
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
+                messages_before_turn=prior_message_count,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -3488,7 +3664,10 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "casual"},
             )
-            yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+            yield from _done_then_followup(
+                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                followup,
+            )
             return
 
         provider, api_key = llm_credentials or _read_llm_api_key()
@@ -3502,14 +3681,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
         )
         client = _get_provider_client(provider, api_key)
         budget = AgentBudgetState()
-        pre_session = memory_db.get_or_create_session(req.session_id)
-        session_id = str(pre_session["session_id"])
-        _agent_turn_begin(req, session_id)
+        session_id = str(session["session_id"])
+        _agent_turn_begin(req, session_id, session)
         raw_conversation, session_id = build_conversation_context(
             session_id,
             req.message,
             enable_retrieval=enable_retrieval,
             client_turn_id=req.client_turn_id,
+            session=session,
         )
         agent_turn_event_id = _start_agent_turn_provenance(
             session_id=session_id,
@@ -3694,6 +3873,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     yield _sse("budget_update", budget.to_meta())
                     break
                 except ModelGatewayDenied as exc:
+                    _record_model_timing(
+                        timings,
+                        model_timing,
+                        started=model_started,
+                        status="denied",
+                        provider=provider,
+                        model=stream_kwargs.get("model"),
+                    )
                     yield _sse("egress_recorded", exc.manifest)
                     yield _sse("blocked", _blocked_model_egress_payload(exc))
                     raise
@@ -3734,7 +3921,8 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 output_value=synthesis_text,
                 usage=_usage_dict(final_message),
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
+                messages_before_turn=prior_message_count,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -3748,22 +3936,26 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 else None,
                 route_decision=route_decision,
                 route_meta=route_meta,
+                intent_router_shadow=router_shadow,
                 tool_calls=[tool_payload],
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "portfolio_summary", "tool_result": portfolio_result},
             )
-            yield _sse(
-                "done",
-                _done_payload(
-                    {
-                        "usage": _usage_dict(final_message),
-                        "session_id": session_id,
-                        "tool_calls": [tool_payload],
-                        "tools_used": [call_info["name"]],
-                    },
-                    timings,
-                    turn_started,
+            yield from _done_then_followup(
+                _sse(
+                    "done",
+                    _done_payload(
+                        {
+                            "usage": _usage_dict(final_message),
+                            "session_id": session_id,
+                            "tool_calls": [tool_payload],
+                            "tools_used": [call_info["name"]],
+                        },
+                        timings,
+                        turn_started,
+                    ),
                 ),
+                followup,
             )
             return
 
@@ -3927,11 +4119,16 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             )
                             budget.record_model_usage(oc_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
-                            _update_intent_router_training_oc_metadata(
-                                session_id=req.session_id,
-                                client_turn_id=req.client_turn_id,
-                                oc_result=oc_result,
-                            )
+                            if router_shadow is not None:
+                                router_shadow["opportunity_candidate_metadata"] = (
+                                    _opportunity_candidate_metadata_from_result(oc_result)
+                                )
+                            else:
+                                _update_intent_router_training_oc_metadata(
+                                    session_id=req.session_id,
+                                    client_turn_id=req.client_turn_id,
+                                    oc_result=oc_result,
+                                )
                             break
                         except Exception as retry_exc:
                             _record_model_timing(
@@ -4099,6 +4296,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
+                            _record_model_timing(
+                                timings,
+                                model_timing,
+                                started=model_started,
+                                status="denied",
+                                provider=provider,
+                                model=stream_kwargs.get("model"),
+                            )
                             yield _sse("egress_recorded", exc.manifest)
                             yield _sse("blocked", _blocked_model_egress_payload(exc))
                             raise
@@ -4211,6 +4416,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
+                            _record_model_timing(
+                                timings,
+                                model_timing,
+                                started=model_started,
+                                status="denied",
+                                provider=provider,
+                                model=stream_kwargs.get("model"),
+                            )
                             yield _sse("egress_recorded", exc.manifest)
                             yield _sse("blocked", _blocked_model_egress_payload(exc))
                             raise
@@ -4287,7 +4500,8 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     output_value=synthesis_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4301,6 +4515,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=tool_payloads,
                     gate_outcomes=[
                         {
@@ -4322,13 +4537,16 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "decision_quality_chat", "oc_result": oc_result, "dq_result": dq_result},
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        done_payload_data,
-                        timings,
-                        turn_started,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            done_payload_data,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
             except Exception as exc:
@@ -4339,7 +4557,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     usage={},
                     error=str(exc) or exc.__class__.__name__,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4353,32 +4571,36 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=tool_payloads,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "decision_quality_chat", "error": str(exc) or exc.__class__.__name__},
                 )
                 yield _sse("error", {"message": _format_stream_error(exc)})
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": {},
-                            "session_id": session_id,
-                            "tool_calls": tool_payloads,
-                            "tools_used": [call["name"] for call in tool_payloads],
-                            "context_pack": locals().get("context_bundle", {}).get("context_pack")
-                            if isinstance(locals().get("context_bundle"), dict)
-                            else None,
-                            "opportunity_candidate_preflight": _opportunity_candidate_done_meta(oc_result),
-                            "decision_quality_chat": _decision_quality_chat_done_meta(dq_result),
-                            "intent_router": {
-                                "applied": route_decision.to_meta(),
-                                "telemetry": route_meta,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": {},
+                                "session_id": session_id,
+                                "tool_calls": tool_payloads,
+                                "tools_used": [call["name"] for call in tool_payloads],
+                                "context_pack": locals().get("context_bundle", {}).get("context_pack")
+                                if isinstance(locals().get("context_bundle"), dict)
+                                else None,
+                                "opportunity_candidate_preflight": _opportunity_candidate_done_meta(oc_result),
+                                "decision_quality_chat": _decision_quality_chat_done_meta(dq_result),
+                                "intent_router": {
+                                    "applied": route_decision.to_meta(),
+                                    "telemetry": route_meta,
+                                },
                             },
-                        },
-                        timings,
-                        turn_started,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -4498,6 +4720,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
+                        _record_model_timing(
+                            timings,
+                            model_timing,
+                            started=model_started,
+                            status="denied",
+                            provider=provider,
+                            model=stream_kwargs.get("model"),
+                        )
                         yield _sse("egress_recorded", exc.manifest)
                         yield _sse("blocked", _blocked_model_egress_payload(exc))
                         raise
@@ -4553,7 +4783,8 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     output_value=synthesis_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4567,23 +4798,27 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=workflow_tool_calls,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "workflow", "workflow_run_id": run_id, "workflow_name": workflow_name},
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": usage,
-                            "session_id": session_id,
-                            "workflow_run_id": run_id,
-                            "tool_calls": workflow_tool_calls,
-                            "tools_used": [call["name"] for call in workflow_tool_calls],
-                        },
-                        timings,
-                        turn_started,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": usage,
+                                "session_id": session_id,
+                                "workflow_run_id": run_id,
+                                "tool_calls": workflow_tool_calls,
+                                "tools_used": [call["name"] for call in workflow_tool_calls],
+                            },
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -4601,7 +4836,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     usage={},
                     error=str(exc) or exc.__class__.__name__,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4615,6 +4850,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={
                         "path": "workflow",
@@ -4623,7 +4859,10 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     },
                 )
                 yield _sse("error", {"message": f"Workflow failed: {exc}"})
-                yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+                yield from _done_then_followup(
+                    _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                    followup,
+                )
                 return
 
         # --- Normal tool-calling path ---
@@ -4637,12 +4876,15 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
         text_only_continuation = False
         text_parts: list[str] = []
         normal_tool_payloads: list[dict[str, Any]] = []
+        scan_state = ModelEgressScanState()
 
         try:
             while True:
+                begin_chat_round(continuation_round)
                 final_synthesis_round = continuation_round >= MAX_TOOL_CONTINUATION_ROUNDS
-                round_tool_defs = [] if final_synthesis_round or text_only_continuation else tool_defs
-                round_force_tool_use = False if final_synthesis_round or text_only_continuation else force_tool_use
+                round_text_only = final_synthesis_round or text_only_continuation
+                round_tool_defs = tool_defs if provider == PROVIDER_ANTHROPIC or not round_text_only else []
+                round_force_tool_use = False if round_text_only else force_tool_use
                 text_only_continuation = False
 
                 stream_kwargs = _model_stream_kwargs(
@@ -4652,6 +4894,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     max_tokens=LLM_CHAT_MAX_TOKENS,
                     tool_defs=round_tool_defs,
                     force_tool_use=round_force_tool_use,
+                    disable_tool_use=round_text_only,
                     reasoning_effort=reasoning_effort,
                 )
 
@@ -4678,6 +4921,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                             provider=provider,
                             purpose="agent_chat",
                             stream_kwargs=stream_kwargs,
+                            scan_state=scan_state,
                             actor=tool_actor,
                             budget=budget,
                             parent_event_id=agent_turn_event_id,
@@ -4724,6 +4968,14 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
+                        _record_model_timing(
+                            timings,
+                            model_timing,
+                            started=model_started,
+                            status="denied",
+                            provider=provider,
+                            model=stream_kwargs.get("model"),
+                        )
                         yield _sse("egress_recorded", exc.manifest)
                         if _owned_model_canary_should_fallback(
                             rollout_decision=rollout_decision,
@@ -4746,6 +4998,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
                                 tool_defs=round_tool_defs,
                                 force_tool_use=round_force_tool_use,
+                                disable_tool_use=round_text_only,
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
@@ -4788,6 +5041,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
                                 tool_defs=round_tool_defs,
                                 force_tool_use=round_force_tool_use,
+                                disable_tool_use=round_text_only,
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
@@ -5038,9 +5292,8 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     logger.warning("Agent chat model returned empty text; using deterministic empty-response fallback")
                     full_text = EMPTY_AGENT_RESPONSE_TEXT
                     yield _sse("delta", {"text": full_text})
-                _run_owned_model_shadow_synthesis(
+                shadow = _owned_model_shadow_inputs(
                     rollout_decision=rollout_decision,
-                    rollout_telemetry=rollout_telemetry,
                     instructions=instructions,
                     prompt_text=_owned_model_shadow_prompt_from_conversation(provider, conversation),
                     reasoning_effort=reasoning_effort,
@@ -5067,7 +5320,9 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     output_value=full_text,
                     usage=usage,
                 )
-                _record_agent_trajectory(
+                followup = _turn_followup(
+                    messages_before_turn=prior_message_count,
+                    shadow=shadow,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5081,6 +5336,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=normal_tool_payloads,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={
@@ -5089,25 +5345,28 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                         "owned_model_rollout": rollout_telemetry.to_meta(),
                     },
                 )
-                yield _sse(
-                    "done",
-                    _done_payload(
-                        {
-                            "usage": usage,
-                            "session_id": session_id,
-                            "intent_router": {
-                                "applied": route_decision.to_meta(),
-                                "telemetry": route_meta,
+                yield from _done_then_followup(
+                    _sse(
+                        "done",
+                        _done_payload(
+                            {
+                                "usage": usage,
+                                "session_id": session_id,
+                                "intent_router": {
+                                    "applied": route_decision.to_meta(),
+                                    "telemetry": route_meta,
+                                },
+                                **_owned_rollout_done_payload(
+                                    rollout_decision=rollout_decision,
+                                    rollout_telemetry=rollout_telemetry,
+                                    timings=timings,
+                                ),
                             },
-                            **_owned_rollout_done_payload(
-                                rollout_decision=rollout_decision,
-                                rollout_telemetry=rollout_telemetry,
-                                timings=timings,
-                            ),
-                        },
-                        timings,
-                        turn_started,
+                            timings,
+                            turn_started,
+                        ),
                     ),
+                    followup,
                 )
                 return
 
@@ -5119,7 +5378,7 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 usage={},
                 error=str(exc) or exc.__class__.__name__,
             )
-            _record_agent_trajectory(
+            followup = _turn_followup(
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -5133,12 +5392,16 @@ def agent_chat(req: AgentChatRequest, actor: ActorDep):
                 provider=provider,
                 route_decision=route_decision,
                 route_meta=route_meta,
+                intent_router_shadow=router_shadow,
                 tool_calls=normal_tool_payloads,
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "agent_chat", "error": str(exc) or exc.__class__.__name__},
             )
             yield _sse("error", {"message": _format_stream_error(exc)})
-            yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+            yield from _done_then_followup(
+                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                followup,
+            )
 
     return StreamingResponse(
         generate(),

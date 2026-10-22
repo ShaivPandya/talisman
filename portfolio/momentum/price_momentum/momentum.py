@@ -200,7 +200,13 @@ def fetch_ticker_metadata(ticker: str) -> tuple[float | None, str | None, bool]:
     except ImportError:
         raise RuntimeError("Missing dependency: utils.retry. Ensure utils/retry.py is available.")  # noqa: B904
 
-    info = yf_ticker_info(ticker)
+    from utils.reference_data import daily_reference
+
+    def load() -> dict:
+        info = yf_ticker_info(ticker)
+        return {key: info[key] for key in ("marketCap", "sector", "quoteType") if info.get(key) is not None}
+
+    info = daily_reference("momentum", ticker, load)
 
     market_cap = info.get("marketCap")
     sector = info.get("sector")
@@ -334,16 +340,15 @@ def get_data(universe: str | None = None, years: int = 5) -> dict:
             if not tickers:
                 return {"error": "No tickers found in portfolio database"}
 
-        # Fetch all metadata in parallel to determine benchmarks
-        metadata_map = fetch_metadata_batch(tickers)
+        # The three possible benchmarks are known before metadata arrives.
+        # Download prices while looking up the fields that choose between them.
+        all_symbols = list(dict.fromkeys([*tickers, "SPY", "IWM", "QQQ"]))
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            metadata_future = pool.submit(fetch_metadata_batch, tickers)
+            prices_future = pool.submit(fetch_prices_batch, all_symbols, years=years)
+            metadata_map = metadata_future.result()
+            prices_map, volumes_map = prices_future.result()
         ticker_to_benchmark = {t: determine_benchmark(metadata_map.get(t, (None, None, False))) for t in tickers}
-
-        # Collect all unique symbols to download (tickers + benchmarks)
-        all_benchmarks = set(ticker_to_benchmark.values())
-        all_symbols = list(set(tickers) | all_benchmarks)
-
-        # Batch download all prices at once
-        prices_map, volumes_map = fetch_prices_batch(all_symbols, years=years)
 
         # Analyze each ticker using pre-fetched data
         results = []

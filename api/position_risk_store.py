@@ -9,7 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from api.postgres import connect, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
+from api.source_health_cache import invalidate_source_health
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SQLITE_PATH = _REPO_ROOT / "data_cache" / "position_risk.sqlite3"
@@ -61,6 +62,7 @@ def write_portfolio_risk_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         _write_portfolio_postgres(result_id, snapshot)
     else:
         _write_portfolio_sqlite(result_id, snapshot)
+    invalidate_source_health()
     return snapshot
 
 
@@ -282,17 +284,21 @@ def _write_postgres(ticker: str, result_id: str, snapshot: dict[str, Any]) -> No
 
 
 def _read_latest_postgres(ticker: str) -> dict[str, Any] | None:
-    with connect() as conn:
-        row = conn.execute(
-            """
-            SELECT payload_json
-            FROM position_risk_snapshots
-            WHERE upper(ticker) = upper(%s)
-            ORDER BY computed_at DESC
-            LIMIT 1
-            """,
-            (ticker,),
-        ).fetchone()
+    def _read():
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                FROM position_risk_snapshots
+                WHERE upper(ticker) = upper(%s)
+                ORDER BY computed_at DESC
+                LIMIT 1
+                """,
+                (ticker,),
+            ).fetchone()
+        return row
+
+    row = retry_read(_read)
     if not row:
         return None
     payload = row.get("payload_json") if isinstance(row, dict) else row[0]
@@ -300,11 +306,15 @@ def _read_latest_postgres(ticker: str) -> dict[str, Any] | None:
 
 
 def _read_position_snapshot_postgres(snapshot_id: str) -> dict[str, Any] | None:
-    with connect() as conn:
-        row = conn.execute(
-            "SELECT payload_json FROM position_risk_snapshots WHERE id = %s",
-            (snapshot_id,),
-        ).fetchone()
+    def _read():
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                "SELECT payload_json FROM position_risk_snapshots WHERE id = %s",
+                (snapshot_id,),
+            ).fetchone()
+        return row
+
+    row = retry_read(_read)
     if not row:
         return None
     payload = row.get("payload_json") if isinstance(row, dict) else row[0]
@@ -368,15 +378,19 @@ def _write_portfolio_postgres(result_id: str, snapshot: dict[str, Any]) -> None:
 
 
 def _read_latest_portfolio_postgres() -> dict[str, Any] | None:
-    with connect() as conn:
-        row = conn.execute(
-            """
-            SELECT payload_json
-            FROM portfolio_risk_snapshots
-            ORDER BY computed_at DESC
-            LIMIT 1
-            """
-        ).fetchone()
+    def _read():
+        with connect(read_only=True) as conn:
+            row = conn.execute(
+                """
+                SELECT payload_json
+                FROM portfolio_risk_snapshots
+                ORDER BY computed_at DESC
+                LIMIT 1
+                """
+            ).fetchone()
+        return row
+
+    row = retry_read(_read)
     if not row:
         return None
     payload = row.get("payload_json") if isinstance(row, dict) else row[0]

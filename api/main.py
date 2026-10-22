@@ -9,6 +9,7 @@ import hmac
 import logging
 import os
 import time
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -16,26 +17,22 @@ load_dotenv()
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse, Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
+from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from api.audit import emit_audit_event
 from api.exceptions import AppError, DataFetchError
 from api.logging_config import configure_logging, generate_request_id, request_id_var
+from api.performance import PerformanceMiddleware
 from api.request_limits import MULTIPART_FORM_DATA_OVERHEAD_BYTES, BodySizeLimitMiddleware
-from api.request_schema import (
-    collect_api_request_schema_definitions,
-    validate_and_upgrade_request_schema,
-)
+from api.request_schema import validate_and_upgrade_request_schema
 from api.safe_import import get_degraded_modules, safe_import_router
-from ontology.schema_definitions import (
-    domain_action_schema_definitions,
-    ontology_schema_definitions,
-    seed_schema_definitions,
-)
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -136,10 +133,44 @@ for module_path, name, tag in _OPTIONAL_MODULES:
     router, healthy = safe_import_router(module_path)
     _optional_routers[name] = (router, tag, healthy)
 
+
 # ---------------------------------------------------------------------------
 # App
 # ---------------------------------------------------------------------------
-app = FastAPI(
+class PerformanceFastAPI(FastAPI):
+    def build_middleware_stack(self):
+        # Include ServerErrorMiddleware so even generated 500 replies get timing.
+        return PerformanceMiddleware(super().build_middleware_stack())
+
+
+def _warm_request_imports() -> None:
+    """Pay deferred import costs before the startup probe admits user traffic."""
+    import importlib
+
+    for module in (
+        "numpy",
+        "pandas",
+        "api.agent_tools",
+        "portfolio.risk_dashboard",
+        "equities.sector_metrics.sector_metrics",
+    ):
+        importlib.import_module(module)
+
+
+@asynccontextmanager
+async def _lifespan(_app):
+    try:
+        await run_in_threadpool(_warm_request_imports)
+        yield
+    finally:
+        from api.postgres import close_pools
+
+        close_pools()
+
+
+app = PerformanceFastAPI(
+    lifespan=_lifespan,
+    default_response_class=ORJSONResponse,
     title="Talisman API",
     description="REST API for portfolio analytics, market data, and macro indicators",
     version="1.0.0",
@@ -176,8 +207,7 @@ _ENDPOINT_BODY_LIMITS = {
     "/api/portfolio-news": _multipart_request_body_limit(10 * 1024 * 1024),
 }
 
-app.add_middleware(BodySizeLimitMiddleware, path_limits=_ENDPOINT_BODY_LIMITS)
-app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 
 
 # ---------------------------------------------------------------------------
@@ -225,10 +255,12 @@ async def _unhandled_error_handler(request: Request, exc: Exception):
             "request_id": request_id_var.get(""),
         },
     )
-    return JSONResponse(
+    response = JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "type": "InternalError"},
     )
+    _apply_response_headers(response.headers, getattr(request.state, "request_id", "") or generate_request_id())
+    return response
 
 
 @app.exception_handler(PolicyDenied)
@@ -255,68 +287,22 @@ def _is_production_runtime() -> bool:
     return (os.environ.get("ENVIRONMENT") or ENVIRONMENT).strip().lower() == "production"
 
 
-@app.middleware("http")
-async def _request_id_middleware(request: Request, call_next):
-    """Assign a correlation ID to every request."""
-    rid = request.headers.get("x-request-id") or generate_request_id()
-    request_id_var.set(rid)
-    set_request_context(request_id=rid, method=request.method, path=request.url.path)
-    response = await call_next(request)
-    set_request_context(status_code=response.status_code)
-    response.headers["X-Request-Id"] = rid
-    return response
-
-
-@app.middleware("http")
-async def _security_headers_middleware(request: Request, call_next):
-    """Apply conservative security headers to every response."""
-    response = await call_next(request)
-    if "x-content-type-options" not in response.headers:
-        response.headers["X-Content-Type-Options"] = "nosniff"
-    if "referrer-policy" not in response.headers:
-        response.headers["Referrer-Policy"] = "no-referrer"
-    csp = response.headers.get("Content-Security-Policy")
+def _apply_response_headers(headers: MutableHeaders, request_id: str) -> None:
+    headers["X-Request-Id"] = request_id
+    if "x-content-type-options" not in headers:
+        headers["X-Content-Type-Options"] = "nosniff"
+    if "referrer-policy" not in headers:
+        headers["Referrer-Policy"] = "no-referrer"
+    csp = headers.get("Content-Security-Policy")
     if csp:
         if "frame-ancestors" not in csp.lower():
-            response.headers["Content-Security-Policy"] = f"{csp}; frame-ancestors 'none'"
+            headers["Content-Security-Policy"] = f"{csp}; frame-ancestors 'none'"
     else:
-        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
-    if _is_production_runtime() and "strict-transport-security" not in response.headers:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if "x-frame-options" not in response.headers:
-        response.headers["X-Frame-Options"] = "DENY"
-    return response
-
-
-@app.middleware("http")
-async def _request_timing_middleware(request: Request, call_next):
-    """Log request duration for every API call."""
-    start = time.perf_counter()
-    response = await call_next(request)
-    duration_ms = round((time.perf_counter() - start) * 1000, 1)
-    if request.url.path.startswith("/api/"):
-        logger.info(
-            "%s %s -> %s (%.1fms)",
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-        )
-    return response
-
-
-@app.middleware("http")
-async def _production_schema_middleware(request: Request, call_next):
-    """Disable interactive docs and schema routes in production."""
-    if _is_production_runtime() and request.url.path in _DOCS_PATHS:
-        return JSONResponse({"detail": "Not found"}, status_code=404)
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def _request_schema_version_middleware(request: Request, call_next):
-    """Validate and upgrade versioned API request bodies before route validation."""
-    return await validate_and_upgrade_request_schema(app, request, call_next)
+        headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    if _is_production_runtime() and "strict-transport-security" not in headers:
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if "x-frame-options" not in headers:
+        headers["X-Frame-Options"] = "DENY"
 
 
 def _api_proxy_secret() -> str | None:
@@ -336,8 +322,7 @@ def _proxy_secret_required() -> bool:
 _WRITE_FREEZE = (os.environ.get("WRITE_FREEZE") or "").strip().lower() in ("1", "true", "yes")
 
 
-@app.middleware("http")
-async def _csrf_middleware(request: Request, call_next):
+async def _check_csrf(request: Request) -> JSONResponse | None:
     """Require CSRF token for mutating browser session requests."""
     path = request.url.path
     if (
@@ -345,9 +330,10 @@ async def _csrf_middleware(request: Request, call_next):
         and request.method.upper() in {"POST", "PUT", "PATCH", "DELETE"}
         and path not in _CSRF_EXEMPT_PATHS
         and not is_machine_authenticated_request(request)
-        and not verify_request_csrf(request)
+        and not await run_in_threadpool(verify_request_csrf, request)
     ):
-        emit_audit_event(
+        await run_in_threadpool(
+            emit_audit_event,
             "permission.csrf_denied",
             "permission",
             "denied",
@@ -355,11 +341,10 @@ async def _csrf_middleware(request: Request, call_next):
             error="CSRF validation failed",
         )
         return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)
-    return await call_next(request)
+    return None
 
 
-@app.middleware("http")
-async def _require_proxy_secret(request: Request, call_next):
+async def _check_proxy_secret(request: Request) -> JSONResponse | None:
     """
     Require X-Api-Proxy-Secret for deployments that have an edge proxy capable
     of injecting it. Firebase Hosting rewrites cannot add this header, so merely
@@ -369,7 +354,8 @@ async def _require_proxy_secret(request: Request, call_next):
         if _proxy_secret_required():
             proxy_secret = _api_proxy_secret()
             if not proxy_secret:
-                emit_audit_event(
+                await run_in_threadpool(
+                    emit_audit_event,
                     "permission.proxy_secret_denied",
                     "permission",
                     "denied",
@@ -379,7 +365,8 @@ async def _require_proxy_secret(request: Request, call_next):
                 return JSONResponse({"detail": "API proxy secret is required for this auth mode."}, status_code=403)
             provided = request.headers.get("x-api-proxy-secret")
             if not provided or not hmac.compare_digest(provided, proxy_secret):
-                emit_audit_event(
+                await run_in_threadpool(
+                    emit_audit_event,
                     "permission.proxy_secret_denied",
                     "permission",
                     "denied",
@@ -387,15 +374,15 @@ async def _require_proxy_secret(request: Request, call_next):
                     error="Forbidden",
                 )
                 return JSONResponse({"detail": "Forbidden"}, status_code=403)
-    return await call_next(request)
+    return None
 
 
-@app.middleware("http")
-async def _write_freeze_middleware(request: Request, call_next):
+async def _check_write_freeze(request: Request) -> JSONResponse | None:
     """Reject mutating API calls during cutover freeze."""
     if _WRITE_FREEZE and request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         if request.url.path not in {"/api/auth/login", "/api/health", "/api/admin/quiescence"}:
-            emit_audit_event(
+            await run_in_threadpool(
+                emit_audit_event,
                 "permission.write_freeze_denied",
                 "permission",
                 "denied",
@@ -403,7 +390,61 @@ async def _write_freeze_middleware(request: Request, call_next):
                 error="Writes are frozen for migration cutover.",
             )
             return JSONResponse({"detail": "Writes are frozen for migration cutover."}, status_code=423)
-    return await call_next(request)
+    return None
+
+
+class ApiMiddleware:
+    """Request guards and response headers without task groups or body buffering."""
+
+    def __init__(self, app: ASGIApp, *, schema_app: FastAPI):
+        self.app = app
+        self.schema_app = schema_app
+        # Include schema upgrades in the existing body limit. The validator may
+        # read a JSON body before routing, so limiting only the router is too late.
+        self.limited_app = BodySizeLimitMiddleware(self._dispatch, path_limits=_ENDPOINT_BODY_LIMITS)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope, receive)
+        rid = request_id_var.get("") or request.headers.get("x-request-id") or generate_request_id()
+        token = request_id_var.set(rid)
+        request.state.request_id = rid
+        set_request_context(request_id=rid, method=request.method, path=request.url.path)
+
+        async def send_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                _apply_response_headers(MutableHeaders(scope=message), rid)
+                set_request_context(status_code=message["status"])
+            await send(message)
+
+        try:
+            await self.limited_app(scope, receive, send_headers)
+        finally:
+            request_id_var.reset(token)
+
+    async def _dispatch(self, scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        # Keep the existing rejection order: freeze, proxy, CSRF, schema, docs.
+        response: Response | None = await _check_write_freeze(request)
+        if response is None:
+            response = await _check_proxy_secret(request)
+        if response is None:
+            response = await _check_csrf(request)
+        if response is None:
+            response = await validate_and_upgrade_request_schema(self.schema_app, request)
+        if response is None and _is_production_runtime() and request.url.path in _DOCS_PATHS:
+            response = JSONResponse({"detail": "Not found"}, status_code=404)
+        if response is not None:
+            await response(scope, receive, send)
+            return
+        # Schema upgrades replace this request's receive callable. Pass it to
+        # the router so its own Request sees exactly the upgraded bytes.
+        await self.app(scope, request.receive, send)
+
+
+app.add_middleware(ApiMiddleware, schema_app=app)
 
 
 _CORS_ORIGINS = [
@@ -418,6 +459,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["Server-Timing", "X-Request-Id"],
 )
 
 # ---------------------------------------------------------------------------
@@ -485,27 +527,6 @@ for _name, (_router, _tag, _healthy) in _optional_routers.items():
     app.include_router(_router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=[_tag])
 
 
-def _seed_runtime_schema_registry() -> None:
-    try:
-        from ontology.repository import OntologyRepository
-
-        repo = OntologyRepository()
-        with repo._connect() as conn:
-            seed_schema_definitions(
-                conn,
-                [
-                    *ontology_schema_definitions(),
-                    *domain_action_schema_definitions(),
-                    *collect_api_request_schema_definitions(app.router.routes),
-                ],
-            )
-    except Exception:
-        logger.warning("schema registry seed failed", exc_info=True)
-
-
-_seed_runtime_schema_registry()
-
-
 # ---------------------------------------------------------------------------
 # Utility endpoints
 # ---------------------------------------------------------------------------
@@ -530,10 +551,13 @@ def _detailed_health_response() -> JSONResponse:
 
     # Check ontology/Postgres connectivity
     try:
-        from api.postgres import connect
+        from api.postgres import connect, retry_read
 
-        with connect() as conn:
-            conn.execute("SELECT 1")
+        def _read() -> None:
+            with connect(read_only=True) as conn:
+                conn.execute("SELECT 1")
+
+        retry_read(_read)
         checks["postgres"] = "ok"
     except Exception:
         logger.warning("postgres health check failed", exc_info=True)

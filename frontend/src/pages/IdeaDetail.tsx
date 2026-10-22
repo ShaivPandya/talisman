@@ -1,3 +1,4 @@
+import { jobStatusQueryOptions } from "@/lib/jobQueries"
 import { useEffect, useMemo, useState } from "react"
 import { useNavigate, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -226,6 +227,8 @@ export function IdeaDetail() {
     originalAnalyzerDirection,
   ])
 
+  // Synchronize editable drafts and persisted job state with external query results.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!selectedIdea) return
     const nextInstrumentType = inferInstrumentType(selectedIdea.ticker, selectedIdea.instrument_type)
@@ -260,16 +263,6 @@ export function IdeaDetail() {
     setActiveJobId(persisted)
   }, [id])
 
-  function clearActiveJob() {
-    if (!id) return
-    const jobs = readActiveJobs()
-    if (jobs[String(id)]) {
-      delete jobs[String(id)]
-      writeActiveJobs(jobs)
-    }
-    setActiveJobId(null)
-  }
-
   function persistActiveJob(jobId: string) {
     if (!id) return
     const jobs = readActiveJobs()
@@ -278,37 +271,34 @@ export function IdeaDetail() {
     setActiveJobId(jobId)
   }
 
+  const evaluationStatus = useQuery(jobStatusQueryOptions(
+    ["idea-evaluation-job", activeJobId],
+    () => fetchIdeaEvaluationJob(activeJobId!),
+    Boolean(id && activeJobId),
+  ))
   useEffect(() => {
-    if (!id || !activeJobId) return
-    let stopped = false
-
-    async function poll() {
-      try {
-        const job = await fetchIdeaEvaluationJob(activeJobId as string)
-        if (stopped) return
-        setJobSnapshot(job)
-        if (job.status === "done") {
-          clearActiveJob()
-          await qc.invalidateQueries({ queryKey: ["ideas"] })
-          await qc.invalidateQueries({ queryKey: ["idea", id] })
-        } else if (job.status === "error" || job.status === "cancelled") {
-          clearActiveJob()
-          setJobError(job.error || "Evaluation failed.")
-        }
-      } catch (err) {
-        if (stopped) return
-        setJobError(err instanceof Error ? err.message : "Unable to poll job.")
-      }
+    const job = evaluationStatus.data
+    if (!id || !activeJobId || !job) return
+    setJobSnapshot(job)
+    if (job.status === "queued" || job.status === "running") return
+    const jobs = readActiveJobs()
+    if (jobs[id] === activeJobId) {
+      delete jobs[id]
+      writeActiveJobs(jobs)
     }
-
-    void poll()
-    const handle = window.setInterval(() => void poll(), 2500)
-    return () => {
-      stopped = true
-      window.clearInterval(handle)
+    setActiveJobId(null)
+    if (job.status === "done") {
+      void qc.invalidateQueries({ queryKey: ["ideas"] })
+      void qc.invalidateQueries({ queryKey: ["idea", id] })
+    } else if (job.status === "error" || job.status === "cancelled") {
+      setJobError(job.error || "Evaluation failed.")
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id, activeJobId, qc])
+  }, [id, activeJobId, evaluationStatus.data, qc])
+  useEffect(() => {
+    if (evaluationStatus.error) setJobError(evaluationStatus.error.message)
+  }, [evaluationStatus.error])
+
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const updateMutation = useMutation({
     mutationFn: () => {

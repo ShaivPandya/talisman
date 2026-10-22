@@ -6,11 +6,14 @@ import json
 import os
 import sqlite3
 import threading
+import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 
 DB_PATH = Path(__file__).parent / "app_settings.db"
@@ -72,9 +75,15 @@ DEFAULT_GATEWAY_POLICY: dict[str, Any] = {
     },
 }
 DEFAULT_PROVIDER_MODE = "single"
+LLM_SETTINGS_PREFIX = "llm."
+LLM_SETTINGS_CACHE_TTL_S = 30.0
 
 _lock = threading.RLock()
-_conn: sqlite3.Connection | PostgresStateConnection | None = None
+_conn: sqlite3.Connection | None = None  # SQLite fallback only; Postgres is always scoped.
+# One snapshot of every llm.* row serves the many provider lookups in a chat turn.
+# Writes in this process clear it; other processes see a change within the TTL.
+_llm_rows_cache: tuple[tuple[Any, ...], float, dict[str, dict[str, Any]]] | None = None
+_llm_rows_generation = 0
 
 _CREATE_APP_SETTINGS = """
 CREATE TABLE IF NOT EXISTS app_settings (
@@ -100,22 +109,23 @@ def _close_conn() -> None:
             _conn = None
 
 
-def _get_conn(*, probe: bool = True) -> sqlite3.Connection | PostgresStateConnection:
+@contextmanager
+def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | PostgresStateConnection]:
     global _conn
     with _lock:
-        if probe and _conn is not None:
-            try:
-                _conn.execute("SELECT 1")
-            except Exception:
-                _close_conn()
-        if _conn is None:
-            if use_postgres_state():
-                _conn = PostgresStateConnection()
-            else:
+        if use_postgres_state():
+            with PostgresStateConnection(read_only=read_only) as conn:
+                yield conn
+        else:
+            if _conn is None:
                 _conn = sqlite3.connect(DB_PATH, check_same_thread=False)
                 _conn.row_factory = sqlite3.Row
                 _init_db(_conn)
-        return _conn
+            try:
+                yield _conn
+            except BaseException:
+                _conn.rollback()
+                raise
 
 
 def _init_db(conn: sqlite3.Connection | PostgresStateConnection) -> None:
@@ -129,12 +139,56 @@ def _row_to_dict(row: Any) -> dict[str, Any]:
     return {key: row[key] for key in row.keys()}
 
 
+def clear_llm_settings_cache() -> None:
+    global _llm_rows_cache, _llm_rows_generation
+    with _lock:
+        _llm_rows_cache = None
+        _llm_rows_generation += 1
+
+
+def _llm_rows_scope() -> tuple[Any, ...]:
+    """Identify the settings store, so a snapshot never answers for another database."""
+    return (use_postgres_state(), str(DB_PATH), os.getenv("DATABASE_URL") or "")
+
+
+def _cached_llm_rows() -> dict[str, dict[str, Any]]:
+    global _llm_rows_cache
+    scope = _llm_rows_scope()
+    with _lock:
+        cached = _llm_rows_cache
+        if cached is not None and cached[0] == scope and time.monotonic() - cached[1] < LLM_SETTINGS_CACHE_TTL_S:
+            return cached[2]
+        generation = _llm_rows_generation
+
+    def _read():
+        with _get_conn(read_only=True) as conn:
+            return conn.execute(
+                "SELECT key, value, updated_at FROM app_settings WHERE key LIKE ?",
+                (f"{LLM_SETTINGS_PREFIX}%",),
+            ).fetchall()
+
+    rows = {str(row["key"]): _row_to_dict(row) for row in retry_read(_read)}
+    with _lock:
+        # A write during the read cleared the cache; keep it clear rather than store older rows.
+        if generation == _llm_rows_generation:
+            _llm_rows_cache = (scope, time.monotonic(), rows)
+    return rows
+
+
 def get_setting(key: str) -> dict[str, Any] | None:
     if not use_postgres_state() and not DB_PATH.exists():
         return None
+    if key.startswith(LLM_SETTINGS_PREFIX):
+        cached = _cached_llm_rows().get(key)
+        return dict(cached) if cached else None
     with _lock:
-        conn = _get_conn()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+
+        def _read():
+            with _get_conn(read_only=True) as conn:
+                row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+            return row
+
+        row = retry_read(_read)
     return _row_to_dict(row) if row else None
 
 
@@ -147,56 +201,51 @@ def get_settings(keys: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]
 
     placeholders = ", ".join("?" for _ in unique_keys)
     sql = f"SELECT key, value, updated_at FROM app_settings WHERE key IN ({placeholders})"
-    last_exc: Exception | None = None
-    for attempt in range(2):
-        try:
-            with _lock:
-                conn = _get_conn(probe=False)
-                rows = conn.execute(sql, tuple(unique_keys)).fetchall()
-            return {str(row["key"]): _row_to_dict(row) for row in rows}
-        except Exception as exc:
-            last_exc = exc
-            _close_conn()
-            if attempt == 1:
-                raise
-    if last_exc is not None:
-        raise last_exc
-    return {}
+
+    def _read():
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(sql, tuple(unique_keys)).fetchall()
+        return rows
+
+    rows = retry_read(_read)
+    return {str(row["key"]): _row_to_dict(row) for row in rows}
 
 
 def set_setting(key: str, value: str) -> dict[str, Any]:
     updated_at = _now()
     with _lock:
-        conn = _get_conn()
-        conn.execute(
-            """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO UPDATE SET
-                value = excluded.value,
-                updated_at = excluded.updated_at
-            """,
-            (key, value, updated_at),
-        )
-        conn.commit()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+        with _get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO UPDATE SET
+                    value = excluded.value,
+                    updated_at = excluded.updated_at
+                """,
+                (key, value, updated_at),
+            )
+            conn.commit()
+            clear_llm_settings_cache()
+            row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
 
 def ensure_setting(key: str, default_value: str) -> dict[str, Any]:
     """Persist a default without overwriting concurrent or existing edits."""
     with _lock:
-        conn = _get_conn()
-        conn.execute(
-            """
-            INSERT INTO app_settings (key, value, updated_at)
-            VALUES (?, ?, ?)
-            ON CONFLICT(key) DO NOTHING
-            """,
-            (key, default_value, _now()),
-        )
-        conn.commit()
-        row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
+        with _get_conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (?, ?, ?)
+                ON CONFLICT(key) DO NOTHING
+                """,
+                (key, default_value, _now()),
+            )
+            conn.commit()
+            clear_llm_settings_cache()
+            row = conn.execute("SELECT key, value, updated_at FROM app_settings WHERE key = ?", (key,)).fetchone()
     return _row_to_dict(row)
 
 

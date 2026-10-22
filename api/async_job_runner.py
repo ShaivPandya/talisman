@@ -17,12 +17,12 @@ from api.audit import emit_audit_event
 from api.exceptions import AsyncJobDispatchError
 from api.job_queue import (
     ACTIVE_STATUSES,
+    claim_job,
     complete_job,
     create_or_reuse_job,
     fail_job,
     get_job,
     list_active_jobs,
-    mark_job_running,
     update_job_progress,
 )
 from api.job_registry import (
@@ -33,6 +33,7 @@ from api.job_registry import (
     parse_request,
 )
 from api.observability import capture_exception, init_sentry
+from api.performance_chat import record_queue_delay
 
 logger = logging.getLogger("api.async_job_runner")
 
@@ -145,7 +146,8 @@ def _job_dispatch_backend(job_type: str) -> str | None:
 def _dispatch_backend_for_job(job_type: str) -> str:
     if override := _job_dispatch_backend(job_type):
         return override
-    if job_type == "agent_chat_turn":
+    if job_type in {"agent_chat_turn", "agent_turn_followup"}:
+        # Turn follow-ups ride the agent worker too, instead of a Cloud Run job per turn.
         return _agent_chat_dispatch_backend() or _env_backend()
     return _env_backend()
 
@@ -330,16 +332,19 @@ def enqueue_registered_job(
 
 
 def perform_job(job_id: str) -> dict[str, Any] | None:
-    row = get_job(job_id)
-    if not row:
-        raise RuntimeError(f"Unknown async job: {job_id}")
-    status = str(row.get("status") or "")
-    if status == "completed":
-        result = row.get("result_json")
-        return result if isinstance(result, dict) else None
-    if status in {"failed", "cancelled"}:
-        logger.info("skip terminal async job job_id=%s status=%s", job_id, status)
+    """Claim a job for a direct runner and execute only if this runner owns it."""
+    row = claim_job(job_id)
+    if row is None:
+        logger.info("skip unclaimed async job job_id=%s; already owned, finished, or missing", job_id)
         return None
+    return execute_claimed(row)
+
+
+def execute_claimed(row: dict[str, Any]) -> dict[str, Any] | None:
+    """Execute the row returned by a claim without claiming it a second time."""
+    if row.get("status") != "running" or not row.get("claimed_by"):
+        raise ValueError("Async job must be claimed before execution")
+    job_id = str(row["job_id"])
 
     job_type = str(row.get("job_type") or "")
     spec = get_job_spec(job_type)
@@ -348,11 +353,11 @@ def perform_job(job_id: str) -> dict[str, Any] | None:
         payload = {}
 
     try:
-        mark_job_running(job_id)
         running_row = get_job(job_id) or row
-        if str(running_row.get("status") or "") == "cancelled":
-            logger.info("skip cancelled async job job_id=%s", job_id)
+        if str(running_row.get("status") or "") != "running":
+            logger.info("skip finished claimed async job job_id=%s status=%s", job_id, running_row.get("status"))
             return None
+        record_queue_delay(running_row)
         _emit_job_audit(
             "async_job.running",
             row=running_row,

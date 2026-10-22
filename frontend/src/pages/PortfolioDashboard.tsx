@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { memo, startTransition, useEffect, useMemo, useState } from "react"
+import { keepPreviousData, useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { useRegisterScreenContext } from "@/contexts/ScreenContext"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useDisplayedQueryParameter } from "@/hooks/useDisplayedQueryParameter"
 import { fetchPortfolio } from "@/lib/api"
 import { TimeSeriesChart, calcReturn, type DataPoint, type SeriesDef } from "@/components/shared/TimeSeriesChart"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
@@ -64,6 +65,78 @@ interface UnifiedPerformance {
   sortedPositions: UnifiedPositionSummary[]
   series: SeriesDef[]
 }
+
+const EMPTY_UNIFIED_PERFORMANCE: UnifiedPerformance = { chartData: [], sortedPositions: [], series: [] }
+
+const PortfolioPositionChart = memo(function PortfolioPositionChart({ ticker, data, timeframe }: {
+  ticker: string
+  data: DataPoint[]
+  timeframe: Timeframe
+}) {
+  const ret = calcReturn(data)
+  return (
+    <ChartTile
+      title={ticker}
+      href={`/dossier/${encodeURIComponent(ticker)}`}
+      meta={ret != null ? (
+        <span className={`text-xs font-semibold ${ret >= 0 ? "text-positive" : "text-negative"}`}>
+          {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
+        </span>
+      ) : undefined}
+    >
+      <TimeSeriesChart data={data} height={160} timeframe={timeframe} />
+    </ChartTile>
+  )
+})
+
+type PositionChartSnapshot = { data: DataPoint[]; timeframe: Timeframe }
+
+const PortfolioChartGrid = memo(function PortfolioChartGrid({ order, positions, timeframe }: {
+  order: string[]
+  positions: Record<string, DataPoint[]>
+  timeframe: Timeframe
+}) {
+  const [rendered, setRendered] = useState(() => new Map<string, PositionChartSnapshot>(
+    order.map(ticker => [ticker, { data: positions[ticker], timeframe }]),
+  ))
+  const needsUpdate = (ticker: string) => Boolean(positions[ticker]?.length) && (
+    rendered.get(ticker)?.data !== positions[ticker] || rendered.get(ticker)?.timeframe !== timeframe
+  )
+  const pending = order.some(needsUpdate)
+
+  useEffect(() => {
+    const updates = order.filter(ticker => Boolean(positions[ticker]?.length) && (
+      rendered.get(ticker)?.data !== positions[ticker] || rendered.get(ticker)?.timeframe !== timeframe
+    ))
+    if (!updates.length) return
+    // Recharts synchronously commits its internal store updates. Bound each
+    // commit to four tiles rather than updating the whole portfolio at once.
+    const frame = requestAnimationFrame(() => setRendered(previous => {
+      const next = new Map<string, PositionChartSnapshot>()
+      for (const ticker of order) {
+        const snapshot = previous.get(ticker)
+        if (snapshot) next.set(ticker, snapshot)
+      }
+      for (const ticker of updates.slice(0, 4)) next.set(ticker, { data: positions[ticker], timeframe })
+      return next
+    }))
+    return () => cancelAnimationFrame(frame)
+  }, [order, positions, timeframe, rendered])
+
+  return (
+    <>
+      {pending && <p role="status" className="sr-only">Updating portfolio charts…</p>}
+      <div role="group" aria-label="Portfolio position charts" aria-busy={pending} className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        {order.map(ticker => {
+          const series = positions[ticker]
+          if (!series?.length) return null
+          const snapshot = rendered.get(ticker)
+          return <PortfolioPositionChart key={ticker} ticker={ticker} data={snapshot?.data ?? series} timeframe={snapshot?.timeframe ?? timeframe} />
+        })}
+      </div>
+    </>
+  )
+})
 
 function timeframeLabel(timeframe: Timeframe): string {
   return timeframe === "This Week" ? "Past Week" : timeframe
@@ -156,14 +229,17 @@ export function PortfolioDashboard() {
     isLoading,
     error,
     isSuccess,
+    isPlaceholderData,
   } = useApiQuery<PortfolioTimeframeResponse>(
     ["portfolio", timeframe],
     () => fetchPortfolio(timeframe),
     portfolioStaleTime(timeframe),
+    { placeholderData: keepPreviousData },
   )
+  const displayedTimeframe = useDisplayedQueryParameter(timeframe, isPlaceholderData)
 
   useEffect(() => {
-    if (!isSuccess) return
+    if (!isSuccess || isPlaceholderData) return
 
     let cancelled = false
     let timeoutId: number | null = null
@@ -201,11 +277,13 @@ export function PortfolioDashboard() {
       }
       if (timeoutId !== null) window.clearTimeout(timeoutId)
     }
-  }, [isSuccess, queryClient, timeframe])
+  }, [isSuccess, isPlaceholderData, queryClient, timeframe])
 
-  const refreshQueryKeys = useMemo(() => [["portfolio", timeframe], ["thesis", "status"]], [timeframe])
-  const invalidatePortfolioQueries = async () => {
+  const refreshPortfolio = async () => {
     await queryClient.invalidateQueries({ queryKey: ["portfolio"], refetchType: "none" })
+    await queryClient.cancelQueries({ queryKey: ["portfolio", timeframe], exact: true })
+    // Longer timeframes sit in an hour-long backend cache, so force the open one past it.
+    queryClient.setQueryData(["portfolio", timeframe], await fetchPortfolio(timeframe, { force_refresh: true }))
   }
 
   const loadError = error
@@ -256,7 +334,7 @@ export function PortfolioDashboard() {
     if (!timeframeData || order.length === 0) return null
     const metrics: Record<string, string> = {
       "Positions": `${order.length} tickers`,
-      "Timeframe": timeframeLabel(timeframe),
+      "Timeframe": timeframeLabel(displayedTimeframe),
       "View": viewMode,
     }
     const returns = order.slice(0, 10).map(ticker => {
@@ -269,16 +347,16 @@ export function PortfolioDashboard() {
     return {
       pageName: "Portfolio Dashboard",
       metrics,
-      filters: { timeframe: timeframeLabel(timeframe), view: viewMode },
-      summary: `Portfolio with ${order.length} positions, viewing ${timeframeLabel(timeframe)} in ${viewMode} mode`,
+      filters: { timeframe: timeframeLabel(displayedTimeframe), view: viewMode },
+      summary: `Portfolio with ${order.length} positions, viewing ${timeframeLabel(displayedTimeframe)} in ${viewMode} mode`,
       correspondingTools: ["get_portfolio"],
     }
-  }, [timeframeData, order, positions, timeframe, viewMode])
+  }, [timeframeData, order, positions, displayedTimeframe, viewMode])
   useRegisterScreenContext(screenCtx)
 
   const unifiedPerformance = useMemo(
-    () => buildUnifiedPerformance(order, positions),
-    [order, positions],
+    () => viewMode === "Unified" ? buildUnifiedPerformance(order, positions) : EMPTY_UNIFIED_PERFORMANCE,
+    [order, positions, viewMode],
   )
   const groupExposures = timeframeData?.group_exposures ?? []
   const hasUnifiedSeries = unifiedPerformance.sortedPositions.length > 0 && unifiedPerformance.chartData.length > 0
@@ -297,8 +375,8 @@ export function PortfolioDashboard() {
               Edit Portfolio
             </Link>
             <RefreshButton
-              queryKeys={refreshQueryKeys}
-              beforeRefetch={invalidatePortfolioQueries}
+              queryKeys={[["thesis", "status"]]}
+              beforeRefetch={refreshPortfolio}
             />
           </>
         )}
@@ -308,7 +386,7 @@ export function PortfolioDashboard() {
         <SegmentedControl
           options={TIMEFRAME_OPTIONS}
           value={timeframe}
-          onChange={setTimeframe}
+          onChange={next => startTransition(() => setTimeframe(next))}
         />
         <SegmentedControl
           options={VIEW_MODES.map(mode => ({ value: mode, label: mode }))}
@@ -317,6 +395,11 @@ export function PortfolioDashboard() {
         />
       </div>
 
+      {isPlaceholderData && (
+        <p role="status" className="mb-4 text-sm text-muted">
+          Updating to {timeframeLabel(timeframe)}… Showing {timeframeLabel(displayedTimeframe)} until the new data arrives.
+        </p>
+      )}
       {isLoading && <LoadingSpinner message="Fetching portfolio data..." />}
       {!isLoading && loadError && (
         <ErrorMessage message={loadError} />
@@ -351,27 +434,7 @@ export function PortfolioDashboard() {
       )}
 
       {timeframeData && !isLoading && hasSeries && viewMode === "Grid" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {order.map(ticker => {
-            const series = positions[ticker]
-            if (!series || series.length === 0) return null
-            const ret = calcReturn(series)
-            return (
-              <ChartTile
-                key={ticker}
-                title={ticker}
-                href={`/dossier/${encodeURIComponent(ticker)}`}
-                meta={ret != null ? (
-                  <span className={`text-xs font-semibold ${ret >= 0 ? "text-positive" : "text-negative"}`}>
-                    {ret >= 0 ? "+" : ""}{ret.toFixed(2)}%
-                  </span>
-                ) : undefined}
-              >
-                <TimeSeriesChart data={series} height={160} timeframe={timeframe} />
-              </ChartTile>
-            )
-          })}
-        </div>
+        <PortfolioChartGrid order={order} positions={positions} timeframe={displayedTimeframe} />
       )}
 
       {timeframeData && !isLoading && hasSeries && viewMode === "Unified" && !hasUnifiedSeries && (
@@ -409,7 +472,7 @@ export function PortfolioDashboard() {
             <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 className="section-title">Unified Performance</h2>
-                <p className="mt-1 text-sm text-muted">{timeframeLabel(timeframe)} raw price return, normalized to 0%.</p>
+                <p className="mt-1 text-sm text-muted">{timeframeLabel(displayedTimeframe)} raw price return, normalized to 0%.</p>
               </div>
               <span className="text-xs font-medium text-subtle">{unifiedPerformance.sortedPositions.length} positions</span>
             </div>
@@ -417,7 +480,7 @@ export function PortfolioDashboard() {
               multiData={unifiedPerformance.chartData}
               series={unifiedPerformance.series}
               height={360}
-              timeframe={timeframe}
+              timeframe={displayedTimeframe}
               zeroLine
               yFormatter={formatPercent}
               tooltipFormatter={formatPercent}

@@ -5,15 +5,14 @@ Provides thread-safe, rate-limited access to the SEC EDGAR companyfacts API.
 Used for quarterly EPS/revenue momentum, DCF valuation historicals, and other
 fundamental analysis requiring deep historical financial data.
 
-Rate limiting: all EDGAR requests are serialised through a global lock with a
-0.11 s delay, keeping throughput at ≤ 9 req/s across all threads (SEC limit: 10).
+Request starts share the SEC token bucket in utils.retry, including retries.
+Network latency does not hold the admission lock or add a fixed sleep.
 """
 
 from __future__ import annotations
 
 import logging
 import threading
-import time
 from datetime import date
 from typing import Dict, List, Optional, Tuple  # noqa: UP035
 
@@ -44,12 +43,7 @@ _edgar_facts_lock = threading.Lock()
 _edgar_submissions_cache: dict[str, dict | None] = {}  # cik_str -> submissions JSON or None
 _edgar_submissions_lock = threading.Lock()
 
-# Serialise all HTTP requests through one lock so concurrent threads cannot
-# collectively exceed the SEC's 10 req/s rate limit.
-_edgar_request_lock = threading.Lock()
-
 SEC_HEADERS = {"User-Agent": "Talisman research@example.com"}
-_SEC_DELAY = 0.11  # seconds between requests; keeps throughput ≤ 9/s
 
 
 # ---------------------------------------------------------------------------
@@ -58,14 +52,11 @@ _SEC_DELAY = 0.11  # seconds between requests; keeps throughput ≤ 9/s
 
 
 def _rate_limited_get(url: str, timeout: int = 20) -> requests.Response | None:
-    """Make a GET request, serialised and rate-limited across all threads."""
-    with _edgar_request_lock:
-        time.sleep(_SEC_DELAY)
-        try:
-            resp = requests_get(url, headers=SEC_HEADERS, timeout=timeout)
-            return resp
-        except Exception:
-            return None
+    """Make a GET request paced by the shared SEC budget, without serialising I/O."""
+    try:
+        return requests_get(url, headers=SEC_HEADERS, timeout=timeout)
+    except Exception:
+        return None
 
 
 def _load_cik_map() -> None:

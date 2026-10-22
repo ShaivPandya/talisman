@@ -32,7 +32,7 @@ RESEARCH_KINDS: tuple[ResearchKind, ...] = ("overview", "management_quality")
 PROMPTS_KEY = "company_research.prompts"
 STORAGE_PREFIX = "live/company_research"
 LOCAL_REPORTS_DIR = PROJECT_ROOT / "tmp" / "company_research"
-POLL_INTERVAL_S = 10
+POLL_INTERVAL_S = 2
 
 
 class ResearchPrompts(BaseModel):

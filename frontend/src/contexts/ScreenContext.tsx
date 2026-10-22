@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
 import { useLocation, useParams } from "react-router-dom"
 
 // ---------------------------------------------------------------------------
@@ -107,8 +107,9 @@ const ScreenCtx = createContext<ScreenContextValue>({
 
 export function ScreenContextProvider({ children }: { children: ReactNode }) {
   const [screenContext, setScreenContext] = useState<ScreenContext | null>(null)
+  const value = useMemo(() => ({ screenContext, setScreenContext }), [screenContext])
   return (
-    <ScreenCtx.Provider value={{ screenContext, setScreenContext }}>
+    <ScreenCtx.Provider value={value}>
       {children}
     </ScreenCtx.Provider>
   )
@@ -134,12 +135,12 @@ export function useAutoScreenContext(): ScreenContext {
   const basePath = location.pathname.replace(/\/[A-Z0-9.]+$/i, "") || "/"
   const entry = ROUTE_PAGE_MAP[location.pathname] ?? ROUTE_PAGE_MAP[basePath] ?? { pageName: location.pathname }
 
-  return {
+  return useMemo(() => ({
     pageName: entry.pageName,
     route: location.pathname,
     ticker: params.ticker,
     correspondingTools: entry.tools,
-  }
+  }), [entry.pageName, entry.tools, location.pathname, params.ticker])
 }
 
 // ---------------------------------------------------------------------------
@@ -150,6 +151,20 @@ export function useRegisterScreenContext(ctx: Omit<ScreenContext, "route"> | nul
   const location = useLocation()
   const { setScreenContext } = useContext(ScreenCtx)
 
+  // The schema contains only strings, string maps and a string array. Length
+  // prefixes avoid delimiter collisions without serializing the whole object.
+  const comparisonKey = useMemo(() => {
+    if (ctx == null) return "null"
+    const metrics = Object.entries(ctx.metrics ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    const filters = Object.entries(ctx.filters ?? {}).sort(([a], [b]) => a.localeCompare(b))
+    return [
+      ctx.pageName, ctx.ticker ?? "", ctx.summary ?? "",
+      String(metrics.length), ...metrics.flat(),
+      String(filters.length), ...filters.flat(),
+      ...(ctx.correspondingTools ?? []),
+    ].map(value => `${value.length}:${value}`).join("")
+  }, [ctx])
+
   useEffect(() => {
     if (ctx) {
       setScreenContext({ ...ctx, route: location.pathname })
@@ -157,8 +172,7 @@ export function useRegisterScreenContext(ctx: Omit<ScreenContext, "route"> | nul
       setScreenContext(null)
     }
     return () => setScreenContext(null)
-  // Serialize ctx to avoid infinite loops from new object refs each render.
-  // Pages should wrap their ctx in useMemo.
+  // Equivalent inline contexts must not publish a new provider value.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(ctx), location.pathname, setScreenContext])
+  }, [comparisonKey, location.pathname, setScreenContext])
 }

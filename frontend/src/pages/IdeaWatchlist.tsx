@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react"
+import { jobStatusQueryOptions } from "@/lib/jobQueries"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNavigate } from "react-router-dom"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Play, Plus, RefreshCw, Trash2 } from "lucide-react"
 
 import { ActionPill, AnalyzerRiskBadges, ConfidencePill } from "@/components/idea/EvaluationPanel"
@@ -209,80 +210,65 @@ export function IdeaWatchlist() {
     return comparisonJobSnapshot?.status === "done" ? comparisonJobSnapshot.result?.run ?? null : null
   }, [comparisonJobSnapshot, comparisonQuery.data?.runs])
 
-  function setActiveJobsAndPersist(next: Record<string, string>) {
+  const setActiveJobsAndPersist = useCallback((next: Record<string, string>) => {
     setActiveJobs(next)
     writeActiveJobs(next)
-  }
+  }, [])
 
-  function setActiveComparisonJobAndPersist(jobId: string | null) {
+  const setActiveComparisonJobAndPersist = useCallback((jobId: string | null) => {
     setActiveComparisonJob(jobId)
     writeActiveComparisonJob(jobId)
-  }
+  }, [])
 
+  const jobStatuses = useQueries({
+    queries: Object.values(activeJobs).map(jobId => jobStatusQueryOptions(
+      ["idea-evaluation-job", jobId], () => fetchIdeaEvaluationJob(jobId), true,
+    )),
+    combine: results => results.map(result => result.data),
+  })
+
+  // Terminal query results synchronize localStorage and invalidate dependent data.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    if (!Object.keys(activeJobs).length) return
-    let stopped = false
-
-    async function pollJobs() {
-      const entries = Object.entries(activeJobs)
-      const next = { ...activeJobs }
-      let changed = false
-      await Promise.all(entries.map(async ([ideaId, jobId]) => {
-        try {
-          const job = await fetchIdeaEvaluationJob(jobId)
-          if (job.status === "done") {
-            delete next[ideaId]
-            changed = true
-            await qc.invalidateQueries({ queryKey: ["ideas"] })
-            await qc.invalidateQueries({ queryKey: ["idea", ideaId] })
-          } else if (job.status === "error" || job.status === "cancelled") {
-            delete next[ideaId]
-            changed = true
-          }
-        } catch {
-          // transient polling errors are surfaced on the detail page
-        }
-      }))
-      if (!stopped && changed) setActiveJobsAndPersist(next)
+    const next = { ...activeJobs }
+    let changed = false
+    Object.keys(activeJobs).forEach((ideaId, index) => {
+      const job = jobStatuses[index]
+      if (!job || job.status === "queued" || job.status === "running") return
+      delete next[ideaId]
+      changed = true
+      if (job.status === "done") void qc.invalidateQueries({ queryKey: ["idea", ideaId] })
+    })
+    if (changed) {
+      setActiveJobsAndPersist(next)
+      void qc.invalidateQueries({ queryKey: ["ideas"] })
     }
+  }, [activeJobs, jobStatuses, qc, setActiveJobsAndPersist])
 
-    void pollJobs()
-    const handle = window.setInterval(() => void pollJobs(), 2500)
-    return () => {
-      stopped = true
-      window.clearInterval(handle)
-    }
-  }, [activeJobs, qc])
-
+  const comparisonStatus = useQuery(jobStatusQueryOptions(
+    ["idea-comparison-job", activeComparisonJob],
+    () => fetchIdeaComparisonEvaluationJob(activeComparisonJob!),
+    Boolean(activeComparisonJob),
+  ))
   useEffect(() => {
-    if (!activeComparisonJob) return
-    let stopped = false
-
-    async function pollComparisonJob() {
-      try {
-        const job = await fetchIdeaComparisonEvaluationJob(activeComparisonJob as string)
-        setComparisonJobSnapshot(job)
-        if (job.status === "done") {
-          setComparisonJobError(null)
-          if (!stopped) setActiveComparisonJobAndPersist(null)
-          await qc.invalidateQueries({ queryKey: ["ideas"] })
-          await qc.invalidateQueries({ queryKey: ["idea-comparison-runs"] })
-        } else if (job.status === "error" || job.status === "cancelled") {
-          if (!stopped) setActiveComparisonJobAndPersist(null)
-          setComparisonJobError(job.error || "Comparative evaluation failed.")
-        }
-      } catch (err) {
-        setComparisonJobError(err instanceof Error ? err.message : "Unable to poll comparative evaluation.")
-      }
+    const job = comparisonStatus.data
+    if (!activeComparisonJob || !job) return
+    setComparisonJobSnapshot(job)
+    if (job.status === "done") {
+      setComparisonJobError(null)
+      setActiveComparisonJobAndPersist(null)
+      void qc.invalidateQueries({ queryKey: ["ideas"] })
+      void qc.invalidateQueries({ queryKey: ["idea-comparison-runs"] })
+    } else if (job.status === "error" || job.status === "cancelled") {
+      setActiveComparisonJobAndPersist(null)
+      setComparisonJobError(job.error || "Comparative evaluation failed.")
     }
+  }, [activeComparisonJob, comparisonStatus.data, qc, setActiveComparisonJobAndPersist])
+  useEffect(() => {
+    if (comparisonStatus.error) setComparisonJobError(comparisonStatus.error.message)
+  }, [comparisonStatus.error])
 
-    void pollComparisonJob()
-    const handle = window.setInterval(() => void pollComparisonJob(), 2500)
-    return () => {
-      stopped = true
-      window.clearInterval(handle)
-    }
-  }, [activeComparisonJob, qc])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const createMutation = useMutation({
     mutationFn: () => createIdea({

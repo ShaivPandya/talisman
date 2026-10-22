@@ -8,7 +8,6 @@ import json
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-import pandas as pd
 from pydantic import BaseModel, Field
 
 from api.portfolio_settings import DEFAULT_PORTFOLIO_BOOK_SIZE, get_configured_portfolio_book_size
@@ -16,7 +15,6 @@ from api.serializers import serialize_value
 from api.snapshot_keys import SNAPSHOT_PORTFOLIO_RISK_DASHBOARD
 from api.snapshot_store import get_snapshot_response, write_snapshot_failure, write_snapshot_success
 from ontology.runtime_read_service import OntologyRuntimeReadService
-from portfolio.risk_dashboard import aggregate_view, build_rows, load_market_inputs
 from utils.market_freshness import evaluate_source_freshness, expected_market_date
 
 
@@ -192,8 +190,16 @@ def latest_dashboard() -> dict[str, Any] | None:
     return PortfolioRiskDashboard.model_validate(result).model_dump(mode="json")
 
 
+def load_market_inputs(holdings: list[dict[str, Any]], *, now: datetime) -> dict[str, Any]:
+    from portfolio.risk_dashboard import load_market_inputs as _load_market_inputs
+
+    return _load_market_inputs(holdings, now=now)
+
+
 def compute_dashboard(payload: dict[str, Any], *, stress_snapshot: dict[str, Any] | None = None) -> dict[str, Any]:
     """Runs in the existing durable worker, never in a latest/dashboard read."""
+    import pandas as pd
+
     from api.position_risk import get_latest_portfolio_risk, refresh_portfolio_risk
     from portfolio.portfolio_optimizer.portfolio_analyzer import (
         BETA_EWMA_HALFLIFE_DAYS,
@@ -202,6 +208,7 @@ def compute_dashboard(payload: dict[str, Any], *, stress_snapshot: dict[str, Any
         BETA_SHRINK_TO_ONE,
         LOOKBACK_DAYS,
     )
+    from portfolio.risk_dashboard import aggregate_view, build_rows
 
     now = datetime.now(UTC)
     holdings = payload["holdings"]

@@ -16,7 +16,7 @@ def temp_memory_db(tmp_path, monkeypatch):
             pass
     monkeypatch.setenv("STATE_DB_BACKEND", "sqlite")
     monkeypatch.setattr(memory_db, "_DB_PATH", tmp_path / "memory.db")
-    monkeypatch.setattr(memory_db, "_conn", None)
+    memory_db._conn = None
     yield
     if memory_db._conn is not None:
         try:
@@ -126,8 +126,7 @@ def test_get_session_falls_back_to_server_messages_for_existing_v2_sessions(temp
         {"role": "assistant", "content": "Use direction-adjusted P&L.", "timestamp": 2.0},
     ]
 
-    conn = memory_db._get_conn()
-    with memory_db._lock:
+    with memory_db._get_conn() as conn:
         conn.execute(
             """
             UPDATE conversation_sessions

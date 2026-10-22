@@ -24,7 +24,7 @@ from bs4 import BeautifulSoup, Tag
 from dotenv import load_dotenv
 from readability import Document
 
-from api.postgres import use_postgres_state
+from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 from llm_utils import MODEL_LOW, call_llm_text, has_llm_api_key, parse_json_text
 
@@ -382,10 +382,10 @@ def _resolve_db_path(db_path: str | None = None) -> str:
     return os.path.join(os.path.dirname(os.path.abspath(__file__)), DB_PATH)
 
 
-def _connect_db(db_path: str | None = None):
+def _connect_db(db_path: str | None = None, *, read_only: bool = False):
     if db_path is None and use_postgres_state():
         try:
-            return PostgresStateConnection(table_map={"items": "central_bank_items"})
+            return PostgresStateConnection(table_map={"items": "central_bank_items"}, read_only=read_only)
         except Exception as exc:
             from auto_report.report_state import api_only_mode, missing_database_url_error
 
@@ -544,11 +544,23 @@ def get_data(db_path: str | None = None, refresh: bool = False, sources: list[st
     """
     conn = None
     try:
-        conn = _connect_db(db_path)
-        init_db(conn)
         if refresh:
+            conn = _connect_db(db_path)
+            init_db(conn)
             _fetch_and_store(conn, sources=sources)
-        items = _query_items(conn, sources=sources)
+            items = _query_items(conn, sources=sources)
+        else:
+
+            def _read():
+                read_conn = _connect_db(db_path, read_only=True)
+                try:
+                    with read_conn:
+                        init_db(read_conn)
+                        return _query_items(read_conn, sources=sources)
+                finally:
+                    read_conn.close()
+
+            items = retry_read(_read)
 
         active_sources = sources or list(FEEDS.keys())
         by_source: dict[str, list] = {k: [] for k in active_sources}

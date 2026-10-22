@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
-import { useQueryClient } from "@tanstack/react-query"
+import { sizerPrefillQuery, allPortfolioPositionsQuery } from "@/lib/routeData"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Info, Layers, Plus, X } from "lucide-react"
 
 import { DataTable, type ColumnDef } from "@/components/shared/DataTable"
@@ -8,7 +9,7 @@ import { ErrorMessage, LoadingSpinner } from "@/components/shared/LoadingSpinner
 import { MetricCard } from "@/components/shared/MetricCard"
 import { DecisionStateBadge, EffectScopeBadge, QualityStateBadge } from "@/components/shared/DecisionStateBadge"
 import { colorPositiveNegative } from "@/lib/colors"
-import { fetchPortfolioPositions, fetchSizerJob, fetchSizerPrefill, startSizerJob, type BetaHedgeMode } from "@/lib/api"
+import { fetchSizerJob, startSizerJob, type BetaHedgeMode } from "@/lib/api"
 import { groupKey, normalizeGroupConviction, normalizeGroupName } from "@/lib/positionGroups"
 import { cn } from "@/lib/utils"
 
@@ -654,8 +655,8 @@ export function PortfolioSizer() {
     errorMessage: string | null
   }>(SIZER_STATE_KEY)
 
-  const hasCachedBookSize = cachedState?.bookSize != null
-  const hasCachedRows = Boolean(cachedState?.rows && cachedState.rows.length > 0)
+  const [hasCachedBookSize] = useState(cachedState?.bookSize != null)
+  const [hasCachedRows] = useState(Boolean(cachedState?.rows && cachedState.rows.length > 0))
   const initialBookSize = clampBookSize(cachedState?.bookSize ?? DEFAULT_BOOK_SIZE)
   const initialHedgeTickers = normalizeHedgeTickers(cachedState?.hedgeTickers ?? betaHedgeModeToTickers(cachedState?.betaHedgeMode ?? DEFAULT_BETA_HEDGE_MODE))
   const [bookSize, setBookSize] = useState(initialBookSize)
@@ -672,62 +673,52 @@ export function PortfolioSizer() {
   const [tab, setTab] = useState<SizerTab>("Weights")
   const [weightsViewMode, setWeightsViewMode] = useState<WeightsViewMode>("basic")
   const [showInfo, setShowInfo] = useState(false)
-  const [currentHoldings, setCurrentHoldings] = useState<Record<string, number>>({})
+  const prefill = useQuery(sizerPrefillQuery)
+  const holdings = useQuery({ ...allPortfolioPositionsQuery, enabled: Boolean(cachedResult) })
+  const currentHoldings = useMemo(() => Object.fromEntries(
+    (holdings.data?.positions ?? []).flatMap(position => {
+      const quantity = position.quantity ?? position.shares
+      return quantity == null ? [] : [[position.ticker.toUpperCase(), quantity]]
+    }),
+  ), [holdings.data])
+  const prefillHydrated = useRef(false)
   const runSeqRef = useRef(0)
 
+  // Hydrate external defaults once without replacing later user edits.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
-    let canceled = false
-    fetchSizerPrefill()
-      .then(data => {
-        if (canceled) return
-        const configuredBookSize = toNumber(data.book_size)
-        if (!hasCachedBookSize && configuredBookSize != null) {
-          const nextBookSize = clampBookSize(configuredBookSize)
-          setBookSize(nextBookSize)
-          setBookSizeInput(String(nextBookSize))
-        }
-
-        if (!hasCachedRows) {
-          const positions = data.positions ?? []
-          const prefilled = positions
-            .map(p => ({
-              ticker: String(p?.ticker ?? "").trim().toUpperCase(),
-              direction: String(p?.direction ?? "").trim().toLowerCase(),
-              conviction: typeof p?.conviction === "number" ? p.conviction : 3,
-              groupName: normalizeGroupName(p?.group_name),
-              groupConviction: normalizeGroupConviction(p?.group_conviction),
-            }))
-            .filter(p => p.ticker.length > 0)
-            .map(p => makeRow(p.ticker, p.direction, p.conviction, p.groupName, p.groupConviction))
-
-          if (prefilled.length > 0) setRows(prefilled)
-        }
-      })
-      .catch(() => { })
-
-    return () => { canceled = true }
-  }, [hasCachedBookSize, hasCachedRows])
-
-  const refreshCurrentHoldings = useCallback(() => {
-    fetchPortfolioPositions(true)
-      .then(({ positions }) => {
-        const map: Record<string, number> = {}
-        for (const p of positions) {
-          const quantity = p.quantity ?? p.shares
-          if (quantity != null) map[p.ticker.toUpperCase()] = quantity
-        }
-        setCurrentHoldings(map)
-      })
-      .catch(() => { })
-  }, [])
+    if (!prefill.data || prefillHydrated.current) return
+    prefillHydrated.current = true
+    const data = prefill.data
+    const configuredBookSize = toNumber(data.book_size)
+    if (!hasCachedBookSize && configuredBookSize != null) {
+      const nextBookSize = clampBookSize(configuredBookSize)
+      setBookSize(nextBookSize)
+      setBookSizeInput(String(nextBookSize))
+    }
+    if (!hasCachedRows) {
+      const prefilled = (data.positions ?? [])
+        .map(p => ({
+          ticker: String(p?.ticker ?? "").trim().toUpperCase(),
+          direction: String(p?.direction ?? "").trim().toLowerCase(),
+          conviction: typeof p?.conviction === "number" ? p.conviction : 3,
+          groupName: normalizeGroupName(p?.group_name),
+          groupConviction: normalizeGroupConviction(p?.group_conviction),
+        }))
+        .filter(p => p.ticker.length > 0)
+        .map(p => makeRow(p.ticker, p.direction, p.conviction, p.groupName, p.groupConviction))
+      if (prefilled.length > 0) setRows(prefilled)
+    }
+  }, [prefill.data, hasCachedBookSize, hasCachedRows])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleSizerResult = useCallback((result: unknown) => {
     setCachedResult((result as SizerResponse) ?? null)
     setActiveJobId(null)
     setIsRunning(false)
     setErrorMessage(null)
-    refreshCurrentHoldings()
-  }, [refreshCurrentHoldings])
+    void queryClient.invalidateQueries({ queryKey: allPortfolioPositionsQuery.queryKey })
+  }, [queryClient])
 
   useEffect(() => {
     if (!activeJobId) return
@@ -762,8 +753,11 @@ export function PortfolioSizer() {
       }
     }
 
+    // Restore the local running indicator for a persisted server job.
+    /* eslint-disable react-hooks/set-state-in-effect */
     setIsRunning(true)
     setErrorMessage(null)
+    /* eslint-enable react-hooks/set-state-in-effect */
     pollJob()
 
     return () => {
@@ -785,10 +779,6 @@ export function PortfolioSizer() {
       errorMessage,
     })
   }, [bookSize, bookSizeInput, targetLeverage, hedgeTickers, rows, cachedResult, activeJobId, errorMessage, queryClient])
-
-  useEffect(() => {
-    setBookSizeInput(String(bookSize))
-  }, [bookSize])
 
   function updateConviction(id: string, conviction: number) {
     setRows(prev => prev.map(row => (row.id === id ? { ...row, conviction } : row)))
@@ -990,7 +980,7 @@ export function PortfolioSizer() {
 
   const sizingDeltas = useMemo(() => {
     if (!data) return []
-    const allRows = [...weightsRows, ...hedgesRows]
+    const allRows = [...toRows(data.weights_df), ...toRows(data.hedges_df)]
     if (allRows.length === 0) return []
 
     const deltaList: {
@@ -1045,7 +1035,7 @@ export function PortfolioSizer() {
     }
 
     return deltaList.sort((a, b) => Math.abs(b.notional) - Math.abs(a.notional))
-  }, [data, weightsRows, hedgesRows, currentHoldings])
+  }, [data, currentHoldings])
 
   const totalNotionalDelta = sizingDeltas.reduce((sum, t) => sum + Math.abs(t.notional), 0)
   const increaseNotional = sizingDeltas.filter(t => t.delta > 0).reduce((sum, t) => sum + t.notional, 0)

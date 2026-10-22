@@ -22,7 +22,7 @@ Override at deploy time, e.g. `AGENT_INTENT_ROUTER_SHADOW_MODE=false ./infra/gcp
 
 ## Phase A — shadow-only burn-in
 1. Set `AGENT_INTENT_ROUTER_ENABLED=true` and `AGENT_INTENT_ROUTER_SHADOW_MODE=true`.
-2. Collect `done.intent_router.telemetry.shadow_comparison` rows until burn-in window completes.
+2. Collect `route.telemetry.shadow_comparison` from stored agent trajectories (or captured router training rows) until the burn-in window completes. LLM shadow comparisons run in the durable turn follow-up job after `done`; the streamed `done.intent_router.telemetry` reports `shadow_pending=true`. Completed telemetry is also logged as `intent_router_shadow_complete`. Supervised comparisons remain immediate, and active LLM routing still completes before tool selection. Router LLM calls disable thinking independently of chat preferences.
 3. Run offline routing evals:
    ```bash
    python -m decision_quality.chat_eval_runner --routing-only

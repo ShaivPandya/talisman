@@ -26,6 +26,9 @@ class JSONFormatter(logging.Formatter):
             "message": record.getMessage(),
             "request_id": request_id_var.get(""),
         }
+        performance = getattr(record, "performance", None)
+        if isinstance(performance, dict):
+            entry.update(performance)
         if record.exc_info and record.exc_info[0] is not None:
             entry["exception"] = self.formatException(record.exc_info)
         return json.dumps(entry)

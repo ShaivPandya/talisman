@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import calendar
 import json
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
@@ -532,3 +533,82 @@ def test_verified_reports_publish_as_requesting_actor_once_and_pending_approval_
     store.resume_run(state["run_id"])
     workflow.run_company_research_run(request, job_id="resume-publish")
     assert sum(action == "save_overview_content" for action, _, _ in published) == 1
+
+
+def test_in_order_returns_results_in_input_order_within_the_inflight_cap():
+    lock = threading.Lock()
+    first_wave = threading.Barrier(store.MAX_INFLIGHT, timeout=5)
+    running, peak = 0, 0
+
+    def work(n):
+        nonlocal running, peak
+        with lock:
+            running += 1
+            peak = max(peak, running)
+        if n < store.MAX_INFLIGHT:
+            first_wave.wait()
+        time.sleep(0.01 * (6 - n))  # later units finish first
+        with lock:
+            running -= 1
+        return n
+
+    assert workflow._in_order(work, range(6)) == list(range(6))
+    assert peak == store.MAX_INFLIGHT
+
+
+def test_in_order_raises_the_first_failure_in_input_order():
+    def work(n):
+        if n:
+            raise ValueError(f"unit {n}")
+        time.sleep(0.05)
+        return n
+
+    with pytest.raises(ValueError, match="unit 1"):
+        workflow._in_order(work, range(4))
+
+
+def test_verification_batches_run_concurrently_and_keep_record_order(monkeypatch):
+    in_flight = threading.Barrier(store.MAX_INFLIGHT, timeout=5)
+    checked = []
+
+    class ConcurrentProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is EvidenceDecisions:
+                checked.append(step)
+                in_flight.wait()  # passes only when MAX_INFLIGHT batches are checked at the same time
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", ConcurrentProvider)
+    # Each record exceeds half the 75 KB batch limit, so each one is its own batch.
+    records = [
+        commitment(q.label).model_copy(update={"claim": "Open facility " + "x" * 40_000}) for q in plan().quarters[:6]
+    ]
+    accepted, rejected = workflow.Workflow(claimed(), "worker").verify("management_quality", records)
+    assert len(checked) == 6
+    assert [r.record_id for r in accepted] == sorted(r.record_id for r in records)
+    assert rejected == []
+
+
+def test_section_pairs_are_written_concurrently_in_order(monkeypatch):
+    in_flight = threading.Barrier(3, timeout=5)
+
+    class ConcurrentProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is WrittenSections:
+                in_flight.wait()  # passes only when all three section pairs are written at the same time
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", ConcurrentProvider)
+    titles = [f"Section {n}" for n in range(6)]
+    rendered = workflow.Workflow(claimed(), "worker").write("management_quality", titles, [commitment()], [])
+    assert [part.splitlines()[0] for part in rendered] == [f"## {title}" for title in titles]
+
+
+def test_background_responses_are_polled_every_two_seconds(monkeypatch):
+    client = mock_client(monkeypatch, [])
+    client.responses.retrieve.side_effect = [response({}, status="in_progress"), response({})]
+    sleeps = []
+    monkeypatch.setattr(provider.time, "sleep", sleeps.append)
+    research = provider.ResearchProvider(claimed(), "worker")
+    assert research._wait(response({}, status="in_progress"), "unit:0")["status"] == "completed"
+    assert sleeps == [2, 2]

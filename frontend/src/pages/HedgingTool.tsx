@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
+import { hedgingPrefillQuery } from "@/lib/routeData"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { DataTable, type ColumnDef } from "@/components/shared/DataTable"
@@ -8,7 +9,7 @@ import { renderMarkdownLite } from "@/components/shared/MarkdownRenderer"
 import { MetricCard } from "@/components/shared/MetricCard"
 import { DecisionStateBadge, EffectScopeBadge, QualityStateBadge } from "@/components/shared/DecisionStateBadge"
 import { colorPositiveNegative } from "@/lib/colors"
-import { fetchHedgingPortfolioWeights, fetchHedgingRecommendations, fetchHedgingToolPrefill, runHedgingToolAsync } from "@/lib/api"
+import { fetchHedgingPortfolioWeights, fetchHedgingRecommendations, runHedgingToolAsync } from "@/lib/api"
 
 interface HedgingResult {
   input_count?: number
@@ -188,7 +189,7 @@ export function HedgingTool() {
     if (cachedState?.rows && cachedState.rows.length > 0) return
 
     let canceled = false
-    fetchHedgingToolPrefill()
+    queryClient.fetchQuery(hedgingPrefillQuery)
       .then((data: unknown) => {
         if (canceled) return
         const positions = (data as { positions?: Array<{ ticker?: unknown; weight?: unknown }> })?.positions ?? []
@@ -209,7 +210,7 @@ export function HedgingTool() {
     return () => {
       canceled = true
     }
-  }, [cachedState?.rows])
+  }, [cachedState?.rows, queryClient])
 
   const mutation = useMutation({
     mutationFn: runHedgingToolAsync,

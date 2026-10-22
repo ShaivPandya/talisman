@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from api.postgres import connect, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
 
 logger = logging.getLogger(__name__)
 
@@ -319,17 +319,21 @@ def _insert_postgres(payload: dict[str, Any], *, row_id: str, captured_at: str) 
     session_id = payload.get("session_id")
     client_turn_id = payload.get("client_turn_id")
     if session_id and client_turn_id:
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                SELECT row_id FROM intent_router_training_rows
-                WHERE session_id = %s AND client_turn_id = %s
-                LIMIT 1
-                """,
-                (session_id, client_turn_id),
-            )
-            if cur.fetchone():
-                return None
+
+        def _read():
+            with connect(read_only=True) as conn, conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT row_id FROM intent_router_training_rows
+                    WHERE session_id = %s AND client_turn_id = %s
+                    LIMIT 1
+                    """,
+                    (session_id, client_turn_id),
+                )
+                return cur.fetchone()
+
+        if retry_read(_read):
+            return None
 
     with connect() as conn, conn.cursor() as cur:
         cur.execute(
@@ -409,24 +413,29 @@ def _list_postgres(*, limit: int, labeled_only: bool, since: str | None) -> list
         clauses.append("captured_at >= %s")
         params.append(since)
     params.append(limit)
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT row_id, session_id, client_turn_id, captured_at, schema_version,
-                   capture_policy, redaction_policy, retention_class, sampling_reason,
-                   applied_source, confidence_threshold, fallback_reason, user_text,
-                   screen_context_json, recent_session_features_json, regex_baseline_json,
-                   llm_candidate_json, shadow_comparison_json, applied_route_json,
-                   opportunity_candidate_metadata_json, payload_json,
-                   label_intent_class, label_run_hidden_dq, label_run_opportunity_preflight,
-                   label_workflow_name, label_tool_names_json, label_reviewer, labeled_at
-            FROM intent_router_training_rows
-            WHERE {" AND ".join(clauses)}
-            ORDER BY captured_at DESC
-            LIMIT %s
-            """,
-            tuple(params),
-        )
-        columns = [desc[0] for desc in cur.description]
-        rows = [dict(zip(columns, row, strict=True)) for row in cur.fetchall()]
+
+    def _read():
+        with connect(read_only=True) as conn, conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT row_id, session_id, client_turn_id, captured_at, schema_version,
+                       capture_policy, redaction_policy, retention_class, sampling_reason,
+                       applied_source, confidence_threshold, fallback_reason, user_text,
+                       screen_context_json, recent_session_features_json, regex_baseline_json,
+                       llm_candidate_json, shadow_comparison_json, applied_route_json,
+                       opportunity_candidate_metadata_json, payload_json,
+                       label_intent_class, label_run_hidden_dq, label_run_opportunity_preflight,
+                       label_workflow_name, label_tool_names_json, label_reviewer, labeled_at
+                FROM intent_router_training_rows
+                WHERE {" AND ".join(clauses)}
+                ORDER BY captured_at DESC
+                LIMIT %s
+                """,
+                tuple(params),
+            )
+            columns = [desc[0] for desc in cur.description]
+            rows = [dict(zip(columns, row, strict=True)) for row in cur.fetchall()]
+        return rows
+
+    rows = retry_read(_read)
     return [_row_to_dict(row) for row in rows]

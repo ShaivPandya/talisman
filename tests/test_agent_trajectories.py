@@ -161,6 +161,8 @@ def test_live_capture_defaults_to_ineligible_without_consent():
 
 
 def test_casual_agent_turn_captures_trajectory_without_sse_contract_change(auth_client):
+    import time
+
     from api.agent_trajectories import list_trajectories
 
     response = auth_client.post(
@@ -171,7 +173,12 @@ def test_casual_agent_turn_captures_trajectory_without_sse_contract_change(auth_
     assert "event: trajectory" not in response.text
     assert "event: done" in response.text
 
+    # The trajectory is stored by the turn's follow-up job, which runs after "done".
+    deadline = time.monotonic() + 5
     rows = list_trajectories(limit=10)
+    while not rows and time.monotonic() < deadline:
+        time.sleep(0.05)
+        rows = list_trajectories(limit=10)
     assert len(rows) == 1
     row = rows[0]
     assert row["session_id"] == "traj-casual-session"

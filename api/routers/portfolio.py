@@ -39,7 +39,9 @@ def _cache_for_timeframe(timeframe: str, *, all_timeframes: bool):
 
 
 @router.get("/portfolio")
-def get_portfolio(response: Response, timeframe: str = "Daily", all_timeframes: bool = False):
+def get_portfolio(
+    response: Response, timeframe: str = "Daily", all_timeframes: bool = False, force_refresh: bool = False
+):
     holdings = _current_holdings()
     holdings_token = _holdings_cache_token(holdings)
 
@@ -79,4 +81,4 @@ def get_portfolio(response: Response, timeframe: str = "Daily", all_timeframes: 
 
         return result
 
-    return get_or_set_cached(cache, key, loader)
+    return get_or_set_cached(cache, key, loader, force_refresh=force_refresh)

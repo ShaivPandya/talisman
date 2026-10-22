@@ -1,6 +1,6 @@
 import axios from "axios"
 
-import { getAuthMode } from "@/lib/authMode"
+import { getAuthMode, hasAuthenticatedSession } from "@/lib/authMode"
 import { csrfHeaders, setCsrfToken } from "@/lib/csrfToken"
 import type { DecisionState, DecisionStateFields, EffectScope } from "@/lib/decisionState"
 import type { ManagementQualityAssessment, ParsedManagementQuality } from "@/lib/managementQualityTypes"
@@ -856,6 +856,9 @@ export type IdeaComparisonJobResponse =
   | { job_id: string; status: "error" | "cancelled"; timeout_s?: number; error?: string; progress?: Record<string, unknown> }
 
 function shouldRedirectUnauthorizedToLogin(err: unknown): boolean {
+  // The auth bootstrap owns the initial redirect. Speculative route reads can
+  // also return 401 during it; they must not trigger a second document load.
+  if (!hasAuthenticatedSession()) return false
   if (getAuthMode() === "cloudflare") return false
   if (!axios.isAxiosError(err) || err.response?.status !== 401) return false
   if (typeof window !== "undefined" && window.location.pathname.startsWith("/login")) return false
@@ -1168,8 +1171,8 @@ export const fetchAgentResponseFeedback = (params: {
 
 // ─── GET endpoints ───────────────────────────────────────────────────────────
 
-export const fetchPortfolio = (timeframe: string) =>
-  client.get(`/portfolio?timeframe=${encodeURIComponent(timeframe)}`).then(r => r.data)
+export const fetchPortfolio = (timeframe: string, options?: { force_refresh?: boolean }) =>
+  client.get(`/portfolio?timeframe=${encodeURIComponent(timeframe)}`, { params: options }).then(r => r.data)
 
 export const fetchPortfolioAllTimeframes = () =>
   client.get("/portfolio?all_timeframes=true").then(r => r.data)
@@ -2177,8 +2180,8 @@ export const deletePortfolioNewsDigest = (digestId: string) =>
     .delete(`/portfolio-news/${encodeURIComponent(digestId)}`)
     .then(r => r.data as NewsDigestDeleteResponse)
 
-export const fetchSectorMetrics = () =>
-  client.get("/sector-metrics").then(r => r.data)
+export const fetchSectorMetrics = (options?: { force_refresh?: boolean }) =>
+  client.get("/sector-metrics", { params: options }).then(r => r.data)
 
 export const fetchSectorMetricsSeries = (timeframe: string) =>
   client.get(`/sector-metrics/series?timeframe=${encodeURIComponent(timeframe)}`).then(r => r.data)
@@ -2995,13 +2998,13 @@ export const fetchPositionValuation = (ticker: string) =>
   client.get(`/valuation/${encodeURIComponent(ticker)}`).then(r => r.data as PositionValuation)
 
 export const updatePositionValuationProfileOverride = (ticker: string, profile_id: string | null) =>
-  client.put(`/valuation/${encodeURIComponent(ticker)}/profile-override`, { profile_id }).then(r => r.data)
+  client.put(`/valuation/${encodeURIComponent(ticker)}/profile-override`, { profile_id }).then(r => r.data as { valuation: PositionValuation })
 
 export const updatePositionValueRange = (ticker: string, body: PositionValueRangeRequest) =>
-  client.put(`/valuation/${encodeURIComponent(ticker)}/value-range`, body).then(r => r.data)
+  client.put(`/valuation/${encodeURIComponent(ticker)}/value-range`, body).then(r => r.data as { valuation: PositionValuation })
 
 export const deletePositionValueRange = (ticker: string, metric: string) =>
-  client.delete(`/valuation/${encodeURIComponent(ticker)}/value-range/${encodeURIComponent(metric)}`).then(r => r.data)
+  client.delete(`/valuation/${encodeURIComponent(ticker)}/value-range/${encodeURIComponent(metric)}`).then(r => r.data as { valuation: PositionValuation })
 
 // DCF Model
 export const fetchDCFHistorical = (ticker: string) =>

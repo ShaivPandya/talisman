@@ -7,6 +7,7 @@ import { useTheme } from "@/contexts/ThemeContext"
 import { MOBILE_MAX_WIDTH_QUERY, useMediaQuery } from "@/hooks/useMediaQuery"
 import { BoundedTooltip } from "@/components/shared/BoundedTooltip"
 import { NAV_SECTIONS } from "./navSections"
+import { preloadRoute } from "@/lib/pageRoutes"
 
 interface SidebarProps {
   isOpen: boolean
@@ -15,7 +16,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ isOpen, onClose, onOpenSearch }: SidebarProps) {
-  const { logout, mode } = useAuth()
+  const { logout, mode, isLoading } = useAuth()
   const { resolvedTheme, toggleTheme } = useTheme()
   const { hiddenPaths, sidebarCollapsed, toggleSidebarCollapsed } = usePersonalization()
   const isMobile = useMediaQuery(MOBILE_MAX_WIDTH_QUERY)
@@ -123,6 +124,8 @@ export function Sidebar({ isOpen, onClose, onOpenSearch }: SidebarProps) {
                   to={page.path}
                   end={page.path === "/"}
                   onClick={onClose}
+                  onPointerEnter={() => { void preloadRoute(page.path).catch(() => {}) }}
+                  onFocus={() => { void preloadRoute(page.path).catch(() => {}) }}
                   aria-label={rail ? page.label : undefined}
                   className={({ isActive }) =>
                     cn(
@@ -170,6 +173,7 @@ export function Sidebar({ isOpen, onClose, onOpenSearch }: SidebarProps) {
             <button
               type="button"
               onClick={handleLogout}
+              disabled={isLoading}
               aria-label="Sign out"
               className="theme-icon-button h-10 w-10"
             >
@@ -183,6 +187,7 @@ export function Sidebar({ isOpen, onClose, onOpenSearch }: SidebarProps) {
             <button
               type="button"
               onClick={handleLogout}
+              disabled={isLoading}
               className="theme-button-base theme-button-secondary flex-1 justify-start px-4"
             >
               Sign out

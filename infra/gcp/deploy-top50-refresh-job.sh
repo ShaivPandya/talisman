@@ -27,6 +27,10 @@ require_image_exists
 TOP50_REFRESH_ENV_VARS=(
   "ENVIRONMENT=production"
   "STATE_DB_BACKEND=postgres"
+  # This job writes serially; do not inherit the API/worker pool allowance.
+  "POSTGRES_POOL_MIN_SIZE=0"
+  "POSTGRES_POOL_MAX_SIZE=1"
+  "POSTGRES_POOL_TIMEOUT_SECONDS=${POSTGRES_POOL_TIMEOUT_SECONDS:-5}"
 )
 
 # Reuses the migrator-scoped DATABASE_URL — the refresh writes to a single table

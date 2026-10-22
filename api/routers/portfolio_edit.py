@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, Field, model_validator
+from starlette.concurrency import run_in_threadpool
 
 from api.action_execution import stage_api_action
 from api.audit import emit_audit_event
@@ -204,6 +205,16 @@ async def import_ibkr_flex_portfolio_positions(
     if not payload:
         raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
+    return await run_in_threadpool(
+        _import_ibkr_flex_positions,
+        payload,
+        filename=file.filename,
+        actor=actor,
+        reason=reason,
+    )
+
+
+def _import_ibkr_flex_positions(payload: bytes, *, filename: str | None, actor: Actor, reason: str | None) -> dict:
     try:
         read_service = OntologyRuntimeReadService()
         imported_rows = parse_ibkr_flex_open_positions_xml(payload)
@@ -212,7 +223,7 @@ async def import_ibkr_flex_portfolio_positions(
         merged_portfolio = merge_preserved_portfolio_metadata(portfolio_imported, existing_rows)
         portfolio_positions = [PortfolioPosition(**row) for row in merged_portfolio]
 
-        import_reason = reason or f"Import IBKR Flex open positions from {file.filename or 'upload.xml'}"
+        import_reason = reason or f"Import IBKR Flex open positions from {filename or 'upload.xml'}"
         staged_proposals: list[dict] = []
         primary_result: dict | None = None
 
@@ -265,7 +276,7 @@ async def import_ibkr_flex_portfolio_positions(
         "staged_proposals": staged_proposals,
         "import_summary": {
             "source": "ibkr_flex",
-            "filename": file.filename,
+            "filename": filename,
             "imported_count": len(imported_rows),
             "portfolio_imported_count": len(portfolio_imported),
             "hedge_imported_count": len(hedge_imported),

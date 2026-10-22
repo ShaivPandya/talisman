@@ -219,6 +219,7 @@ def init_sentry(*, component: str = "api") -> bool:
             profiles_sample_rate=_env_float("SENTRY_PROFILES_SAMPLE_RATE", 0.0),
             send_default_pii=False,
             before_send=cast(Any, _before_send),
+            auto_enabling_integrations=False,
             integrations=integrations,
         )
         sentry_sdk.set_tag("component", component)

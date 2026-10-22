@@ -1,6 +1,8 @@
 import { useState } from "react"
+import { keepPreviousData } from "@tanstack/react-query"
 import { useDashboardTimeframePrefetch } from "@/hooks/useDashboardTimeframePrefetch"
 import { useApiQuery } from "@/hooks/useApiQuery"
+import { useDisplayedQueryParameter } from "@/hooks/useDisplayedQueryParameter"
 import { fetchCountryDashboard } from "@/lib/api"
 import { TimeSeriesChart, type DataPoint } from "@/components/shared/TimeSeriesChart"
 import { MetricCard } from "@/components/shared/MetricCard"
@@ -23,16 +25,18 @@ const SOURCE_DISPLAY: Record<string, string> = {
 export function CountryDashboard() {
   const [metric, setMetric] = useState<Metric>("Inflation")
   const [currentTimestamp] = useState(() => Date.now())
-  const { data, isLoading, error, isSuccess } = useApiQuery(
+  const { data, isLoading, error, isSuccess, isPlaceholderData } = useApiQuery(
     ["country-dashboard", metric],
     () => fetchCountryDashboard(metric),
     COUNTRY_DASHBOARD_STALE_TIME_MS,
+    { placeholderData: keepPreviousData },
   )
+  const displayedMetric = useDisplayedQueryParameter(metric, isPlaceholderData)
   useDashboardTimeframePrefetch({
     queryKeyRoot: "country-dashboard",
     timeframes: METRICS,
     activeTimeframe: metric,
-    isReady: isSuccess,
+    isReady: isSuccess && !isPlaceholderData,
     fetchTimeframe: fetchCountryDashboard,
     staleTimeForTimeframe: countryDashboardStaleTime,
   })
@@ -59,12 +63,17 @@ export function CountryDashboard() {
         />
       </div>
 
+      {isPlaceholderData && (
+        <p role="status" className="mb-4 text-sm text-muted">
+          Updating to {metric}… Showing {displayedMetric} until the new data arrives.
+        </p>
+      )}
       {isLoading && <LoadingSpinner message={`Fetching ${metric} data...`} />}
       {!isLoading && (error || !data) && <ErrorMessage message={String(error) || "Failed to load"} />}
 
       {data && !isLoading && (
         <>
-          <p className="mb-4 text-xs text-subtle">Showing: {METRIC_LABEL[metric]}</p>
+          <p className="mb-4 text-xs text-subtle">Showing: {METRIC_LABEL[displayedMetric]}</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {(data.country_order as string[]).map(country => {
               const series: DataPoint[] | null = (data.countries as Record<string, DataPoint[] | null>)[country]
@@ -94,7 +103,7 @@ export function CountryDashboard() {
                 >
                   {delta != null ? (
                     <p className={`mb-2 text-sm font-medium ${
-                      metric === "GDP"
+                      displayedMetric === "GDP"
                         ? delta >= 0 ? "text-positive" : "text-negative"
                         : delta <= 0 ? "text-positive" : "text-negative"
                     }`}>

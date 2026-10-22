@@ -35,6 +35,22 @@ def test_init_sentry_is_non_fatal_with_invalid_dsn(monkeypatch):
     assert result in {True, False}
 
 
+@pytest.mark.parametrize("component", ["api", "job_worker"])
+def test_init_sentry_disables_integration_discovery(monkeypatch, component):
+    import sentry_sdk
+
+    captured = {}
+    monkeypatch.setenv("SENTRY_DSN", "https://public@example.invalid/1")
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kwargs: captured.update(kwargs))
+    monkeypatch.setattr(sentry_sdk, "set_tag", lambda *_args: None)
+    assert observability.init_sentry(component=component)
+    assert captured["auto_enabling_integrations"] is False
+    integrations = {integration.identifier for integration in captured["integrations"]}
+    assert integrations == ({"logging", "starlette", "fastapi"} if component == "api" else {"logging"})
+    assert captured["send_default_pii"] is False
+    assert captured["before_send"] is observability._before_send
+
+
 def test_scrub_event_payload_redacts_sensitive_keys():
     event = {
         "request": {

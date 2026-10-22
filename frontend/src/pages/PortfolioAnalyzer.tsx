@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { jobStatusQueryOptions, JobPollingTimeout } from "@/lib/jobQueries"
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "react-router-dom"
 import { Bell, ChevronDown, ChevronRight, Info, Play, Send, Sparkles, Square } from "lucide-react"
 
@@ -1343,73 +1344,62 @@ export function AnalyzerWorkbench({
     setActiveJob(restored)
   }, [activeJobQueryKey, queryClient, universeMode])
 
-  useEffect(() => {
-    if (!activeJob) return
-    const currentJob = activeJob
-    let stopped = false
-    let transientPollErrors = 0
-    const startedAtMs = new Date(currentJob.startedAt).getTime()
-    const serverTimeoutMs = Number.isFinite(currentJob.timeoutS)
-      ? Math.max(180, Number(currentJob.timeoutS)) * 1000
-      : 180_000
-    const deadline = (Number.isFinite(startedAtMs) ? startedAtMs : Date.now()) + serverTimeoutMs + 30_000
-
-    async function pollActiveJob() {
-      if (Date.now() > deadline) {
-        setMissionError("Timeout: Portfolio analyzer is taking too long. Try again.")
-        setActiveJobAndPersist(null)
-        return
+  const pollErrors = useRef({ jobId: "", count: 0 })
+  const jobStatus = useQuery(jobStatusQueryOptions(
+    ["portfolio-analyzer-job", activeJob?.jobId],
+    async () => {
+      const currentJob = activeJob!
+      if (pollErrors.current.jobId !== currentJob.jobId) pollErrors.current = { jobId: currentJob.jobId, count: 0 }
+      const started = new Date(currentJob.startedAt).getTime()
+      const timeout = Number.isFinite(currentJob.timeoutS) ? Math.max(180, Number(currentJob.timeoutS)) * 1000 : 180_000
+      if (Number.isFinite(started) && Date.now() > started + timeout + 30_000) {
+        throw new JobPollingTimeout("Timeout: Portfolio analyzer is taking too long. Try again.")
       }
-
       try {
         const job = await fetchPortfolioAnalyzerJob(currentJob.jobId)
-        if (stopped) return
-        transientPollErrors = 0
-
-        if (job.status === "queued" || job.status === "running") {
-          if (job.status !== currentJob.status || job.timeout_s !== currentJob.timeoutS) {
-            setActiveJobAndPersist({ ...currentJob, status: job.status, timeoutS: job.timeout_s ?? currentJob.timeoutS })
-          }
-          return
-        }
-
-        setActiveJobAndPersist(null)
-        setIsStoppingMission(false)
-
-        if (job.status === "done") {
-          setMissionError(null)
-          setMissionNotice(null)
-          setScenario(cloneScenario(currentJob.scenario))
-          if ("result" in job && job.result != null) {
-            setCachedResult((job.result as AnalyzerResponse) ?? null)
-          }
-          return
-        }
-
-        if (job.status === "cancelled") {
-          setMissionNotice(job.error || "Mission stopped.")
-          return
-        }
-
-        if (job.status === "error") {
-          setMissionError(job.error || "Portfolio analyzer failed")
-        }
+        pollErrors.current.count = 0
+        return job
       } catch (err) {
-        if (stopped) return
-        transientPollErrors += 1
-        if (transientPollErrors >= 5) {
-          setMissionError(analyzerJobErrorMessage(err, "Unable to poll portfolio analyzer mission."))
-        }
+        pollErrors.current.count += 1
+        throw err
       }
+    },
+    Boolean(activeJob),
+    2000,
+  ))
+  useEffect(() => {
+    const job = jobStatus.data
+    if (!activeJob || !job) return
+    if (job.status === "queued" || job.status === "running") {
+      const timeoutS = job.timeout_s ?? activeJob.timeoutS
+      if (job.status !== activeJob.status || timeoutS !== activeJob.timeoutS) {
+        setActiveJobAndPersist({ ...activeJob, status: job.status, timeoutS })
+      }
+      return
     }
-
-    void pollActiveJob()
-    const handle = window.setInterval(() => void pollActiveJob(), 2000)
-    return () => {
-      stopped = true
-      window.clearInterval(handle)
+    setActiveJobAndPersist(null)
+    setIsStoppingMission(false)
+    if (job.status === "done") {
+      setMissionError(null)
+      setMissionNotice(null)
+      setScenario(cloneScenario(activeJob.scenario))
+      if (job.result != null) setCachedResult(job.result as AnalyzerResponse)
+    } else if (job.status === "cancelled") {
+      setMissionNotice(job.error || "Mission stopped.")
+    } else if (job.status === "error") {
+      setMissionError(job.error || "Portfolio analyzer failed")
     }
-  }, [activeJob, setActiveJobAndPersist])
+  }, [activeJob, jobStatus.data, setActiveJobAndPersist])
+  useEffect(() => {
+    if (!jobStatus.error) return
+    if (jobStatus.error instanceof JobPollingTimeout) {
+      setActiveJobAndPersist(null)
+      setIsStoppingMission(false)
+      setMissionError(jobStatus.error.message)
+    } else if (pollErrors.current.count >= 5) {
+      setMissionError(analyzerJobErrorMessage(jobStatus.error, "Unable to poll portfolio analyzer mission."))
+    }
+  }, [jobStatus.error, jobStatus.errorUpdateCount, setActiveJobAndPersist])
 
   const data = cachedResult
   const isMissionActive = activeJob != null

@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
+import atexit
 import os
 import threading
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+from api.performance_pool import observe_checkout, stop_pool_sampler
+from api.performance_postgres import timing_cursor_class
+
 _FALSE_VALUES = {"0", "false", "no", "off", "disabled"}
 _TRUE_VALUES = {"1", "true", "yes", "on", "enabled"}
-_POOLS: dict[tuple[str, bool, str], Any] = {}
+_POOLS: dict[str, Any] = {}
 _POOLS_LOCK = threading.Lock()
 
 
@@ -74,10 +78,6 @@ def _env_float(name: str, *, default: float, minimum: float) -> float:
         return default
 
 
-def _pool_enabled() -> bool:
-    return _env_bool("POSTGRES_POOL_ENABLED", default=True)
-
-
 def _pool_min_size() -> int:
     return _env_int("POSTGRES_POOL_MIN_SIZE", default=0, minimum=0)
 
@@ -97,7 +97,7 @@ def _new_direct_connection(env_var: str = "DATABASE_URL", *, register_pgvector: 
     except ImportError as exc:
         raise RuntimeError("psycopg is required for Postgres-backed state.") from exc
 
-    conn = psycopg.connect(require_database_url(env_var), row_factory=dict_row)
+    conn = psycopg.connect(require_database_url(env_var), row_factory=dict_row, cursor_factory=timing_cursor_class())
     if register_pgvector:
         try:
             from pgvector.psycopg import register_vector
@@ -109,6 +109,7 @@ def _new_direct_connection(env_var: str = "DATABASE_URL", *, register_pgvector: 
 
 
 def open_connection(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False) -> Any:
+    """Open a direct connection for offline migration/administration only."""
     return _new_direct_connection(env_var, register_pgvector=register_pgvector)
 
 
@@ -119,33 +120,33 @@ def _new_pool(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False)
     except ImportError as exc:
         raise RuntimeError("psycopg_pool is required for pooled Postgres state.") from exc
 
-    configure = None
-    if register_pgvector:
-        try:
-            from pgvector.psycopg import register_vector
-        except ImportError as exc:
-            raise RuntimeError("pgvector is required for retrieval Postgres state.") from exc
+    try:
+        from pgvector.psycopg import register_vector
+    except ImportError as exc:
+        raise RuntimeError("pgvector is required for pooled Postgres state.") from exc
 
-        def configure(conn: Any) -> None:
-            register_vector(conn)
+    def configure(conn: Any) -> None:
+        register_vector(conn)
+        conn.rollback()
 
     min_size = _pool_min_size()
-    max_size = max(_pool_max_size(), min_size)
+    max_size = _pool_max_size()
+    if min_size > max_size:
+        raise ValueError("POSTGRES_POOL_MIN_SIZE must not exceed POSTGRES_POOL_MAX_SIZE.")
     return ConnectionPool(
         conninfo=require_database_url(env_var),
-        kwargs={"row_factory": dict_row},
+        kwargs={"row_factory": dict_row, "cursor_factory": timing_cursor_class()},
         min_size=min_size,
         max_size=max_size,
         timeout=_pool_timeout(),
         configure=configure,
-        check=ConnectionPool.check_connection,
         open=True,
     )
 
 
 def _get_pool(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False) -> Any:
     conninfo = require_database_url(env_var)
-    key = (env_var, register_pgvector, conninfo)
+    key = conninfo
     pool = _POOLS.get(key)
     if pool is not None:
         return pool
@@ -159,6 +160,7 @@ def _get_pool(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False)
 
 def close_pools() -> None:
     """Close process-local Postgres pools. Intended for tests and shutdown hooks."""
+    stop_pool_sampler()
     with _POOLS_LOCK:
         pools = list(_POOLS.values())
         _POOLS.clear()
@@ -167,25 +169,63 @@ def close_pools() -> None:
 
 
 @contextmanager
-def connect(env_var: str = "DATABASE_URL", *, register_pgvector: bool = False) -> Iterator:
-    if not _pool_enabled():
-        conn = open_connection(env_var, register_pgvector=register_pgvector)
-        try:
-            yield conn
-        finally:
-            conn.close()
-        return
+def connect(
+    env_var: str = "DATABASE_URL", *, register_pgvector: bool = False, read_only: bool = False
+) -> Iterator[Any]:
+    """Borrow a connection; writes still require an explicit commit.
+
+    ``read_only`` opts audited plain reads into autocommit. It is not a server
+    permission boundary and must not be used for locking or mutating queries.
+    ``register_pgvector`` remains accepted for compatibility: every pooled
+    connection now has the adapters configured.
+    """
+    from psycopg import OperationalError
 
     pool = _get_pool(env_var, register_pgvector=register_pgvector)
-    conn = pool.getconn(timeout=_pool_timeout())
+    with observe_checkout(pool):
+        conn = pool.getconn(timeout=_pool_timeout())
     try:
+        conn.autocommit = read_only
         yield conn
+    except OperationalError:
+        _discard_connection(conn)
+        raise
     finally:
         try:
-            conn.rollback()
+            if not conn.closed:
+                conn.rollback()
+                conn.autocommit = False
         except Exception:
-            try:
-                conn.close()
-            except Exception:
-                pass
-        pool.putconn(conn)
+            _discard_connection(conn)
+        finally:
+            pool.putconn(conn)
+
+
+def _discard_connection(conn: Any) -> None:
+    try:
+        conn.close()
+    except Exception:
+        pass
+
+
+def retry_read[T](operation: Callable[[], T]) -> T:
+    """Retry one fully consumed, idempotent DB read with a fresh checkout.
+
+    The callback owns its connection context. Keep writes, fallback handlers,
+    and external side effects outside it. Capacity failures are not retried.
+    """
+    from psycopg import OperationalError
+    from psycopg_pool import PoolClosed, PoolTimeout, TooManyRequests
+
+    for attempt in range(2):
+        try:
+            return operation()
+        except (PoolClosed, PoolTimeout, TooManyRequests):
+            raise
+        except OperationalError:
+            if attempt:
+                raise
+    raise AssertionError("unreachable")
+
+
+atexit.register(close_pools)

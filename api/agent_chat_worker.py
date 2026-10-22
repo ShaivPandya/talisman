@@ -10,7 +10,7 @@ from typing import Any
 
 from api.agent_models import AgentChatJobRequest, AgentChatRequest
 from api.job_events import append_job_event
-from api.job_queue import get_job
+from api.job_queue import get_job_status
 from llm_utils import MODEL_MID, api_key_env, selected_provider_for_tier
 
 
@@ -62,17 +62,31 @@ def _append_agent_delta(
         return
     now = time.monotonic()
     text = "".join(buffer)
-    last = state.get("last_delta_flush", 0.0)
-    if not force and len(text.encode("utf-8")) < _delta_flush_bytes() and now - last < _delta_flush_interval_s():
+    last = state.get("last_delta_flush")
+    if (
+        last is not None
+        and not force
+        and len(text.encode("utf-8")) < _delta_flush_bytes()
+        and now - last < _delta_flush_interval_s()
+    ):
         return
     buffer.clear()
     state["last_delta_flush"] = now
     append_job_event(job_id, "delta", {"text": text})
 
 
-def _job_cancelled(job_id: str) -> bool:
-    row = get_job(job_id)
-    return bool(row and str(row.get("status") or "") == "cancelled")
+class _CancellationCheck:
+    def __init__(self, job_id: str):
+        self.job_id = job_id
+        self.next_check = 0.0
+        self.cancelled = False
+
+    def __call__(self) -> bool:
+        now = time.monotonic()
+        if not self.cancelled and now >= self.next_check:
+            self.next_check = now + 1.0
+            self.cancelled = get_job_status(self.job_id) == "cancelled"
+        return self.cancelled
 
 
 def _format_stream_error(exc: Exception) -> str:
@@ -109,7 +123,8 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
     )
     append_job_event(job_id, "status", {"status": "running", "session_id": worker_req.session_id})
     delta_buffer: list[str] = []
-    flush_state = {"last_delta_flush": time.monotonic()}
+    flush_state: dict[str, float] = {}
+    job_cancelled = _CancellationCheck(job_id)
     terminal_payload: dict[str, Any] | None = None
     error_message: str | None = None
 
@@ -135,7 +150,7 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
                     continue
                 event_type, payload = parsed
                 if event_type == "ping":
-                    if _job_cancelled(job_id):
+                    if job_cancelled():
                         return
                     continue
                 if event_type == "delta":
@@ -143,7 +158,7 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
                     if isinstance(delta_text, str) and delta_text:
                         delta_buffer.append(delta_text)
                         _append_agent_delta(job_id, delta_buffer, state=flush_state)
-                    if _job_cancelled(job_id):
+                    if job_cancelled():
                         return
                     continue
 
@@ -153,10 +168,10 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
                     error_message = str(payload.get("message") or "Agent chat turn failed")
                 elif event_type == "done":
                     terminal_payload = payload
-                if _job_cancelled(job_id):
+                if job_cancelled():
                     return
 
-            if _job_cancelled(job_id):
+            if job_cancelled():
                 return
 
         _append_agent_delta(job_id, delta_buffer, force=True, state=flush_state)
@@ -168,7 +183,7 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
         append_job_event(job_id, "error", {"message": message})
         raise RuntimeError(message) from exc
 
-    if _job_cancelled(job_id):
+    if job_cancelled():
         return {"status": "cancelled", "session_id": worker_req.session_id}
 
     if error_message:

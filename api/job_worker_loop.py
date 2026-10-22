@@ -10,7 +10,7 @@ import sys
 import threading
 from typing import Any
 
-from api.async_job_runner import perform_job
+from api.async_job_runner import execute_claimed
 from api.job_queue import claim_queued_job
 from api.logging_config import configure_logging
 from api.observability import capture_exception, init_sentry
@@ -38,7 +38,18 @@ _PRELOAD_MODULES: dict[str, tuple[str, ...]] = {
         "ontology.service",
         "api.routers.ontology",
     ),
+    "agent_turn_followup": (
+        "api.agent_turn_followup",
+        "api.routers.memory",
+    ),
 }
+
+# Job types a worker also drains on its own thread, at its own poll interval (seconds).
+# Agent turn follow-ups get their own loop so a chat turn never waits behind a summary.
+_COMPANION_LOOPS: dict[str, tuple[tuple[str, float], ...]] = {
+    "agent_chat_turn": (("agent_turn_followup", 1.0),),
+}
+_COMPANION_SHUTDOWN_GRACE_S = 8.0
 
 
 def _env_float(name: str, default: float) -> float:
@@ -96,7 +107,7 @@ def run_once(*, job_type: str = DEFAULT_JOB_TYPE, queue_name: str = DEFAULT_QUEU
         return True
 
     try:
-        perform_job(job_id)
+        execute_claimed(row)
     except Exception as exc:
         logger.exception("warm worker failed job_type=%s queue=%s job_id=%s", job_type, queue_name, job_id)
         capture_exception(
@@ -169,13 +180,38 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+    companions = _start_companion_loops(args.job_type, args.queue_name, stop)
     run_loop(
         job_type=args.job_type,
         queue_name=args.queue_name,
         poll_interval_s=args.poll_interval,
         stop_event=stop,
     )
+    for thread in companions:
+        # Let an in-flight follow-up finish inside the shutdown window.
+        thread.join(timeout=_COMPANION_SHUTDOWN_GRACE_S)
     return 0
+
+
+def _start_companion_loops(job_type: str, queue_name: str, stop: threading.Event) -> list[threading.Thread]:
+    threads: list[threading.Thread] = []
+    for companion_type, default_interval in _COMPANION_LOOPS.get(job_type, ()):
+        specific = f"{_worker_env_prefix(companion_type)}_WORKER_POLL_INTERVAL_SECONDS"
+
+        def _run(
+            companion_type: str = companion_type, interval: float = _env_float(specific, default_interval)
+        ) -> None:
+            try:
+                run_loop(job_type=companion_type, queue_name=queue_name, poll_interval_s=interval, stop_event=stop)
+            except Exception as exc:
+                logger.exception("companion worker loop crashed job_type=%s queue=%s", companion_type, queue_name)
+                capture_exception(exc, tags={"job_type": companion_type, "queue": queue_name, "phase": "warm_worker"})
+                stop.set()  # Stop the whole worker, as a crash of the main loop would, so it restarts.
+
+        thread = threading.Thread(target=_run, name=f"{companion_type}-worker", daemon=True)
+        thread.start()
+        threads.append(thread)
+    return threads
 
 
 if __name__ == "__main__":

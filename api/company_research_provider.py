@@ -21,7 +21,7 @@ from ontology.policy import actor_from_dict
 
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
-POLL_SECONDS = 5
+POLL_SECONDS = 2
 SEARCH_CONTEXT_TOKENS = 128_000
 # Conservative standard-rate envelope, including cache writes and a regional-price margin.
 # https://developers.openai.com/api/docs/models/gpt-6.1-sol

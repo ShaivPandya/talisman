@@ -160,7 +160,7 @@ from rich.table import Table
 
 from api.serializers import serialize_value
 from portfolio.instruments import is_spot_fx_symbol, normalize_spot_fx_symbol, spot_fx_currencies
-from utils.retry import yf_download, yf_ticker_info
+from utils.retry import yf_ticker_info
 
 LOGGER = logging.getLogger(__name__)
 
@@ -632,14 +632,13 @@ def _positions_df_for_universe(universe_mode: str = ANALYZER_UNIVERSE_PORTFOLIO)
 
 def _read_overview_markdown(ticker: str) -> str | None:
     try:
-        from api.state_storage import exists_text, read_text
+        from api.state_storage import read_text
         from paths import PROJECT_ROOT
 
         normalized = str(ticker).strip().upper()
         local_path = PROJECT_ROOT / "investment_overviews" / f"{normalized}.md"
         gcs_key = f"live/overviews/{normalized}.md"
-        if exists_text(local_path, gcs_key):
-            return read_text(local_path, gcs_key, encoding="utf-8")
+        return cast(str, read_text(local_path, gcs_key, encoding="utf-8"))
     except Exception:
         return None
     return None
@@ -648,22 +647,21 @@ def _read_overview_markdown(ticker: str) -> str | None:
 def _read_management_quality_markdown(ticker: str) -> str | None:
     normalized = str(ticker).strip().upper()
     try:
-        from ontology.runtime_read_service import OntologyRuntimeReadService
-        from portfolio.management_quality_content import management_quality_exists, read_management_quality
+        from google.api_core.exceptions import NotFound
+
+        from portfolio.management_quality_content import read_management_quality
 
         try:
-            from api.routers.management_quality import _render_management_quality_markdown
-
-            assessment = OntologyRuntimeReadService().management_quality_assessment(normalized)
-            if assessment:
-                if management_quality_exists(normalized):
-                    return read_management_quality(normalized)
-                return _render_management_quality_markdown(normalized, assessment)
-        except Exception:
+            return read_management_quality(normalized)
+        except (FileNotFoundError, NotFound):
             pass
 
-        if management_quality_exists(normalized):
-            return read_management_quality(normalized)
+        from api.routers.management_quality import _render_management_quality_markdown
+        from ontology.runtime_read_service import OntologyRuntimeReadService
+
+        assessment = OntologyRuntimeReadService().management_quality_assessment(normalized)
+        if assessment:
+            return _render_management_quality_markdown(normalized, assessment)
     except Exception:
         return None
     return None
@@ -680,16 +678,23 @@ def analyzer_source_cache_token(universe_mode: str = ANALYZER_UNIVERSE_PORTFOLIO
         position_records = []
 
     sources: list[dict[str, Any]] = []
-    for ticker in tickers:
-        overview = _read_overview_markdown(ticker)
-        management = _read_management_quality_markdown(ticker)
-        sources.append(
-            {
-                "ticker": ticker,
-                "overview_hash": _sha256_text(overview),
-                "management_quality_hash": _sha256_text(management),
-            }
-        )
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        reads = [
+            (
+                ticker,
+                pool.submit(_read_overview_markdown, ticker),
+                pool.submit(_read_management_quality_markdown, ticker),
+            )
+            for ticker in tickers
+        ]
+        for ticker, overview, management in reads:
+            sources.append(
+                {
+                    "ticker": ticker,
+                    "overview_hash": _sha256_text(overview.result()),
+                    "management_quality_hash": _sha256_text(management.result()),
+                }
+            )
     return {
         "universe_mode": mode,
         "tickers": tickers,
@@ -1636,16 +1641,24 @@ def fetch_currencies(tickers: list) -> dict[str, str]:
     Returns a dict mapping ticker to its currency (e.g., 'USD', 'EUR').
     """
 
-    def _fetch_one(t: str):
-        try:
-            return t, yf.Ticker(t).fast_info.currency
-        except Exception:
-            try:
-                return t, yf_ticker_info(t).get("currency", BASE_CCY)
-            except Exception:
-                return t, BASE_CCY
+    from utils.reference_data import daily_reference
 
-    currencies = {}
+    def _fetch_one(t: str):
+        def load() -> dict:
+            try:
+                currency = yf.Ticker(t).fast_info.currency
+            except Exception:
+                currency = yf_ticker_info(t).get("currency")
+            return {"currency": str(currency)} if currency else {}
+
+        try:
+            return t, daily_reference("currency", t, load).get("currency", BASE_CCY)
+        except Exception:
+            return t, BASE_CCY
+
+    currencies: dict[str, str] = {}
+    if not tickers:
+        return currencies
     with ThreadPoolExecutor(max_workers=min(16, len(tickers))) as pool:
         futures = {pool.submit(_fetch_one, t): t for t in tickers}
         for future in as_completed(futures):
@@ -1684,13 +1697,13 @@ def download_prices(tickers: list, fx_tickers: list) -> pd.DataFrame:
     """
     Download price data from yfinance for tickers and FX rates.
     """
+    from utils.yf_jobs import download_price_chunks
+
     all_tickers = tickers + fx_tickers
     end = date.today() + timedelta(days=1)
     start = end - timedelta(days=LOOKBACK_DAYS)
 
-    px = yf_download(
-        tickers=all_tickers, start=start.isoformat(), end=end.isoformat(), auto_adjust=True, progress=False
-    )
+    px, _failed = download_price_chunks(all_tickers, start=start.isoformat(), end=end.isoformat(), auto_adjust=True)
 
     # yfinance returns either a single DataFrame or a column MultiIndex
     if isinstance(px.columns, pd.MultiIndex):
@@ -1823,11 +1836,7 @@ def fetch_prices_for_portfolio_symbols(
         for ticker, symbol in symbol_map.items()
         if str(meta.loc[ticker].get("instrument_type") or "").strip().lower() == "spot_fx"
     }
-    symbol_currencies = fetch_currencies(symbols_to_fetch)
-    for symbol in spot_fx_symbols:
-        symbol_currencies[symbol] = BASE_CCY
-    fx_tickers = get_required_fx_tickers(symbol_currencies)
-    prices_by_symbol = download_prices(symbols_to_fetch, fx_tickers)
+    prices_by_symbol, symbol_currencies = _fetch_prices_and_currencies(symbols_to_fetch, spot_fx_symbols)
     prices = prices_by_symbol.copy()
     for ticker, symbol in symbol_map.items():
         if symbol in prices_by_symbol.columns:
@@ -1841,6 +1850,26 @@ def fetch_prices_for_portfolio_symbols(
     for ticker in extra_tickers:
         ticker_currencies[ticker] = symbol_currencies.get(ticker, BASE_CCY)
     return prices, ticker_currencies, symbol_map
+
+
+def _fetch_prices_and_currencies(
+    tickers: list[str], base_currency_symbols: set[str] | None = None
+) -> tuple[pd.DataFrame, dict[str, str]]:
+    """Start asset prices immediately; fetch only needed FX pairs after currencies arrive."""
+    if not tickers:
+        return pd.DataFrame(), {}
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        prices_future = pool.submit(download_prices, tickers, [])
+        currencies_future = pool.submit(fetch_currencies, tickers)
+        currencies = currencies_future.result()
+        for symbol in base_currency_symbols or ():
+            currencies[symbol] = BASE_CCY
+        fx_tickers = [symbol for symbol in get_required_fx_tickers(currencies) if symbol not in tickers]
+        fx_future = pool.submit(download_prices, [], fx_tickers) if fx_tickers else None
+        prices = prices_future.result()
+        if fx_future is not None:
+            prices = pd.concat([prices, fx_future.result()], axis=1)
+    return prices, currencies
 
 
 def parse_bool_column(series: pd.Series) -> pd.Series:
@@ -4061,15 +4090,8 @@ def main(book: float | None = None, debug_weights: bool = False):
     market_tickers = [MARKET_TICKER_LONG, MARKET_TICKER_SHORT]
     all_tickers_to_fetch = list(set(tickers + market_tickers))
 
-    console.print(f"[cyan]Fetching currencies for {len(all_tickers_to_fetch)} tickers...[/cyan]")
-    ticker_currencies = fetch_currencies(all_tickers_to_fetch)
-
-    # Determine required FX tickers and download all prices from yfinance
-    fx_tickers = get_required_fx_tickers(ticker_currencies)
-    console.print(
-        f"[cyan]Downloading prices for {len(all_tickers_to_fetch)} tickers + {len(fx_tickers)} FX rates...[/cyan]"
-    )
-    prices_all = download_prices(all_tickers_to_fetch, fx_tickers)
+    console.print(f"[cyan]Fetching prices and currencies for {len(all_tickers_to_fetch)} tickers...[/cyan]")
+    prices_all, ticker_currencies = _fetch_prices_and_currencies(all_tickers_to_fetch)
 
     missing_cols = [t for t in tickers if t not in prices_all.columns]
     if missing_cols:

@@ -1378,6 +1378,158 @@ function CollapsibleSourceHealth({ sourceHealth }: { sourceHealth: SourceHealth 
   )
 }
 
+function WorkspaceApprovalDialog({
+  approvalReview, initialNote, onClose, onClearDeepLink, approvalError, processing, action, onSubmit, onRestage, onEditTrigger,
+}: {
+  approvalReview: ApprovalRecord
+  initialNote: string
+  onClose: () => void
+  onClearDeepLink: () => void
+  approvalError: string | null
+  processing: boolean
+  action: ApprovalDialogAction | undefined
+  onSubmit: (approval: ApprovalRecord, action: "approve" | "reject", note?: string) => Promise<void>
+  onRestage: (approval: ApprovalRecord, note?: string) => Promise<void>
+  onEditTrigger: (approval: ApprovalRecord) => void
+}) {
+  const [approvalNote, setApprovalNote] = useState(initialNote)
+  const { openDecisionTrace } = useDecisionTrace()
+  return (
+    <Dialog
+      open
+      onOpenChange={open => {
+        if (!open) {
+          onClose()
+          onClearDeepLink()
+        }
+      }}
+      title="Review Approval"
+      description="Review the staged change, then approve and apply it or reject the proposal."
+      maxWidth="max-w-3xl"
+    >
+      {approvalReview && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <DecisionStateBadge state={approvalDecisionState(approvalReview)} />
+            <BaseStateBadge
+              state={approvalReview.base_state_status}
+              message={approvalReview.base_state_message}
+            />
+            <EffectScopeBadge scope={approvalReview.effect_scope ?? "internal_state"} />
+            <PolicyStateBadge state={approvalReview.policy_state ?? policyGateFromApproval(approvalReview)?.decision ?? "missing"} />
+            <QualityStateBadge state={approvalReview.quality_state ?? "missing"} />
+            <ApprovalSourceHealthBadge review={approvalReview.source_health_review} />
+          </div>
+          <div className="rounded-lg border border-app bg-[hsl(var(--muted-2))] p-3 text-xs text-muted">
+            <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
+              <span>{formatApprovalDisplayLabel(approvalReview.id, "Approval")}</span>
+              <span>{approvalSubjectLabel(approvalReview)}</span>
+              {approvalTickerLabel(approvalReview) && <span>{approvalTickerLabel(approvalReview)}</span>}
+              <span>Application: {applicationLabel(approvalReview)}</span>
+            </div>
+            {approvalReasonLabel(approvalReview) && <p className="mb-2">{approvalReasonLabel(approvalReview)}</p>}
+            <ApprovalProgressSummary approval={approvalReview} />
+            {(() => {
+              const record = approvalReview.proposed_change.record
+              if (record && typeof record === "object" && !Array.isArray(record)) {
+                return <RiskBindingLine record={record as Record<string, unknown>} />
+              }
+              return null
+            })()}
+            <ApprovalChangeSummary approval={approvalReview} />
+          </div>
+          {approvalReview.base_state_status === "stale" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+              {approvalReview.base_state_message || "The underlying state changed after this proposal was created."}
+            </div>
+          )}
+          <ApprovalSourceHealthPanel review={approvalReview.source_health_review} />
+          <div className="flex flex-wrap gap-2">
+            <TraceTriggerButton
+              label="View decision trace"
+              onClick={() =>
+                openDecisionTrace({
+                  kind: "approval",
+                  record: approvalReview as unknown as Record<string, unknown>,
+                })
+              }
+            />
+          </div>
+          <div>
+            <label htmlFor="approval-note" className="theme-field-label">
+              Decision note
+            </label>
+            <textarea
+              id="approval-note"
+              value={approvalNote}
+              onChange={e => setApprovalNote(e.target.value)}
+              className="theme-input mt-1 min-h-[90px] w-full"
+              placeholder="Required for approval. Optional for rejection."
+            />
+            <p className="theme-field-caption mt-1">Required for approval. Rejection notes are optional.</p>
+          </div>
+          {approvalError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {approvalError}
+            </div>
+          )}
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+              }}
+              className="w-full rounded-lg border border-app px-3 py-2.5 text-sm font-medium text-muted hover:text-app sm:w-auto sm:py-2"
+            >
+              Cancel
+            </button>
+            <ActionButton
+              onClick={() => onSubmit(approvalReview, "reject", approvalNote)}
+              loading={action === "reject"}
+              loadingText="Rejecting..."
+              disabled={processing || approvalReview.can_reject === false}
+              className="theme-button-destructive w-full px-4 sm:w-auto"
+            >
+              Reject Proposal
+            </ActionButton>
+            {approvalReview.can_restage && (
+              <ActionButton
+                onClick={() => onRestage(approvalReview, approvalNote)}
+                loading={action === "restage"}
+                loadingText="Restaging..."
+                disabled={processing}
+                className="w-full bg-amber-600 px-4 hover:bg-amber-700 sm:w-auto"
+              >
+                Reject & Restage
+              </ActionButton>
+            )}
+            {watchTriggerProposalFromApproval(approvalReview) && (
+              <ActionButton
+                onClick={() => {
+                  onEditTrigger(approvalReview)
+                }}
+                disabled={processing}
+                className="w-full px-4 sm:w-auto"
+              >
+                Edit Proposal
+              </ActionButton>
+            )}
+            <ActionButton
+              onClick={() => onSubmit(approvalReview, "approve", approvalNote)}
+              loading={action === "approve"}
+              loadingText={approvalActionLabel(approvalReview) === "Record Approval" ? "Recording..." : "Applying..."}
+              disabled={processing || !approvalNote.trim() || approvalReview.can_approve === false}
+              className="theme-button-success w-full px-4 sm:w-auto"
+            >
+              {approvalActionLabel(approvalReview)}
+            </ActionButton>
+          </div>
+        </div>
+      )}
+    </Dialog>
+  )
+}
+
 export function Workspace() {
   const qc = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -1401,7 +1553,7 @@ export function Workspace() {
   const [postMortemReview, setPostMortemReview] = useState<DecisionOutcomeRecord | null>(null)
   const [approvalReview, setApprovalReview] = useState<ApprovalRecord | null>(null)
   const approvalReviewIdRef = useRef<string | null>(null)
-  const [approvalNote, setApprovalNote] = useState("")
+  const [approvalDraft, setApprovalDraft] = useState({ note: "", key: 0 })
   const [approvalError, setApprovalError] = useState<string | null>(null)
   const [approvalActions, setApprovalActions] = useState<Record<string, ApprovalDialogAction | undefined>>({})
   const approvalSubmissionIds = useRef(new Set<string>())
@@ -1426,14 +1578,13 @@ export function Workspace() {
   function openApprovalReview(approval: ApprovalRecord, note = "", error: string | null = null) {
     approvalReviewIdRef.current = approval.id
     setApprovalReview(approval)
-    setApprovalNote(note)
+    setApprovalDraft(prev => ({ note, key: prev.key + 1 }))
     setApprovalError(error)
   }
 
   function closeApprovalReview() {
     approvalReviewIdRef.current = null
     setApprovalReview(null)
-    setApprovalNote("")
     setApprovalError(null)
   }
 
@@ -2283,141 +2434,26 @@ export function Workspace() {
           </div>
         </div>
       </Dialog>
-      <Dialog
-        open={approvalReview !== null}
-        onOpenChange={open => {
-          if (!open) {
-            closeApprovalReview()
-            clearApprovalDeepLink()
-          }
-        }}
-        title="Review Approval"
-        description="Review the staged change, then approve and apply it or reject the proposal."
-        maxWidth="max-w-3xl"
-      >
-        {approvalReview && (
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2">
-              <DecisionStateBadge state={approvalDecisionState(approvalReview)} />
-              <BaseStateBadge
-                state={approvalReview.base_state_status}
-                message={approvalReview.base_state_message}
-              />
-              <EffectScopeBadge scope={approvalReview.effect_scope ?? "internal_state"} />
-              <PolicyStateBadge state={approvalReview.policy_state ?? policyGateFromApproval(approvalReview)?.decision ?? "missing"} />
-              <QualityStateBadge state={approvalReview.quality_state ?? "missing"} />
-              <ApprovalSourceHealthBadge review={approvalReview.source_health_review} />
-            </div>
-            <div className="rounded-lg border border-app bg-[hsl(var(--muted-2))] p-3 text-xs text-muted">
-              <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1">
-                <span>{formatApprovalDisplayLabel(approvalReview.id, "Approval")}</span>
-                <span>{approvalSubjectLabel(approvalReview)}</span>
-                {approvalTickerLabel(approvalReview) && <span>{approvalTickerLabel(approvalReview)}</span>}
-                <span>Application: {applicationLabel(approvalReview)}</span>
-              </div>
-              {approvalReasonLabel(approvalReview) && <p className="mb-2">{approvalReasonLabel(approvalReview)}</p>}
-              <ApprovalProgressSummary approval={approvalReview} />
-              {(() => {
-                const record = approvalReview.proposed_change.record
-                if (record && typeof record === "object" && !Array.isArray(record)) {
-                  return <RiskBindingLine record={record as Record<string, unknown>} />
-                }
-                return null
-              })()}
-              <ApprovalChangeSummary approval={approvalReview} />
-            </div>
-            {approvalReview.base_state_status === "stale" && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                {approvalReview.base_state_message || "The underlying state changed after this proposal was created."}
-              </div>
-            )}
-            <ApprovalSourceHealthPanel review={approvalReview.source_health_review} />
-            <div className="flex flex-wrap gap-2">
-              <TraceTriggerButton
-                label="View decision trace"
-                onClick={() =>
-                  openDecisionTrace({
-                    kind: "approval",
-                    record: approvalReview as unknown as Record<string, unknown>,
-                  })
-                }
-              />
-            </div>
-            <div>
-              <label htmlFor="approval-note" className="theme-field-label">
-                Decision note
-              </label>
-              <textarea
-                id="approval-note"
-                value={approvalNote}
-                onChange={e => setApprovalNote(e.target.value)}
-                className="theme-input mt-1 min-h-[90px] w-full"
-                placeholder="Required for approval. Optional for rejection."
-              />
-              <p className="theme-field-caption mt-1">Required for approval. Rejection notes are optional.</p>
-            </div>
-            {approvalError && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {approvalError}
-              </div>
-            )}
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  closeApprovalReview()
-                }}
-                className="w-full rounded-lg border border-app px-3 py-2.5 text-sm font-medium text-muted hover:text-app sm:w-auto sm:py-2"
-              >
-                Cancel
-              </button>
-              <ActionButton
-                onClick={() => handleApproval(approvalReview, "reject", approvalNote)}
-                loading={approvalActions[approvalReview.id] === "reject"}
-                loadingText="Rejecting..."
-                disabled={processingIds.has(approvalReview.id) || approvalReview.can_reject === false}
-                className="theme-button-destructive w-full px-4 sm:w-auto"
-              >
-                Reject Proposal
-              </ActionButton>
-              {approvalReview.can_restage && (
-                <ActionButton
-                  onClick={() => handleRejectAndRestage(approvalReview, approvalNote)}
-                  loading={approvalActions[approvalReview.id] === "restage"}
-                  loadingText="Restaging..."
-                  disabled={processingIds.has(approvalReview.id)}
-                  className="w-full bg-amber-600 px-4 hover:bg-amber-700 sm:w-auto"
-                >
-                  Reject & Restage
-                </ActionButton>
-              )}
-              {watchTriggerProposalFromApproval(approvalReview) && (
-                <ActionButton
-                  onClick={() => {
-                    const trigger = watchTriggerProposalFromApproval(approvalReview)
-                    if (!trigger) return
-                    setTriggerEdit({ kind: "approval", approval: approvalReview, trigger })
-                    setTriggerEditError(null)
-                  }}
-                  disabled={processingIds.has(approvalReview.id)}
-                  className="w-full px-4 sm:w-auto"
-                >
-                  Edit Proposal
-                </ActionButton>
-              )}
-              <ActionButton
-                onClick={() => handleApproval(approvalReview, "approve", approvalNote)}
-                loading={approvalActions[approvalReview.id] === "approve"}
-                loadingText={approvalActionLabel(approvalReview) === "Record Approval" ? "Recording..." : "Applying..."}
-                disabled={processingIds.has(approvalReview.id) || !approvalNote.trim() || approvalReview.can_approve === false}
-                className="theme-button-success w-full px-4 sm:w-auto"
-              >
-                {approvalActionLabel(approvalReview)}
-              </ActionButton>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      {approvalReview && (
+        <WorkspaceApprovalDialog
+          key={approvalDraft.key}
+          approvalReview={approvalReview}
+          initialNote={approvalDraft.note}
+          onClose={closeApprovalReview}
+          onClearDeepLink={clearApprovalDeepLink}
+          approvalError={approvalError}
+          processing={processingIds.has(approvalReview.id)}
+          action={approvalActions[approvalReview.id]}
+          onSubmit={handleApproval}
+          onRestage={handleRejectAndRestage}
+          onEditTrigger={approval => {
+            const trigger = watchTriggerProposalFromApproval(approval)
+            if (!trigger) return
+            setTriggerEdit({ kind: "approval", approval, trigger })
+            setTriggerEditError(null)
+          }}
+        />
+      )}
       <WatchTriggerEditDialog
         open={triggerEdit !== null}
         onOpenChange={open => {

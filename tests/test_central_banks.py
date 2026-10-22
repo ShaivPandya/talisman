@@ -154,16 +154,16 @@ def test_central_bank_route_refresh_updates_default_cache(monkeypatch):
         "counts": {"total": 0},
         "last_updated": "2026-04-30T00:00:00+00:00",
     }
-    cache_sets: list[tuple[str, dict]] = []
+    monkeypatch.setattr(cache_mod, "_DISK_CACHE_ENABLED", False)
+    monkeypatch.setattr(cache_mod, "_gcs_cache_enabled", lambda: False)
+    cache_mod.long_cache.clear()
 
     monkeypatch.setitem(
         sys.modules,
         "macro.central_banks.central_bank",
         _stub_central_bank_module(lambda refresh=False: payload),
     )
-    monkeypatch.setattr(cache_mod, "set_cached", lambda _cache, key, value: cache_sets.append((key, value)))
-
     result = router.get_central_banks(refresh=True)
 
     assert result["counts"]["total"] == 0
-    assert [key for key, _value in cache_sets] == ["central_banks"]
+    assert cache_mod.get_cached(cache_mod.long_cache, "central_banks")["counts"]["total"] == 0

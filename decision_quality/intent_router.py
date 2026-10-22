@@ -374,7 +374,7 @@ def run_llm_route_decision(
         system=system_prompt,
         provider=provider,
         enable_web_search=False,
-        reasoning_effort=reasoning_effort,
+        reasoning_effort="off",
         json_schema=intent_router_schema(),
         json_schema_name="agent_intent_router",
     )
@@ -421,7 +421,7 @@ def _finalize_candidate_route(
     meta[candidate_key] = candidate.to_meta()
     meta["shadow_comparison"] = compare_route_decisions(applied=regex_baseline, candidate=candidate)
 
-    if intent_router_shadow_mode():
+    if meta["shadow_mode"]:
         meta["applied_source"] = "regex_shadow"
         meta["shadow_mode"] = True
         return regex_baseline, meta
@@ -480,6 +480,7 @@ def resolve_agent_route(
     api_key: str | None = None,
     system_prompt: str | None = None,
     reasoning_effort: str | None = None,
+    defer_shadow: bool = False,
 ) -> tuple[RouteDecision, dict[str, Any]]:
     """Resolve effective routing and telemetry metadata."""
     threshold = intent_router_confidence_threshold()
@@ -515,13 +516,62 @@ def resolve_agent_route(
         meta["fallback_reason"] = "missing_llm_credentials"
         return regex_baseline, meta
 
+    if defer_shadow and meta["shadow_mode"]:
+        meta["applied_source"] = "regex_shadow"
+        meta["shadow_pending"] = True
+        return regex_baseline, meta
+
+    return _resolve_llm_route(
+        context=context,
+        regex_baseline=regex_baseline,
+        provider=provider,
+        api_key=api_key,
+        system_prompt=system_prompt,
+        meta=meta,
+    )
+
+
+def resolve_shadow_route(
+    *,
+    context: RouteContext,
+    regex_baseline: RouteDecision,
+    provider: str,
+    api_key: str,
+    system_prompt: str,
+    route_meta: dict[str, Any],
+) -> tuple[RouteDecision, dict[str, Any]]:
+    """Complete a deferred comparison using the turn's policy snapshot.
+
+    A rollout flag changing while the job is queued must never turn shadow work
+    into an applied routing decision or trigger another supervised prediction.
+    """
+    meta = {**route_meta, "shadow_mode": True, "shadow_pending": False}
+    return _resolve_llm_route(
+        context=context,
+        regex_baseline=regex_baseline,
+        provider=provider,
+        api_key=api_key,
+        system_prompt=system_prompt,
+        meta=meta,
+    )
+
+
+def _resolve_llm_route(
+    *,
+    context: RouteContext,
+    regex_baseline: RouteDecision,
+    provider: str,
+    api_key: str,
+    system_prompt: str,
+    meta: dict[str, Any],
+) -> tuple[RouteDecision, dict[str, Any]]:
     llm_decision = run_llm_route_decision(
         context=context,
         regex_baseline=regex_baseline,
         provider=provider,
         api_key=api_key,
         system_prompt=system_prompt,
-        reasoning_effort=reasoning_effort,
+        reasoning_effort="off",
     )
     if llm_decision is None:
         meta["applied_source"] = "regex"

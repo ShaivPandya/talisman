@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from api import provenance
-from api.postgres import connect, use_postgres_state
+from api.postgres import connect, retry_read, use_postgres_state
 from ontology.runtime_read_service import OntologyRuntimeReadService
 from ontology.schemas.relations import PROVENANCE_RELATION_TYPES
 
@@ -63,7 +63,7 @@ class ProvenanceGraphService:
         self,
         *,
         reads: OntologyRuntimeReadService | None = None,
-        connection_factory: Any = connect,
+        connection_factory: Any = None,
     ):
         self.reads = reads or OntologyRuntimeReadService()
         self.connection_factory = connection_factory
@@ -206,8 +206,13 @@ class ProvenanceGraphService:
         ORDER BY valid_from ASC, relation_uid ASC
         LIMIT %s
         """
-        with self.connection_factory() as conn:
-            rows = conn.execute(sql, tuple(params)).fetchall()
+
+        def _read():
+            with self.connection_factory() if self.connection_factory is not None else connect(read_only=True) as conn:
+                rows = conn.execute(sql, tuple(params)).fetchall()
+            return rows
+
+        rows = retry_read(_read)
         return [dict(row) for row in rows]
 
     def _query_direct_edges(

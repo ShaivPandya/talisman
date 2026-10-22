@@ -582,7 +582,8 @@ def test_agent_stream_synthesizes_when_tool_loop_limit_is_reached(auth_client, m
     assert any(e == "delta" and "stopped calling tools" in str(p.get("text", "")) for e, p in parsed)
     assert any(e == "done" for e, _p in parsed)
     assert fake_client.messages.calls == agent_router.MAX_TOOL_CONTINUATION_ROUNDS + 1
-    assert "tools" not in fake_client.messages.kwargs_history[-1]
+    assert fake_client.messages.kwargs_history[-1]["tools"] == fake_client.messages.kwargs_history[0]["tools"]
+    assert fake_client.messages.kwargs_history[-1]["tool_choice"] == {"type": "none"}
 
 
 def test_agent_stream_auth_error_is_user_friendly(auth_client, monkeypatch):
@@ -601,6 +602,51 @@ def test_agent_stream_auth_error_is_user_friendly(auth_client, monkeypatch):
     assert len(errors) == 1
     assert "set a valid anthropic api key" in str(errors[0].get("message", "")).lower()
     assert any(e == "done" for e, _p in parsed)
+
+
+def test_anthropic_output_continuation_preserves_cached_prefix(auth_client, monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(agent_router, "_build_memory_context", lambda: "Synthetic memory")
+    fake_client = _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_text_delta("First part. ")],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "First part. "}],
+                    stop_reason="max_tokens",
+                    usage=SimpleNamespace(
+                        input_tokens=2, output_tokens=3, cache_creation_input_tokens=6000, cache_read_input_tokens=0
+                    ),
+                ),
+            ),
+            (
+                [_event_text_delta("Last part.")],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "Last part."}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(
+                        input_tokens=3, output_tokens=4, cache_creation_input_tokens=20, cache_read_input_tokens=6000
+                    ),
+                ),
+            ),
+        ],
+    )
+    response = auth_client.post("/api/agent/chat", json={"message": "portfolio test"})
+    assert response.status_code == 200
+    first, continuation = fake_client.messages.kwargs_history
+    assert first["system"] == continuation["system"]
+    assert first["tools"] == continuation["tools"]
+    assert continuation["tool_choice"] == {"type": "none"}
+    assert continuation["messages"][-1]["content"][0]["cache_control"] == {"type": "ephemeral"}
+    assert "cache_control" not in continuation["messages"][0]["content"]
+    events = _parse_sse(response.text)
+    assert not any(name == "error" for name, _payload in events)
+    done = next(payload for name, payload in events if name == "done")
+    assert done["usage"]["input_tokens"] == 6023
+    assert done["usage"]["cache_read_input_tokens"] == 6000
+    assert done["timings"]["models"][-1]["cache_read_input_tokens"] == 6000
 
 
 def test_agent_chat_rejects_non_anthropic_key(auth_client, monkeypatch):
@@ -1146,7 +1192,7 @@ def test_agent_chat_soft_allows_off_domain_text_to_model_with_guardrail_instruct
 
     assert resp.status_code == 200
     assert fake_client.messages.calls == 1
-    assert "Domain Guardrail" in fake_client.messages.kwargs_history[0]["system"]
+    assert "Domain Guardrail" in "".join(block["text"] for block in fake_client.messages.kwargs_history[0]["system"])
     parsed = _parse_sse(resp.text)
     assert any(e == "delta" and "investing side" in str(p.get("text", "")) for e, p in parsed)
 
@@ -1241,7 +1287,7 @@ def test_agent_chat_soft_allows_off_domain_text_to_model(auth_client, monkeypatc
 
     assert resp.status_code == 200
     assert fake_client.messages.calls == 1
-    assert "Domain Guardrail" in fake_client.messages.kwargs_history[0]["system"]
+    assert "Domain Guardrail" in "".join(block["text"] for block in fake_client.messages.kwargs_history[0]["system"])
     parsed = _parse_sse(resp.text)
     assert any(e == "delta" and "investing angle" in str(p.get("text", "")) for e, p in parsed)
 

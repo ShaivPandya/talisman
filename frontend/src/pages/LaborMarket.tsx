@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Sparkles } from "lucide-react"
 import { useApiQuery } from "@/hooks/useApiQuery"
 import { useSessionAiOverview } from "@/hooks/useSessionAiOverview"
@@ -60,20 +60,18 @@ function fmtChange(change: number | null, unit: string): string | null {
   return `${sign}${change.toFixed(2)}`
 }
 
+const formatOneDecimal = (v: number) => v.toFixed(1)
+const formatPercent = (v: number) => `${v.toFixed(1)}%`
+const formatThousands = (v: number) => Math.abs(v) >= 1000 ? `${(v / 1000).toFixed(1)}M` : `${Math.round(v)}K`
+
 function yFormatter(unit: string) {
-  return (v: number) => {
-    if (unit === "%") return `${v.toFixed(1)}%`
-    if (unit === "hours") return `${v.toFixed(1)}`
-    if (unit === "weeks") return `${v.toFixed(1)}`
-    if (unit === "thousands") {
-      if (Math.abs(v) >= 1000) return `${(v / 1000).toFixed(1)}M`
-      return `${Math.round(v)}K`
-    }
-    return v.toFixed(1)
-  }
+  if (unit === "%") return formatPercent
+  if (unit === "thousands") return formatThousands
+  return formatOneDecimal
 }
 
 export function LaborMarket() {
+  const queryClient = useQueryClient()
   const [timeframe, setTimeframe] = useState<Timeframe>("3Y")
 
   const { analysis: persistedAnalysis, isOpen, setIsOpen, setAnalysis: setPersistedAnalysis } =
@@ -136,7 +134,11 @@ export function LaborMarket() {
           </button>
           <RefreshButton
             clearBackendCache={false}
-            beforeRefetch={() => fetchLaborMarket({ force_refresh: true })}
+            onRefresh={async () => {
+              await queryClient.cancelQueries({ queryKey: ["labor-market"] })
+              const result = await fetchLaborMarket({ force_refresh: true })
+              queryClient.setQueryData(["labor-market"], result)
+            }}
             queryKeys={[["labor-market"]]}
           />
         </div>
