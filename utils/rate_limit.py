@@ -54,6 +54,9 @@ class RateLimit:
 PROVIDER_LIMITS: dict[str, RateLimit] = {
     # FRED allows 120 requests per minute per API key.
     "fred": RateLimit(calls=120, per_seconds=60, burst=20),
+    # SEC's cap applies across EDGAR endpoints, including retries. Keep the
+    # initial burst to one so a rolling second never exceeds ten starts.
+    "sec": RateLimit(calls=10, per_seconds=1, burst=1),
 }
 
 _buckets: dict[str, TokenBucket] = {}

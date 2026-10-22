@@ -48,7 +48,7 @@ logger = logging.getLogger(__name__)
 
 # Download configuration
 CHUNK_SIZE = 50  # Tickers per batch
-BATCH_DELAY = 1.0  # Seconds between successful batches
+BATCH_DELAY = 0.0  # Compatibility argument; provider responses control backoff
 
 CONSOLE: Any | None = None
 
@@ -228,70 +228,10 @@ def _yfinance_download_chunked(
     chunk_size: int,
     batch_delay: float,
 ) -> tuple[pd.DataFrame, list[str]]:
-    """Download yfinance prices in batches to reduce upstream throttling."""
-    all_data: list[pd.DataFrame] = []
-    failed_tickers: list[str] = []
+    """Download overlapping chunks; batch_delay is retained for existing callers."""
+    from utils.yf_jobs import download_price_chunks
 
-    chunks = [tickers[i : i + chunk_size] for i in range(0, len(tickers), chunk_size)]
-    total_chunks = len(chunks)
-
-    for idx, chunk in enumerate(chunks, 1):
-        print(f"  Downloading batch {idx}/{total_chunks} ({len(chunk)} tickers)...")
-
-        try:
-            df = yf_download(
-                tickers=chunk,
-                period=period,
-                interval="1d",
-                auto_adjust=True,
-                progress=False,
-            )
-
-            if df is not None and not df.empty:
-                all_data.append(df)
-
-                if isinstance(df.columns, pd.MultiIndex):
-                    returned = set(df["Close"].columns.tolist())
-                else:
-                    returned = set(chunk[:1])
-
-                missing = set(chunk) - returned
-                if missing:
-                    failed_tickers.extend(missing)
-
-                if idx < total_chunks:
-                    time.sleep(batch_delay)
-            else:
-                failed_tickers.extend(chunk)
-        except Exception as e:
-            print(f"    Batch {idx} failed: {e}")
-            failed_tickers.extend(chunk)
-
-    if not all_data:
-        return pd.DataFrame(), failed_tickers
-
-    if len(all_data) == 1:
-        combined = all_data[0]
-    else:
-        combined_parts: dict[str, list[pd.DataFrame]] = {"Close": [], "High": [], "Low": []}
-        for df in all_data:
-            if isinstance(df.columns, pd.MultiIndex):
-                for col in combined_parts:
-                    if col in df.columns.get_level_values(0):
-                        combined_parts[col].append(df[col])
-            else:
-                for col in combined_parts:
-                    if col in df.columns:
-                        combined_parts[col].append(df[[col]])
-
-        merged: dict[str, pd.DataFrame] = {}
-        for col, dfs in combined_parts.items():
-            if dfs:
-                merged[col] = pd.concat(dfs, axis=1)
-
-        combined = pd.concat(merged, axis=1)
-
-    return combined, failed_tickers
+    return download_price_chunks(tickers, chunk_size=chunk_size, period=period, interval="1d", auto_adjust=True)
 
 
 def download_with_retry(

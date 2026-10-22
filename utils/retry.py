@@ -17,6 +17,7 @@ import re
 import time
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
+from urllib.parse import urlsplit
 
 import pandas as pd
 import requests as _requests  # type: ignore[import-untyped]
@@ -264,8 +265,11 @@ def _requests_with_retry(
     if "timeout" not in kwargs:
         kwargs["timeout"] = 30
 
+    limiter = provider_limiter("sec") if urlsplit(url).hostname in {"sec.gov", "www.sec.gov", "data.sec.gov"} else None
     for attempt in range(max_retries + 1):
         try:
+            if limiter is not None:
+                limiter.acquire()
             resp = _requests.request(method, url, **kwargs)
 
             if resp.status_code < 400:

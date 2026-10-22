@@ -45,7 +45,6 @@ _edgar_facts_cache: dict[str, dict | None] = {}  # cik_str -> raw companyfacts J
 _edgar_facts_lock = threading.Lock()
 
 SEC_HEADERS = {"User-Agent": "Talisman research@example.com"}
-SEC_RATE_LIMIT_DELAY = 0.12  # comfortably under SEC's 10 requests/second limit
 
 
 def _env_int(name: str, default: int) -> int:
@@ -63,7 +62,7 @@ def _env_float(name: str, default: float) -> float:
 
 
 YF_CHUNK_SIZE = 100  # tickers per batch (Phase 1 and Phase 3)
-YF_BATCH_DELAY = 1.0  # seconds between batches
+YF_BATCH_DELAY = 1.0  # Legacy export used by the long screener; this job does not sleep between batches.
 PHASE1_WORKERS = max(1, _env_int("SCREEN_YF_WORKERS", 4))  # concurrent yfinance statement threads
 YF_CALL_INTERVAL_SECONDS = max(0.0, _env_float("SCREEN_YF_CALL_INTERVAL_SECONDS", 0.08))
 YF_RATE_LIMIT_COOLDOWN_SECONDS = max(0.0, _env_float("SCREEN_YF_RATE_LIMIT_COOLDOWN_SECONDS", 20.0))
@@ -452,15 +451,12 @@ def _load_cik_map() -> None:
 def _fetch_edgar_facts(cik_str: str) -> dict | None:
     """
     Fetch XBRL company facts from SEC EDGAR for one CIK.
-    Rate-limited via SEC_RATE_LIMIT_DELAY sleep before each network request.
+    Request starts and retries use the shared SEC budget in utils.retry.
     Results cached in _edgar_facts_cache for the process lifetime.
     """
     with _edgar_facts_lock:
         if cik_str in _edgar_facts_cache:
             return _edgar_facts_cache[cik_str]
-
-    # Sleep outside the lock so other threads are not blocked during the wait
-    time.sleep(SEC_RATE_LIMIT_DELAY)
 
     result: dict | None = None
     try:
@@ -581,7 +577,7 @@ def _apply_price_filters(
         (filtered_passers, price_metrics)
         price_metrics maps ticker -> {return_52w, drawdown_pct, return_3m, rel_return_2m}
     """
-    from utils.retry import yf_download
+    from utils.yf_jobs import download_price_chunks
 
     passer_tickers = [d["ticker"] for d in passers]
 
@@ -591,42 +587,14 @@ def _apply_price_filters(
     if need_benchmark and benchmark_ticker not in download_tickers:
         download_tickers.append(benchmark_ticker)
 
-    # Chunked download with pauses to avoid rate limits
-    chunks = [download_tickers[i : i + YF_CHUNK_SIZE] for i in range(0, len(download_tickers), YF_CHUNK_SIZE)]
-    all_dfs: list[pd.DataFrame] = []
-    for i, chunk in enumerate(chunks):
-        try:
-            df = yf_download(
-                chunk,
-                period="1y",
-                interval="1d",
-                auto_adjust=False,
-                progress=False,
-                threads=True,
-            )
-            if df is not None and not df.empty:
-                all_dfs.append(df)
-        except Exception:
-            LOGGER.warning("Price filter batch %d/%d failed", i + 1, len(chunks), exc_info=True)
-        if i < len(chunks) - 1:
-            time.sleep(YF_BATCH_DELAY)
-
-    if not all_dfs:
+    raw, failed = download_price_chunks(
+        download_tickers, chunk_size=YF_CHUNK_SIZE, period="1y", interval="1d", auto_adjust=False
+    )
+    if failed:
+        LOGGER.warning("Price filter downloads failed for %d tickers", len(failed))
+    if raw.empty:
         LOGGER.warning("All price filter downloads failed; skipping price filters")
         return passers, {}
-
-    if len(all_dfs) == 1:
-        raw = all_dfs[0]
-    else:
-        parts: dict[str, list[pd.DataFrame]] = {}
-        for df in all_dfs:
-            if isinstance(df.columns, pd.MultiIndex):
-                for level in df.columns.get_level_values(0).unique():
-                    parts.setdefault(str(level), []).append(df[level])
-            else:
-                for col in df.columns:
-                    parts.setdefault(str(col), []).append(df[[col]])
-        raw = pd.concat({k: pd.concat(v, axis=1) for k, v in parts.items() if v}, axis=1)
 
     # Extract close prices per ticker
     def _get_close(df: pd.DataFrame, ticker: str) -> pd.Series | None:
@@ -839,41 +807,36 @@ def _screen_short_fundamentals(
     failed_tickers: list[str] = []
     done_count = 0
     total = len(universe)
-    batches = [universe[i : i + YF_CHUNK_SIZE] for i in range(0, total, YF_CHUNK_SIZE)]
 
     with ThreadPoolExecutor(max_workers=PHASE1_WORKERS) as pool:
-        for batch_idx, batch in enumerate(batches):
-            futures = {
-                pool.submit(
-                    screen_ticker,
-                    tk,
-                    pb_threshold,
-                    loss_type,
-                    check_revenue=check_revenue,
-                    max_revenue_growth=max_revenue_growth,
-                    check_eps=check_eps,
-                    max_eps_growth=max_eps_growth,
-                    need_market_cap=need_market_cap,
-                ): tk
-                for tk in batch
-            }
-            for future in as_completed(futures):
-                tk = futures[future]
-                try:
-                    passes, data = future.result()
-                    if passes:
-                        phase1_pass_data.append(data)
-                    elif "error" in data:
-                        failed_tickers.append(f"{tk}: {data.get('error') or 'data fetch failed'}")
-                except Exception as exc:
-                    failed_tickers.append(f"{tk}: {exc}")
+        futures = {
+            pool.submit(
+                screen_ticker,
+                tk,
+                pb_threshold,
+                loss_type,
+                check_revenue=check_revenue,
+                max_revenue_growth=max_revenue_growth,
+                check_eps=check_eps,
+                max_eps_growth=max_eps_growth,
+                need_market_cap=need_market_cap,
+            ): tk
+            for tk in universe
+        }
+        for future in as_completed(futures):
+            tk = futures[future]
+            try:
+                passes, data = future.result()
+                if passes:
+                    phase1_pass_data.append(data)
+                elif "error" in data:
+                    failed_tickers.append(f"{tk}: {data.get('error') or 'data fetch failed'}")
+            except Exception as exc:
+                failed_tickers.append(f"{tk}: {exc}")
 
-                done_count += 1
-                if done_count % 25 == 0 or done_count == total:
-                    _report_progress(progress_callback, "fundamentals", done_count, total)
-
-            if batch_idx < len(batches) - 1:
-                time.sleep(YF_BATCH_DELAY)
+            done_count += 1
+            if done_count % 25 == 0 or done_count == total:
+                _report_progress(progress_callback, "fundamentals", done_count, total)
 
     return phase1_pass_data, failed_tickers
 

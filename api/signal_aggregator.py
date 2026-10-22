@@ -86,7 +86,6 @@ MISSING_HISTORY_FACTORS = {"breadth", "sector", "momentum"}
 
 MODULE_TIMEOUT = 90  # seconds per module in ThreadPoolExecutor
 SP500_CHUNK_SIZE = 50
-SP500_BATCH_DELAY = 1.0  # seconds between yfinance batch downloads
 
 _log = logging.getLogger(__name__)
 
@@ -738,62 +737,16 @@ def _build_history(
 
 
 def _download_sp500_prices_uncached() -> pd.DataFrame:
-    """Download S&P 500 constituent prices from yfinance (no cache)."""
-    import pandas as pd
-
+    """Download S&P 500 prices with bounded, overlapping chunks (no cache)."""
     from equities.market_technicals.market_breadth import get_sp500_tickers
-    from utils.retry import yf_download
+    from utils.yf_jobs import download_price_chunks
 
-    tickers = get_sp500_tickers()
-    chunks = [tickers[i : i + SP500_CHUNK_SIZE] for i in range(0, len(tickers), SP500_CHUNK_SIZE)]
-    all_data: list[pd.DataFrame] = []
-
-    for idx, chunk in enumerate(chunks, 1):
-        _log.info("S&P 500 shared download batch %d/%d (%d tickers)", idx, len(chunks), len(chunk))
-        try:
-            df = yf_download(
-                tickers=chunk,
-                period="2y",
-                interval="1d",
-                auto_adjust=True,
-                progress=False,
-            )
-            if df is not None and not df.empty:
-                all_data.append(df)
-            if idx < len(chunks):
-                time.sleep(SP500_BATCH_DELAY)
-        except Exception:
-            _log.warning("S&P 500 batch %d failed, skipping", idx)
-
-    if not all_data:
-        return pd.DataFrame()
-
-    if len(all_data) == 1:
-        return all_data[0]
-
-    # Merge chunks while preserving MultiIndex structure
-    fields: set[str] = set()
-    for df in all_data:
-        if isinstance(df.columns, pd.MultiIndex):
-            fields.update(df.columns.get_level_values(0).unique().tolist())
-        else:
-            fields.update(df.columns.tolist())
-
-    merged: dict[str, pd.DataFrame] = {}
-    for field in fields:
-        parts: list[pd.DataFrame] = []
-        for df in all_data:
-            if isinstance(df.columns, pd.MultiIndex):
-                if field in df.columns.get_level_values(0):
-                    parts.append(df[field])
-            elif field in df.columns:
-                parts.append(df[[field]])
-        if parts:
-            merged[field] = pd.concat(parts, axis=1)
-
-    if not merged:
-        return pd.DataFrame()
-    return pd.concat(merged, axis=1)
+    prices, failed = download_price_chunks(
+        get_sp500_tickers(), chunk_size=SP500_CHUNK_SIZE, period="2y", interval="1d", auto_adjust=True
+    )
+    if failed:
+        _log.warning("S&P 500 prices unavailable for %d tickers", len(failed))
+    return prices
 
 
 def _download_sp500_prices_with_meta() -> tuple[pd.DataFrame, dict[str, Any]]:

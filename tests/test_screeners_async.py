@@ -44,7 +44,7 @@ def test_quality_router_resolves_inputs(monkeypatch):
     assert '"benchmark_key":"self"' in router._cache_key(custom)
 
 
-def test_quality_fetches_raw_metrics_in_batches(monkeypatch):
+def test_quality_fetches_raw_metrics_without_inter_batch_sleeps(monkeypatch):
     from equities.quality import quality as quality_module
     from equities.quality.quality_single import RawMetrics
 
@@ -72,13 +72,13 @@ def test_quality_fetches_raw_metrics_in_batches(monkeypatch):
         )
 
     monkeypatch.setattr(quality_module, "fetch_raw_metrics", fake_fetch)
-    monkeypatch.setattr(quality_module.time, "sleep", lambda delay: sleeps.append(delay))
+    monkeypatch.setattr(time, "sleep", lambda delay: sleeps.append(delay))
 
     tickers = [f"Q{i:02d}" for i in range(55)]
     result = quality_module.get_data(tickers=tickers, benchmark="self")
 
     assert sorted(calls) == sorted(tickers)
-    assert sleeps == [quality_module.QUALITY_BATCH_DELAY]
+    assert sleeps == []
     assert result["input_count"] == 55
     assert result["scored_count"] == 55
 
