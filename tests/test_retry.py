@@ -14,7 +14,13 @@ from curl_cffi.requests import exceptions as curl_exceptions
 from fredapi import Fred
 from yfinance.exceptions import YFPricesMissingError, YFRateLimitError
 
-from utils import retry
+from utils import rate_limit, retry
+
+
+@pytest.fixture(autouse=True)
+def fresh_rate_limits(monkeypatch):
+    # Full provider buckets per test, so limiter waits never mix with retry backoff sleeps.
+    monkeypatch.setattr(rate_limit, "_buckets", {})
 
 
 @pytest.fixture
@@ -91,6 +97,14 @@ def test_download_forwards_arguments_and_disables_progress_by_default(monkeypatc
     operation.assert_called_once_with(["AAPL", "SPY"], period="5d", auto_adjust=False, progress=False)
     _call_provider(monkeypatch, "download", operation, progress=True)
     assert operation.call_args.kwargs == {"progress": True}
+
+
+def test_every_fred_attempt_takes_a_rate_limit_token(monkeypatch, sleep):
+    acquired: list[str] = []
+    monkeypatch.setattr(retry, "provider_limiter", lambda name: SimpleNamespace(acquire=lambda: acquired.append(name)))
+    operation = Mock(side_effect=[ConnectionError("reset"), _success("fred")])
+    assert not _call_provider(monkeypatch, "fred", operation).empty
+    assert acquired == ["fred", "fred"]
 
 
 def test_fred_forwards_observation_dates(monkeypatch, sleep):

@@ -24,6 +24,8 @@ import yfinance as yf
 from curl_cffi.requests import exceptions as _curl_exceptions
 from yfinance.exceptions import YFRateLimitError
 
+from utils.rate_limit import provider_limiter
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_MAX_RETRIES = 3
@@ -324,11 +326,13 @@ def fred_get_series(
 ) -> pd.Series:
     """Retry transient FRED failures with bounded backoff; empty results are final.
 
+    Every attempt takes a token from the shared FRED rate limiter first.
     Returns an empty Series on final failure, including invalid series IDs.
     """
     spent = 0.0
     for attempt in range(max_retries + 1):
         try:
+            provider_limiter("fred").acquire()
             result = fred_client.get_series(series_id, **kwargs)
             if result is not None and not result.empty:
                 return result

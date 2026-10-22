@@ -15,6 +15,7 @@ import argparse
 import logging
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -194,11 +195,15 @@ def get_fred_client():
 
 
 def fetch_fred_series(fred):
+    # Series download concurrently; the shared FRED limiter in fred_get_series bounds the request rate.
+    with ThreadPoolExecutor(max_workers=len(SERIES)) as pool:
+        fetched = {name: pool.submit(fred_get_series, fred, sid) for name, sid in SERIES.items()}
+
     data = {}
     errors = []
     for name, sid in SERIES.items():
         try:
-            series = fred_get_series(fred, sid)
+            series = fetched[name].result()
             if series is None or series.empty:
                 errors.append(f"{name} ({sid}) returned empty series")
                 continue
@@ -233,17 +238,24 @@ def fetch_ecb_series():
         return None
 
     try:
-        ecb_client = sdmx.Client("ECB")
+        # One client per series: the series download concurrently and clients share no session.
+        clients = {name: sdmx.Client("ECB") for name in ECB_SERIES}
     except Exception as exc:
         LOGGER.warning("Could not connect to ECB SDMX API: %s", exc)
         return None
+
+    with ThreadPoolExecutor(max_workers=len(ECB_SERIES)) as pool:
+        responses = {
+            name: pool.submit(clients[name].data, "ILM", key=key, timeout=ECB_SDMX_TIMEOUT_SECONDS)
+            for name, key in ECB_SERIES.items()
+        }
 
     data = {}
     errors = []
 
     for name, key in ECB_SERIES.items():
         try:
-            response = ecb_client.data("ILM", key=key, timeout=ECB_SDMX_TIMEOUT_SECONDS)
+            response = responses[name].result()
             series = sdmx.to_pandas(response)
 
             if isinstance(series, pd.DataFrame):
@@ -293,6 +305,14 @@ def fetch_ecb_series():
     df = pd.concat(data, axis=1)
     df.index = pd.to_datetime(df.index)
     return df.sort_index()
+
+
+def fetch_inputs(fred, *, include_ecb=True):
+    """Fetch scaled FRED data and optional ECB data concurrently. FRED errors raise; ECB degrades to None."""
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        ecb = pool.submit(fetch_ecb_series) if include_ecb else None
+        df = apply_scales(fetch_fred_series(fred))
+    return df, ecb.result() if ecb is not None else None
 
 
 def build_weekly_panel(df, week_ending="W-WED"):
@@ -840,15 +860,9 @@ def main():
     parser.add_argument("--no-ecb", action="store_true", help="Skip ECB SDMX data fetch")
     args = parser.parse_args()
 
-    # Fetch FRED data (includes Japan series)
+    # Fetch FRED data (includes Japan series) and optional ECB SDMX data (graceful degradation)
     fred = get_fred_client()
-    df = fetch_fred_series(fred)
-    df = apply_scales(df)
-
-    # Fetch ECB SDMX data (optional, graceful degradation)
-    df_ecb = None
-    if not args.no_ecb:
-        df_ecb = fetch_ecb_series()
+    df, df_ecb = fetch_inputs(fred, include_ecb=not args.no_ecb)
 
     # Build weekly panel and add derived series
     week_ending = "W-WED"
@@ -882,10 +896,7 @@ def get_snapshot(*, now=None) -> dict:
       - composite_series: full composite Series
     """
     fred = get_fred_client()
-    df = fetch_fred_series(fred)
-    df = apply_scales(df)
-
-    df_ecb = fetch_ecb_series()
+    df, df_ecb = fetch_inputs(fred)
 
     week_ending = "W-WED"
     df_weekly = build_weekly_panel(df, week_ending=week_ending)

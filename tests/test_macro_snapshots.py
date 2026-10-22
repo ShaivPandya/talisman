@@ -307,3 +307,31 @@ def test_economic_growth_crb_upload_invalidates_cache_and_snapshot(monkeypatch):
     assert writes == [(b"excel-bytes", metadata)]
     assert cache_deletes == [(economic_growth.daily_cache, economic_growth.ECONOMIC_GROWTH_CACHE_KEY)]
     assert snapshot_deletes == [economic_growth.SNAPSHOT_ECONOMIC_GROWTH]
+
+
+def test_refresh_macro_snapshots_runs_loaders_concurrently_in_spec_order(monkeypatch):
+    import threading
+
+    from api import macro_snapshots as ms
+    from api.routers import economic_growth, housing, labor_market
+
+    in_flight = threading.Barrier(3, timeout=5)
+
+    def loader(payload):
+        def load():
+            in_flight.wait()  # passes only once all three loaders run at the same time
+            return payload
+
+        return load
+
+    monkeypatch.setattr(labor_market, "load_labor_market_payload", loader({"timestamp": "2026-05-01"}))
+    monkeypatch.setattr(housing, "load_housing_payload", loader({"timestamp": "2026-05-02"}))
+    monkeypatch.setattr(economic_growth, "load_economic_growth_payload", loader({"timestamp": "2026-05-03"}))
+    monkeypatch.setattr(
+        ms, "write_snapshot_success", lambda snapshot_key, payload, **_kwargs: _record(snapshot_key, payload)
+    )
+
+    result = ms.refresh_macro_snapshots()
+
+    assert [row["module"] for row in result["snapshots"]] == ["labor_market", "housing", "economic_growth"]
+    assert [row["status"] for row in result["snapshots"]] == ["ok", "ok", "ok"]

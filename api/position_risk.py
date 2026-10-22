@@ -12,6 +12,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, cast
 from zoneinfo import ZoneInfo
 
+from api.performance import ContextThreadPoolExecutor
 from api.position_risk_store import (
     read_latest_portfolio_risk,
     read_latest_position_risk,
@@ -307,9 +308,17 @@ def load_global_risk_input_bundle(
     module_data: dict[str, Any] = {}
     input_snapshots: dict[str, Any] = {}
 
-    for name in [*REQUIRED_MODULES[1:], *OPTIONAL_MODULES]:
+    names = [*REQUIRED_MODULES[1:], *OPTIONAL_MODULES]
+
+    def load(name: str) -> tuple[dict[str, Any], Any | None]:
         config = _MODULES[name]
-        state, data = _load_module(config, now=run_now, force_refresh=refresh_optional_sources and not config.required)
+        return _load_module(config, now=run_now, force_refresh=refresh_optional_sources and not config.required)
+
+    # Modules are independent: their snapshot reads and targeted refreshes run concurrently.
+    with ContextThreadPoolExecutor(max_workers=len(names)) as pool:
+        loaded = list(pool.map(load, names))
+
+    for name, (state, data) in zip(names, loaded, strict=True):
         source_status[name] = state
         if data is not None:
             module_data[name] = data

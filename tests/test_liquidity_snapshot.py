@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import threading
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pandas as pd
 import pytest
@@ -96,3 +98,88 @@ def test_quarterly_source_dates_use_period_end_for_freshness():
     quality = build_data_quality(pd.Timestamp("2026-05-27"), component_as_of)
 
     assert quality == {"status": "ok", "warnings": []}
+
+
+def _weekly_point() -> pd.Series:
+    return pd.Series([1.0], index=pd.to_datetime(["2026-01-07"]))
+
+
+def test_fred_series_download_concurrently_in_series_order(monkeypatch):
+    from macro.liquidity import liquidity
+
+    in_flight = threading.Barrier(len(liquidity.SERIES), timeout=5)
+
+    def fetch(_fred, _sid):
+        in_flight.wait()  # passes only once every series is being fetched at the same time
+        return _weekly_point()
+
+    monkeypatch.setattr(liquidity, "fred_get_series", fetch)
+    assert list(liquidity.fetch_fred_series(object()).columns) == list(liquidity.SERIES)
+
+
+def test_fred_series_failures_are_reported_together(monkeypatch):
+    from macro.liquidity import liquidity
+
+    def fetch(_fred, sid):
+        if sid == "NFCI":
+            return pd.Series(dtype=float)
+        if sid == "GDP":
+            raise RuntimeError("boom")
+        return _weekly_point()
+
+    monkeypatch.setattr(liquidity, "fred_get_series", fetch)
+    with pytest.raises(RuntimeError) as caught:
+        liquidity.fetch_fred_series(object())
+    assert "nfci (NFCI) returned empty series" in str(caught.value)
+    assert "gdp (GDP) error: boom" in str(caught.value)
+
+
+def test_ecb_series_download_concurrently_and_keep_partial_results(monkeypatch):
+    from macro.liquidity import liquidity
+
+    in_flight = threading.Barrier(len(liquidity.ECB_SERIES), timeout=5)
+    failing_key = liquidity.ECB_SERIES["ecb_net_liquidity_effect"]
+
+    class Client:
+        def __init__(self, source):
+            assert source == "ECB"
+
+        def data(self, flow, *, key, timeout):
+            in_flight.wait()
+            if key == failing_key:
+                raise TimeoutError("ECB slow")
+            return key
+
+    monkeypatch.setattr(liquidity, "SDMX_AVAILABLE", True)
+    monkeypatch.setattr(liquidity, "sdmx", SimpleNamespace(Client=Client, to_pandas=lambda _key: _weekly_point()))
+    df = liquidity.fetch_ecb_series()
+    assert list(df.columns) == ["ecb_excess_liquidity"]
+
+
+def test_fred_and_ecb_inputs_are_fetched_at_the_same_time(monkeypatch):
+    from macro.liquidity import liquidity
+
+    both = threading.Barrier(2, timeout=5)
+    ecb = pd.DataFrame({"ecb_excess_liquidity": [1.0]})
+
+    def fred(_client):
+        both.wait()
+        return pd.DataFrame({"on_rrp": [2.0]})
+
+    def fetch_ecb():
+        both.wait()
+        return ecb
+
+    monkeypatch.setattr(liquidity, "fetch_fred_series", fred)
+    monkeypatch.setattr(liquidity, "fetch_ecb_series", fetch_ecb)
+    df, df_ecb = liquidity.fetch_inputs(object())
+    assert df["on_rrp"].iloc[0] == 2000.0  # scaled from billions to millions
+    assert df_ecb is ecb
+
+
+def test_fetch_inputs_can_skip_ecb(monkeypatch):
+    from macro.liquidity import liquidity
+
+    monkeypatch.setattr(liquidity, "fetch_fred_series", lambda _client: pd.DataFrame({"m2": [1.0]}))
+    monkeypatch.setattr(liquidity, "fetch_ecb_series", lambda: pytest.fail("ECB should not be fetched"))
+    assert liquidity.fetch_inputs(object(), include_ecb=False)[1] is None

@@ -1,4 +1,5 @@
 import os
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from load_env import load_env
@@ -27,9 +28,16 @@ def get_data() -> dict:
         "timestamp": datetime.now().isoformat(),
     }
 
-    for key, (fred_id, label, unit, _transform) in SERIES_CONFIG.items():
+    # Series download concurrently; the shared FRED limiter in fred_get_series bounds the request rate.
+    with ThreadPoolExecutor(max_workers=len(SERIES_CONFIG)) as pool:
+        fetched = {
+            key: pool.submit(fred_get_series, fred, fred_id, observation_start=start)
+            for key, (fred_id, _label, _unit, _transform) in SERIES_CONFIG.items()
+        }
+
+    for key, (_fred_id, label, unit, _transform) in SERIES_CONFIG.items():
         try:
-            s = fred_get_series(fred, fred_id, observation_start=start).dropna()
+            s = fetched[key].result().dropna()
         except Exception as exc:
             result["series"][key] = {"dates": [], "values": [], "label": label, "unit": unit, "error": str(exc)}
             continue

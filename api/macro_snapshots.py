@@ -8,6 +8,7 @@ from typing import Any, cast
 
 from api.cache import ApiCache, daily_cache, delete_cached, get_or_set_cached
 from api.exceptions import DataFetchError
+from api.performance import ContextThreadPoolExecutor
 from api.snapshot_keys import (
     SNAPSHOT_ECONOMIC_GROWTH,
     SNAPSHOT_HOUSING,
@@ -106,8 +107,42 @@ def get_snapshot_backed_response(
         raise DataFetchError(source=source, detail=str(exc)) from exc
 
 
+def _refresh_macro_snapshot(name: str, snapshot_key: str, loader: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    registry = source_registry_metadata_for_snapshot(snapshot_key)
+    try:
+        payload = loader()
+        payload_for_write = attach_source_registry_metadata(payload, snapshot_key=snapshot_key)
+        record = write_snapshot_success(
+            snapshot_key,
+            payload_for_write,
+            as_of_date=payload_as_of(payload_for_write),
+            version=SNAPSHOT_SCHEMA_VERSION,
+        )
+        delete_cached(daily_cache, name)
+        return {
+            "snapshot_key": snapshot_key,
+            "module": name,
+            "status": "ok",
+            "as_of": record.as_of_date,
+            "source_registry": registry,
+        }
+    except Exception as exc:
+        message = str(exc) or exc.__class__.__name__
+        failure_record = write_snapshot_failure(snapshot_key, message, version=SNAPSHOT_SCHEMA_VERSION)
+        delete_cached(daily_cache, name)
+        logger.warning("macro snapshot refresh failed for %s", name, exc_info=True)
+        return {
+            "snapshot_key": snapshot_key,
+            "module": name,
+            "status": "error",
+            "error": message,
+            "as_of": failure_record.as_of_date if failure_record else None,
+            "source_registry": registry,
+        }
+
+
 def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Compute and persist daily macro snapshots independently."""
+    """Compute and persist daily macro snapshots independently and concurrently."""
     from api.routers.economic_growth import load_economic_growth_payload
     from api.routers.housing import load_housing_payload
     from api.routers.labor_market import load_labor_market_payload
@@ -118,42 +153,7 @@ def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str,
         ("economic_growth", SNAPSHOT_ECONOMIC_GROWTH, load_economic_growth_payload),
     )
 
-    results: list[dict[str, Any]] = []
-    for name, snapshot_key, loader in specs:
-        registry = source_registry_metadata_for_snapshot(snapshot_key)
-        try:
-            payload = loader()
-            payload_for_write = attach_source_registry_metadata(payload, snapshot_key=snapshot_key)
-            record = write_snapshot_success(
-                snapshot_key,
-                payload_for_write,
-                as_of_date=payload_as_of(payload_for_write),
-                version=SNAPSHOT_SCHEMA_VERSION,
-            )
-            delete_cached(daily_cache, name)
-            results.append(
-                {
-                    "snapshot_key": snapshot_key,
-                    "module": name,
-                    "status": "ok",
-                    "as_of": record.as_of_date,
-                    "source_registry": registry,
-                }
-            )
-        except Exception as exc:
-            message = str(exc) or exc.__class__.__name__
-            failure_record = write_snapshot_failure(snapshot_key, message, version=SNAPSHOT_SCHEMA_VERSION)
-            delete_cached(daily_cache, name)
-            logger.warning("macro snapshot refresh failed for %s", name, exc_info=True)
-            results.append(
-                {
-                    "snapshot_key": snapshot_key,
-                    "module": name,
-                    "status": "error",
-                    "error": message,
-                    "as_of": failure_record.as_of_date if failure_record else None,
-                    "source_registry": registry,
-                }
-            )
+    with ContextThreadPoolExecutor(max_workers=len(specs)) as pool:
+        results = list(pool.map(lambda spec: _refresh_macro_snapshot(*spec), specs))
 
     return {"snapshots": results}
