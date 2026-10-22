@@ -4,6 +4,7 @@ from typing import Annotated, Any, Literal, cast
 
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from api.async_job_runner import enqueue_registered_job, enqueue_response, poll_registered_job
 from api.exceptions import NotFoundError, ValidationError
@@ -63,7 +64,8 @@ async def upload_source_artifact(
 ):
     require_multimodal_ingestion_enabled()
     content = await read_upload_file_bytes(file, limit_bytes=MAX_SOURCE_UPLOAD_SIZE_BYTES, limit_label="30 MiB")
-    result = SourceIngestionService().upload_artifact(
+    return await run_in_threadpool(
+        _upload_source_artifact,
         UploadInput(
             manifest_id=manifest_id,
             filename=file.filename or "",
@@ -76,9 +78,12 @@ async def upload_source_artifact(
             record_key=record_key,
             run_extractors=run_extractors,
             actor=_actor_dict(actor),
-        )
+        ),
     )
-    return serialize_response(result)
+
+
+def _upload_source_artifact(upload: UploadInput) -> dict:
+    return serialize_response(SourceIngestionService().upload_artifact(upload))
 
 
 @router.get("/source-ingestion/artifacts")

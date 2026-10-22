@@ -9,6 +9,7 @@ from typing import Literal
 
 from fastapi import UploadFile
 from pydantic import BaseModel, Field
+from starlette.concurrency import run_in_threadpool
 
 from api.async_job_runner import enqueue_registered_job, enqueue_response
 from api.exceptions import AppError, DataFetchError, ValidationError
@@ -60,11 +61,29 @@ async def enqueue_document_generation_upload(
     max_upload_size_bytes: int = MAX_UPLOAD_SIZE_BYTES,
 ) -> object:
     upload_bytes = await read_upload_file_bytes(file, limit_bytes=max_upload_size_bytes, limit_label="30 MiB")
+    return await run_in_threadpool(
+        _enqueue_document_generation_bytes,
+        kind=kind,
+        ticker=ticker,
+        upload_bytes=upload_bytes,
+        content_type=file.content_type or "",
+        filename=file.filename or "",
+    )
+
+
+def _enqueue_document_generation_bytes(
+    *,
+    kind: DocumentGenerationKind,
+    ticker: str,
+    upload_bytes: bytes,
+    content_type: str,
+    filename: str,
+) -> object:
+    """Keep storage, job enqueue, and failure cleanup together in a worker thread."""
     if not upload_bytes:
         raise ValidationError("Uploaded file is empty.")
 
-    content_type = (file.content_type or "").split(";", 1)[0].strip().lower()
-    filename = file.filename or ""
+    content_type = content_type.split(";", 1)[0].strip().lower()
     classify_upload_document(upload_bytes, content_type=content_type, filename=filename)
 
     upload_id = uuid.uuid4().hex

@@ -4,12 +4,14 @@ import logging
 from pathlib import Path
 
 from fastapi import APIRouter, File, UploadFile
+from starlette.concurrency import run_in_threadpool
 
 from api.action_execution import stage_api_action
 from api.exceptions import AppError, NotFoundError, ValidationError
 from api.request_limits import read_upload_file_bytes
 from api.routers.auth import ActorDep
 from api.serializers import serialize_response
+from ontology.policy import Actor
 from ontology.sources.source_registry import attach_source_registry_metadata
 
 router = APIRouter()
@@ -85,8 +87,14 @@ async def upload_portfolio_news_digest(
     if not payload:
         raise ValidationError("Uploaded file is empty.")
 
+    return await run_in_threadpool(
+        _stage_news_digest_upload, payload, filename=file.filename or "digest.md", actor=actor
+    )
+
+
+def _stage_news_digest_upload(payload: bytes, *, filename: str, actor: Actor) -> dict:
     content = _decode_markdown_upload(payload)
-    filename = Path(file.filename or "digest.md").name
+    filename = Path(filename).name
 
     try:
         staged = stage_api_action(

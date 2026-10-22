@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, File, Query, UploadFile
 from pydantic import BaseModel
+from starlette.concurrency import run_in_threadpool
 
 from api.cache import daily_cache, delete_cached
 from api.exceptions import ConfigurationError, DataFetchError, ValidationError
@@ -157,7 +158,11 @@ async def upload_economic_growth_crb_file(
     if not payload:
         raise ValidationError("Uploaded file is empty.")
 
-    filename = Path(file.filename or "crb.xlsx").name
+    return await run_in_threadpool(_save_crb_upload, payload, filename=file.filename or "crb.xlsx")
+
+
+def _save_crb_upload(payload: bytes, *, filename: str) -> dict:
+    filename = Path(filename).name
     metadata = _crb_metadata_from_upload(payload, filename)
     _write_managed_crb(payload, metadata)
     delete_cached(daily_cache, ECONOMIC_GROWTH_CACHE_KEY)
