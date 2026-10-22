@@ -1,0 +1,62 @@
+{
+  "id": "routing_new_question_after_thesis_2026",
+  "status": "review",
+  "as_of_date": "2026-10-22",
+  "user_message": "How do CPI and GDP affect bond yields?",
+  "screen_context": {
+    "page_name": "Position Dossier",
+    "route": "/dossier/NVDA",
+    "ticker": "NVDA"
+  },
+  "mock_tools": {},
+  "routing_expectations": {
+    "intent_class": "general_research",
+    "run_hidden_dq": false,
+    "run_opportunity_preflight": false,
+    "candidate_tickers": [],
+    "required_tool_names": [
+      "get_yield_curve"
+    ],
+    "forbidden_tool_names": [
+      "search_alternative_data_catalog",
+      "fetch_alternative_data",
+      "get_dossier",
+      "get_thesis",
+      "get_financials",
+      "get_position_valuation",
+      "get_dcf_historical",
+      "run_chart"
+    ]
+  },
+  "expected_tool_names": [],
+  "required_points": [],
+  "corpus_tags": [
+    "routing_tool_use"
+  ],
+  "failure_type": "wrong_routing",
+  "tool_pack": "regex_baseline",
+  "required_dq_dimensions": [],
+  "recent_conversation": [
+    {
+      "role": "user",
+      "content": "Compare NVDA and MSFT valuations."
+    },
+    {
+      "role": "assistant",
+      "content": "1. NVDA has the higher multiple. 2. MSFT has steadier cash flows.",
+      "routing_context": {
+        "tickers": [
+          "NVDA",
+          "MSFT"
+        ],
+        "tool_names": [
+          "get_financials",
+          "get_position_valuation",
+          "run_chart",
+          "fetch_alternative_data",
+          "search_agent_capabilities"
+        ]
+      }
+    }
+  ]
+}

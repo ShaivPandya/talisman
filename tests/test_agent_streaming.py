@@ -6,9 +6,12 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 import api.agent_chat_worker as agent_chat_worker
 import api.routers.agent as agent_router
 from api.agent_domain_policy import DOMAIN_CLARIFY_RESPONSE, AgentDomainClassification
+from decision_quality.chat_eval_runner import deterministic_score, load_cases, run_agent_chat_in_process
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -123,6 +126,150 @@ def _install_fake_anthropic(monkeypatch, streams: list[tuple[list[Any], Any]]):
     fake_client = _FakeClient(streams)
     monkeypatch.setattr("anthropic.Anthropic", lambda *args, **kwargs: fake_client)
     return fake_client
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        case
+        for case in load_cases(case_selectors=["routing_"])
+        if "candidate_tickers" in case.data["routing_expectations"]
+    ],
+    ids=lambda case: case.case_id,
+)
+def test_negative_routing_corpus_through_chat_endpoint(auth_client, monkeypatch, case):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    monkeypatch.setattr("api.memory_manager._retrieve_relevant", lambda _message: "")
+    text = "The conversation and screen provide context for this explanation."
+    _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_text_delta(text)],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": text}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+        ],
+    )
+    run = run_agent_chat_in_process(case, auth_password="testpass")
+    score = deterministic_score(case, run)
+    assert score["passed"], score["checks"]
+    assert "decision_quality_chat" not in run.done_payload
+    assert "opportunity_candidate_preflight" not in run.done_payload
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_followup_retains_selected_tools_and_tickers_without_forcing_a_call(auth_client, monkeypatch, provider):
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    replies = ["1. NVDA has the higher multiple. 2. MSFT has steadier cash flows.", "MSFT has the lower valuation."]
+    if provider == "anthropic":
+        streams = [
+            (
+                [_event_text_delta(text)],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": text}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+            for text in replies
+        ]
+        fake = _install_fake_anthropic(monkeypatch, streams)
+        calls = fake.messages.kwargs_history
+    else:
+        streams = [
+            (
+                [_openai_event_text_delta(text)],
+                SimpleNamespace(
+                    output=[{"type": "message", "content": [{"type": "output_text", "text": text}]}],
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+            for text in replies
+        ]
+        fake = _install_fake_openai(monkeypatch, streams)
+        calls = fake.responses.kwargs_history
+    first = auth_client.post(
+        "/api/agent/chat",
+        json={"message": "Compare NVDA and MSFT valuation", "finalize_synchronously": True},
+    )
+    first_done = next(payload for event, payload in _parse_sse(first.text) if event == "done")
+    session_id = first_done["session_id"]
+    second = auth_client.post(
+        "/api/agent/chat",
+        json={
+            "message": "What about the second one's valuation?",
+            "session_id": session_id,
+            "screen_context": {"page_name": "Research", "route": "/research/AAPL", "ticker": "AAPL"},
+            "finalize_synchronously": True,
+        },
+    )
+    assert first.status_code == second.status_code == 200
+    assert calls[0].get("tool_choice") in ({"type": "any"}, "required")
+    assert "tool_choice" not in calls[1]
+    second_done = next(payload for event, payload in _parse_sse(second.text) if event == "done")
+    assert second_done["intent_router"]["telemetry"]["candidate_tickers"] == ["MSFT"]
+    assert "get_financials" in second_done["intent_router"]["applied"]["tool_names"]
+    from api import memory_db
+
+    stored = memory_db.get_or_create_session(session_id)["server_messages"][-1]["routing_context"]
+    assert stored["tickers"] == ["MSFT"]
+    assert "run_chart" in stored["tool_names"]
+
+
+@pytest.mark.parametrize(
+    "message", ["Summarize the portfolio performance you just listed.", "What about the latest portfolio risks?"]
+)
+def test_followup_reuses_context_but_explicit_refresh_can_require_tools(auth_client, monkeypatch, message):
+    from api import memory_db
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    session = memory_db.get_or_create_session()
+    memory_db.append_messages(
+        session["session_id"],
+        [
+            {"role": "user", "content": "What are my portfolio risks?"},
+            {"role": "assistant", "content": "Portfolio performance is positive, with concentrated sector risk."},
+        ],
+    )
+    fake = _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_text_delta("The portfolio has concentrated sector risk.")],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "The portfolio has concentrated sector risk."}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+        ],
+    )
+    response = auth_client.post(
+        "/api/agent/chat",
+        json={"message": message, "session_id": session["session_id"], "finalize_synchronously": True},
+    )
+    assert response.status_code == 200
+    assert len(fake.messages.kwargs_history) == 1
+    if "latest" in message:
+        assert fake.messages.kwargs_history[0]["tool_choice"] == {"type": "any"}
+    else:
+        assert "tool_choice" not in fake.messages.kwargs_history[0]
+        assert not any(event == "tool_call" for event, _payload in _parse_sse(response.text))
 
 
 def _openai_event_text_delta(text: str):
@@ -1708,7 +1855,7 @@ def test_agent_chat_openai_continues_after_output_token_limit(auth_client, monke
     monkeypatch.setenv("LLM_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
-    monkeypatch.setattr(agent_router, "_select_tool_names", lambda _message: [])
+    monkeypatch.setattr(agent_router, "_select_tool_names", lambda _message, **_kwargs: [])
     monkeypatch.setattr(
         "api.memory_manager.build_conversation_context",
         lambda _session_id, new_user_message, **_kwargs: (

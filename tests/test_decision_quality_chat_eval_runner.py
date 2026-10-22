@@ -22,6 +22,33 @@ def _case(path: Path, data: dict) -> ChatEvalCase:
     return ChatEvalCase(path=path, data=data)
 
 
+def test_routing_score_rejects_forbidden_selected_or_executed_tools_and_wrong_ticker(tmp_path):
+    from decision_quality.chat_eval_runner import _routing_expectation_checks
+
+    case = _case(
+        tmp_path / "negative.json",
+        {"routing_expectations": {"forbidden_tool_names": ["get_dossier"], "candidate_tickers": ["MSFT"]}},
+    )
+    for selected, executed in [(["get_dossier"], []), ([], ["get_dossier"])]:
+        checks = []
+        run = AgentChatRun(
+            final_text="",
+            events=[],
+            tool_names=executed,
+            done_payload={
+                "intent_router": {
+                    "applied": {"tool_names": selected},
+                    "telemetry": {"candidate_tickers": ["NVDA"]},
+                }
+            },
+        )
+        _routing_expectation_checks(checks, case=case, run=run)
+        assert {check["name"] for check in checks if not check["passed"]} == {
+            "routing_forbidden_tool_names",
+            "routing_candidate_tickers",
+        }
+
+
 def test_load_cases_and_validate_hashed_input_refs(tmp_path):
     input_path = tmp_path / "inputs" / "deck.json"
     input_path.parent.mkdir()

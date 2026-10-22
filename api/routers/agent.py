@@ -89,6 +89,12 @@ from decision_quality.opportunity_candidate import (
     opportunity_candidate_schema,
     parse_opportunity_candidate,
 )
+from decision_quality.routing_signals import (
+    extract_candidate_ticker,
+    extract_tickers,
+    is_contextual_followup,
+    previous_turn,
+)
 from decision_quality.scout_skeptic_sizer_gate import build_chat_scout_skeptic_sizer_gate
 from decision_quality.synthesis_supervised import apply_supervised_triage_overlay
 from llm_utils import (
@@ -1262,7 +1268,46 @@ def _portfolio_summary_fallback(portfolio_result: str) -> str:
     return " ".join(lines)
 
 
-def _select_tool_names(user_text: str) -> list[str]:
+def _routing_tickers(
+    user_text: str,
+    screen_context: ScreenContextModel | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    tickers = extract_tickers(user_text)
+    if tickers:
+        return tickers
+    if is_contextual_followup(user_text, recent_conversation):
+        for message in reversed(previous_turn(recent_conversation)):
+            metadata = message.get("routing_context") or {}
+            if isinstance(metadata, dict):
+                tickers.extend(str(ticker) for ticker in metadata.get("tickers", []) if isinstance(ticker, str))
+            tickers.extend(extract_tickers(str(message.get("content") or "")))
+            for call in message.get("toolCalls") or []:
+                if not isinstance(call, dict):
+                    continue
+                args = call.get("args") or call.get("arguments") or {}
+                if isinstance(args, dict) and isinstance(args.get("ticker"), str):
+                    tickers.append(args["ticker"].upper())
+        if tickers:
+            tickers = list(dict.fromkeys(tickers))
+            ordinal = re.search(
+                r"\b(first|second|third|last)\s+(?:one|stock|company|idea|name)\b", user_text, re.IGNORECASE
+            )
+            if ordinal:
+                index = {"first": 0, "second": 1, "third": 2, "last": -1}[ordinal[1].lower()]
+                if index < len(tickers):
+                    return [tickers[index]]
+            return tickers
+    ticker = _extract_candidate_ticker(user_text, screen_context)
+    return [ticker] if ticker else []
+
+
+def _select_tool_names(
+    user_text: str,
+    *,
+    screen_context: ScreenContextModel | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
+) -> list[str]:
     text = (user_text or "").lower()
     selected: list[str] = []
 
@@ -1270,6 +1315,21 @@ def _select_tool_names(user_text: str) -> list[str]:
         for name in names:
             if name in _tool_names() and name not in selected:
                 selected.append(name)
+
+    if is_contextual_followup(user_text, recent_conversation):
+        prior_user, prior_assistant = previous_turn(recent_conversation)
+        metadata = prior_assistant.get("routing_context") or {}
+        prior_tools = metadata.get("tool_names") if isinstance(metadata, dict) else None
+        add(
+            *(
+                prior_tools
+                if isinstance(prior_tools, list)
+                else _select_tool_names(str(prior_user.get("content") or ""))
+            )
+        )
+        for call in prior_assistant.get("toolCalls") or []:
+            if isinstance(call, dict):
+                add(str(call.get("name") or ""))
 
     portfolio_terms = r"(?:my|portfolio|holding|holdings|position|positions)"
     portfolio_risk_rx = rf"\b{portfolio_terms}\b.{{0,80}}\brisks?\b|\brisks?\b.{{0,80}}\b{portfolio_terms}\b"
@@ -1323,7 +1383,9 @@ def _select_tool_names(user_text: str) -> list[str]:
         add("get_industry_monitor")
     if "management quality" in text or "management team" in text or "owner mindset" in text:
         add("get_portfolio", "get_dossier", "search_knowledge_base")
-    if re.search(r"\b(thesis|catalyst|kill condition|dossier|conviction)\b", text):
+    if re.search(r"\b(thesis|catalyst|kill condition|dossier|conviction)\b", text) or _looks_like_pasted_thesis(
+        user_text
+    ):
         add(
             "get_portfolio",
             "get_dossier",
@@ -1369,7 +1431,9 @@ def _select_tool_names(user_text: str) -> list[str]:
         add("get_dcf_historical", "run_dcf_valuation")
     if "chart" in text or "technical analysis" in text:
         add("run_chart", "run_ratio_chart", "get_price_volume_signals")
-    if "screener" in text or "screen" in text:
+    if re.search(r"\bscreener\b|\b(?:stock|equity|quality|short|long|investment)\s+screen\b", text) or (
+        _OPPORTUNITY_DISCOVERY_INTENT_RX.search(text) and re.search(r"\bscreen\b", text)
+    ):
         add("run_quality_screen", "run_short_screen", "run_long_screen", "run_fundamental_momentum")
     if "portfolio analyzer" in text or "portfolio optimizer" in text:
         add("run_portfolio_analyzer")
@@ -1380,14 +1444,7 @@ def _select_tool_names(user_text: str) -> list[str]:
     if "workspace" in text:
         add("get_workspace")
 
-    stop = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO", "WHAT", "THIS", "THAT"}
-    ticker_candidates = [m for m in _TICKER_RX.findall(user_text or "") if m not in stop and len(m) >= 2]
-    if not ticker_candidates:
-        for alias, ticker in sorted(_COMPANY_TICKER_ALIASES.items(), key=lambda item: -len(item[0])):
-            if re.search(rf"\b{re.escape(alias)}\b", text):
-                ticker_candidates = [ticker]
-                break
-    if ticker_candidates:
+    if _routing_tickers(user_text, screen_context, recent_conversation):
         add(
             "search_alternative_data_catalog",
             "fetch_alternative_data",
@@ -1471,34 +1528,27 @@ _DOSSIER_PRESSURE_TEST_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bpoke\s+holes\s+in\s+(?:this\s+)?(?:position|thesis)\b", re.IGNORECASE),
 ]
 
-_TICKER_RX = re.compile(r"\b([A-Z]{1,5})\b")
-_TICKER_STOP_WORDS = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO", "WHAT", "THIS", "THAT"}
-_COMPANY_TICKER_ALIASES = {
-    "meta": "META",
-    "facebook": "META",
-    "uber": "UBER",
-    "nvidia": "NVDA",
-    "tesla": "TSLA",
-    "apple": "AAPL",
-    "amazon": "AMZN",
-    "google": "GOOGL",
-    "alphabet": "GOOGL",
-    "microsoft": "MSFT",
-    "netflix": "NFLX",
-}
 _DECISION_QUALITY_CHAT_INTENT_RX = re.compile(
-    r"\b("
-    r"thesis|investment thesis|idea|pitch|pressure[- ]?test|what do you think|"
-    r"poke holes|devil'?s advocate|conviction|mispricing|invalidation|kill condition|"
-    r"should i (?:buy|add|short|sell)|long|short"
-    r")\b",
+    r"\b(?:pressure[- ]?test(?:ing)?|poke\s+holes|devil'?s\s+advocate|what\s+do\s+you\s+think|"
+    r"should\s+i\s+(?:buy|add|short|sell)|(?:as\s+a|go|going)\s+(?:long|short)|"
+    r"(?:review|evaluate|assess|critique|challenge)\s+(?:(?:my|this|that|the|our|an?)\s+)?"
+    r"(?:[\w$.-]+\s+){0,2}(?:investment\s+)?(?:thesis|idea|pitch)|"
+    r"(?:what\s+would\s+invalidate|kill\s+conditions?|invalidation\s+(?:check|conditions?))|"
+    r"is\s+(?:it|this|that)\s+(?:a\s+)?(?:buy|short|long)|worth\s+(?:buying|researching))\b",
     flags=re.IGNORECASE,
 )
 _OPPORTUNITY_DISCOVERY_INTENT_RX = re.compile(
-    r"\b("
-    r"scan|scout|find|discover|look\s+for|interesting|opportunities?|opportunity|"
-    r"what\s+(?:should|could)\s+i|names?\s+to|ideas?\s+(?:in|for|on)|"
-    r"anything\s+(?:look|worth)|rank|triage|screen|watchlist"
+    r"\b(?:"
+    r"(?:find|discover|scout|look\s+for|rank|triage|screen|scan)\s+"
+    r"(?:(?!(?:report|minutes|definition|document|article|news|filing|transcript|risks?|prices?|quotes?)\b)[\w-]+\s+){0,4}"
+    r"(?:stocks?(?!\s+(?:prices?|quotes?|splits?|news)\b)|equities|companies|"
+    r"investment\s+ideas?|trade\s+ideas?|opportunit(?:y|ies)|watchlist|names\s+to\s+(?:buy|short|research))|"
+    r"(?:scan|scout|screen)\s+(?!(?:(?:this|that|the|my)\s+)?(?:document|report|page|screen)\b)"
+    r"[^?.!\n]{1,60}?\s+for\s+(?:anything\s+interesting|investment\s+ideas?|opportunit(?:y|ies))|"
+    r"(?:investment|trading|stock)\s+opportunit(?:y|ies)|"
+    r"ideas?\s+(?:in|for|on)|"
+    r"what\s+(?:should|could)\s+i\s+(?:buy|short|invest\s+in)|"
+    r"anything\s+worth\s+(?:buying|shorting|researching)"
     r")\b",
     flags=re.IGNORECASE,
 )
@@ -1516,17 +1566,7 @@ def _env_flag(name: str, *, default: bool) -> bool:
 
 
 def _extract_candidate_ticker(user_text: str, screen_context: ScreenContextModel | None = None) -> str | None:
-    screen_ticker = (screen_context.ticker if screen_context else None) or ""
-    if screen_ticker.strip():
-        return screen_ticker.strip().upper()
-    candidates = [m for m in _TICKER_RX.findall(user_text or "") if m not in _TICKER_STOP_WORDS and len(m) >= 2]
-    if candidates:
-        return str(candidates[0]).upper()
-    lowered = (user_text or "").lower()
-    for alias, ticker in sorted(_COMPANY_TICKER_ALIASES.items(), key=lambda item: -len(item[0])):
-        if re.search(rf"\b{re.escape(alias)}\b", lowered):
-            return ticker
-    return None
+    return extract_candidate_ticker(user_text, screen_context.model_dump(mode="json") if screen_context else None)
 
 
 def _looks_like_pasted_thesis(user_text: str) -> bool:
@@ -1537,6 +1577,8 @@ def _looks_like_pasted_thesis(user_text: str) -> bool:
 def _should_run_decision_quality_chat(
     user_text: str,
     screen_context: ScreenContextModel | None = None,
+    *,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not _env_flag("AGENT_DECISION_QUALITY_CHAT_ENABLED", default=True):
         return False
@@ -1544,7 +1586,7 @@ def _should_run_decision_quality_chat(
     if not text or not _DECISION_QUALITY_CHAT_INTENT_RX.search(text):
         return False
     return bool(
-        _extract_candidate_ticker(text, screen_context)
+        _routing_tickers(text, screen_context, recent_conversation)
         or _looks_like_pasted_thesis(text)
         or _should_use_retrieval(text)
     )
@@ -1553,13 +1595,15 @@ def _should_run_decision_quality_chat(
 def _should_run_opportunity_candidate_preflight(
     user_text: str,
     screen_context: ScreenContextModel | None = None,
+    *,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not _env_flag("AGENT_OPPORTUNITY_CANDIDATE_PREFLIGHT_ENABLED", default=True):
         return False
     text = (user_text or "").strip()
     if not text:
         return False
-    has_ticker = bool(_extract_candidate_ticker(text, screen_context))
+    has_ticker = bool(_routing_tickers(text, screen_context, recent_conversation))
     if _OPPORTUNITY_DISCOVERY_INTENT_RX.search(text):
         return True
     if _looks_like_pasted_thesis(text):
@@ -1567,8 +1611,6 @@ def _should_run_opportunity_candidate_preflight(
     if _DECISION_QUALITY_CHAT_INTENT_RX.search(text) and (
         has_ticker or _looks_like_pasted_thesis(text) or _should_use_retrieval(text)
     ):
-        return True
-    if has_ticker and re.search(r"\b(idea|thesis|pitch|stock|name|company)\b", text, re.IGNORECASE):
         return True
     return False
 
@@ -1579,8 +1621,10 @@ def _decision_quality_chat_tool_calls(
     *,
     route_decision: RouteDecision | None = None,
     opportunity_candidate_metadata: dict[str, Any] | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     screen_payload = screen_context.model_dump(mode="json") if screen_context else None
+    tickers = _routing_tickers(user_text, screen_context, recent_conversation)
     pack = resolve_context_pack(
         user_text=user_text,
         intent_class=route_decision.intent_class if route_decision else None,
@@ -1593,6 +1637,7 @@ def _decision_quality_chat_tool_calls(
         user_text=user_text,
         screen_context=screen_payload,
         allowed_tool_names=_tool_names(),
+        ticker=tickers[0] if tickers else None,
     )
 
 
@@ -1969,12 +2014,11 @@ def _detect_workflow(
             return wf_name, ticker
         return None, None
 
-    screen_ticker = (screen_context.ticker if screen_context else None) or ""
     on_position_dossier = bool(screen_context and screen_context.page_name == "Position Dossier")
     if on_position_dossier:
         for pattern in _DOSSIER_PRESSURE_TEST_PATTERNS:
             if pattern.search(text):
-                ticker = screen_ticker.strip().upper() or _extract_candidate_ticker(text, screen_context)
+                ticker = _extract_candidate_ticker(text, screen_context)
                 if ticker:
                     return "position_dossier_pressure_test", ticker
 
@@ -1984,11 +2028,7 @@ def _detect_workflow(
             ticker = None
             wf_def = AVAILABLE_WORKFLOWS[wf_name]
             if wf_def["requires_ticker"]:
-                # Try to extract a ticker from the message
-                # Filter out common English words that match ticker pattern
-                stop = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO"}
-                candidates = [m for m in _TICKER_RX.findall(text) if m not in stop and len(m) >= 2]
-                ticker = candidates[0] if candidates else screen_ticker.strip().upper() or None
+                ticker = _extract_candidate_ticker(text, screen_context)
             return wf_name, ticker
     return None, None
 
@@ -2005,10 +2045,16 @@ def _resolve_chat_route(
 ) -> tuple[RouteDecision, dict[str, Any]]:
     regex_baseline = build_regex_route_decision(
         user_text=user_text,
-        select_tool_names=_select_tool_names,
+        select_tool_names=lambda text: _select_tool_names(
+            text, screen_context=screen_context, recent_conversation=recent_conversation
+        ),
         detect_workflow=_detect_workflow,
-        should_run_hidden_dq=_should_run_decision_quality_chat,
-        should_run_opportunity_preflight=_should_run_opportunity_candidate_preflight,
+        should_run_hidden_dq=lambda text, screen: _should_run_decision_quality_chat(
+            text, screen, recent_conversation=recent_conversation
+        ),
+        should_run_opportunity_preflight=lambda text, screen: _should_run_opportunity_candidate_preflight(
+            text, screen, recent_conversation=recent_conversation
+        ),
         screen_context=screen_context,
     )
     context = build_route_context(
@@ -2025,7 +2071,7 @@ def _resolve_chat_route(
     except ConfigurationError:
         system_prompt = None
     provider, api_key = llm_credentials if llm_credentials else (None, None)
-    return resolve_agent_route(
+    decision, metadata = resolve_agent_route(
         context=context,
         regex_baseline=regex_baseline,
         provider=provider,
@@ -2034,6 +2080,8 @@ def _resolve_chat_route(
         reasoning_effort=reasoning_effort,
         defer_shadow=defer_shadow,
     )
+    metadata["candidate_tickers"] = _routing_tickers(user_text, screen_context, recent_conversation)
+    return decision, metadata
 
 
 def _recent_conversation_for_routing(session: dict[str, Any]) -> list[dict[str, Any]]:
@@ -3535,6 +3583,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     workflow_ticker = route_decision.workflow_ticker
     # The session is read once per turn; routing and the turn itself share this copy.
     turn_session: dict[str, Any] | None = None
+    recent_conversation: list[dict[str, Any]] = []
     router_shadow: dict[str, Any] | None = None
     if workflow_name and req.allow_workflow_handoff:
         provider_label = "deferred"
@@ -3590,6 +3639,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 tool_defs = _tool_definitions_from_names(provider, active_tool_names)
     force_refresh = _wants_fresh_data(req.message)
     enable_retrieval = _should_use_retrieval(req.message)
+    contextual_followup = is_contextual_followup(req.message, recent_conversation)
     logger.info(
         "agent_chat provider=%s casual=%s workflow=%s ticker=%s tools=%d refresh=%s retrieval=%s session=%s "
         "route_source=%s route_intent=%s route_confidence=%.2f",
@@ -3623,7 +3673,19 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             messages_before_turn,
         )
 
-        finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
+        finalize = finalize_turn if req.finalize_synchronously else finalize_turn_async
+
+        def finalize_turn_fn(sid: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
+            # Existing message JSON retains selected/discovered tools even when the model
+            # answers without calling one. No extra session read or schema is needed.
+            tickers = extract_tickers(str(assistant_msg.get("content") or ""))
+            tickers.extend(_routing_tickers(req.message, req.screen_context, recent_conversation))
+            assistant_msg["routing_context"] = {
+                "tickers": list(dict.fromkeys(tickers)),
+                "tool_names": list(active_tool_names),
+            }
+            finalize(sid, user_msg, assistant_msg)
+
         session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
         prior_message_count = messages_before_turn(session, req.client_turn_id)
 
@@ -3723,7 +3785,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )["owned_model_rollout"],
         )
 
-        if not workflow_name and _is_simple_portfolio_summary(req.message):
+        if not workflow_name and not contextual_followup and _is_simple_portfolio_summary(req.message):
             call_info = {
                 "name": "get_portfolio",
                 "args": _execution_args("get_portfolio", {}, force_refresh=force_refresh, user_text=req.message),
@@ -3966,6 +4028,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 req.message,
                 req.screen_context,
                 route_decision=route_decision,
+                recent_conversation=recent_conversation,
             )
             tool_payloads: list[dict[str, Any]] = []
             dq_tool_results: list[dict[str, Any]] = []
@@ -4869,7 +4932,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         has_rich_screen_data = req.screen_context is not None and (
             req.screen_context.metrics or req.screen_context.summary
         )
-        force_tool_use = bool(tool_defs) and _is_data_seeking(req.message) and not has_rich_screen_data
+        force_tool_use = (
+            bool(tool_defs)
+            and _is_data_seeking(req.message)
+            and not has_rich_screen_data
+            and (not contextual_followup or force_refresh)
+        )
         tool_result_cache: dict[str, str] = {}
         continuation_round = 0
         output_continuation_rounds = 0

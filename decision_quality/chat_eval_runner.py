@@ -292,6 +292,7 @@ def _patched_agent_tools(mock_tools: dict[str, Any] | None) -> Iterator[None]:
 def run_agent_chat_in_process(case: ChatEvalCase, *, auth_password: str | None = None) -> AgentChatRun:
     from fastapi.testclient import TestClient
 
+    from api import memory_db
     from api.main import app
     from api.request_schema import schema_headers_for_path
 
@@ -318,6 +319,11 @@ def run_agent_chat_in_process(case: ChatEvalCase, *, auth_password: str | None =
                     token = login.json().get("csrfToken")
                     if token:
                         csrf_headers = {"X-CSRF-Token": token}
+            history = case.data.get("recent_conversation")
+            if isinstance(history, list) and history:
+                session = memory_db.get_or_create_session()
+                memory_db.append_messages(session["session_id"], history)
+                body["session_id"] = session["session_id"]
             response = client.post(
                 "/api/agent/chat",
                 json=body,
@@ -469,6 +475,22 @@ def _routing_expectation_checks(
                 "routing_required_tool_names",
                 not missing,
                 f"missing={missing}; applied={applied_tools}",
+            )
+        )
+
+    forbidden_tools = set(expectations.get("forbidden_tool_names") or [])
+    if forbidden_tools:
+        unexpected = forbidden_tools.intersection([*applied.get("tool_names", []), *run.tool_names])
+        checks.append(_check("routing_forbidden_tool_names", not unexpected, f"unexpected={sorted(unexpected)}"))
+
+    if "candidate_tickers" in expectations:
+        telemetry = router_meta.get("telemetry") if isinstance(router_meta, dict) else None
+        actual_tickers = telemetry.get("candidate_tickers") if isinstance(telemetry, dict) else None
+        checks.append(
+            _check(
+                "routing_candidate_tickers",
+                actual_tickers == expectations["candidate_tickers"],
+                f"expected={expectations['candidate_tickers']!r}, actual={actual_tickers!r}",
             )
         )
 
