@@ -16,6 +16,7 @@ import uuid
 from collections import defaultdict, deque
 from collections.abc import Callable, Mapping
 from concurrent.futures import TimeoutError as FutureTimeoutError
+from copy import deepcopy
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -276,7 +277,7 @@ def _is_sensitive_key(key: Any) -> bool:
     return any(part in lowered for part in _SENSITIVE_KEY_PARTS)
 
 
-def redact_secrets(value: Any) -> tuple[Any, list[dict[str, Any]]]:
+def redact_secrets(value: Any, *, _path: str = "$") -> tuple[Any, list[dict[str, Any]]]:
     findings: list[dict[str, Any]] = []
 
     def redact_text(text: str, path: str) -> str:
@@ -309,7 +310,61 @@ def redact_secrets(value: Any) -> tuple[Any, list[dict[str, Any]]]:
             return tuple(walk(child, f"{path}[{idx}]") for idx, child in enumerate(item))
         return item
 
-    return walk(value, "$"), findings
+    return walk(value, _path), findings
+
+
+def _scan_key(value: Any) -> Any:
+    """An immutable, type-preserving snapshot; never trust mutable object identity."""
+    if value is None or type(value) in (str, bool, int, float):
+        return type(value), value
+    if type(value) is dict:
+        return dict, tuple((_scan_key(key), _scan_key(child)) for key, child in value.items())
+    if type(value) in (list, tuple):
+        return type(value), tuple(_scan_key(child) for child in value)
+    raise TypeError("Uncacheable model argument")
+
+
+@dataclass
+class ModelEgressScanState:
+    """Turn-local DLP reuse, retaining only fields/messages from the last request.
+
+    Every request still inspects the complete structure for changes. Only unchanged
+    snapshots skip regex scanning. Cached outputs are private copies so provider
+    code cannot mutate them and bypass redaction on a retry. Findings are replayed
+    on every manifest, including unchanged secrets that were redacted earlier.
+    """
+
+    _entries: dict[str, tuple[Any, Any, list[dict[str, Any]]]] = field(default_factory=dict, repr=False)
+
+    def redact(self, kwargs: Mapping[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+        entries: dict[str, tuple[Any, Any, list[dict[str, Any]]]] = {}
+        findings: list[dict[str, Any]] = []
+
+        def scan(value: Any, slot: str, path: str = "$") -> Any:
+            try:
+                key = _scan_key(value)
+            except TypeError:
+                sanitized, found = redact_secrets(value, _path=path)
+                findings.extend(found)
+                return sanitized
+            cached = self._entries.get(slot)
+            if cached is None or cached[0] != key:
+                sanitized, found = redact_secrets(value, _path=path)
+                cached = key, sanitized, found
+            entries[slot] = cached
+            findings.extend(deepcopy(cached[2]))
+            return deepcopy(cached[1])
+
+        sanitized: dict[str, Any] = {}
+        for name, value in kwargs.items():
+            if name in {"messages", "input", "contents"} and type(value) in (list, tuple):
+                messages = [scan(item, f"$.{name}[{i}]", f"$.{name}[{i}]") for i, item in enumerate(value)]
+                sanitized[name] = tuple(messages) if isinstance(value, tuple) else messages
+            else:
+                # Keep the wrapper so sensitive *argument names* are redacted too.
+                sanitized.update(scan({name: value}, f"$.{name}"))
+        self._entries = entries
+        return sanitized, findings
 
 
 def classify_model_payload(payload: Mapping[str, Any]) -> str:
@@ -516,11 +571,16 @@ def prepare_model_egress(
     parent_event_id: str | None = None,
     session_id: str | None = None,
     workflow_run_id: str | None = None,
+    scan_state: ModelEgressScanState | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     """DLP-scan and record an egress manifest before a provider call."""
 
-    sanitized_kwargs, findings = redact_secrets(dict(stream_kwargs))
-    config = sanitized_kwargs.get("config") if isinstance(sanitized_kwargs.get("config"), Mapping) else {}
+    sanitized_kwargs: dict[str, Any]
+    sanitized_kwargs, findings = (
+        scan_state.redact(stream_kwargs) if scan_state is not None else redact_secrets(dict(stream_kwargs))
+    )
+    raw_config = sanitized_kwargs.get("config")
+    config = raw_config if isinstance(raw_config, Mapping) else {}
     payload_sensitivity = classify_model_payload(
         {
             "instructions": sanitized_kwargs.get("instructions")

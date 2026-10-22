@@ -15,9 +15,11 @@ import logging
 import os
 import re
 import time
+import uuid
 from collections import Counter
 from collections.abc import Sized
 from concurrent.futures import FIRST_COMPLETED, wait
+from dataclasses import asdict
 from datetime import UTC, datetime
 from functools import cache, lru_cache
 from pathlib import Path
@@ -36,6 +38,7 @@ from api.agent_domain_policy import (
 from api.agent_governance import (
     AgentBudgetExceeded,
     AgentBudgetState,
+    ModelEgressScanState,
     ModelGatewayDenied,
     blocked_tool_payload,
     prepare_model_egress,
@@ -585,6 +588,7 @@ def _turn_followup(
     raw_payload: dict[str, Any] | None = None,
     messages_before_turn: int | None = None,
     shadow: dict[str, Any] | None = None,
+    intent_router_shadow: dict[str, Any] | None = None,
 ) -> AgentTurnFollowupRequest:
     """Collect the work that runs on the worker queue after "done".
 
@@ -614,6 +618,7 @@ def _turn_followup(
             raw_payload=raw_payload,
         ),
         shadow=shadow,
+        intent_router_shadow=intent_router_shadow,
     )
 
 
@@ -1996,6 +2001,7 @@ def _resolve_chat_route(
     opportunity_candidate_metadata: dict[str, Any] | None = None,
     llm_credentials: tuple[str, str] | None = None,
     reasoning_effort: str | None = None,
+    defer_shadow: bool = False,
 ) -> tuple[RouteDecision, dict[str, Any]]:
     regex_baseline = build_regex_route_decision(
         user_text=user_text,
@@ -2026,6 +2032,7 @@ def _resolve_chat_route(
         api_key=api_key,
         system_prompt=system_prompt,
         reasoning_effort=reasoning_effort,
+        defer_shadow=defer_shadow,
     )
 
 
@@ -3012,10 +3019,11 @@ def _start_agent_turn_provenance(
             "pv:agent_turn",
             session_id or "session",
             provenance.stable_hash(message),
-            int(time.time() * 1_000_000),
+            uuid.uuid4().hex,
         )
         provenance.start_event(
             event_id=event_id,
+            unique_event_id=True,
             event_type="agent_turn",
             event_name="agent_chat",
             actor=actor,
@@ -3084,10 +3092,11 @@ def _start_model_call_provenance(
             purpose,
             round_index,
             attempt,
-            int(time.time() * 1_000_000),
+            uuid.uuid4().hex,
         )
         provenance.start_event(
             event_id=event_id,
+            unique_event_id=True,
             event_type="model_call",
             event_name=str(model or provider),
             actor=actor,
@@ -3526,6 +3535,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     workflow_ticker = route_decision.workflow_ticker
     # The session is read once per turn; routing and the turn itself share this copy.
     turn_session: dict[str, Any] | None = None
+    router_shadow: dict[str, Any] | None = None
     if workflow_name and req.allow_workflow_handoff:
         provider_label = "deferred"
         active_tool_names: list[str] = []
@@ -3550,13 +3560,29 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 recent_conversation=recent_conversation,
                 llm_credentials=llm_credentials,
                 reasoning_effort=_chat_reasoning_effort(provider, req.response_preferences),
+                defer_shadow=True,
             )
-            _capture_intent_router_training_row(
-                req=req,
-                route_decision=route_decision,
-                route_meta=route_meta,
-                recent_conversation=recent_conversation,
-            )
+            if route_meta.get("shadow_pending"):
+                router_shadow = {
+                    "provider": llm_credentials[0],
+                    "route_meta": route_meta,
+                    "context": asdict(
+                        build_route_context(
+                            user_text=req.message,
+                            screen_context=req.screen_context,
+                            recent_conversation=recent_conversation,
+                            allowed_tool_names=list(_tool_names()),
+                            workflow_hints=list(AVAILABLE_WORKFLOWS),
+                        )
+                    ),
+                }
+            else:
+                _capture_intent_router_training_row(
+                    req=req,
+                    route_decision=route_decision,
+                    route_meta=route_meta,
+                    recent_conversation=recent_conversation,
+                )
             workflow_name = route_decision.workflow_name
             workflow_ticker = route_decision.workflow_ticker
             if not (workflow_name and req.allow_workflow_handoff):
@@ -3910,6 +3936,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 else None,
                 route_decision=route_decision,
                 route_meta=route_meta,
+                intent_router_shadow=router_shadow,
                 tool_calls=[tool_payload],
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "portfolio_summary", "tool_result": portfolio_result},
@@ -4092,11 +4119,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             )
                             budget.record_model_usage(oc_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
-                            _update_intent_router_training_oc_metadata(
-                                session_id=req.session_id,
-                                client_turn_id=req.client_turn_id,
-                                oc_result=oc_result,
-                            )
+                            if router_shadow is not None:
+                                router_shadow["opportunity_candidate_metadata"] = (
+                                    _opportunity_candidate_metadata_from_result(oc_result)
+                                )
+                            else:
+                                _update_intent_router_training_oc_metadata(
+                                    session_id=req.session_id,
+                                    client_turn_id=req.client_turn_id,
+                                    oc_result=oc_result,
+                                )
                             break
                         except Exception as retry_exc:
                             _record_model_timing(
@@ -4483,6 +4515,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=tool_payloads,
                     gate_outcomes=[
                         {
@@ -4538,6 +4571,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=tool_payloads,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "decision_quality_chat", "error": str(exc) or exc.__class__.__name__},
@@ -4764,6 +4798,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=workflow_tool_calls,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={"path": "workflow", "workflow_run_id": run_id, "workflow_name": workflow_name},
@@ -4815,6 +4850,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={
                         "path": "workflow",
@@ -4840,6 +4876,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         text_only_continuation = False
         text_parts: list[str] = []
         normal_tool_payloads: list[dict[str, Any]] = []
+        scan_state = ModelEgressScanState()
 
         try:
             while True:
@@ -4884,6 +4921,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             provider=provider,
                             purpose="agent_chat",
                             stream_kwargs=stream_kwargs,
+                            scan_state=scan_state,
                             actor=tool_actor,
                             budget=budget,
                             parent_event_id=agent_turn_event_id,
@@ -5298,6 +5336,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     else None,
                     route_decision=route_decision,
                     route_meta=route_meta,
+                    intent_router_shadow=router_shadow,
                     tool_calls=normal_tool_payloads,
                     provenance_event_id=agent_turn_event_id,
                     raw_payload={
@@ -5353,6 +5392,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 provider=provider,
                 route_decision=route_decision,
                 route_meta=route_meta,
+                intent_router_shadow=router_shadow,
                 tool_calls=normal_tool_payloads,
                 provenance_event_id=agent_turn_event_id,
                 raw_payload={"path": "agent_chat", "error": str(exc) or exc.__class__.__name__},

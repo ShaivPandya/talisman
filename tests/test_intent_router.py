@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from decision_quality.intent_router import (
     RouteDecision,
     build_regex_route_decision,
@@ -270,3 +272,71 @@ def test_routing_expectation_scoring_flags_missing_meta():
     _routing_expectation_checks(checks, case=case, run=run)
     assert checks[0]["name"] == "intent_router_meta_present"
     assert checks[0]["passed"] is False
+
+
+def test_deferred_shadow_does_not_call_llm_and_remains_shadow_after_flag_changes(monkeypatch):
+    import decision_quality.intent_router as router
+
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "true")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SHADOW_MODE", "true")
+    calls = []
+    baseline = _regex_baseline("How is the yield curve shaping macro risk right now?")
+    candidate = RouteDecision(**{**baseline.to_meta(), "intent_class": "portfolio_query", "source": "llm"})
+    monkeypatch.setattr(router, "run_llm_route_decision", lambda **kwargs: calls.append(kwargs) or candidate)
+    context = build_route_context(user_text="How is the yield curve shaping macro risk right now?")
+    effective, meta = resolve_agent_route(
+        context=context,
+        regex_baseline=baseline,
+        provider="anthropic",
+        api_key="test",
+        system_prompt="route",
+        defer_shadow=True,
+    )
+    assert calls == []
+    assert effective == baseline
+    assert meta["shadow_pending"] is True
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SHADOW_MODE", "false")
+    effective, completed = router.resolve_shadow_route(
+        context=context,
+        regex_baseline=baseline,
+        provider="anthropic",
+        api_key="test",
+        system_prompt="route",
+        route_meta=meta,
+    )
+    assert effective == baseline
+    assert completed["shadow_pending"] is False
+    assert completed["shadow_comparison"]["intent_match"] is False
+    assert calls[0]["reasoning_effort"] == "off"
+
+
+@pytest.mark.parametrize("provider,model", [("anthropic", "claude-haiku-4-5"), ("openai", "gpt-6.1-sol")])
+def test_router_never_inherits_chat_thinking(monkeypatch, provider, model):
+    import decision_quality.intent_router as router
+    from llm_utils import apply_reasoning_config
+
+    calls = []
+
+    def call(**kwargs):
+        configuration = {}
+        apply_reasoning_config(
+            configuration,
+            provider=provider,
+            model=model,
+            max_tokens=900,
+            reasoning_effort=kwargs["reasoning_effort"],
+        )
+        assert configuration == {}
+        calls.append(kwargs)
+        return {}, [], None, {}
+
+    monkeypatch.setattr(router, "call_llm_json", call)
+    router.run_llm_route_decision(
+        context=build_route_context(user_text="portfolio"),
+        regex_baseline=_regex_baseline("portfolio"),
+        provider=provider,
+        api_key="test",
+        system_prompt="route",
+        reasoning_effort="high",
+    )
+    assert calls[0]["reasoning_effort"] == "off"

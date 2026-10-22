@@ -485,7 +485,11 @@ def start_event(
     idempotency_key: str | None = None,
     producer_name: str | None = None,
     producer_version: str | None = None,
+    unique_event_id: bool = False,
 ) -> dict | None:
+    """Start an event; skip duplicate reads only for a caller's fresh unique ID."""
+    if unique_event_id and (not event_id or idempotency_key is not None):
+        raise ValueError("unique_event_id requires a fresh event_id without an idempotency_key")
     if not should_attempt_optional_ontology_write(fail_closed=fail_closed):
         return None
 
@@ -494,9 +498,10 @@ def start_event(
         started = started_at or _now()
         uid = event_id or deterministic_id("provenance_event", event_type, event_name, idempotency_key, started)
         objects = OntologyObjectService()
-        existing = objects.get_object(uid) or objects.get_object(provenance_event_id(uid))
-        if existing:
-            return _flatten_object(existing)
+        if not unique_event_id:
+            existing = objects.get_object(uid) or objects.get_object(provenance_event_id(uid))
+            if existing:
+                return _flatten_object(existing)
         row = objects.write_object(
             "ProvenanceEvent",
             uid,

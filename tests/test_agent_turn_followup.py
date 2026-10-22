@@ -279,3 +279,66 @@ def test_worker_turn_publishes_done_before_queueing_followup(chat_turn, monkeypa
     assert chat_turn.followups[0].messages_before_turn == 16
     messages = memory_db.get_session(chat_turn.session_id)["transcript"]
     assert len(messages) == 18 and messages[-1]["content"] == "Strong."
+
+
+def test_router_shadow_runs_after_done_and_stores_comparison_and_training(chat_turn, monkeypatch):
+    import decision_quality.intent_router as intent_router
+
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "true")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SHADOW_MODE", "true")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_TRAINING_CAPTURE_ENABLED", "true")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_TRAINING_CAPTURE_MISMATCH_ONLY", "true")
+    router_calls = []
+    rows = []
+    trajectories = []
+
+    def route(**kwargs):
+        router_calls.append(kwargs)
+        baseline = kwargs["regex_baseline"]
+        return intent_router.RouteDecision(**{**baseline.to_meta(), "intent_class": "portfolio_query", "source": "llm"})
+
+    monkeypatch.setattr(intent_router, "run_llm_route_decision", route)
+    monkeypatch.setattr("api.intent_router_training_store.insert_training_row", lambda row: rows.append(row))
+    monkeypatch.setattr("api.agent_trajectories.insert_trajectory", lambda row: trajectories.append(row) or "stored")
+    req = AgentChatRequest(
+        message="How does NVDA data center demand look this quarter?",
+        session_id=chat_turn.session_id,
+        client_turn_id="router-shadow-turn",
+    )
+    done = _consume_live(req, chat_turn.events)
+    assert chat_turn.events == ["done", "followup"]
+    assert router_calls == rows == []
+    assert done["intent_router"]["telemetry"]["shadow_pending"] is True
+    [followup] = chat_turn.followups
+    assert followup.intent_router_shadow is not None
+    assert "sk-ant-followup-test" not in followup.model_dump_json()
+    # The queued schema must survive its JSON round-trip.
+    followup = AgentTurnFollowupRequest.model_validate_json(followup.model_dump_json())
+    followup.intent_router_shadow["opportunity_candidate_metadata"] = {"ticker": "NVDA"}
+    run_agent_turn_followup(followup)
+    assert len(router_calls) == len(rows) == len(trajectories) == 1
+    meta = trajectories[0]["route"]["telemetry"]
+    assert meta["shadow_pending"] is False
+    assert meta["shadow_comparison"]["intent_match"] is False
+    assert rows[0]["session_id"] == chat_turn.session_id
+    assert rows[0]["opportunity_candidate_metadata"] == {"ticker": "NVDA"}
+    route_step = next(step for step in trajectories[0]["steps"] if step["kind"] == "route")
+    assert route_step["payload"]["telemetry"] == meta
+
+
+def test_router_shadow_failure_still_records_trajectory(monkeypatch):
+    def fail(req):
+        raise RuntimeError("router unavailable")
+
+    stored = []
+    monkeypatch.setattr(agent_turn_followup, "_run_intent_router_shadow", fail)
+    monkeypatch.setattr("api.agent_trajectories.insert_trajectory", lambda row: stored.append(row) or "stored")
+    result = run_agent_turn_followup(
+        AgentTurnFollowupRequest(
+            session_id="s",
+            trajectory={"route": {"applied": {"source": "regex"}}},
+            intent_router_shadow={"route_meta": {"applied_source": "regex_shadow", "shadow_pending": True}},
+        )
+    )
+    assert result["steps"] == {"intent_router_shadow": "failed", "trajectory": "stored"}
+    assert stored[0]["route"]["telemetry"]["shadow_pending"] is False

@@ -28,6 +28,8 @@ class AgentTurnFollowupRequest(BaseModel):
     trajectory: dict[str, Any] | None = None
     # Inputs for the candidate-model call when the turn ran in owned-model shadow mode.
     shadow: dict[str, Any] | None = None
+    # Routing context only: credentials are resolved by the worker, never queued.
+    intent_router_shadow: dict[str, Any] | None = None
 
 
 def followup_cache_key(req: AgentTurnFollowupRequest) -> str | None:
@@ -60,6 +62,20 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
             steps["summary"] = "failed"
 
     shadow_comparison: dict[str, Any] | None = None
+    router_meta: dict[str, Any] | None = None
+    if req.intent_router_shadow:
+        try:
+            router_meta = _run_intent_router_shadow(req)
+            steps["intent_router_shadow"] = "compared"
+        except Exception:
+            logger.exception("Intent-router shadow failed for session %s", req.session_id)
+            router_meta = {
+                **req.intent_router_shadow["route_meta"],
+                "shadow_pending": False,
+                "fallback_reason": "shadow_job_failed",
+            }
+            steps["intent_router_shadow"] = "failed"
+
     if req.shadow:
         try:
             shadow_comparison = _run_shadow_synthesis(req.shadow)
@@ -72,6 +88,15 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
         from api.agent_trajectories import insert_trajectory
 
         trajectory = dict(req.trajectory)
+        if router_meta is not None:
+            route = {**(trajectory.get("route") or {}), "telemetry": router_meta}
+            trajectory["route"] = route
+            trajectory["steps"] = [
+                {**step, "payload": route, "status": router_meta["applied_source"]}
+                if step.get("kind") == "route" and step.get("name") == "intent_router"
+                else step
+                for step in trajectory.get("steps") or []
+            ]
         if shadow_comparison is not None:
             raw_payload = dict(trajectory.get("raw_payload") or {})
             rollout = dict(raw_payload.get("owned_model_rollout") or {})
@@ -82,6 +107,54 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
         steps["trajectory"] = "stored" if insert_trajectory(trajectory) else "not_stored"
 
     return {"session_id": req.session_id, "client_turn_id": req.client_turn_id, "steps": steps}
+
+
+def _run_intent_router_shadow(req: AgentTurnFollowupRequest) -> dict[str, Any]:
+    from api.intent_router_training_store import insert_training_row
+    from api.routers.agent import _load_required_prompt_file
+    from decision_quality.intent_router import (
+        RouteContext,
+        RouteDecision,
+        intent_router_training_capture_mismatch_only,
+        resolve_shadow_route,
+        should_capture_training_row,
+        training_row_from_telemetry,
+    )
+    from llm_utils import require_api_key
+
+    inputs = req.intent_router_shadow
+    assert inputs is not None
+    context = RouteContext(**inputs["context"])
+    baseline = RouteDecision(**inputs["route_meta"]["regex_baseline"])
+    applied, meta = resolve_shadow_route(
+        context=context,
+        regex_baseline=baseline,
+        provider=inputs["provider"],
+        api_key=require_api_key(inputs["provider"]),
+        system_prompt=_load_required_prompt_file("intent_router.md"),
+        route_meta=inputs["route_meta"],
+    )
+    capture, reason = should_capture_training_row(route_meta=meta)
+    if capture:
+        try:
+            insert_training_row(
+                training_row_from_telemetry(
+                    user_text=context.user_text,
+                    route_meta=meta,
+                    session_id=req.session_id,
+                    client_turn_id=req.client_turn_id,
+                    screen_context=context.screen_context,
+                    recent_session_features=context.recent_session_features,
+                    applied_route=applied.to_meta(),
+                    opportunity_candidate_metadata=inputs.get("opportunity_candidate_metadata"),
+                    capture_policy="mismatch_only" if intent_router_training_capture_mismatch_only() else "shadow_all",
+                    sampling_reason=reason,
+                )
+            )
+        except Exception:
+            logger.exception("intent_router_training_capture_failed session_id=%s", req.session_id)
+    logger.info("intent_router_shadow_complete session_id=%s telemetry=%s", req.session_id, meta)
+    return meta
 
 
 def _run_shadow_synthesis(shadow: dict[str, Any]) -> dict[str, Any]:
