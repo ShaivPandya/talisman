@@ -17,12 +17,14 @@ load_dotenv()
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, ORJSONResponse, Response
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.concurrency import run_in_threadpool
+from starlette.datastructures import MutableHeaders
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from api.audit import emit_audit_event
 from api.exceptions import AppError, DataFetchError
@@ -168,6 +170,7 @@ async def _lifespan(_app):
 
 app = PerformanceFastAPI(
     lifespan=_lifespan,
+    default_response_class=ORJSONResponse,
     title="Talisman API",
     description="REST API for portfolio analytics, market data, and macro indicators",
     version="1.0.0",
@@ -204,8 +207,7 @@ _ENDPOINT_BODY_LIMITS = {
     "/api/portfolio-news": _multipart_request_body_limit(10 * 1024 * 1024),
 }
 
-app.add_middleware(BodySizeLimitMiddleware, path_limits=_ENDPOINT_BODY_LIMITS)
-app.add_middleware(GZipMiddleware, minimum_size=500)
+app.add_middleware(GZipMiddleware, minimum_size=500, compresslevel=5)
 
 
 # ---------------------------------------------------------------------------
@@ -253,10 +255,12 @@ async def _unhandled_error_handler(request: Request, exc: Exception):
             "request_id": request_id_var.get(""),
         },
     )
-    return JSONResponse(
+    response = JSONResponse(
         status_code=500,
         content={"error": "Internal server error", "type": "InternalError"},
     )
+    _apply_response_headers(response.headers, getattr(request.state, "request_id", "") or generate_request_id())
+    return response
 
 
 @app.exception_handler(PolicyDenied)
@@ -283,51 +287,22 @@ def _is_production_runtime() -> bool:
     return (os.environ.get("ENVIRONMENT") or ENVIRONMENT).strip().lower() == "production"
 
 
-@app.middleware("http")
-async def _request_id_middleware(request: Request, call_next):
-    """Assign a correlation ID to every request."""
-    rid = request_id_var.get("") or request.headers.get("x-request-id") or generate_request_id()
-    request_id_var.set(rid)
-    set_request_context(request_id=rid, method=request.method, path=request.url.path)
-    response = await call_next(request)
-    set_request_context(status_code=response.status_code)
-    response.headers["X-Request-Id"] = rid
-    return response
-
-
-@app.middleware("http")
-async def _security_headers_middleware(request: Request, call_next):
-    """Apply conservative security headers to every response."""
-    response = await call_next(request)
-    if "x-content-type-options" not in response.headers:
-        response.headers["X-Content-Type-Options"] = "nosniff"
-    if "referrer-policy" not in response.headers:
-        response.headers["Referrer-Policy"] = "no-referrer"
-    csp = response.headers.get("Content-Security-Policy")
+def _apply_response_headers(headers: MutableHeaders, request_id: str) -> None:
+    headers["X-Request-Id"] = request_id
+    if "x-content-type-options" not in headers:
+        headers["X-Content-Type-Options"] = "nosniff"
+    if "referrer-policy" not in headers:
+        headers["Referrer-Policy"] = "no-referrer"
+    csp = headers.get("Content-Security-Policy")
     if csp:
         if "frame-ancestors" not in csp.lower():
-            response.headers["Content-Security-Policy"] = f"{csp}; frame-ancestors 'none'"
+            headers["Content-Security-Policy"] = f"{csp}; frame-ancestors 'none'"
     else:
-        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
-    if _is_production_runtime() and "strict-transport-security" not in response.headers:
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    if "x-frame-options" not in response.headers:
-        response.headers["X-Frame-Options"] = "DENY"
-    return response
-
-
-@app.middleware("http")
-async def _production_schema_middleware(request: Request, call_next):
-    """Disable interactive docs and schema routes in production."""
-    if _is_production_runtime() and request.url.path in _DOCS_PATHS:
-        return JSONResponse({"detail": "Not found"}, status_code=404)
-    return await call_next(request)
-
-
-@app.middleware("http")
-async def _request_schema_version_middleware(request: Request, call_next):
-    """Validate and upgrade versioned API request bodies before route validation."""
-    return await validate_and_upgrade_request_schema(app, request, call_next)
+        headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+    if _is_production_runtime() and "strict-transport-security" not in headers:
+        headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    if "x-frame-options" not in headers:
+        headers["X-Frame-Options"] = "DENY"
 
 
 def _api_proxy_secret() -> str | None:
@@ -347,8 +322,7 @@ def _proxy_secret_required() -> bool:
 _WRITE_FREEZE = (os.environ.get("WRITE_FREEZE") or "").strip().lower() in ("1", "true", "yes")
 
 
-@app.middleware("http")
-async def _csrf_middleware(request: Request, call_next):
+async def _check_csrf(request: Request) -> JSONResponse | None:
     """Require CSRF token for mutating browser session requests."""
     path = request.url.path
     if (
@@ -367,11 +341,10 @@ async def _csrf_middleware(request: Request, call_next):
             error="CSRF validation failed",
         )
         return JSONResponse({"detail": "CSRF validation failed"}, status_code=403)
-    return await call_next(request)
+    return None
 
 
-@app.middleware("http")
-async def _require_proxy_secret(request: Request, call_next):
+async def _check_proxy_secret(request: Request) -> JSONResponse | None:
     """
     Require X-Api-Proxy-Secret for deployments that have an edge proxy capable
     of injecting it. Firebase Hosting rewrites cannot add this header, so merely
@@ -401,11 +374,10 @@ async def _require_proxy_secret(request: Request, call_next):
                     error="Forbidden",
                 )
                 return JSONResponse({"detail": "Forbidden"}, status_code=403)
-    return await call_next(request)
+    return None
 
 
-@app.middleware("http")
-async def _write_freeze_middleware(request: Request, call_next):
+async def _check_write_freeze(request: Request) -> JSONResponse | None:
     """Reject mutating API calls during cutover freeze."""
     if _WRITE_FREEZE and request.url.path.startswith("/api/") and request.method in {"POST", "PUT", "PATCH", "DELETE"}:
         if request.url.path not in {"/api/auth/login", "/api/health", "/api/admin/quiescence"}:
@@ -418,7 +390,61 @@ async def _write_freeze_middleware(request: Request, call_next):
                 error="Writes are frozen for migration cutover.",
             )
             return JSONResponse({"detail": "Writes are frozen for migration cutover."}, status_code=423)
-    return await call_next(request)
+    return None
+
+
+class ApiMiddleware:
+    """Request guards and response headers without task groups or body buffering."""
+
+    def __init__(self, app: ASGIApp, *, schema_app: FastAPI):
+        self.app = app
+        self.schema_app = schema_app
+        # Include schema upgrades in the existing body limit. The validator may
+        # read a JSON body before routing, so limiting only the router is too late.
+        self.limited_app = BodySizeLimitMiddleware(self._dispatch, path_limits=_ENDPOINT_BODY_LIMITS)
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope, receive)
+        rid = request_id_var.get("") or request.headers.get("x-request-id") or generate_request_id()
+        token = request_id_var.set(rid)
+        request.state.request_id = rid
+        set_request_context(request_id=rid, method=request.method, path=request.url.path)
+
+        async def send_headers(message: Message) -> None:
+            if message["type"] == "http.response.start":
+                _apply_response_headers(MutableHeaders(scope=message), rid)
+                set_request_context(status_code=message["status"])
+            await send(message)
+
+        try:
+            await self.limited_app(scope, receive, send_headers)
+        finally:
+            request_id_var.reset(token)
+
+    async def _dispatch(self, scope: Scope, receive: Receive, send: Send) -> None:
+        request = Request(scope, receive)
+        # Keep the existing rejection order: freeze, proxy, CSRF, schema, docs.
+        response: Response | None = await _check_write_freeze(request)
+        if response is None:
+            response = await _check_proxy_secret(request)
+        if response is None:
+            response = await _check_csrf(request)
+        if response is None:
+            response = await validate_and_upgrade_request_schema(self.schema_app, request)
+        if response is None and _is_production_runtime() and request.url.path in _DOCS_PATHS:
+            response = JSONResponse({"detail": "Not found"}, status_code=404)
+        if response is not None:
+            await response(scope, receive, send)
+            return
+        # Schema upgrades replace this request's receive callable. Pass it to
+        # the router so its own Request sees exactly the upgraded bytes.
+        await self.app(scope, request.receive, send)
+
+
+app.add_middleware(ApiMiddleware, schema_app=app)
 
 
 _CORS_ORIGINS = [

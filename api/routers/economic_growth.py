@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import APIRouter, File, Query, UploadFile
+from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
@@ -115,14 +116,16 @@ def _write_managed_crb(payload: bytes, metadata: dict) -> None:
 @router.get("/economic-growth")
 def get_economic_growth(force_refresh: bool = Query(False)):
     key = ECONOMIC_GROWTH_CACHE_KEY
-    return _normalize_currency_payload(
-        get_snapshot_backed_response(
-            snapshot_key=SNAPSHOT_ECONOMIC_GROWTH,
-            cache=daily_cache,
-            cache_key=key,
-            source="economic_growth",
-            load_payload=load_economic_growth_payload,
-            force_refresh=force_refresh,
+    return ORJSONResponse(
+        _normalize_currency_payload(
+            get_snapshot_backed_response(
+                snapshot_key=SNAPSHOT_ECONOMIC_GROWTH,
+                cache=daily_cache,
+                cache_key=key,
+                source="economic_growth",
+                load_payload=load_economic_growth_payload,
+                force_refresh=force_refresh,
+            )
         )
     )
 

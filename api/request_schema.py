@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Awaitable, Callable, Iterable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any, cast
 from urllib.parse import unquote
@@ -12,6 +12,7 @@ from pydantic import TypeAdapter
 from starlette.datastructures import Headers
 from starlette.responses import JSONResponse, Response
 from starlette.routing import Match
+from starlette.types import Message
 
 from ontology.schema_definitions import SCHEMA_KIND_API_REQUEST, SchemaDefinition
 
@@ -95,14 +96,13 @@ def schema_for_path(app: Any, method: str, path: str) -> ApiRequestSchema | None
 async def validate_and_upgrade_request_schema(
     app: Any,
     request: Request,
-    call_next: Callable[[Request], Awaitable[Response]],
-) -> Response:
+) -> Response | None:
     if not request.url.path.startswith("/api/"):
-        return await call_next(request)
+        return None
 
     route = _match_route(app, request.method, request.url.path)
     if route is None or not route_has_body(route):
-        return await call_next(request)
+        return None
 
     assert isinstance(route, APIRoute)
     expected = schema_for_route(route, request.method)
@@ -151,7 +151,7 @@ async def validate_and_upgrade_request_schema(
         if isinstance(upgraded, Response):
             return upgraded
 
-    return await call_next(request)
+    return None
 
 
 def _match_route(app: Any, method: str, path: str) -> APIRoute | None:
@@ -285,8 +285,19 @@ async def _upgrade_json_body(
 
     new_body = json.dumps(payload, separators=(",", ":"), default=str).encode("utf-8")
 
-    async def receive() -> dict[str, Any]:
+    original_receive = request.receive
+    replayed = False
+
+    async def receive() -> Message:
+        nonlocal replayed
+        if replayed:
+            return await original_receive()
+        replayed = True
         return {"type": "http.request", "body": new_body, "more_body": False}
+
+    request.scope["headers"] = [
+        (key, value) for key, value in request.scope.get("headers", []) if key.lower() != b"content-length"
+    ] + [(b"content-length", str(len(new_body)).encode("ascii"))]
 
     request._body = new_body  # noqa: SLF001 - keep Starlette's body cache aligned with the upgraded payload.
     request._receive = receive  # noqa: SLF001 - middleware must replace body before FastAPI validation.

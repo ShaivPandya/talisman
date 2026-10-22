@@ -251,12 +251,12 @@ def test_read_and_mutation_auth_budgets_and_request_reuse(auth_client):
     from fastapi.testclient import TestClient
 
     from api import auth_store
-    from api.main import _csrf_middleware
+    from api.main import ApiMiddleware
     from api.routers.auth import require_actor, require_auth
     from ontology.policy import Actor
 
     app = FastAPI()
-    app.middleware("http")(_csrf_middleware)
+    app.add_middleware(ApiMiddleware, schema_app=app)
 
     @app.api_route("/api/auth-budget", methods=["GET", "POST"])
     def endpoint(username: Annotated[str, Depends(require_auth)], actor: Annotated[Actor, Depends(require_actor)]):
@@ -328,10 +328,7 @@ def test_csrf_validation_and_denial_audit_leave_event_loop_responsive(monkeypatc
         loop_thread = threading.get_ident()
         request = Request({"type": "http", "method": "POST", "path": "/api/portfolio", "headers": []})
 
-        async def next_handler(request):
-            raise AssertionError("invalid CSRF must not reach the route")
-
-        task = asyncio.create_task(main._csrf_middleware(request, next_handler))
+        task = asyncio.create_task(main._check_csrf(request))
         try:
             assert await asyncio.wait_for(asyncio.to_thread(entered.wait, 1), 1.5)
             release.set()

@@ -1,6 +1,7 @@
 import os
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import ORJSONResponse
 from pydantic import BaseModel, Field
 
 from api.cache import daily_cache
@@ -27,13 +28,15 @@ def load_labor_market_payload() -> dict:
 @router.get("/labor-market")
 def get_labor_market(force_refresh: bool = Query(False)):
     key = "labor_market"
-    return get_snapshot_backed_response(
-        snapshot_key=SNAPSHOT_LABOR_MARKET,
-        cache=daily_cache,
-        cache_key=key,
-        source="labor_market",
-        load_payload=load_labor_market_payload,
-        force_refresh=force_refresh,
+    return ORJSONResponse(
+        get_snapshot_backed_response(
+            snapshot_key=SNAPSHOT_LABOR_MARKET,
+            cache=daily_cache,
+            cache_key=key,
+            source="labor_market",
+            load_payload=load_labor_market_payload,
+            force_refresh=force_refresh,
+        )
     )
 
 

@@ -3,7 +3,19 @@ from __future__ import annotations
 import asyncio
 from contextlib import contextmanager
 
+import pytest
+
 from api.snapshot_store import SnapshotRecord
+
+
+@pytest.fixture(autouse=True)
+def isolated_macro_cache(monkeypatch, tmp_path):
+    from api import cache
+
+    monkeypatch.setattr(cache, "_DISK_CACHE_ROOT", tmp_path)
+    cache.daily_cache.clear()
+    yield
+    cache.daily_cache.clear()
 
 
 def _record(snapshot_key: str, payload: dict, *, status: str = "ok", error: str | None = None) -> SnapshotRecord:
@@ -35,6 +47,18 @@ def test_snapshot_backed_response_uses_fresh_snapshot(monkeypatch):
     )
 
     assert result is snapshot
+
+    monkeypatch.setattr(ms, "get_snapshot_response", lambda _key: pytest.fail("warm hit read the snapshot"))
+    assert (
+        ms.get_snapshot_backed_response(
+            snapshot_key="labor_market:current:v1",
+            cache=daily_cache,
+            cache_key="test:fresh-snapshot",
+            source="labor_market",
+            load_payload=lambda: pytest.fail("warm hit called the provider"),
+        )
+        is result
+    )
 
 
 def test_snapshot_backed_response_writes_snapshot_on_cache_miss(monkeypatch):
@@ -95,6 +119,9 @@ def test_snapshot_backed_response_force_refresh_bypasses_cache(monkeypatch):
 
     assert result["fresh"] is True
     assert result["_meta"]["snapshot"]["key"] == "housing:current:v1"
+    from api.cache import get_cached
+
+    assert get_cached(daily_cache, key)["fresh"] is True
 
 
 def test_snapshot_backed_response_returns_stale_snapshot_on_loader_failure(monkeypatch):
@@ -115,6 +142,9 @@ def test_snapshot_backed_response_returns_stale_snapshot_on_loader_failure(monke
     )
 
     assert result is stale
+    from api.cache import get_cached
+
+    assert get_cached(daily_cache, key) is None
 
 
 def test_refresh_macro_snapshots_records_independent_failures(monkeypatch):
@@ -150,6 +180,23 @@ def test_refresh_macro_snapshots_records_independent_failures(monkeypatch):
     assert result["snapshots"][1]["source_registry"]["source_id"] == "housing"
     assert {key for key, _payload in writes} == {ms.SNAPSHOT_LABOR_MARKET, ms.SNAPSHOT_ECONOMIC_GROWTH}
     assert failures == [(ms.SNAPSHOT_HOUSING, "FRED down")]
+
+
+def test_scheduled_refresh_invalidates_successes_and_failures(monkeypatch):
+    from api import macro_snapshots as ms
+    from api.cache import daily_cache, get_cached, set_cached
+    from api.routers import economic_growth, housing, labor_market
+
+    for key in ("labor_market", "housing", "economic_growth"):
+        set_cached(daily_cache, key, {"old": True})
+    monkeypatch.setattr(labor_market, "load_labor_market_payload", lambda: {"value": 1})
+    monkeypatch.setattr(economic_growth, "load_economic_growth_payload", lambda: {"value": 2})
+    monkeypatch.setattr(housing, "load_housing_payload", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
+    monkeypatch.setattr(ms, "write_snapshot_success", lambda key, payload, **kwargs: _record(key, payload))
+    monkeypatch.setattr(ms, "write_snapshot_failure", lambda key, error, **kwargs: _record(key, {}, status="error"))
+    ms.refresh_macro_snapshots()
+    for key in ("labor_market", "housing", "economic_growth"):
+        assert get_cached(daily_cache, key) is None
 
 
 def test_labor_route_accepts_force_refresh(auth_client, monkeypatch):

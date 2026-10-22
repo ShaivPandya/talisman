@@ -102,7 +102,8 @@ def test_postgres_http_session_lifecycle(pg_session, monkeypatch):
     from fastapi import Depends, FastAPI
     from fastapi.testclient import TestClient
 
-    from api.main import _csrf_middleware
+    from api.main import ApiMiddleware
+    from api.request_schema import schema_headers_for_path
     from api.routers import auth
     from ontology.policy import Actor
 
@@ -116,7 +117,7 @@ def test_postgres_http_session_lifecycle(pg_session, monkeypatch):
         conn.commit()
     app = FastAPI()
     app.include_router(auth.router, prefix="/api")
-    app.middleware("http")(_csrf_middleware)
+    app.add_middleware(ApiMiddleware, schema_app=app)
 
     @app.api_route("/api/session-budget", methods=["GET", "POST"])
     def protected(actor: Annotated[Actor, Depends(auth.require_actor)]):
@@ -124,7 +125,9 @@ def test_postgres_http_session_lifecycle(pg_session, monkeypatch):
 
     client = TestClient(app)
     login = client.post(
-        "/api/auth/login", json={"username": pg_session.user.username, "password": "postgres-test-password"}
+        "/api/auth/login",
+        json={"username": pg_session.user.username, "password": "postgres-test-password"},
+        headers=schema_headers_for_path(app, "POST", "/api/auth/login"),
     )
     assert login.status_code == 200
     session_token = client.cookies.get("__session")

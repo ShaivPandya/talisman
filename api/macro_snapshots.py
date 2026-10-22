@@ -6,7 +6,7 @@ import logging
 from collections.abc import Callable
 from typing import Any, cast
 
-from api.cache import ApiCache, get_or_set_cached
+from api.cache import ApiCache, daily_cache, delete_cached, get_or_set_cached
 from api.exceptions import DataFetchError
 from api.snapshot_keys import (
     SNAPSHOT_ECONOMIC_GROWTH,
@@ -75,28 +75,34 @@ def get_snapshot_backed_response(
     load_payload: Callable[[], dict[str, Any]],
     force_refresh: bool = False,
 ) -> dict[str, Any]:
-    snapshot = get_snapshot_response(snapshot_key)
-    if snapshot is not None and not force_refresh and not _snapshot_is_stale(snapshot):
-        return snapshot
+    snapshot = None
+
+    def load() -> dict[str, Any]:
+        nonlocal snapshot
+        snapshot = get_snapshot_response(snapshot_key)
+        if snapshot is not None and not force_refresh and not _snapshot_is_stale(snapshot):
+            return snapshot
+        return _load_and_write_snapshot(snapshot_key=snapshot_key, load_payload=load_payload)
 
     try:
-        if force_refresh:
-            return _load_and_write_snapshot(snapshot_key=snapshot_key, load_payload=load_payload)
         return cast(
             dict[str, Any],
             get_or_set_cached(
                 cache,
                 cache_key,
-                lambda: _load_and_write_snapshot(snapshot_key=snapshot_key, load_payload=load_payload),
+                load,
+                force_refresh=force_refresh,
             ),
         )
-    except DataFetchError:
-        if snapshot is not None:
-            return snapshot
-        raise
     except Exception as exc:
+        # Waiters share the loader's failure, but not its local snapshot. Only
+        # re-read on this error path so they retain the same stale fallback.
+        if snapshot is None:
+            snapshot = get_snapshot_response(snapshot_key)
         if snapshot is not None:
             return snapshot
+        if isinstance(exc, DataFetchError):
+            raise
         raise DataFetchError(source=source, detail=str(exc)) from exc
 
 
@@ -124,6 +130,7 @@ def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str,
                 as_of_date=payload_as_of(payload_for_write),
                 version=SNAPSHOT_SCHEMA_VERSION,
             )
+            delete_cached(daily_cache, name)
             results.append(
                 {
                     "snapshot_key": snapshot_key,
@@ -136,6 +143,7 @@ def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str,
         except Exception as exc:
             message = str(exc) or exc.__class__.__name__
             failure_record = write_snapshot_failure(snapshot_key, message, version=SNAPSHOT_SCHEMA_VERSION)
+            delete_cached(daily_cache, name)
             logger.warning("macro snapshot refresh failed for %s", name, exc_info=True)
             results.append(
                 {
