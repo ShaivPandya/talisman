@@ -52,11 +52,23 @@ class AgentChatRequest(BaseModel):
     user_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
     assistant_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
     parent_message_id: ScreenShortText | None = None
+    # Edit and resend: the user message being replaced. The new message becomes its sibling.
+    edit_of_message_id: ScreenShortText | None = None
+    # Regenerate: the assistant message being answered again. The new answer becomes its sibling.
+    regenerate_of_message_id: ScreenShortText | None = None
     message: ChatText
     screen_context: ScreenContextModel | None = None
     response_preferences: AgentResponsePreferences | None = None
     finalize_synchronously: bool = False
     allow_workflow_handoff: bool = True
+
+    @model_validator(mode="after")
+    def _one_branch_action(self) -> AgentChatRequest:
+        if self.edit_of_message_id and self.regenerate_of_message_id:
+            raise ValueError("A turn can edit a message or regenerate an answer, not both")
+        if (self.edit_of_message_id or self.regenerate_of_message_id) and not self.client_turn_id:
+            raise ValueError("Editing a message or regenerating an answer needs a client_turn_id")
+        return self
 
     @model_validator(mode="before")
     @classmethod

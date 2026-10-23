@@ -2,6 +2,7 @@ import { AlertCircle, ArrowDown, MessageCircle, RotateCw } from "lucide-react"
 import { AgentMessage } from "./AgentMessage"
 import { EMPTY_STATE_PROMPTS } from "./agentChatPrompts"
 import type { AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
+import type { BranchVersion } from "@/hooks/agentChatShared"
 import type { RefObject, UIEventHandler } from "react"
 
 interface AgentMessageStreamProps {
@@ -16,6 +17,11 @@ interface AgentMessageStreamProps {
   onScroll: UIEventHandler<HTMLDivElement>
   showJumpToLatest: boolean
   onJumpToLatest: () => void
+  messageVersions?: ReadonlyMap<string, BranchVersion>
+  actionsDisabled?: boolean
+  onRegenerate?: (messageId: string) => void
+  onEdit?: (messageId: string, content: string) => void
+  onSwitchBranch?: (messageId: string, direction: -1 | 1) => void
   scrollContainerRef: RefObject<HTMLDivElement | null>
   messagesEndRef: RefObject<HTMLDivElement | null>
 }
@@ -32,6 +38,11 @@ export function AgentMessageStream({
   onScroll,
   showJumpToLatest,
   onJumpToLatest,
+  messageVersions,
+  actionsDisabled,
+  onRegenerate,
+  onEdit,
+  onSwitchBranch,
   scrollContainerRef,
   messagesEndRef,
 }: AgentMessageStreamProps) {
@@ -73,9 +84,24 @@ export function AgentMessageStream({
           </div>
         ) : (
           <div className="mx-auto flex w-full max-w-[54rem] flex-col">
-            {messages.map(message => (
-              <AgentMessage key={message.id} message={message} sessionId={sessionId} onOpenTrace={onOpenTrace} />
-            ))}
+            {messages.map((message, index) => {
+              const version = messageVersions?.get(message.id)
+              return (
+                <AgentMessage
+                  key={message.id}
+                  message={message}
+                  sessionId={sessionId}
+                  onOpenTrace={onOpenTrace}
+                  versionIndex={version?.index}
+                  versionCount={version?.count}
+                  canRegenerate={index === messages.length - 1 && message.role === "assistant"}
+                  actionsDisabled={actionsDisabled}
+                  onRegenerate={onRegenerate}
+                  onEdit={onEdit}
+                  onSwitchBranch={onSwitchBranch}
+                />
+              )
+            })}
             {error && (
               <div
                 className="mb-3 flex items-start gap-2 rounded-xl border border-[hsl(var(--destructive)/0.22)] bg-[hsl(var(--destructive-muted))] px-3 py-2 text-sm text-negative"

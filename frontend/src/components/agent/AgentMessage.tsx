@@ -1,11 +1,12 @@
 import Markdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { memo } from "react"
+import { memo, useRef, useState, type ReactNode } from "react"
 import type { ToolCall, EgressRecord, AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
-import { Loader2, CheckCircle2, AlertCircle, Ban, Clock, GitPullRequest, RotateCw, ShieldAlert } from "lucide-react"
+import { Loader2, CheckCircle2, AlertCircle, Ban, Clock, GitPullRequest, Pencil, RefreshCw, RotateCw, ShieldAlert } from "lucide-react"
 import { DecisionStateBadge, EffectScopeBadge } from "@/components/shared/DecisionStateBadge"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { AgentFeedbackControls } from "./AgentFeedbackControls"
+import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./AgentMessageActions"
 
 const MARKDOWN_COMPONENTS: Components = {
   table({ children, ...props }) {
@@ -31,13 +32,25 @@ const MARKDOWN_COMPONENTS: Components = {
       </td>
     )
   },
-  pre({ children, ...props }) {
-    return (
-      <pre {...props} className="my-3 max-w-full overflow-x-auto rounded-lg border border-app bg-card-muted p-3 text-xs leading-5">
+  pre({ children }) {
+    return <CodeBlock>{children}</CodeBlock>
+  },
+}
+
+function CodeBlock({ children }: { children?: ReactNode }) {
+  const block = useRef<HTMLPreElement>(null)
+  return (
+    <div className="group/code relative my-3 max-w-full">
+      <CopyButton
+        label="Copy code"
+        getText={() => (block.current?.textContent ?? "").replace(/\n$/, "")}
+        className="absolute right-1.5 top-1.5 bg-card opacity-0 focus-visible:opacity-100 group-hover/code:opacity-100 [@media(hover:none)]:opacity-100"
+      />
+      <pre ref={block} className="max-w-full overflow-x-auto rounded-lg border border-app bg-card-muted p-3 text-xs leading-5">
         {children}
       </pre>
-    )
-  },
+    </div>
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -267,17 +280,59 @@ export const AgentMessage = memo(function AgentMessage({
   message,
   sessionId,
   onOpenTrace,
+  versionIndex,
+  versionCount,
+  canRegenerate,
+  actionsDisabled,
+  onRegenerate,
+  onEdit,
+  onSwitchBranch,
 }: {
   message: AgentMessageType
   sessionId?: string | null
   onOpenTrace?: (message: AgentMessageType) => void
+  /** Which version of the message this is, when it has alternatives. */
+  versionIndex?: number
+  versionCount?: number
+  /** True for the latest answer of the branch, the only one that can be regenerated. */
+  canRegenerate?: boolean
+  /** True while a turn is running: versions and edits wait for it. */
+  actionsDisabled?: boolean
+  onRegenerate?: (messageId: string) => void
+  onEdit?: (messageId: string, content: string) => void
+  onSwitchBranch?: (messageId: string, direction: -1 | 1) => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const version = versionIndex !== undefined && versionCount ? { index: versionIndex, count: versionCount } : undefined
+  const switchVersion = onSwitchBranch ? (direction: -1 | 1) => onSwitchBranch(message.id, direction) : undefined
+
   if (message.role === "user") {
     return (
-      <div className="mb-4 flex justify-end">
-        <div className="max-w-[min(86%,42rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-4 py-2.5 text-sm leading-6 text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
-          {message.content}
-        </div>
+      <div className="group mb-4 flex flex-col items-end">
+        {editing ? (
+          <EditMessageForm
+            initialValue={message.content}
+            onCancel={() => setEditing(false)}
+            onSubmit={content => {
+              setEditing(false)
+              onEdit?.(message.id, content)
+            }}
+          />
+        ) : (
+          <div className="max-w-[min(86%,42rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-4 py-2.5 text-sm leading-6 text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
+            {message.content}
+          </div>
+        )}
+        {!editing && (
+          <MessageActionRow align="end" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>
+            <CopyButton label="Copy message" getText={() => message.content} />
+            {onEdit && (
+              <ActionButton label="Edit message" onClick={() => setEditing(true)} disabled={actionsDisabled}>
+                <Pencil size={13} aria-hidden="true" />
+              </ActionButton>
+            )}
+          </MessageActionRow>
+        )}
       </div>
     )
   }
@@ -291,7 +346,7 @@ export const AgentMessage = memo(function AgentMessage({
 
   // Assistant message
   return (
-    <div className="mb-4 flex justify-start">
+    <div className="group mb-4 flex flex-col items-start">
       <div className="max-w-[min(92%,48rem)] rounded-2xl rounded-bl-md border border-app bg-card px-4 py-3 text-sm leading-6 text-app shadow-sm">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <DecisionStateBadge state={messageDecisionState} />
@@ -341,6 +396,16 @@ export const AgentMessage = memo(function AgentMessage({
           <AgentFeedbackControls message={message} sessionId={sessionId ?? null} />
         )}
       </div>
+      {!message.isStreaming && (
+        <MessageActionRow align="start" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>
+          {displayContent && <CopyButton label="Copy response" getText={() => displayContent} />}
+          {canRegenerate && onRegenerate && (
+            <ActionButton label="Regenerate response" onClick={() => onRegenerate(message.id)} disabled={actionsDisabled}>
+              <RefreshCw size={13} aria-hidden="true" />
+            </ActionButton>
+          )}
+        </MessageActionRow>
+      )}
     </div>
   )
 })

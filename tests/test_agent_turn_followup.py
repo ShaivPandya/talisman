@@ -44,7 +44,7 @@ def test_followup_runs_summary_then_shadow_then_trajectory(monkeypatch):
     calls: list[str] = []
     stored: list[dict] = []
 
-    def summarize(session_id, *, messages_before_turn):
+    def summarize(session_id, *, messages_before_turn, client_turn_id=None):
         calls.append(f"summary:{session_id}:{messages_before_turn}")
         return True
 

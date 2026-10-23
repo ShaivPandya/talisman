@@ -1,8 +1,11 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponsePreferences } from "@/lib/api"
 import {
   assistantTurnInProgress,
+  leafBelow,
+  parentIdOf,
+  resolveBranch,
   settleInterruptedMessages,
   type ActiveAgentJob,
   type AgentMessage,
@@ -53,7 +56,10 @@ export interface SessionSummary {
 }
 
 interface AgentChatState {
+  /** Every message of the conversation, including regenerated answers and edited versions. */
   messages: AgentMessage[]
+  /** The newest message of the branch being shown; the newest branch when unset. */
+  activeLeafId?: string | null
   isStreaming: boolean
   error: string | null
   sessionId: string | null
@@ -62,6 +68,10 @@ interface AgentChatState {
   activeJob: ActiveAgentJob | null
   queuedMessages: QueuedAgentMessage[]
 }
+
+type BranchAction =
+  | { kind: "edit"; messageId: string; parentId: string | null }
+  | { kind: "regenerate"; answerId: string; question: AgentMessage }
 
 interface AgentJobEvent {
   seq: number
@@ -254,13 +264,19 @@ function buildAgentRequestBody(
   content: string,
   screenContext?: ScreenContext | null,
   responsePreferences?: AgentResponsePreferences | null,
-  messageIds?: { user: string; assistant: string; parent?: string },
+  messageIds?: { user: string; assistant: string; parent?: string; editOf?: string; regenerateOf?: string },
 ): Record<string, unknown> {
   return {
     session_id: sessionId,
     client_turn_id: clientTurnId,
     message: content,
-    ...(messageIds && { user_message_id: messageIds.user, assistant_message_id: messageIds.assistant, parent_message_id: messageIds.parent }),
+    ...(messageIds && {
+      user_message_id: messageIds.user,
+      assistant_message_id: messageIds.assistant,
+      parent_message_id: messageIds.parent,
+      edit_of_message_id: messageIds.editOf,
+      regenerate_of_message_id: messageIds.regenerateOf,
+    }),
     ...(screenContext && {
       screen_context: {
         page_name: screenContext.pageName,
@@ -337,6 +353,7 @@ function loadState(): AgentChatState {
         sessionTitle?: string | null
         sessionTitleSource?: string | null
         activeJob?: ActiveAgentJob | null
+        activeLeafId?: string | null
       }
       if (Array.isArray(parsed.messages)) {
         const activeJob = parsed.activeJob ?? null
@@ -351,6 +368,7 @@ function loadState(): AgentChatState {
               ? { ...m, isStreaming: true, statusText: m.statusText || "Reconnecting..." }
               : m,
           ),
+          activeLeafId: parsed.activeLeafId,
           isStreaming: Boolean(restoredJob),
           error: null,
           sessionId,
@@ -628,6 +646,7 @@ export function useAgentChat() {
     if (persistedSessionsRef.current[snapshot.sessionId] === snapshot) return
     writeSessionSnapshot(snapshot.sessionId, {
       messages: snapshot.messages,
+      activeLeafId: snapshot.activeLeafId,
       sessionTitle: snapshot.sessionTitle,
       sessionTitleSource: snapshot.sessionTitleSource,
       error: snapshot.error,
@@ -646,6 +665,7 @@ export function useAgentChat() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         messages,
+        activeLeafId: snapshot.activeLeafId,
         sessionId: snapshot.sessionId,
         sessionTitle: snapshot.sessionTitle,
         sessionTitleSource: snapshot.sessionTitleSource,
@@ -1131,17 +1151,25 @@ export function useAgentChat() {
     screenContext?: ScreenContext | null,
     responsePreferences?: AgentResponsePreferences | null,
     options?: AgentSendOptions,
+    branchAction?: BranchAction,
   ) => {
     const targetSessionId = stateRef.current.sessionId
     inFlightBySessionRef.current[targetSessionId ?? "pending"] = true
+    // A new turn continues the branch being shown. Regenerating adds an answer to the same question,
+    // and editing adds a question beside the original. Both get a turn id of their own, so the new
+    // answer has its own trajectory and feedback.
+    const shown = resolveBranch(stateRef.current.messages, stateRef.current.activeLeafId).messages
     const clientTurnId = crypto.randomUUID()
-    const userMsg: AgentMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      timestamp: Date.now(),
-      clientTurnId,
-    }
+    const userMsg: AgentMessage = branchAction?.kind === "regenerate"
+      ? branchAction.question
+      : {
+          id: crypto.randomUUID(),
+          role: "user",
+          content,
+          timestamp: Date.now(),
+          clientTurnId,
+          parentId: branchAction?.kind === "edit" ? branchAction.parentId : (shown[shown.length - 1]?.id ?? null),
+        }
 
     const assistantMsg: AgentMessage = {
       id: crypto.randomUUID(),
@@ -1149,6 +1177,7 @@ export function useAgentChat() {
       content: "",
       timestamp: Date.now(),
       clientTurnId,
+      parentId: userMsg.id,
       toolCalls: [],
       isStreaming: true,
       statusText: "Starting...",
@@ -1157,11 +1186,21 @@ export function useAgentChat() {
     const assistantId = assistantMsg.id
     const controller = new AbortController()
     liveAbortRef.current = controller
+    // The first turn of a new chat is flagged "pending" until the stream names its session, so
+    // clear that flag too. Without it, the chat stays busy and the next message only queues.
+    const releaseSession = () => {
+      const sessionId = targetSessionId ?? stateRef.current.sessionId
+      if (sessionId) delete inFlightBySessionRef.current[sessionId]
+      if (!targetSessionId) delete inFlightBySessionRef.current["pending"]
+    }
 
     setState(prev => {
       const next = {
         ...prev,
-        messages: [...prev.messages, userMsg, assistantMsg],
+        messages: branchAction?.kind === "regenerate"
+          ? [...prev.messages, assistantMsg]
+          : [...prev.messages, userMsg, assistantMsg],
+        activeLeafId: assistantMsg.id,
         isStreaming: true,
         error: null,
         sessionTitle: prev.sessionTitle ?? deriveSessionTitleFromText(content),
@@ -1178,7 +1217,13 @@ export function useAgentChat() {
       content,
       screenContext,
       responsePreferences,
-      { user: userMsg.id, assistant: assistantMsg.id },
+      {
+        user: userMsg.id,
+        assistant: assistantMsg.id,
+        ...(branchAction === undefined && userMsg.parentId ? { parent: userMsg.parentId } : {}),
+        ...(branchAction?.kind === "edit" ? { editOf: branchAction.messageId } : {}),
+        ...(branchAction?.kind === "regenerate" ? { regenerateOf: branchAction.answerId } : {}),
+      },
     )
     let sawAssistantDelta = false
 
@@ -1192,7 +1237,7 @@ export function useAgentChat() {
         ),
       }))
       activeJobRef.current = null
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
+      releaseSession()
     }
 
     const handleError = (message: string, assistantFallbackContent?: string) => {
@@ -1213,7 +1258,7 @@ export function useAgentChat() {
         ),
       }))
       activeJobRef.current = null
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
+      releaseSession()
     }
 
     try {
@@ -1255,8 +1300,8 @@ export function useAgentChat() {
           m.id === assistantId ? { ...m, isStreaming: false, statusText: undefined } : m,
         ),
       }))
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
-      void drainQueueRef.current?.(targetSessionId ?? "")
+      releaseSession()
+      void drainQueueRef.current?.(targetSessionId ?? stateRef.current.sessionId ?? "")
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         handleAbort()
@@ -1348,6 +1393,50 @@ export function useAgentChat() {
     }
     await executeSendMessage(content, screenContext, responsePreferences, options)
   }, [executeSendMessage, sessionIsBusy])
+
+  // Regenerate and edit act on the branch being shown, and wait for a turn in progress to end.
+  const regenerate = useCallback(async (
+    answerId: string,
+    screenContext?: ScreenContext | null,
+    responsePreferences?: AgentResponsePreferences | null,
+  ) => {
+    const shown = resolveBranch(stateRef.current.messages, stateRef.current.activeLeafId).messages
+    const answer = shown[shown.length - 1]
+    const question = shown[shown.length - 2]
+    if (answer?.id !== answerId || answer.role !== "assistant" || question?.role !== "user") return
+    if (sessionIsBusy(stateRef.current.sessionId)) return
+    await executeSendMessage(question.content, screenContext, responsePreferences, undefined, {
+      kind: "regenerate",
+      answerId,
+      question,
+    })
+  }, [executeSendMessage, sessionIsBusy])
+
+  const editAndResend = useCallback(async (
+    messageId: string,
+    content: string,
+    screenContext?: ScreenContext | null,
+    responsePreferences?: AgentResponsePreferences | null,
+  ) => {
+    const { messages } = stateRef.current
+    const original = messages.find(message => message.id === messageId)
+    const edited = content.trim()
+    if (original?.role !== "user" || !edited || sessionIsBusy(stateRef.current.sessionId)) return
+    await executeSendMessage(edited, screenContext, responsePreferences, undefined, {
+      kind: "edit",
+      messageId,
+      parentId: parentIdOf(messages, messageId),
+    })
+  }, [executeSendMessage, sessionIsBusy])
+
+  const switchBranch = useCallback((messageId: string, direction: -1 | 1) => {
+    if (sessionIsBusy(stateRef.current.sessionId)) return
+    const { messages, activeLeafId } = stateRef.current
+    const version = resolveBranch(messages, activeLeafId).versions.get(messageId)
+    const targetId = direction < 0 ? version?.previousId : version?.nextId
+    if (!targetId) return
+    setState(prev => ({ ...prev, activeLeafId: leafBelow(prev.messages, targetId) }))
+  }, [sessionIsBusy])
 
   const removeQueuedMessage = useCallback((id: string) => {
     setState(prev => {
@@ -1468,6 +1557,8 @@ export function useAgentChat() {
 
     const nextState: AgentChatState = {
       messages: settleInterruptedMessages(transcript, activeJob?.assistantId),
+      // The branch last shown on this device, while it still exists; otherwise the newest.
+      activeLeafId: transcript.some(message => message.id === cached?.activeLeafId) ? cached?.activeLeafId : undefined,
       isStreaming: Boolean(activeJob),
       error: cached?.error ?? null,
       sessionId,
@@ -1502,13 +1593,19 @@ export function useAgentChat() {
     })
   }, [])
 
+  const branch = useMemo(
+    () => resolveBranch(state.messages, state.activeLeafId),
+    [state.messages, state.activeLeafId],
+  )
+
   const isComposerBusy =
     state.isStreaming
     || Boolean(state.activeJob)
     || assistantTurnInProgress(state.messages)
 
   return {
-    messages: state.messages,
+    messages: branch.messages,
+    messageVersions: branch.versions,
     isStreaming: state.isStreaming,
     isComposerBusy,
     error: state.error,
@@ -1517,6 +1614,9 @@ export function useAgentChat() {
     sessionTitleSource: state.sessionTitleSource,
     queuedMessages: state.queuedMessages,
     sendMessage,
+    regenerate,
+    editAndResend,
+    switchBranch,
     stopStreaming,
     clearChat,
     loadSession,

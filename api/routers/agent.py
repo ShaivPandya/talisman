@@ -54,7 +54,7 @@ from api.agent_models import (
     ScreenContextModel,
 )
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
-from api.conversation_messages import sources_from
+from api.conversation_messages import TurnLineage, resolve_turn_lineage, sources_from
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
 from api.job_queue import cancel_job, get_job
@@ -680,6 +680,20 @@ def _done_then_followup(done_frame: str, followup: AgentTurnFollowupRequest):
             )
 
 
+def _regenerated_split_group(req: AgentChatRequest, session_id: str) -> str | None:
+    """A regenerated answer joins its prompt's dataset split group, so one prompt never lands in both train and eval."""
+    if not req.regenerate_of_message_id:
+        return None
+    from api import memory_db
+    from api.agent_trajectories import dataset_split_group_for
+
+    prompt = _turn_lineage(req, memory_db.get_or_create_session(session_id)).reused_user
+    prompt_turn_id = prompt.get("client_turn_id") if prompt else None
+    if not prompt_turn_id:
+        return None
+    return dataset_split_group_for(session_id=session_id, client_turn_id=str(prompt_turn_id), messages=[])
+
+
 def _agent_trajectory_payload(
     *,
     req: AgentChatRequest,
@@ -793,10 +807,12 @@ def _agent_trajectory_payload(
             except Exception:
                 provider_model = None
 
+        split_group = _regenerated_split_group(req, session_id)
         return {
             "trajectory_id": trajectory_id,
             "session_id": session_id,
             "client_turn_id": req.client_turn_id,
+            **({"dataset_split_group": split_group} if split_group else {}),
             "captured_at": captured_at,
             "completed_at": datetime.now(UTC).isoformat(),
             "final_disposition": final_disposition,
@@ -840,14 +856,13 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     text = _domain_guardrail_text(classification)
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
+    lineage = _turn_lineage(req, session)
     turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
-    user_msg = {
-        "id": req.user_message_id,
-        "role": "user",
-        "content": req.message,
-        "timestamp": time.time(),
-        **turn_meta,
-    }
+    user_msg = _lineage_user_message(
+        req,
+        lineage,
+        {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta},
+    )
     assistant_msg = {
         "id": req.assistant_message_id,
         "role": "assistant",
@@ -862,8 +877,8 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     yield _sse("delta", {"text": text})
     finalize_turn_fn(session_id, user_msg, assistant_msg)
     followup = _turn_followup(
-        messages_before_turn=messages_before_turn(session, req.client_turn_id),
-        session_messages=session["server_messages"],
+        messages_before_turn=messages_before_turn(session, req.client_turn_id, lineage),
+        session_messages=lineage.history(session["server_messages"]),
         req=req,
         session_id=session_id,
         turn_started=turn_started,
@@ -888,7 +903,7 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
                 {
                     "usage": {},
                     "session_id": session_id,
-                    "user_message_id": req.user_message_id,
+                    "user_message_id": user_msg["id"],
                     "assistant_message_id": req.assistant_message_id,
                     **_domain_done_meta(classification),
                 },
@@ -948,6 +963,7 @@ class _TurnTranscriptGuard:
     def __init__(self, req: AgentChatRequest):
         self.req = req
         self.session_id: str | None = None
+        self.lineage = TurnLineage()
         self.finalized = False
         self.errored = False
         self._text: list[str] = []
@@ -961,9 +977,7 @@ class _TurnTranscriptGuard:
 
         self.finalized = True
         finalize_fn = finalize_turn if self.req.finalize_synchronously else finalize_turn_async
-        user_msg = {**user_msg, "id": self.req.user_message_id}
-        if self.req.parent_message_id:
-            user_msg["parent_id"] = self.req.parent_message_id
+        user_msg = _lineage_user_message(self.req, self.lineage, user_msg)
         assistant_msg = {**assistant_msg, **self.metadata(), "id": self.req.assistant_message_id}
         assistant_msg["toolCalls"] = assistant_msg["tool_calls"]
         finalize_fn(session_id, user_msg, assistant_msg)
@@ -1055,6 +1069,31 @@ def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
     return {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
 
 
+def _turn_lineage(req: AgentChatRequest, session: dict[str, Any]) -> TurnLineage:
+    """Where the turn attaches in the session's message tree."""
+    return resolve_turn_lineage(
+        session.get("server_messages") or [],
+        user_message_id=req.user_message_id,
+        client_turn_id=req.client_turn_id,
+        parent_message_id=req.parent_message_id,
+        edit_of_message_id=req.edit_of_message_id,
+        regenerate_of_message_id=req.regenerate_of_message_id,
+    )
+
+
+def _lineage_user_message(req: AgentChatRequest, lineage: TurnLineage, user_msg: dict[str, Any]) -> dict[str, Any]:
+    """The turn's user message with the id and parent its place in the tree dictates.
+
+    A regenerated answer replies to the stored user message, so it takes that message's id.
+    """
+    if lineage.reused_user is not None:
+        return {**user_msg, "id": lineage.reused_user["id"]}
+    user_msg = {**user_msg, "id": req.user_message_id}
+    if lineage.explicit:
+        user_msg["parent_id"] = lineage.parent_id
+    return user_msg
+
+
 def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str, Any] | None = None) -> None:
     """Persist user + streaming assistant at turn start (idempotent).
 
@@ -1065,6 +1104,9 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         return
     from api.memory_manager import begin_turn, begin_turn_async
 
+    lineage = _turn_lineage(req, session) if session is not None else TurnLineage()
+    if lineage.reused_user is not None:
+        req.user_message_id = lineage.reused_user["id"]
     if session is not None:
         existing = [
             m
@@ -1080,9 +1122,9 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
             return
 
     meta = _agent_turn_meta(req)
-    user_msg = {"id": req.user_message_id, "role": "user", "content": req.message, "timestamp": time.time(), **meta}
-    if req.parent_message_id:
-        user_msg["parent_id"] = req.parent_message_id
+    user_msg = _lineage_user_message(
+        req, lineage, {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
+    )
     assistant_msg = {
         "id": req.assistant_message_id,
         "role": "assistant",
@@ -2306,10 +2348,14 @@ def _resolve_chat_route(
     return decision, metadata
 
 
-def _recent_conversation_for_routing(session: dict[str, Any]) -> list[dict[str, Any]]:
+def _recent_conversation_for_routing(
+    session: dict[str, Any], req: AgentChatRequest | None = None
+) -> list[dict[str, Any]]:
     server_messages = session.get("server_messages") or []
     if not isinstance(server_messages, list):
         return []
+    if req is not None:
+        server_messages = _turn_lineage(req, session).history(server_messages)
     return [item for item in server_messages[-6:] if isinstance(item, dict)]
 
 
@@ -3948,7 +3994,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
 
             llm_credentials = _read_llm_api_key()
             turn_session = memory_db.get_or_create_session(req.session_id)
-            recent_conversation = _recent_conversation_for_routing(turn_session)
+            recent_conversation = _recent_conversation_for_routing(turn_session, req)
             route_decision, route_meta = _resolve_chat_route(
                 user_text=req.message,
                 screen_context=req.screen_context,
@@ -4042,7 +4088,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
 
         session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
         guard.session_id = str(session["session_id"])
-        prior_message_count = messages_before_turn(session, req.client_turn_id)
+        lineage = _turn_lineage(req, session)
+        guard.lineage = lineage
+        turn_history = lineage.history(session["server_messages"])
+        prior_message_count = messages_before_turn(session, req.client_turn_id, lineage)
 
         agent_turn_event_id: str | None = None
         if casual and not workflow_name:
@@ -4070,7 +4119,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
-                session_messages=session["server_messages"],
+                session_messages=turn_history,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -4107,6 +4156,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             enable_retrieval=enable_retrieval,
             client_turn_id=req.client_turn_id,
             session=session,
+            lineage=lineage,
         )
         has_recent_tool_facts = bool(
             raw_conversation and TOOL_MEMORY_HEADER in str(raw_conversation[0].get("content", ""))
@@ -4347,7 +4397,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
-                session_messages=session["server_messages"],
+                session_messages=turn_history,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -4961,7 +5011,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
-                    session_messages=session["server_messages"],
+                    session_messages=turn_history,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5263,7 +5313,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
-                    session_messages=session["server_messages"],
+                    session_messages=turn_history,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5836,7 +5886,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
-                    session_messages=session["server_messages"],
+                    session_messages=turn_history,
                     shadow=shadow,
                     req=req,
                     session_id=session_id,

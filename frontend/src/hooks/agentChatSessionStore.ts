@@ -9,6 +9,7 @@ const SNAPSHOTS_STORAGE_KEY = "agent-chat-sessions:v1"
 
 export interface SessionSnapshot {
   messages: AgentMessage[]
+  activeLeafId?: string | null
   sessionTitle: string | null
   sessionTitleSource: string | null
   error: string | null

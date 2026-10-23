@@ -103,6 +103,7 @@ export function AgentChat({
 }: AgentChatProps) {
   const {
     messages,
+    messageVersions,
     isStreaming,
     isComposerBusy,
     error,
@@ -110,6 +111,9 @@ export function AgentChat({
     sessionTitle,
     queuedMessages,
     sendMessage,
+    regenerate,
+    editAndResend,
+    switchBranch,
     stopStreaming,
     clearChat,
     loadSession,
@@ -329,6 +333,16 @@ export function AgentChat({
     sendTurn(content, { durable: Boolean(workflow), mode: isComposerBusy ? "enqueue" : undefined })
   }, [isComposerBusy, sendTurn])
 
+  const handleRegenerate = useCallback((messageId: string) => {
+    pendingWorkflowInvalidationRef.current = null
+    void regenerate(messageId, screenContext, activePreferences)
+  }, [screenContext, activePreferences, regenerate])
+
+  const handleEditMessage = useCallback((messageId: string, content: string) => {
+    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(content)
+    void editAndResend(messageId, content, screenContext, activePreferences)
+  }, [screenContext, activePreferences, editAndResend])
+
   const handleQuickPrompt = useCallback((prompt: string) => {
     followingLatestRef.current = true
     setShowJumpToLatest(false)
@@ -526,6 +540,11 @@ export function AgentChat({
                     onScroll={handleMessagesScroll}
                     showJumpToLatest={showJumpToLatest}
                     onJumpToLatest={handleJumpToLatest}
+                    messageVersions={messageVersions}
+                    actionsDisabled={isComposerBusy}
+                    onRegenerate={handleRegenerate}
+                    onEdit={handleEditMessage}
+                    onSwitchBranch={switchBranch}
                     scrollContainerRef={messagesScrollRef}
                     messagesEndRef={messagesEndRef}
                   />

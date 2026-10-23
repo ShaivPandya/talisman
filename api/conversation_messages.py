@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
@@ -169,6 +170,96 @@ def record_message(row: Any) -> dict[str, Any]:
     # Older callers use the camelCase spelling.
     message["toolCalls"] = message["tool_calls"]
     return message
+
+
+def message_path(messages: list[dict[str, Any]], leaf_id: str | None) -> list[dict[str, Any]]:
+    """The chain of messages from the root down to ``leaf_id``; empty when it names no message."""
+    by_id = {m["id"]: m for m in messages if m.get("id")}
+    path: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    node = by_id.get(leaf_id) if leaf_id else None
+    while node is not None and node["id"] not in seen:
+        seen.add(node["id"])
+        path.append(node)
+        parent_id = node.get("parent_id")
+        node = by_id.get(parent_id) if parent_id else None
+    path.reverse()
+    return path
+
+
+def latest_leaf_id(messages: list[dict[str, Any]]) -> str | None:
+    """The newest message nothing replies to: the branch a turn continues when it names no parent."""
+    parents = {m.get("parent_id") for m in messages}
+    return next((m["id"] for m in reversed(messages) if m.get("id") and m["id"] not in parents), None)
+
+
+def has_forks(messages: list[dict[str, Any]]) -> bool:
+    """True when some message (or the root) has more than one child."""
+    seen: set[str | None] = set()
+    for message in messages:
+        parent_id = message.get("parent_id")
+        if parent_id in seen:
+            return True
+        seen.add(parent_id)
+    return False
+
+
+@dataclass(frozen=True)
+class TurnLineage:
+    """Where a chat turn attaches in the message tree.
+
+    ``explicit`` is False when the request names no parent: the turn then continues from the
+    latest leaf. ``reused_user`` is the stored user message a regenerated answer replies to.
+    """
+
+    parent_id: str | None = None
+    explicit: bool = False
+    reused_user: dict[str, Any] | None = None
+
+    def history(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """The messages before this turn's user message, root first."""
+        if any(not m.get("id") for m in messages):  # no tree to follow: a plain list of messages
+            return list(messages)
+        if self.explicit:
+            return message_path(messages, self.parent_id)
+        return message_path(messages, latest_leaf_id(messages))
+
+
+def resolve_turn_lineage(
+    messages: list[dict[str, Any]],
+    *,
+    user_message_id: str | None = None,
+    client_turn_id: str | None = None,
+    parent_message_id: str | None = None,
+    edit_of_message_id: str | None = None,
+    regenerate_of_message_id: str | None = None,
+) -> TurnLineage:
+    """Work out a turn's parent from its request. Ids that name no stored message are ignored."""
+    by_id = {m["id"]: m for m in messages if m.get("id")}
+
+    def stored(message_id: str | None, role: str) -> dict[str, Any] | None:
+        message = by_id.get(message_id) if message_id else None
+        return message if message is not None and message.get("role") == role else None
+
+    answer = stored(regenerate_of_message_id, "assistant")
+    prompt = stored(answer.get("parent_id"), "user") if answer else None
+    if prompt is not None:
+        return TurnLineage(prompt.get("parent_id"), True, prompt)
+    # A retried turn: its user message is already stored, so its parent is known.
+    begun = next(
+        (
+            m
+            for m in messages
+            if client_turn_id and m.get("role") == "user" and str(m.get("client_turn_id")) == client_turn_id
+        ),
+        None,
+    )
+    for message in (stored(user_message_id, "user"), begun, stored(edit_of_message_id, "user")):
+        if message is not None:
+            return TurnLineage(message.get("parent_id"), True)
+    if parent_message_id in by_id:
+        return TurnLineage(parent_message_id, True)
+    return TurnLineage()
 
 
 def sources_from(value: Any) -> list[dict[str, Any]]:

@@ -104,3 +104,93 @@ export function settleInterruptedMessages(
     }
   })
 }
+
+/** Position of a message among its alternatives: regenerated answers, or edited versions of a question. */
+export interface BranchVersion {
+  index: number
+  count: number
+  previousId: string | null
+  nextId: string | null
+}
+
+export interface BranchView {
+  /** The branch being shown, root first. */
+  messages: AgentMessage[]
+  /** Alternatives for each shown message that has any. */
+  versions: ReadonlyMap<string, BranchVersion>
+}
+
+const NO_VERSIONS: ReadonlyMap<string, BranchVersion> = new Map()
+
+// Messages saved before parent ids existed continue the message before them.
+function parentOf(messages: AgentMessage[], index: number): string | null {
+  const parentId = messages[index].parentId
+  return parentId === undefined ? (messages[index - 1]?.id ?? null) : parentId
+}
+
+function isChain(messages: AgentMessage[]): boolean {
+  return messages.every((_, index) => parentOf(messages, index) === (messages[index - 1]?.id ?? null))
+}
+
+function indexTree(messages: AgentMessage[]) {
+  const byId = new Map(messages.map(message => [message.id, message]))
+  const children = new Map<string | null, AgentMessage[]>()
+  const parents = new Map<string, string | null>()
+  messages.forEach((message, index) => {
+    const parentId = parentOf(messages, index)
+    const key = parentId !== null && byId.has(parentId) ? parentId : null
+    parents.set(message.id, key)
+    const siblings = children.get(key)
+    if (siblings) siblings.push(message)
+    else children.set(key, [message])
+  })
+  return { byId, children, parents }
+}
+
+/**
+ * The branch of a conversation to show. A conversation without alternatives is returned as it is,
+ * so the usual chat costs one pass over its messages. `leafId` picks the branch; without it, or
+ * when it names no message, the newest one is shown.
+ */
+export function resolveBranch(messages: AgentMessage[], leafId?: string | null): BranchView {
+  if (isChain(messages)) return { messages, versions: NO_VERSIONS }
+  const { byId, children, parents } = indexTree(messages)
+  let leaf = leafId && byId.has(leafId) ? leafId : null
+  for (let index = messages.length - 1; leaf === null && index >= 0; index--) {
+    if (!children.has(messages[index].id)) leaf = messages[index].id
+  }
+  const path: AgentMessage[] = []
+  const seen = new Set<string>()
+  for (let id = leaf; id !== null && byId.has(id) && !seen.has(id); id = parents.get(id) ?? null) {
+    seen.add(id)
+    path.push(byId.get(id)!)
+  }
+  path.reverse()
+  const versions = new Map<string, BranchVersion>()
+  for (const message of path) {
+    const siblings = (children.get(parents.get(message.id) ?? null) ?? []).filter(item => item.role === message.role)
+    if (siblings.length < 2) continue
+    const index = siblings.indexOf(message)
+    versions.set(message.id, {
+      index,
+      count: siblings.length,
+      previousId: siblings[index - 1]?.id ?? null,
+      nextId: siblings[index + 1]?.id ?? null,
+    })
+  }
+  return { messages: path, versions }
+}
+
+/** The newest leaf at or below a message: where the conversation resumes after switching to it. */
+export function leafBelow(messages: AgentMessage[], id: string): string {
+  const { children } = indexTree(messages)
+  let leaf = id
+  for (let next = children.get(leaf); next?.length; next = children.get(leaf)) leaf = next[next.length - 1].id
+  return leaf
+}
+
+/** The id a message hangs from, or null at the top of the conversation. */
+export function parentIdOf(messages: AgentMessage[], id: string): string | null {
+  const index = messages.findIndex(message => message.id === id)
+  return index < 0 ? null : parentOf(messages, index)
+}

@@ -23,6 +23,7 @@ from typing import Any
 
 from api import memory_db
 from api.agent_governance import estimate_tokens
+from api.conversation_messages import TurnLineage, has_forks, message_path, resolve_turn_lineage
 from api.tool_result_memory import tool_memory_context
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,21 @@ def _verbatim_start(messages: list[dict[str, Any]]) -> int:
     return start
 
 
+def _summary_usable(session: dict[str, Any], branch: list[dict[str, Any]]) -> bool:
+    """Whether the session's rolling summary describes ``branch``, the messages a turn continues from.
+
+    A summary records the last message it covers. A conversation with branches can only use it
+    when that message is on the branch; one written before branches existed is trusted only while
+    the conversation has none.
+    """
+    if not session.get("rolling_summary"):
+        return False
+    through = session.get("rolling_summary_through_id")
+    if through:
+        return any(m["id"] == through for m in branch)
+    return not has_forks(session.get("server_messages") or [])
+
+
 def build_conversation_context(
     session_id: str | None,
     new_user_message: str,
@@ -70,25 +86,27 @@ def build_conversation_context(
     enable_retrieval: bool = True,
     client_turn_id: str | None = None,
     session: dict[str, Any] | None = None,
+    lineage: TurnLineage | None = None,
 ) -> tuple[list[dict[str, object]], str]:
     """Build the ``messages`` list for a Claude API call.
 
     Returns ``(conversation, session_id)`` where *conversation* contains:
       1. An optional context preamble (rolling summary + retrieval hits)
-      2. Recent tool facts and a token-budgeted suffix of verbatim messages
+      2. Recent tool facts and a token-budgeted suffix of the verbatim messages of the branch the turn continues
       3. The new user message
 
-    Pass *session* when the turn already loaded it, to skip a second read.
-    The caller should pass *conversation* directly to ``client.messages.stream()``.
+    Pass *session* when the turn already loaded it, to skip a second read, and *lineage* to
+    continue a branch other than the latest. The caller should pass *conversation* directly
+    to ``client.messages.stream()``.
     """
     if session is None:
         session = memory_db.get_or_create_session(session_id)
     sid = session["session_id"]
     server_msgs: list[dict[str, Any]] = session["server_messages"]
-    rolling_summary: str | None = session.get("rolling_summary")
 
-    # Exclude this turn's persisted user/placeholder; append the user exactly once below.
-    history = server_msgs[: messages_before_turn(session, client_turn_id)]
+    # The branch this turn continues, without this turn's own persisted user message and placeholder.
+    history = (lineage or resolve_turn_lineage(server_msgs, client_turn_id=client_turn_id)).history(server_msgs)
+    rolling_summary: str | None = session.get("rolling_summary") if _summary_usable(session, history) else None
     recent = [m for m in history[_verbatim_start(history) :] if _include_in_verbatim(m)]
 
     # --- Build optional context preamble ---
@@ -131,9 +149,13 @@ def build_conversation_context(
     return conversation, sid
 
 
-def messages_before_turn(session: dict[str, Any], client_turn_id: str | None) -> int:
-    """Count the session messages that precede this turn's own messages."""
+def messages_before_turn(
+    session: dict[str, Any], client_turn_id: str | None, lineage: TurnLineage | None = None
+) -> int:
+    """Count the messages on the turn's branch that precede its own messages."""
     messages = session.get("server_messages") or []
+    if lineage is not None:
+        return len(lineage.history(messages))
     if client_turn_id:
         for index, msg in enumerate(messages):
             if isinstance(msg, dict) and str(msg.get("client_turn_id")) == client_turn_id:
@@ -435,12 +457,24 @@ def _clean_generated_title(value: str | None) -> str | None:
             return None
 
 
-def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -> bool:
+def _turn_branch(messages: list[dict[str, Any]], client_turn_id: str | None) -> list[dict[str, Any]]:
+    """The messages from the root through a finished turn's answer, or all of them when it isn't found."""
+    if client_turn_id:
+        for message in reversed(messages):
+            if message.get("role") == "assistant" and str(message.get("client_turn_id")) == client_turn_id:
+                return message_path(messages, message["id"])
+    return messages
+
+
+def summarize_departed_messages(
+    session_id: str, *, messages_before_turn: int, client_turn_id: str | None = None
+) -> bool:
     """Fold the messages a finished turn pushed out of the verbatim window into the summary.
 
     Only those messages go to the LLM, since everything older is already summarized.
-    The first summary covers every message older than the window. Message positions
-    never shift (the transcript only appends), so this can run any time after the turn.
+    The first summary covers every message older than the window. The turn's branch only
+    appends, so this can run any time after the turn. A summary that covers a different
+    branch is replaced by one built from the start of this one.
     Returns True when the summary changed.
     """
     total = messages_before_turn + TURN_MESSAGE_COUNT
@@ -456,11 +490,19 @@ def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -
     # A second pass only happens when another summarizer changed the summary meanwhile.
     for _attempt in range(2):
         session = memory_db.get_or_create_session(session_id)
-        existing_summary = session.get("rolling_summary") or ""
-        messages = session["server_messages"][:total]
+        branch = _turn_branch(session["server_messages"], client_turn_id)
+        messages = branch[:total]
         window_start = _verbatim_start(messages)
-        start = _verbatim_start(messages[:messages_before_turn]) if existing_summary else 0
-        departed: list[dict[str, Any]] = messages[start:window_start]
+        stored_summary = session.get("rolling_summary") or ""
+        through = session.get("rolling_summary_through_id")
+        # Where the stored summary leaves off on this branch, or None when it belongs to another one.
+        covered: int | None = None
+        if stored_summary and through:
+            covered = next((i + 1 for i, m in enumerate(messages) if m.get("id") == through), None)
+        elif stored_summary and not has_forks(session["server_messages"]):
+            covered = _verbatim_start(messages[:messages_before_turn])
+        existing_summary = stored_summary if covered is not None else ""
+        departed: list[dict[str, Any]] = messages[covered or 0 : window_start]
 
         lines: list[str] = []
         if existing_summary:
@@ -480,7 +522,8 @@ def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -
 
         text = "\n".join(lines[-60:])  # cap input
         summary, tickers, _topics = _summarize_with_haiku(text)
-        if memory_db.update_rolling_summary(session_id, summary, expected=existing_summary):
+        through_id = departed[-1]["id"] if departed[-1].get("id") else None
+        if memory_db.update_rolling_summary(session_id, summary, expected=stored_summary, through_id=through_id):
             _index_rolling_summary(session_id, summary, tickers)
             return True
     logger.warning("Rolling summary for session %s kept changing; skipped this turn's messages", session_id)

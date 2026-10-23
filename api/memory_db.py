@@ -51,7 +51,8 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
     title        TEXT,
     title_source TEXT,
     title_updated_at TEXT,
-    rolling_summary TEXT
+    rolling_summary TEXT,
+    rolling_summary_through_id TEXT
 )
 """
 
@@ -100,7 +101,7 @@ def _init_db(conn: sqlite3.Connection) -> None:
     conn.execute(_CREATE_SESSIONS)
     conn.execute(_CREATE_SESSIONS_IDX)
     columns = {row[1] for row in conn.execute("PRAGMA table_info(conversation_sessions)")}
-    for col in ("rolling_summary", "title", "title_source", "title_updated_at"):
+    for col in ("rolling_summary", "title", "title_source", "title_updated_at", "rolling_summary_through_id"):
         if col not in columns:
             conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} TEXT")
     conn.execute(CREATE_MESSAGES)
@@ -377,6 +378,22 @@ def _turn_row(conn: Any, session_id: str, turn_id: str, role: str = "assistant")
     ).fetchone()
 
 
+def _message_row(conn: Any, session_id: str, message_id: Any, role: str | None = None) -> Any:
+    if not message_id:
+        return None
+    row = conn.execute(
+        "SELECT * FROM conversation_messages WHERE session_id = ? AND id = ?", (session_id, message_id)
+    ).fetchone()
+    return row if row is not None and (role is None or row["role"] == role) else None
+
+
+def _with_valid_parent(conn: Any, session_id: str, message: dict[str, Any]) -> dict[str, Any]:
+    """Drop a named parent that isn't stored in this session, so the message continues the latest branch."""
+    if message.get("parent_id") and _message_row(conn, session_id, message["parent_id"]) is None:
+        return {key: value for key, value in message.items() if key != "parent_id"}
+    return message
+
+
 def _patch_row(conn: Any, row: Any, patch: dict[str, Any]) -> None:
     message = {**record_message(row), **patch}
     if "content_parts" in patch:
@@ -442,14 +459,22 @@ def turn_exists(session_id: str, client_turn_id: str) -> bool:
 
 
 def begin_turn(session_id: str, user_message: dict[str, Any], assistant_placeholder: dict[str, Any]) -> int:
-    """Insert the user and streaming assistant once per client turn."""
+    """Insert the user and streaming assistant once per client turn.
+
+    A user message that is already stored (regenerating its answer) is not inserted again:
+    the new streaming assistant becomes another reply to it.
+    """
     turn_id = str(user_message.get("client_turn_id") or assistant_placeholder.get("client_turn_id") or "")
     with _get_conn() as conn:
         session = _session_for_write(conn, session_id)
-        if turn_id and _turn_row(conn, session_id, turn_id, "user") is not None:
+        if turn_id and any(_turn_row(conn, session_id, turn_id, role) is not None for role in ("user", "assistant")):
             return int(session["message_count"] or 0)
         placeholder = {"is_streaming": True, **assistant_placeholder}
-        total = _append(conn, session_id, [user_message, placeholder], int(session["message_count"] or 0))
+        stored_user = _message_row(conn, session_id, user_message.get("id"), "user")
+        new_messages = [_with_valid_parent(conn, session_id, user_message), placeholder]
+        if stored_user is not None:
+            new_messages = [{**placeholder, "parent_id": stored_user["id"]}]
+        total = _append(conn, session_id, new_messages, int(session["message_count"] or 0))
         conn.commit()
         return total
 
@@ -515,8 +540,14 @@ def complete_turn_messages(
         session = _session_for_write(conn, session_id)
         row = _turn_row(conn, session_id, client_turn_id)
         if row is None:
-            user = _turn_row(conn, session_id, client_turn_id, "user")
-            new_messages = [user_message, final] if user is None else [{**final, "parent_id": user["id"]}]
+            user = _turn_row(conn, session_id, client_turn_id, "user") or _message_row(
+                conn, session_id, user_message.get("id"), "user"
+            )
+            new_messages = (
+                [_with_valid_parent(conn, session_id, user_message), final]
+                if user is None
+                else [{**final, "parent_id": user["id"]}]
+            )
             total = _append(conn, session_id, new_messages, int(session["message_count"] or 0))
         else:
             # Stop/failure and already completed messages are terminal. Only an
@@ -566,8 +597,13 @@ def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:
         return total
 
 
-def update_rolling_summary(session_id: str, summary: str, *, expected: str | None = None) -> bool:
+def update_rolling_summary(
+    session_id: str, summary: str, *, expected: str | None = None, through_id: str | None = None
+) -> bool:
     """Update the rolling summary for a session. Returns True if the row was updated.
+
+    ``through_id`` is the last message the summary covers. A conversation with branches uses
+    it to tell whether the summary belongs to the branch being continued.
 
     With ``expected``, the update applies only while the stored summary still equals it
     (an empty string matches no summary), so concurrent summarizers can't overwrite
@@ -576,14 +612,15 @@ def update_rolling_summary(session_id: str, summary: str, *, expected: str | Non
     with _get_conn() as conn:
         if expected is None:
             cur = conn.execute(
-                "UPDATE conversation_sessions SET rolling_summary = ? WHERE session_id = ?",
-                (summary, session_id),
+                "UPDATE conversation_sessions SET rolling_summary = ?, rolling_summary_through_id = ? "
+                "WHERE session_id = ?",
+                (summary, through_id, session_id),
             )
         else:
             cur = conn.execute(
-                "UPDATE conversation_sessions SET rolling_summary = ? "
+                "UPDATE conversation_sessions SET rolling_summary = ?, rolling_summary_through_id = ? "
                 "WHERE session_id = ? AND COALESCE(rolling_summary, '') = ?",
-                (summary, session_id, expected),
+                (summary, through_id, session_id, expected),
             )
         conn.commit()
         return cur.rowcount > 0

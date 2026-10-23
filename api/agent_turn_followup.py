@@ -55,7 +55,11 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
         try:
             from api.memory_manager import summarize_departed_messages
 
-            changed = summarize_departed_messages(req.session_id, messages_before_turn=req.messages_before_turn)
+            changed = summarize_departed_messages(
+                req.session_id,
+                messages_before_turn=req.messages_before_turn,
+                client_turn_id=req.client_turn_id,
+            )
             steps["summary"] = "updated" if changed else "skipped"
         except Exception:
             logger.exception("Rolling summarization failed for session %s", req.session_id)
