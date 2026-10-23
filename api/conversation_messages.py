@@ -79,6 +79,8 @@ def _parts(message: dict[str, Any]) -> list[dict[str, Any]]:
         ("tool_call", ("tool_calls", "toolCalls")),
         ("source", ("sources",)),
         ("attachment", ("attachments",)),
+        ("thinking", ("thinking",)),
+        ("narration", ("narration",)),
     ):
         for key in keys:
             if key not in message:
@@ -133,6 +135,8 @@ def message_record(
         "toolCalls",
         "sources",
         "attachments",
+        "thinking",
+        "narration",
     }
     return {
         "id": identity,
@@ -165,7 +169,13 @@ def record_message(row: Any) -> dict[str, Any]:
     }
     if row["client_turn_id"]:
         message["client_turn_id"] = row["client_turn_id"]
-    for kind, key in (("tool_call", "tool_calls"), ("source", "sources"), ("attachment", "attachments")):
+    for kind, key in (
+        ("tool_call", "tool_calls"),
+        ("source", "sources"),
+        ("attachment", "attachments"),
+        ("thinking", "thinking"),
+        ("narration", "narration"),
+    ):
         message[key] = [p.get("data", {}) for p in parts if p.get("type") == kind]
     # Older callers use the camelCase spelling.
     message["toolCalls"] = message["tool_calls"]

@@ -292,7 +292,18 @@ def test_guard_persists_tools_sources_trace_and_exposes_ids(store, monkeypatch):
     done = guard.observe(_sse("done", {"decision_quality_chat": {"verdict": "watch"}}))
     assert json.loads(done.split("data: ")[1])["assistant_message_id"] == answer["id"]
     message = store.get_session(sid)["transcript"][-1]
-    assert message["tool_calls"] == [payload]
+    # The saved tool call holds a preview of the result, not the whole result.
+    saved = {key: value for key, value in message["tool_calls"][0].items() if key != "as_of"}
+    assert saved == {
+        "id": "search",
+        "name": "web_search",
+        "status": "ok",
+        "arguments": {"q": "rates"},
+        "result_preview": payload["result"],
+        "result_bytes": len(payload["result"]),
+        "sources": [{"url": "https://example.com", "title": "Source"}],
+    }
+    assert message["tool_calls"][0]["as_of"]
     assert message["sources"] == [{"url": "https://example.com", "title": "Source"}]
     assert message["trace_snapshot"] == {"decision_quality_chat": {"verdict": "watch"}}
 
@@ -342,8 +353,11 @@ def test_normal_chat_roundtrip_returns_persisted_ids_tools_and_sources(store, au
     loaded = auth_client.get(f"/api/memory/sessions/{done['session_id']}").json()["transcript"]
     assert [message["id"] for message in loaded] == ["http-user", "http-answer"]
     assert loaded[-1]["content"] == "Saved answer" and loaded[-1]["sources"] == [source]
-    assert loaded[-1]["tool_calls"][0]["arguments"]["query"] == "A"
-    assert json.loads(loaded[-1]["tool_calls"][0]["result"])["value"] == 42
+    tool_call = loaded[-1]["tool_calls"][0]
+    assert tool_call["arguments"]["query"] == "A"
+    assert json.loads(tool_call["result_preview"])["value"] == 42
+    assert "result" not in tool_call and tool_call["result_bytes"] == len(tool_call["result_preview"])
+    assert tool_call["as_of"] and tool_call["sources"] == [source]
 
 
 def test_interrupted_tool_result_survives_with_partial_text(store):
@@ -357,6 +371,55 @@ def test_interrupted_tool_result_survives_with_partial_text(store):
     message = store.get_session(sid)["transcript"][-1]
     assert message["status"] == "stopped" and message["content"] == "partial"
     assert message["tool_calls"][0]["id"] == "tool"
+
+
+def test_thinking_narration_and_tool_activity_survive_a_stopped_turn_and_reload(store):
+    sid, user, answer = begin(store)
+    req = AgentChatRequest(session_id=sid, client_turn_id="turn", message="question", finalize_synchronously=True)
+    guard = _TurnTranscriptGuard(req)
+    guard.session_id = sid
+    tool = {
+        "id": "tool",
+        "name": "search_web",
+        "status": "ok",
+        "arguments": {"query": "fed"},
+        "result_preview": '{"rows": 1}',
+        "result_bytes": 11,
+        "as_of": "2026-10-23T13:30:00+00:00",
+        "elapsed_ms": 12.5,
+        "sources": [{"url": "https://example.com/fed", "title": "Fed"}],
+    }
+    guard.observe(_sse("thinking", {"id": "thinking:agent_chat:0:0", "text": "First draft"}))
+    # A retried model call sends its summary again under the same id.
+    guard.observe(_sse("thinking", {"id": "thinking:agent_chat:0:0", "text": "Weighing the book"}))
+    guard.observe(_sse("narration", {"id": "narration:0", "text": "Let me look."}))
+    guard.observe(_sse("tool_result", tool))
+    guard.observe(_sse("delta", {"text": "partial"}))
+    guard.settle()
+
+    message = store.get_session(sid)["transcript"][-1]
+
+    assert message["status"] == "stopped" and message["content"] == "partial"
+    assert message["thinking"] == [{"id": "thinking:agent_chat:0:0", "text": "Weighing the book"}]
+    assert message["narration"] == [{"id": "narration:0", "text": "Let me look."}]
+    assert message["tool_calls"] == [tool]
+    assert message["sources"] == [{"url": "https://example.com/fed", "title": "Fed"}]
+    kinds = [part["type"] for part in message["content_parts"]]
+    assert sorted(set(kinds)) == ["narration", "source", "text", "thinking", "tool_call"]
+
+
+def test_retrying_a_job_turn_clears_the_previous_attempts_activity(store):
+    sid, user, answer = begin(store)
+    store.update_assistant_message(
+        sid,
+        "turn",
+        {"thinking": [{"id": "t", "text": "old"}], "narration": [{"id": "n", "text": "old"}], "async_job_id": "job-1"},
+    )
+
+    assert store.begin_job_turn(sid, "turn", "job-2")
+
+    message = store.get_session(sid)["transcript"][-1]
+    assert message["thinking"] == [] and message["narration"] == []
 
 
 def test_sources_support_provider_annotations_and_dedupe_urls():

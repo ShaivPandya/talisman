@@ -971,6 +971,9 @@ class _TurnTranscriptGuard:
         self.tools: dict[str, dict[str, Any]] = {}
         self.tool_memory: dict[str, dict[str, Any]] = {}
         self.sources: list[dict[str, Any]] = []
+        # Keyed by event id, so a retried model call's summary replaces the one its failed attempt sent.
+        self.thinking: dict[str, str] = {}
+        self.narration: dict[str, str] = {}
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
         from api.memory_manager import finalize_turn, finalize_turn_async
@@ -987,6 +990,8 @@ class _TurnTranscriptGuard:
             "tool_calls": list(self.tools.values()),
             "sources": sources_from({"sources": self.sources}),
             "tool_result_memory": list(self.tool_memory.values()),
+            "thinking": [{"id": key, "text": text} for key, text in self.thinking.items()],
+            "narration": [{"id": key, "text": text} for key, text in self.narration.items()],
         }
 
     def observe(self, frame: str) -> str:
@@ -994,12 +999,25 @@ class _TurnTranscriptGuard:
         if event_type in {"tool_call", "tool_result", "tool_progress"} and "\ndata: " in frame:
             payload = json.loads(frame.split("\ndata: ", 1)[1])
             identity = str(payload.get("id") or payload.get("name") or "")
-            self.tools[identity] = {**self.tools.get(identity, {}), **payload}
             if event_type == "tool_result" and "result" in payload:
                 self.tool_memory[identity] = compact_tool_result(
-                    self.tools[identity], observed_at=datetime.now(UTC).isoformat()
+                    {**self.tools.get(identity, {}), **payload}, observed_at=datetime.now(UTC).isoformat()
                 )
+            if "result" in payload:
+                # The memory above and the trajectory use the whole result. The client and the saved message get a preview.
+                payload = _public_tool_payload(payload)
+                frame = _sse(event_type, payload)
+            self.tools[identity] = {**self.tools.get(identity, {}), **payload}
             self.sources.extend(sources_from(payload))
+            self._save_partial()
+        elif event_type in {"policy_failure", "blocked", "timeout"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            if "result" in payload:
+                frame = _sse(event_type, _public_tool_payload(payload))
+        elif event_type in {"thinking", "narration"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            store = self.thinking if event_type == "thinking" else self.narration
+            store[str(payload.get("id") or len(store))] = str(payload.get("text") or "")
             self._save_partial()
         if frame.startswith(_DELTA_FRAME_PREFIX):
             self._text.append(str(json.loads(frame[len(_DELTA_FRAME_PREFIX) :]).get("text") or ""))
@@ -2622,6 +2640,74 @@ def _tool_result_status(result_str: str) -> str:
     return "error" if _tool_error_message(result_str) else "ok"
 
 
+TOOL_PREVIEW_CHARS = 4_000
+MAX_TOOL_SOURCES = 20
+
+
+def _capped_arguments(arguments: Any) -> dict[str, Any]:
+    """The arguments a client may see: small ones as sent, longer ones cut to ``TOOL_PREVIEW_CHARS`` of JSON text."""
+    text = json.dumps(arguments, default=str)
+    if len(text) <= TOOL_PREVIEW_CHARS:
+        return {"arguments": arguments}
+    return {"arguments": text[:TOOL_PREVIEW_CHARS], "arguments_truncated": True}
+
+
+def _tool_as_of(parsed: Any, meta: dict[str, Any]) -> str:
+    """When the data a tool returned is from: a date as-is, else a UTC timestamp.
+
+    The data's own ``as_of`` wins over the time it was fetched, and a tool that reports neither is as of now.
+    Cache metadata carries naive local timestamps, so those are read as server-local time.
+    """
+    data = parsed if isinstance(parsed, dict) else {}
+    for source, key in ((data, "as_of"), (data, "price_as_of"), (meta, "fetched_at")):
+        value = source.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            return value
+        try:
+            return datetime.fromisoformat(value).astimezone(UTC).isoformat()
+        except ValueError:
+            continue
+    return datetime.now(UTC).isoformat()
+
+
+def _public_tool_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """The copy of a tool event that the client receives and the message saves.
+
+    The generator emits the whole arguments and result, as the trajectory and the tool memory need them. The
+    transcript guard swaps this copy in on the way out: arguments and result capped, plus the as-of time and
+    sources that the activity list shows.
+    """
+    public = {key: value for key, value in payload.items() if key not in {"arguments", "result"}}
+    if "arguments" in payload:
+        public.update(_capped_arguments(payload["arguments"]))
+    if "result" not in payload:
+        return public
+    result = payload["result"]
+    result_str = result if isinstance(result, str) else json.dumps(result, default=str)
+    try:
+        parsed = json.loads(result_str)
+    except ValueError:
+        parsed = None
+    meta = parsed.get("_meta") if isinstance(parsed, dict) else None
+    public.update(
+        result_preview=result_str[:TOOL_PREVIEW_CHARS],
+        result_bytes=len(result_str.encode("utf-8")),
+        as_of=_tool_as_of(parsed, meta if isinstance(meta, dict) else {}),
+    )
+    if len(result_str) > TOOL_PREVIEW_CHARS:
+        public["result_truncated"] = True
+    sources = [
+        {key: source[key] for key in ("url", "title") if isinstance(source.get(key), str)}
+        for source in sources_from(parsed)[:MAX_TOOL_SOURCES]
+    ]
+    if sources:
+        public["sources"] = sources
+    return public
+
+
 def _blocked_tool_result(name: str, exc: Exception, *, status: str = "blocked") -> str:
     payload = blocked_tool_payload(name, exc, status=status)
     return json.dumps(payload, sort_keys=True, default=str)
@@ -3037,6 +3123,7 @@ def _model_stream_kwargs(
             model=resolved_model,
             max_tokens=max_tokens,
             reasoning_effort=reasoning_effort,
+            summarize=True,
         )
         if tool_defs:
             kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
@@ -3063,6 +3150,7 @@ def _model_stream_kwargs(
             model=resolved_model,
             max_tokens=max_tokens,
             reasoning_effort=reasoning_effort,
+            summarize=True,
         )
         config = _dict_value(kwargs.get("config"))
         if tool_defs:
@@ -3102,6 +3190,7 @@ def _model_stream_kwargs(
         model=resolved_model,
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
+        summarize=True,
     )
     if cache_key := _session_prompt_cache_key(session_id):
         kwargs["prompt_cache_key"] = cache_key
@@ -3221,7 +3310,14 @@ def _stream_llm_response(
         text_parts.append(final_text)
         yield _sse("delta", {"text": final_text})
 
+    # Ids are stable across a retried call, so the client replaces a failed attempt's summary rather than adding to it.
+    thinking_scope = f"{(model_timing or {}).get('purpose', 'model')}:{(model_timing or {}).get('round_index', 0)}"
+
+    def thinking_frame(index: object, summary: str) -> str:
+        return _sse("thinking", {"id": f"thinking:{thinking_scope}:{index}", "text": summary})
+
     if provider == PROVIDER_ANTHROPIC:
+        thinking_blocks: dict[int, list[str]] = {}
         with client.messages.stream(**stream_kwargs) as stream:
             for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
@@ -3238,6 +3334,13 @@ def _stream_llm_response(
                             "id": event.content_block.id,
                         },
                     )
+                elif event.type == "content_block_start" and event.content_block.type == "thinking":
+                    thinking_blocks[event.index] = []
+                elif event.type == "content_block_delta" and event.delta.type == "thinking_delta":
+                    thinking_blocks.setdefault(event.index, []).append(event.delta.thinking)
+                elif event.type == "content_block_stop" and getattr(event, "index", None) in thinking_blocks:
+                    if summary := "".join(thinking_blocks.pop(event.index)).strip():
+                        yield thinking_frame(event.index, summary)
             final_message = stream.get_final_message()
             record_usage(final_message)
             yield from emit_final_text_if_missing(final_message)
@@ -3246,10 +3349,22 @@ def _stream_llm_response(
     if provider == PROVIDER_GEMINI:
         gemini_emitted_call_ids: set[str] = set()
         aggregate_parts: list[dict] = []
+        gemini_thoughts: list[str] = []
+        gemini_thinking_blocks = 0
         last_chunk: object | None = None
         for chunk in client.models.generate_content_stream(**stream_kwargs):
             last_chunk = chunk
             for part in _serialize_gemini_response_parts(chunk):
+                if part.get("thought") is True:
+                    # Thought summaries are for the client. They stay out of the history sent back to the model.
+                    if isinstance(part.get("text"), str):
+                        gemini_thoughts.append(part["text"])
+                    continue
+                if gemini_thoughts:
+                    if summary := "".join(gemini_thoughts).strip():
+                        yield thinking_frame(gemini_thinking_blocks, summary)
+                        gemini_thinking_blocks += 1
+                    gemini_thoughts.clear()
                 aggregate_parts.append(part)
                 function_call = part.get("function_call") or part.get("functionCall")
                 if isinstance(function_call, dict):
@@ -3267,14 +3382,14 @@ def _stream_llm_response(
                         gemini_emitted_call_ids.add(call_id)
                         yield _sse("tool_call", {"name": name, "id": call_id})
                     continue
-                if part.get("thought") is True:
-                    continue
                 delta = part.get("text")
                 if isinstance(delta, str) and delta:
                     record_first_token()
                     if text_parts is not None:
                         text_parts.append(delta)
                     yield _sse("delta", {"text": delta})
+        if summary := "".join(gemini_thoughts).strip():
+            yield thinking_frame(gemini_thinking_blocks, summary)
         final_response = _gemini_aggregate_response(aggregate_parts, last_chunk)
         record_usage(final_response)
         yield from emit_final_text_if_missing(final_response)
@@ -3302,10 +3417,16 @@ def _stream_llm_response(
         return final_message
 
     emitted_call_ids: set[str] = set()
+    openai_thinking_blocks = 0
     with client.responses.stream(**stream_kwargs) as stream:
         for event in stream:
             event_type = _obj_value(event, "type")
-            if event_type == "response.output_text.delta":
+            if event_type == "response.reasoning_summary_text.done":
+                reasoning_summary = _obj_value(event, "text")
+                if isinstance(reasoning_summary, str) and reasoning_summary.strip():
+                    yield thinking_frame(openai_thinking_blocks, reasoning_summary.strip())
+                    openai_thinking_blocks += 1
+            elif event_type == "response.output_text.delta":
                 delta = _obj_value(event, "delta", "")
                 if isinstance(delta, str) and delta:
                     record_first_token()
@@ -4212,7 +4333,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             yield _sse(
                 "tool_progress",
-                {"name": call_info["name"], "id": call_info["call_ids"][0], "status": "running"},
+                {
+                    "name": call_info["name"],
+                    "id": call_info["call_ids"][0],
+                    "status": "running",
+                    **_capped_arguments(call_info["args"]),
+                },
             )
             _attach_tool_provenance_context(
                 [call_info],
@@ -4260,6 +4386,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             if err_msg:
                 tool_payload["message"] = err_msg
             tool_payload.update(arguments=call_info.get("args", {}), result=portfolio_result)
+            tool_payload.setdefault("elapsed_ms", round(portfolio_elapsed_ms, 1))
+            tool_payload["cache"] = cache_status
             yield _sse("tool_result", tool_payload)
             if result_status == "blocked":
                 yield _sse("policy_failure", tool_payload)
@@ -4472,7 +4600,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             budgeted_calls.append(call_info)
                             yield _sse(
                                 "tool_progress",
-                                {"name": call_info["name"], "id": call_id, "status": "running"},
+                                {
+                                    "name": call_info["name"],
+                                    "id": call_id,
+                                    "status": "running",
+                                    **_capped_arguments(call_info.get("args") or {}),
+                                },
                             )
                         except AgentBudgetExceeded as exc:
                             result_str = _blocked_tool_result(call_info["name"], exc)
@@ -4540,6 +4673,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             payload["elapsed_ms"] = meta.get("duration_ms")
                         if err_msg:
                             payload["message"] = err_msg
+                        payload.setdefault("elapsed_ms", round(elapsed_ms, 1))
+                        payload["cache"] = cache_status
                         yield _sse("tool_result", payload)
                         if result_status == "blocked":
                             yield _sse("policy_failure", payload)
@@ -5604,10 +5739,6 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             continue
                         raise
 
-                if any(text_parts):
-                    completed_round_texts.append(round_prefix + "".join(text_parts))
-                    round_prefix = ""
-
                 if provider == PROVIDER_ANTHROPIC:
                     assistant_content = _serialize_content_blocks(list(final_message.content))
                     deferred_calls = _extract_tool_calls(assistant_content)
@@ -5623,6 +5754,17 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 guard.sources.extend(sources_from(assistant_content))
                 if final_synthesis_round:
                     deferred_calls = []
+
+                if any(text_parts):
+                    if deferred_calls:
+                        # Text ahead of a tool call is narration ("Let me pull your book"). The client moves it
+                        # from the answer to the activity list, so the answer is what it was before this round.
+                        if narration_text := "".join(text_parts).strip():
+                            yield _sse("narration", {"id": f"narration:{continuation_round}", "text": narration_text})
+                        yield _sse("reset", {"text": leading_text})
+                    else:
+                        completed_round_texts.append(round_prefix + "".join(text_parts))
+                    round_prefix = ""
 
                 if not deferred_calls and _hit_output_token_limit(provider, final_message):
                     if output_continuation_rounds >= MAX_OUTPUT_CONTINUATION_ROUNDS:
@@ -5695,7 +5837,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 for call_id in call_info.get("call_ids", []):
                                     yield _sse(
                                         "tool_progress",
-                                        {"name": call_info["name"], "id": call_id, "status": "running"},
+                                        {
+                                            "name": call_info["name"],
+                                            "id": call_id,
+                                            "status": "running",
+                                            **_capped_arguments(call_info["args"]),
+                                        },
                                     )
                             except AgentBudgetExceeded as exc:
                                 result_str = _blocked_tool_result(call_info["name"], exc)
@@ -5789,6 +5936,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 payload["elapsed_ms"] = meta.get("duration_ms")
                             if err_msg:
                                 payload["message"] = err_msg
+                            payload.setdefault("elapsed_ms", round(elapsed_ms, 1))
+                            payload["cache"] = cache_status
                             yield _sse("tool_result", payload)
                             normal_tool_payloads.append(dict(payload))
                             if result_status == "blocked":

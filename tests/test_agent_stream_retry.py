@@ -99,6 +99,11 @@ class _Turn:
         return [payload for event, payload in self.parsed if event == "reset"]
 
     @property
+    def narration(self) -> list[str]:
+        """What the activity list holds: the text of each tool round, kept out of the answer."""
+        return [payload["text"] for event, payload in self.parsed if event == "narration"]
+
+    @property
     def saved(self) -> dict[str, Any]:
         return _assistant(self.session_id, self.turn_id)
 
@@ -169,7 +174,7 @@ def test_main_loop_retry_without_streamed_text_sends_no_reset(monkeypatch):
     assert turn.resets == []
 
 
-def test_main_loop_retry_in_a_later_round_keeps_earlier_round_text(monkeypatch):
+def test_main_loop_retry_in_a_later_round_keeps_earlier_round_narration(monkeypatch):
     _patch_tool_results(monkeypatch)
     tool_round = SimpleNamespace(
         content=[{"type": "tool_use", "name": "query_ontology", "id": "call-1", "input": {"query": "A"}}],
@@ -190,8 +195,11 @@ def test_main_loop_retry_in_a_later_round_keeps_earlier_round_text(monkeypatch):
 
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
-    _assert_answer_once(turn, "Let me check. \n\nBased on that, fine.")
-    assert turn.resets == [{"text": "Let me check. "}]
+    _assert_answer_once(turn, "Based on that, fine.")
+    assert turn.narration == ["Let me check."]
+    assert turn.saved["narration"] == [{"id": "narration:0", "text": "Let me check."}]
+    # The first reset moves the narration out of the answer. The second undoes the failed attempt's text.
+    assert turn.resets == [{"text": ""}, {"text": ""}]
 
 
 def test_main_loop_error_after_a_retry_saves_the_text_the_client_shows(monkeypatch):

@@ -11,7 +11,22 @@ export interface ToolCall {
   policyDecisionId?: string
   elapsedMs?: number
   arguments?: unknown
+  /** Set when `arguments` was cut to a preview of its JSON text. */
+  argumentsTruncated?: boolean
+  /** Messages saved before result previews hold the whole result here instead. */
   result?: unknown
+  resultPreview?: string
+  resultBytes?: number
+  resultTruncated?: boolean
+  /** A date (YYYY-MM-DD) or an ISO timestamp: when the data the tool returned is from. */
+  asOf?: string
+  cache?: string
+}
+
+/** One narration or thinking-summary entry in a message's activity list. */
+export interface AgentNote {
+  id: string
+  text: string
 }
 
 export interface EgressRecord {
@@ -36,6 +51,10 @@ export interface AgentMessage {
   sources?: Record<string, unknown>[]
   attachments?: Record<string, unknown>[]
   toolCalls?: ToolCall[]
+  /** Text the model wrote ahead of its tool calls. It is not part of the answer. */
+  narration?: AgentNote[]
+  /** Thinking summaries, one per thinking block, when Thinking is on. */
+  thinking?: AgentNote[]
   isStreaming?: boolean
   statusText?: string
   egressRecords?: EgressRecord[]

@@ -1262,7 +1262,9 @@ def apply_reasoning_config(
     model: str,
     max_tokens: int,
     reasoning_effort: str | None,
+    summarize: bool = False,
 ) -> None:
+    """Request reasoning at ``reasoning_effort``. ``summarize`` also asks the provider to return a thinking summary."""
     resolved_provider = _normalize_provider(provider)
     effort = _normalize_reasoning_effort(reasoning_effort, provider=resolved_provider, model=model)
     if effort is None:
@@ -1270,17 +1272,18 @@ def apply_reasoning_config(
 
     if resolved_provider in {PROVIDER_OPENAI, PROVIDER_TALISMAN}:
         if resolved_provider == PROVIDER_OPENAI:
-            kwargs["reasoning"] = {"effort": effort}
+            kwargs["reasoning"] = {"effort": effort, **({"summary": "auto"} if summarize else {})}
         return
 
     if resolved_provider == PROVIDER_GEMINI:
         config = dict(kwargs.get("config") or {})
-        config["thinking_config"] = {"thinking_level": effort}
+        config["thinking_config"] = {"thinking_level": effort, **({"include_thoughts": True} if summarize else {})}
         kwargs["config"] = config
         return
 
+    display = "summarized" if summarize else "omitted"
     if _anthropic_supports_adaptive_thinking(model):
-        kwargs["thinking"] = {"type": "adaptive", "display": "omitted"}
+        kwargs["thinking"] = {"type": "adaptive", "display": display}
         output_config = dict(kwargs.get("output_config") or {})
         output_config["effort"] = effort
         kwargs["output_config"] = output_config
@@ -1289,7 +1292,7 @@ def apply_reasoning_config(
     kwargs["thinking"] = {
         "type": "enabled",
         "budget_tokens": _anthropic_manual_thinking_budget(max_tokens=max_tokens, effort=effort),
-        "display": "omitted",
+        "display": display,
     }
     output_config = dict(kwargs.get("output_config") or {})
     output_config["effort"] = effort

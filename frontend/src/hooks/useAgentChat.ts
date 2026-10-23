@@ -9,6 +9,7 @@ import {
   settleInterruptedMessages,
   type ActiveAgentJob,
   type AgentMessage,
+  type AgentNote,
   type AgentSendOptions,
   type EgressRecord,
   type QueuedAgentMessage,
@@ -31,6 +32,7 @@ export type {
   ActiveAgentJob,
   AgentMessage,
   AgentMessageDelivery,
+  AgentNote,
   AgentSendOptions,
   EgressRecord,
   QueuedAgentMessage,
@@ -80,6 +82,8 @@ interface AgentJobEvent {
     | "delta"
     | "reset"
     | "phase"
+    | "thinking"
+    | "narration"
     | "tool_call"
     | "tool_result"
     | "tool_progress"
@@ -216,10 +220,49 @@ function normalizeToolCalls(value: unknown): ToolCall[] {
       message: typeof rec.message === "string" ? rec.message : undefined,
       policyDecisionId: typeof rec.policy_decision_id === "string" ? rec.policy_decision_id : undefined,
       elapsedMs: typeof rec.elapsed_ms === "number" ? rec.elapsed_ms : undefined,
-      arguments: rec.arguments,
       result: rec.result,
+      // Later events (a block, a timeout) may not repeat these, and merging must not blank them.
+      ...("arguments" in rec ? { arguments: rec.arguments } : {}),
+      ...(rec.arguments_truncated === true ? { argumentsTruncated: true } : {}),
+      ...(typeof rec.result_preview === "string" ? { resultPreview: rec.result_preview } : {}),
+      ...(typeof rec.result_bytes === "number" ? { resultBytes: rec.result_bytes } : {}),
+      ...(rec.result_truncated === true ? { resultTruncated: true } : {}),
+      ...(typeof rec.as_of === "string" ? { asOf: rec.as_of } : {}),
+      ...(typeof rec.cache === "string" ? { cache: rec.cache } : {}),
     }]
   })
+}
+
+function normalizeNotes(value: unknown): AgentNote[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item, index): AgentNote[] => {
+    if (!item || typeof item !== "object") return []
+    const rec = item as Record<string, unknown>
+    if (typeof rec.text !== "string" || !rec.text) return []
+    return [{ id: typeof rec.id === "string" ? rec.id : String(index), text: rec.text }]
+  })
+}
+
+/** Replaces the note with the same id, so a retried model call's summary doesn't appear twice. */
+function upsertNote(existing: AgentNote[] | undefined, note: AgentNote): AgentNote[] {
+  const notes = existing ?? []
+  return notes.some(item => item.id === note.id)
+    ? notes.map(item => (item.id === note.id ? note : item))
+    : [...notes, note]
+}
+
+function mergeSources(
+  existing: Record<string, unknown>[] | undefined,
+  incoming: unknown,
+): Record<string, unknown>[] | undefined {
+  if (!Array.isArray(incoming) || !incoming.length) return existing
+  const byUrl = new Map<string, Record<string, unknown>>()
+  for (const source of [...(existing ?? []), ...incoming]) {
+    if (!source || typeof source !== "object") continue
+    const url = (source as Record<string, unknown>).url
+    if (typeof url === "string") byUrl.set(url, { ...byUrl.get(url), ...(source as Record<string, unknown>) })
+  }
+  return [...byUrl.values()]
 }
 
 function mergeToolCalls(existing: ToolCall[] | undefined, incoming: ToolCall[]): ToolCall[] {
@@ -450,6 +493,8 @@ export async function fetchSession(sessionId: string): Promise<{
         ? extractAgentTraceSnapshot(m.trace_snapshot as Record<string, unknown>)
         : m.traceSnapshot as AgentMessage["traceSnapshot"],
       toolCalls: normalizeToolCalls(m.toolCalls ?? m.tool_calls),
+      narration: normalizeNotes(m.narration),
+      thinking: normalizeNotes(m.thinking),
       isStreaming: Boolean(m.is_streaming ?? m.isStreaming ?? m.status === "streaming"),
       statusText: typeof m.status_text === "string"
         ? m.status_text
@@ -782,6 +827,22 @@ export function useAgentChat() {
             }
             break
           }
+          case "thinking":
+          case "narration": {
+            const text = typeof data.text === "string" ? data.text : ""
+            if (!text) break
+            const note = { id: typeof data.id === "string" ? data.id : `${event.event_type}:${event.seq}`, text }
+            next = {
+              ...next,
+              messages: next.messages.map(m => {
+                if (m.id !== assistantId) return m
+                return event.event_type === "thinking"
+                  ? { ...m, thinking: upsertNote(m.thinking, note) }
+                  : { ...m, narration: upsertNote(m.narration, note) }
+              }),
+            }
+            break
+          }
           case "tool_call":
             next = {
               ...next,
@@ -832,7 +893,12 @@ export function useAgentChat() {
               ...next,
               messages: next.messages.map(m =>
                 m.id === assistantId
-                  ? { ...m, statusText: undefined, toolCalls: mergeToolCalls(m.toolCalls, normalizeToolCalls([data])) }
+                  ? {
+                      ...m,
+                      statusText: undefined,
+                      toolCalls: mergeToolCalls(m.toolCalls, normalizeToolCalls([data])),
+                      sources: mergeSources(m.sources, data.sources),
+                    }
                   : m,
               ),
             }
@@ -887,6 +953,8 @@ export function useAgentChat() {
                       toolCalls: mergeToolCalls(m.toolCalls, toolCallsFromDonePayload(data)),
                       traceSnapshot: extractAgentTraceSnapshot(data),
                       sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
+                      narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
+                      thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
                       messageStatus: "complete",
                       isStreaming: false,
                       statusText: undefined,

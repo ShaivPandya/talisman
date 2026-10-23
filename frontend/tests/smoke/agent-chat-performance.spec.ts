@@ -234,7 +234,7 @@ test("checkpoints transient events and saves tool, completion and error state", 
   // storage holds them by the time the UI shows them. A save left to the
   // checkpoint would lag the UI, so read once instead of polling.
   await pushEvent(page, "tool_call", { name: "get_portfolio", id: "checkpoint-tool" })
-  await expect(page.getByRole("dialog").getByTitle(/^Portfolio: /)).toBeVisible()
+  await expect(page.getByRole("dialog").locator("summary", { hasText: "Activity" })).toContainText("Portfolio")
   expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")
     return saved.messages?.at(-1)?.toolCalls?.[0]?.id

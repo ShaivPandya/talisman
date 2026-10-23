@@ -397,7 +397,7 @@ def _with_valid_parent(conn: Any, session_id: str, message: dict[str, Any]) -> d
 def _patch_row(conn: Any, row: Any, patch: dict[str, Any]) -> None:
     message = {**record_message(row), **patch}
     if "content_parts" in patch:
-        for key in ("content", "tool_calls", "toolCalls", "sources", "attachments"):
+        for key in ("content", "tool_calls", "toolCalls", "sources", "attachments", "thinking", "narration"):
             if key not in patch:
                 message.pop(key, None)
     # Identity and ancestry never change during streaming/finalization.
@@ -496,7 +496,9 @@ def begin_job_turn(session_id: str, client_turn_id: str | None, job_id: str) -> 
             return True
         patch: dict[str, Any] = {"async_job_id": job_id}
         if previous or row["status"] != "streaming":
-            patch.update(content="", is_streaming=True, status="streaming", tool_calls=[], sources=[])
+            patch.update(
+                content="", is_streaming=True, status="streaming", tool_calls=[], sources=[], thinking=[], narration=[]
+            )
         _patch_row(conn, row, patch)
         conn.commit()
         return True

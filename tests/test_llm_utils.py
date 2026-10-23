@@ -913,3 +913,46 @@ def test_default_openai_calls_do_not_add_a_cache_key(monkeypatch):
     )
     llm_utils.call_llm_text(prompt="hello", model=llm_utils.MODEL_MID, provider="openai")
     assert "prompt_cache_key" not in calls[0]
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "summarized", "plain"),
+    [
+        (
+            "anthropic",
+            "claude-opus-5-5",
+            {"thinking": {"type": "adaptive", "display": "summarized"}},
+            {"thinking": {"type": "adaptive", "display": "omitted"}},
+        ),
+        (
+            "anthropic",
+            "claude-sonnet-4-5",
+            {"thinking": {"type": "enabled", "budget_tokens": 4096, "display": "summarized"}},
+            {"thinking": {"type": "enabled", "budget_tokens": 4096, "display": "omitted"}},
+        ),
+        (
+            "openai",
+            "gpt-5.4",
+            {"reasoning": {"effort": "medium", "summary": "auto"}},
+            {"reasoning": {"effort": "medium"}},
+        ),
+        (
+            "gemini",
+            "gemini-4-argon",
+            {"config": {"thinking_config": {"thinking_level": "medium", "include_thoughts": True}}},
+            {"config": {"thinking_config": {"thinking_level": "medium"}}},
+        ),
+    ],
+)
+def test_reasoning_config_asks_for_a_thinking_summary_only_when_told_to(provider, model, summarized, plain):
+    for summarize, expected in ((True, summarized), (False, plain)):
+        kwargs: dict = {}
+        llm_utils.apply_reasoning_config(
+            kwargs,
+            provider=provider,
+            model=model,
+            max_tokens=8192,
+            reasoning_effort="medium",
+            summarize=summarize,
+        )
+        assert {key: kwargs[key] for key in expected} == expected

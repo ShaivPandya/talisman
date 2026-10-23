@@ -1,4 +1,4 @@
-"""Tool-round narration stays separated from the answer, live and in history (TL-222)."""
+"""Tool-round narration goes to the activity list, so the answer is the final round, live and in history (TL-222, TL-227)."""
 
 import json
 from types import SimpleNamespace
@@ -100,7 +100,7 @@ def _install_rounds(monkeypatch, provider, narrations, *, final_deltas=True):
     [[], ["Let me pull your book."], [""], ["Let me pull your book.", "", "I found the positions."]],
     ids=["single-round", "narration", "silent-tool", "multiple-tools-with-silent-round"],
 )
-def test_tool_round_paragraphs_match_saved_history(monkeypatch, provider, narrations):
+def test_tool_round_text_is_narration_and_the_answer_is_the_final_round(monkeypatch, provider, narrations):
     client = _install_rounds(monkeypatch, provider, narrations)
     model_outputs = []
     monkeypatch.setattr(
@@ -111,11 +111,13 @@ def test_tool_round_paragraphs_match_saved_history(monkeypatch, provider, narrat
 
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
-    expected = "\n\n".join(text for text in [*narrations, ANSWER] if text)
+    spoken = [text for text in narrations if text]
     assert turn.error is None
     assert not any(event == "error" for event, _payload in turn.parsed)
-    assert turn.shown == expected
-    assert turn.saved["content"] == expected
+    assert turn.shown == ANSWER
+    assert turn.narration == spoken
+    assert turn.saved["content"] == ANSWER
+    assert [item["text"] for item in turn.saved["narration"]] == spoken
     assert turn.saved["status"] == "complete"
     assert model_outputs == [*narrations, ANSWER]
     api = {"anthropic": "messages", "openai": "responses", "gemini": "models"}[provider]
@@ -129,8 +131,9 @@ def test_final_message_without_deltas_is_not_hidden_by_prior_narration(monkeypat
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
     assert turn.error is None
-    assert turn.shown == f"Let me pull your book.\n\n{ANSWER}"
-    assert turn.saved["content"] == turn.shown
+    assert turn.shown == ANSWER
+    assert turn.narration == ["Let me pull your book."]
+    assert turn.saved["content"] == ANSWER
 
 
 def test_pause_turn_text_is_separated_from_the_next_round(monkeypatch):
@@ -149,6 +152,7 @@ def test_pause_turn_text_is_separated_from_the_next_round(monkeypatch):
 
 @pytest.mark.parametrize("first_text", ["Your book has ", ""])
 def test_output_continuation_keeps_the_answer_in_one_paragraph(monkeypatch, first_text):
+    """Text cut off at the output limit continues the answer. Only text ahead of a tool call is narration."""
     client = _install_rounds(monkeypatch, "anthropic", ["Let me check."])
     partial = _final_message(first_text)
     partial.stop_reason = "max_tokens"
@@ -159,12 +163,13 @@ def test_output_continuation_keeps_the_answer_in_one_paragraph(monkeypatch, firs
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
     assert turn.error is None
-    assert turn.shown == f"Let me check.\n\n{ANSWER}"
-    assert turn.saved["content"] == turn.shown
+    assert turn.shown == ANSWER
+    assert turn.narration == ["Let me check."]
+    assert turn.saved["content"] == ANSWER
     assert client.messages.calls == 3
 
 
-def test_later_round_provider_fallback_keeps_the_paragraph_boundary(monkeypatch):
+def test_later_round_provider_fallback_keeps_the_narration(monkeypatch):
     client = _install_rounds(monkeypatch, "anthropic", ["Let me check."])
     client.messages._streams[1] = (_fails_after(["Your book "], RuntimeError("endpoint exploded")), FAILED)
     fallback_client = _FakeClient([([_event_text_delta(ANSWER)], _final_message(ANSWER))])
@@ -180,13 +185,14 @@ def test_later_round_provider_fallback_keeps_the_paragraph_boundary(monkeypatch)
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
     assert turn.error is None
-    assert turn.resets == [{"text": "Let me check."}]
-    assert turn.shown == f"Let me check.\n\n{ANSWER}"
-    assert turn.saved["content"] == turn.shown
+    assert turn.resets[-1] == {"text": ""}
+    assert turn.shown == ANSWER
+    assert turn.narration == ["Let me check."]
+    assert turn.saved["content"] == ANSWER
 
 
 @pytest.mark.parametrize("ending", ["disconnect", "error"])
-def test_interrupted_later_round_keeps_separated_partial_text(monkeypatch, ending):
+def test_interrupted_later_round_keeps_the_narration_and_partial_answer(monkeypatch, ending):
     client = _install_rounds(monkeypatch, "anthropic", ["Let me check."])
     client.messages._streams[1] = (_fails_after(["Your book has "], RuntimeError("connection lost")), FAILED)
     session_id, turn_id = _new_turn()
@@ -201,11 +207,14 @@ def test_interrupted_later_round_keeps_separated_partial_text(monkeypatch, endin
         for event, payload in _parse_sse(frame):
             if event == "delta":
                 shown += payload["text"]
+            elif event == "reset":
+                shown = payload["text"]
         if ending == "disconnect" and "Your book has " in shown:
             gen.close()
             break
 
     assistant = _assistant(session_id, turn_id)
-    assert shown == "Let me check.\n\nYour book has "
+    assert shown == "Your book has "
     assert assistant["content"] == shown
+    assert assistant["narration"] == [{"id": "narration:0", "text": "Let me check."}]
     assert assistant["status"] == ("stopped" if ending == "disconnect" else "failed")

@@ -558,7 +558,7 @@ def test_agent_gemini_v2_conversation_conversion_and_kwargs():
     assert kwargs["contents"] == conversation
     assert kwargs["config"]["max_output_tokens"] == 123
     assert kwargs["config"]["system_instruction"] == "instructions"
-    assert kwargs["config"]["thinking_config"] == {"thinking_level": "high"}
+    assert kwargs["config"]["thinking_config"] == {"thinking_level": "high", "include_thoughts": True}
     assert kwargs["config"]["tool_config"]["function_calling_config"]["mode"] == "ANY"
 
 
@@ -612,9 +612,9 @@ def test_agent_stream_openai_thinking_keeps_required_tool_choice(auth_client, mo
     )
 
     assert resp.status_code == 200
-    assert fake_client.responses.kwargs_history[0]["reasoning"] == {"effort": "xhigh"}
+    assert fake_client.responses.kwargs_history[0]["reasoning"] == {"effort": "xhigh", "summary": "auto"}
     assert fake_client.responses.kwargs_history[0]["tool_choice"] == "required"
-    assert fake_client.responses.kwargs_history[1]["reasoning"] == {"effort": "xhigh"}
+    assert fake_client.responses.kwargs_history[1]["reasoning"] == {"effort": "xhigh", "summary": "auto"}
 
 
 def test_agent_stream_anthropic_thinking_relaxes_forced_tool_choice(auth_client, monkeypatch):
@@ -643,7 +643,7 @@ def test_agent_stream_anthropic_thinking_relaxes_forced_tool_choice(auth_client,
     )
 
     assert resp.status_code == 200
-    assert fake_client.messages.kwargs_history[0]["thinking"] == {"type": "adaptive", "display": "omitted"}
+    assert fake_client.messages.kwargs_history[0]["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert fake_client.messages.kwargs_history[0]["output_config"] == {"effort": "high"}
     assert "tool_choice" not in fake_client.messages.kwargs_history[0]
     assert fake_client.messages.kwargs_history[0]["tools"]
