@@ -1861,7 +1861,7 @@ def _build_decision_quality_chat_synthesis_prompt(
         "If tool_data_quality or data_quality shows stale, blocked, missing, or unconfirmed price sources, "
         "surface those as missing inputs or blockers instead of burying them in prose.\n\n"
         f"User request:\n{user_text.strip()}\n\n"
-        f"Context bundle:\n{_json_for_prompt(context_bundle)}\n\n"
+        f"Context bundle:\n{_json_for_prompt({k: v for k, v in context_bundle.items() if k != 'recent_conversation'})}\n\n"
         f"DecisionQuality:\n{_json_for_prompt(dq_payload)}\n\n"
         f"Gate:\n{_json_for_prompt(gate_payload)}\n\n"
         f"Parse errors, if any:\n{_json_for_prompt(dq_result.get('parse_errors') or [])}"
@@ -1989,11 +1989,52 @@ def _build_opportunity_candidate_synthesis_prompt(
         "The gate result is binding for the final triage stance: if final_action is watch, research, avoid, "
         "or do_nothing, the answer must not sound like a confident buy/add/short recommendation.\n\n"
         f"User request:\n{user_text.strip()}\n\n"
-        f"Context bundle:\n{_json_for_prompt(context_bundle)}\n\n"
+        f"Context bundle:\n{_json_for_prompt({k: v for k, v in context_bundle.items() if k != 'recent_conversation'})}\n\n"
         f"OpportunityCandidate:\n{_json_for_prompt(candidate_payload)}\n\n"
         f"Gate:\n{_json_for_prompt(gate_payload)}\n\n"
         f"Parse errors, if any:\n{_json_for_prompt(oc_result.get('parse_errors') or [])}"
     )
+
+
+def _decision_quality_chat_verdict(
+    *,
+    oc_result: dict[str, Any] | None = None,
+    dq_result: dict[str, Any] | None = None,
+    review_pending: bool = False,
+) -> str:
+    """Expose a compact, gated assessment before waiting for another model call."""
+    if dq_result is not None:
+        assessment = dq_result.get("decision_quality")
+        gate = dq_result.get("gate")
+        if not isinstance(assessment, DecisionQuality) or not isinstance(gate, DecisionQualityGate):
+            return "Initial verdict: research. The assessment could not be validated.\n\n"
+        missing = assessment.actionability.missing_inputs + assessment.price_action_read.data_needed
+    else:
+        result = oc_result or {}
+        assessment = result.get("opportunity_candidate")
+        gate = result.get("gate")
+        if not isinstance(assessment, OpportunityCandidate) or not isinstance(gate, OpportunityCandidateGate):
+            return "Initial verdict: research. The assessment could not be validated.\n\n"
+        context_pack = result.get("context_pack") or {}
+        missing = assessment.missing_inputs + list(context_pack.get("missing_inputs") or [])
+
+    if gate.status == "invalid":
+        return "Initial verdict: research. The assessment could not be validated.\n\n"
+    action = gate.final_action.replace("_", " ")
+    if isinstance(assessment, OpportunityCandidate) and gate.final_action == "graduate_to_decision_quality":
+        action = (
+            "worth a full pressure-test; trading decision pending" if review_pending else "needs a full pressure-test"
+        )
+    lines = [f"Initial verdict: {action}."]
+    # Gate reasons are authoritative; raw summaries can still advocate the action
+    # that was downgraded. Do not expose those summaries in the early card.
+    reasons = [reason.message for reason in gate.reasons if reason.severity in {"blocker", "warning"}]
+    if reasons:
+        lines.append(" ".join(reasons[:2]))
+    missing = list(dict.fromkeys(str(item).strip() for item in missing if str(item).strip()))
+    if missing:
+        lines.append("Missing inputs: " + "; ".join(missing[:3]) + ".")
+    return "\n".join(lines) + "\n\n"
 
 
 def _opportunity_candidate_done_meta(oc_result: dict[str, Any] | None) -> dict[str, Any]:
@@ -4196,6 +4237,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             oc_result: dict[str, Any] | None = None
             dq_result: dict[str, Any] | None = None
             final_message: object | None = None
+            verdict_chunks: list[str] = []
+            synthesis_chunks: list[str] = []
             try:
                 if dq_tool_calls:
                     yield _phase_sse(
@@ -4378,6 +4421,15 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     )
                 )
 
+                if oc_result is not None:
+                    verdict = _decision_quality_chat_verdict(
+                        oc_result=oc_result,
+                        review_pending=should_run_full_dq,
+                    )
+                    verdict_chunks.append(verdict)
+                    timings["first_token_ms"] = _elapsed_ms(turn_started)
+                    yield _sse("delta", {"text": verdict})
+
                 if should_run_full_dq:
                     for attempt in range(MAX_API_RETRIES):
                         model_timing = {
@@ -4434,7 +4486,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 continue
                             raise
 
-                synthesis_chunks: list[str] = []
+                if not verdict_chunks:
+                    verdict = _decision_quality_chat_verdict(dq_result=dq_result)
+                    verdict_chunks.append(verdict)
+                    timings["first_token_ms"] = _elapsed_ms(turn_started)
+                    yield _sse("delta", {"text": verdict})
+
                 if should_run_full_dq:
                     for attempt in range(MAX_API_RETRIES):
                         model_timing = {
@@ -4459,7 +4516,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 + "\n\n---\n\n"
                                 + _load_required_prompt_file("decision_quality_chat_synthesis.md")
                             )
-                            synthesis_conversation = _user_prompt_for_provider(
+                            synthesis_conversation = conversation + _user_prompt_for_provider(
                                 provider,
                                 _build_decision_quality_chat_synthesis_prompt(
                                     user_text=req.message,
@@ -4580,7 +4637,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 + "\n\n---\n\n"
                                 + _load_required_prompt_file("opportunity_candidate_synthesis.md")
                             )
-                            synthesis_conversation = _user_prompt_for_provider(
+                            synthesis_conversation = conversation + _user_prompt_for_provider(
                                 provider,
                                 _build_opportunity_candidate_synthesis_prompt(
                                     user_text=req.message,
@@ -4692,6 +4749,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         synthesis_text = _opportunity_candidate_fallback(oc_result or {})
                     yield _sse("delta", {"text": synthesis_text})
 
+                synthesis_text = "".join(verdict_chunks) + synthesis_text
                 usage = _usage_dict(final_message)
                 done_payload_data: dict[str, Any] = {
                     "usage": usage,
@@ -4795,7 +4853,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     final_disposition="failed",
                     messages=[
                         {"role": "user", "content": req.message, "timestamp": time.time()},
-                        {"role": "assistant", "content": _format_stream_error(exc), "timestamp": time.time()},
+                        {
+                            "role": "assistant",
+                            "content": "".join(verdict_chunks + synthesis_chunks) or _format_stream_error(exc),
+                            "timestamp": time.time(),
+                        },
                     ],
                     usage={},
                     provider=provider,
