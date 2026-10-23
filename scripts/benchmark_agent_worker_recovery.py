@@ -36,12 +36,7 @@ def baseline_module(ref: str, path: str) -> ModuleType:
 
 @contextmanager
 def disposable_agent_database(dsn: str) -> Iterator[str]:
-    import psycopg
-
     with disposable_job_database(dsn) as isolated:
-        with psycopg.connect(isolated) as conn:
-            conn.execute("""ALTER TABLE conversation_sessions ADD COLUMN title text,
-                         ADD COLUMN title_source text, ADD COLUMN title_updated_at text""")
         yield isolated
 
 

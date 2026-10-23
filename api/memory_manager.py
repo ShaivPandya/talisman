@@ -171,20 +171,27 @@ def begin_turn_async(
     t.start()
 
 
-def save_partial_turn(session_id: str, client_turn_id: str | None, content: str) -> None:
+def save_partial_turn(
+    session_id: str, client_turn_id: str | None, content: str, *, metadata: dict[str, Any] | None = None
+) -> None:
     """Save the text streamed so far. Applies only while the turn is still streaming."""
     if not client_turn_id:
         return
     try:
-        memory_db.update_assistant_message(session_id, client_turn_id, {"content": content}, only_streaming=True)
+        memory_db.update_assistant_message(
+            session_id, client_turn_id, {**(metadata or {}), "content": content}, only_streaming=True
+        )
     except Exception:
         logger.debug("Failed to save partial turn for session %s", session_id, exc_info=True)
 
 
-def save_partial_turn_async(session_id: str, client_turn_id: str | None, content: str) -> None:
+def save_partial_turn_async(
+    session_id: str, client_turn_id: str | None, content: str, *, metadata: dict[str, Any] | None = None
+) -> None:
     t = threading.Thread(
         target=copy_context().run,
         args=(save_partial_turn, session_id, client_turn_id, content),
+        kwargs={"metadata": metadata},
         daemon=True,
     )
     t.start()
@@ -239,12 +246,13 @@ def fail_turn(
     *,
     status: str = "stopped",
     content: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     """End a still-streaming turn as ``stopped`` or ``failed``. A finished turn is left alone."""
     if not client_turn_id:
         return
     try:
-        memory_db.fail_turn(session_id, client_turn_id, status=status, content=content)
+        memory_db.fail_turn(session_id, client_turn_id, status=status, content=content, metadata=metadata)
     except Exception:
         logger.debug("Failed to mark turn failed for session %s", session_id, exc_info=True)
 
@@ -255,11 +263,12 @@ def fail_turn_async(
     *,
     status: str = "stopped",
     content: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> None:
     t = threading.Thread(
         target=fail_turn,
         args=(session_id, client_turn_id),
-        kwargs={"status": status, "content": content},
+        kwargs={"status": status, "content": content, "metadata": metadata},
         daemon=True,
     )
     t.start()

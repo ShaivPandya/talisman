@@ -54,6 +54,7 @@ from api.agent_models import (
     ScreenContextModel,
 )
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
+from api.conversation_messages import sources_from
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
 from api.job_queue import cancel_job, get_job
@@ -831,8 +832,20 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
     turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
-    user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
-    assistant_msg = {"role": "assistant", "content": text, "timestamp": time.time(), **turn_meta}
+    user_msg = {
+        "id": req.user_message_id,
+        "role": "user",
+        "content": req.message,
+        "timestamp": time.time(),
+        **turn_meta,
+    }
+    assistant_msg = {
+        "id": req.assistant_message_id,
+        "role": "assistant",
+        "content": text,
+        "timestamp": time.time(),
+        **turn_meta,
+    }
     finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
 
     yield _sse_ping()
@@ -862,7 +875,13 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
         _sse(
             "done",
             _done_payload(
-                {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
+                {
+                    "usage": {},
+                    "session_id": session_id,
+                    "user_message_id": req.user_message_id,
+                    "assistant_message_id": req.assistant_message_id,
+                    **_domain_done_meta(classification),
+                },
                 timings,
                 turn_started,
             ),
@@ -876,7 +895,13 @@ def _agent_chat_job_cache_key(req: AgentChatJobRequest) -> str:
     if req.client_turn_id:
         return f"agent_chat_turn:{session_id}:{req.client_turn_id}"
     payload = req.model_dump(
-        exclude={"actor", "finalize_synchronously", "allow_workflow_handoff"},
+        exclude={
+            "actor",
+            "finalize_synchronously",
+            "allow_workflow_handoff",
+            "user_message_id",
+            "assistant_message_id",
+        },
         exclude_none=True,
     )
     stable = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
@@ -917,15 +942,32 @@ class _TurnTranscriptGuard:
         self.errored = False
         self._text: list[str] = []
         self._last_partial_save = time.monotonic()
+        self.tools: dict[str, dict[str, Any]] = {}
+        self.sources: list[dict[str, Any]] = []
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
         from api.memory_manager import finalize_turn, finalize_turn_async
 
         self.finalized = True
         finalize_fn = finalize_turn if self.req.finalize_synchronously else finalize_turn_async
+        user_msg = {**user_msg, "id": self.req.user_message_id}
+        if self.req.parent_message_id:
+            user_msg["parent_id"] = self.req.parent_message_id
+        assistant_msg = {**assistant_msg, **self.metadata(), "id": self.req.assistant_message_id}
+        assistant_msg["toolCalls"] = assistant_msg["tool_calls"]
         finalize_fn(session_id, user_msg, assistant_msg)
 
-    def observe(self, frame: str) -> None:
+    def metadata(self) -> dict[str, Any]:
+        return {"tool_calls": list(self.tools.values()), "sources": sources_from({"sources": self.sources})}
+
+    def observe(self, frame: str) -> str:
+        event_type = frame.split("\n", 1)[0].removeprefix("event: ")
+        if event_type in {"tool_call", "tool_result", "tool_progress"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            identity = str(payload.get("id") or payload.get("name") or "")
+            self.tools[identity] = {**self.tools.get(identity, {}), **payload}
+            self.sources.extend(sources_from(payload))
+            self._save_partial()
         if frame.startswith(_DELTA_FRAME_PREFIX):
             self._text.append(str(json.loads(frame[len(_DELTA_FRAME_PREFIX) :]).get("text") or ""))
             self._save_partial()
@@ -936,6 +978,28 @@ class _TurnTranscriptGuard:
             self.errored = True
         elif frame.startswith(_DONE_FRAME_PREFIX):
             self.settle()
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            payload.update(
+                **self.metadata(),
+                user_message_id=self.req.user_message_id,
+                assistant_message_id=self.req.assistant_message_id,
+            )
+            if self.session_id and self.req.client_turn_id:
+                from api.memory_db import update_assistant_message
+
+                trace = {
+                    key: payload[key]
+                    for key in (
+                        "decision_quality_chat",
+                        "scout_skeptic_sizer_gate",
+                        "opportunity_candidate_preflight",
+                    )
+                    if key in payload
+                }
+                if trace:
+                    update_assistant_message(self.session_id, self.req.client_turn_id, {"trace_snapshot": trace})
+            frame = _sse("done", payload)
+        return frame
 
     def settle(self, *, failed: bool = False) -> None:
         """End a turn that never finalized, keeping the text the client already has."""
@@ -952,6 +1016,7 @@ class _TurnTranscriptGuard:
             self.req.client_turn_id,
             status="failed" if failed or self.errored else "stopped",
             content="".join(self._text),
+            metadata=self.metadata(),
         )
 
     def _save_partial(self) -> None:
@@ -964,7 +1029,7 @@ class _TurnTranscriptGuard:
         from api.memory_manager import save_partial_turn, save_partial_turn_async
 
         save_fn = save_partial_turn if self.req.finalize_synchronously else save_partial_turn_async
-        save_fn(self.session_id, self.req.client_turn_id, "".join(self._text))
+        save_fn(self.session_id, self.req.client_turn_id, "".join(self._text), metadata=self.metadata())
 
 
 def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
@@ -981,15 +1046,26 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         return
     from api.memory_manager import begin_turn, begin_turn_async
 
-    if session is not None and any(
-        isinstance(msg, dict) and str(msg.get("client_turn_id")) == req.client_turn_id
-        for msg in session.get("server_messages") or []
-    ):
-        return
+    if session is not None:
+        existing = [
+            m
+            for m in session.get("server_messages") or []
+            if isinstance(m, dict) and str(m.get("client_turn_id")) == req.client_turn_id
+        ]
+        if existing:
+            for message in existing:
+                if message.get("id") and message.get("role") == "user":
+                    req.user_message_id = message["id"]
+                elif message.get("id") and message.get("role") == "assistant":
+                    req.assistant_message_id = message["id"]
+            return
 
     meta = _agent_turn_meta(req)
-    user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
+    user_msg = {"id": req.user_message_id, "role": "user", "content": req.message, "timestamp": time.time(), **meta}
+    if req.parent_message_id:
+        user_msg["parent_id"] = req.parent_message_id
     assistant_msg = {
+        "id": req.assistant_message_id,
         "role": "assistant",
         "content": "",
         "timestamp": time.time(),
@@ -1042,7 +1118,7 @@ def _enqueue_agent_chat_turn(
 
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
-    _agent_turn_begin(req, session_id)
+    _agent_turn_begin(req, session_id, session)
     job_req = AgentChatJobRequest.model_validate(
         {
             **req.model_dump(exclude={"session_id"}),
@@ -1074,6 +1150,8 @@ def _enqueue_agent_chat_turn(
         events = list_job_events(job_id, after_seq=0)
     payload = _agent_async_payload(get_job(job_id) or current_row, events=events)
     payload["disposition"] = disposition
+    for key in ("user_message_id", "assistant_message_id"):
+        payload[key] = (current_row.get("payload_json") or {}).get(key) or getattr(req, key)
     return payload, disposition
 
 
@@ -3892,8 +3970,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         turn = generate_turn(guard)
         try:
             for frame in turn:
-                guard.observe(frame)
-                yield frame
+                yield guard.observe(frame)
         except Exception:
             guard.settle(failed=True)
             raise
@@ -4089,6 +4166,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 tool_payload["elapsed_ms"] = meta.get("duration_ms")
             if err_msg:
                 tool_payload["message"] = err_msg
+            tool_payload.update(arguments=call_info.get("args", {}), result=portfolio_result)
             yield _sse("tool_result", tool_payload)
             if result_status == "blocked":
                 yield _sse("policy_failure", tool_payload)
@@ -4355,7 +4433,13 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             cache_status,
                             result_status,
                         )
-                        payload = {"name": call_info["name"], "id": call_id, "status": result_status}
+                        payload = {
+                            "name": call_info["name"],
+                            "id": call_id,
+                            "status": result_status,
+                            "arguments": call_info.get("args", {}),
+                            "result": result_str,
+                        }
                         if meta.get("policy_decision_id"):
                             payload["policy_decision_id"] = meta.get("policy_decision_id")
                         if meta.get("duration_ms") is not None:
@@ -4983,7 +5067,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         }
                     )
                     yield _sse("tool_call", {"name": section["tool"], "id": section["tool"]})
-                    yield _sse("tool_result", {"name": section["tool"], "id": section["tool"], "status": "ok"})
+                    yield _sse(
+                        "tool_result",
+                        {
+                            "name": section["tool"],
+                            "id": section["tool"],
+                            "status": "ok",
+                            "result": section.get("data", section.get("result")),
+                            "arguments": section.get("args", {}),
+                        },
+                    )
 
                 synthesis_chunks: list[str] = []
                 for attempt in range(MAX_API_RETRIES):
@@ -5419,6 +5512,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 else:
                     assistant_content = _serialize_output_items(final_message)
                     deferred_calls = _extract_openai_tool_calls(assistant_content)
+                guard.sources.extend(sources_from(assistant_content))
                 if final_synthesis_round:
                     deferred_calls = []
 
@@ -5578,6 +5672,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 "name": call_info["name"],
                                 "id": call_id,
                                 "status": result_status,
+                                "arguments": call_info.get("args", {}),
+                                "result": result_str,
                             }
                             if meta.get("policy_decision_id"):
                                 payload["policy_decision_id"] = meta.get("policy_decision_id")

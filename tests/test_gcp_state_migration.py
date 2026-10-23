@@ -1,9 +1,50 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
 from api.gcp_state_migration import SOURCE_DBS, StateMigrator, _normalize_pending_approval_rows, snapshot_sqlite_db
+
+
+def test_memory_import_normalizes_legacy_messages_without_blob_columns(tmp_path):
+    db = tmp_path / SOURCE_DBS["memory"]
+    db.parent.mkdir(parents=True)
+    messages = [
+        {"role": "user", "content": "Question"},
+        {
+            "role": "assistant",
+            "content": "Answer",
+            "toolCalls": [{"id": "search", "name": "search"}],
+            "sources": [{"url": "https://example.com"}],
+        },
+    ]
+    with sqlite3.connect(db) as conn:
+        conn.execute(
+            "CREATE TABLE conversation_sessions (session_id TEXT, started_at TEXT, message_count INTEGER, transcript TEXT, server_messages TEXT)"
+        )
+        conn.execute("INSERT INTO conversation_sessions VALUES ('legacy', 'old', 2, '[]', ?)", (json.dumps(messages),))
+
+    class MemoryMigrator(StateMigrator):
+        def __init__(self):
+            super().__init__(snapshot_root=tmp_path, run_id="test")
+            self.upserts = []
+
+        def _source_completed(self, *_args):
+            return False
+
+        def _upsert_rows(self, table, columns, conflict, rows):
+            self.upserts.append((table, columns, list(rows)))
+
+        def _record_source(self, *_args):
+            pass
+
+    migrator = MemoryMigrator()
+    assert migrator.migrate_memory().row_counts["conversation_messages"] == 2
+    assert not {"transcript", "server_messages"} & set(migrator.upserts[0][1])
+    user, answer = [entry[2][0] for entry in migrator.upserts[1:]]
+    assert answer["parent_id"] == user["id"]
+    assert {part["type"] for part in json.loads(answer["content_parts"])} == {"text", "tool_call", "source"}
 
 
 def test_snapshot_sqlite_db_includes_uncheckpointed_wal_rows(tmp_path):

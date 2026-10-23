@@ -10,6 +10,8 @@ export interface ToolCall {
   message?: string
   policyDecisionId?: string
   elapsedMs?: number
+  arguments?: unknown
+  result?: unknown
 }
 
 export interface EgressRecord {
@@ -28,6 +30,11 @@ export interface AgentMessage {
   content: string
   timestamp: number
   clientTurnId?: string
+  parentId?: string | null
+  messageStatus?: "streaming" | "complete" | "stopped" | "failed"
+  contentParts?: Record<string, unknown>[]
+  sources?: Record<string, unknown>[]
+  attachments?: Record<string, unknown>[]
   toolCalls?: ToolCall[]
   isStreaming?: boolean
   statusText?: string

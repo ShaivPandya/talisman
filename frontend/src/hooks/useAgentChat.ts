@@ -206,6 +206,8 @@ function normalizeToolCalls(value: unknown): ToolCall[] {
       message: typeof rec.message === "string" ? rec.message : undefined,
       policyDecisionId: typeof rec.policy_decision_id === "string" ? rec.policy_decision_id : undefined,
       elapsedMs: typeof rec.elapsed_ms === "number" ? rec.elapsed_ms : undefined,
+      arguments: rec.arguments,
+      result: rec.result,
     }]
   })
 }
@@ -252,11 +254,13 @@ function buildAgentRequestBody(
   content: string,
   screenContext?: ScreenContext | null,
   responsePreferences?: AgentResponsePreferences | null,
+  messageIds?: { user: string; assistant: string; parent?: string },
 ): Record<string, unknown> {
   return {
     session_id: sessionId,
     client_turn_id: clientTurnId,
     message: content,
+    ...(messageIds && { user_message_id: messageIds.user, assistant_message_id: messageIds.assistant, parent_message_id: messageIds.parent }),
     ...(screenContext && {
       screen_context: {
         page_name: screenContext.pageName,
@@ -419,8 +423,16 @@ export async function fetchSession(sessionId: string): Promise<{
         : typeof m.client_turn_id === "string"
           ? m.client_turn_id
           : undefined,
+      parentId: typeof m.parent_id === "string" ? m.parent_id : null,
+      messageStatus: m.status as AgentMessage["messageStatus"],
+      contentParts: Array.isArray(m.content_parts) ? m.content_parts as Record<string, unknown>[] : [],
+      sources: Array.isArray(m.sources) ? m.sources as Record<string, unknown>[] : [],
+      attachments: Array.isArray(m.attachments) ? m.attachments as Record<string, unknown>[] : [],
+      traceSnapshot: m.trace_snapshot && typeof m.trace_snapshot === "object"
+        ? extractAgentTraceSnapshot(m.trace_snapshot as Record<string, unknown>)
+        : m.traceSnapshot as AgentMessage["traceSnapshot"],
       toolCalls: normalizeToolCalls(m.toolCalls ?? m.tool_calls),
-      isStreaming: Boolean(m.is_streaming ?? m.isStreaming),
+      isStreaming: Boolean(m.is_streaming ?? m.isStreaming ?? m.status === "streaming"),
       statusText: typeof m.status_text === "string"
         ? m.status_text
         : typeof m.statusText === "string"
@@ -854,6 +866,8 @@ export function useAgentChat() {
                       ...m,
                       toolCalls: mergeToolCalls(m.toolCalls, toolCallsFromDonePayload(data)),
                       traceSnapshot: extractAgentTraceSnapshot(data),
+                      sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
+                      messageStatus: "complete",
                       isStreaming: false,
                       statusText: undefined,
                     }
@@ -1164,6 +1178,7 @@ export function useAgentChat() {
       content,
       screenContext,
       responsePreferences,
+      { user: userMsg.id, assistant: assistantMsg.id },
     )
     let sawAssistantDelta = false
 

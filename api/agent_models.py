@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -48,6 +49,9 @@ class AgentChatRequest(BaseModel):
 
     session_id: ScreenShortText | None = None
     client_turn_id: ScreenShortText | None = None
+    user_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
+    assistant_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
+    parent_message_id: ScreenShortText | None = None
     message: ChatText
     screen_context: ScreenContextModel | None = None
     response_preferences: AgentResponsePreferences | None = None

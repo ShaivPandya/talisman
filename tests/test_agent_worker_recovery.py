@@ -85,14 +85,17 @@ def test_expiry_repairs_transcript_preserves_partial_and_allows_retry(store, mon
     memory_db.update_assistant_message("turn", "turn", {"content": "saved partial"})
     age(row)
     assert recovery.recover_expired_turns() == 1
-    assert assistant("turn") == {
-        "role": "assistant",
-        "content": "saved partial",
-        "client_turn_id": "turn",
-        "is_streaming": False,
-        "status": "failed",
-        "async_job_id": row["job_id"],
-    }
+    assert (
+        assistant("turn").items()
+        >= {
+            "role": "assistant",
+            "content": "saved partial",
+            "client_turn_id": "turn",
+            "is_streaming": False,
+            "status": "failed",
+            "async_job_id": row["job_id"],
+        }.items()
+    )
     job = job_queue.get_job(row["job_id"])
     assert job["status"] == "failed" and job["result_expires_at"] is not None
     assert recovery.recover_expired_turns() == 0
