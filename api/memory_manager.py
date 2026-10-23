@@ -22,6 +22,8 @@ from contextvars import copy_context
 from typing import Any
 
 from api import memory_db
+from api.agent_governance import estimate_tokens
+from api.tool_result_memory import tool_memory_context
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +31,7 @@ logger = logging.getLogger(__name__)
 # Tuning constants
 # ---------------------------------------------------------------------------
 
-VERBATIM_WINDOW = 8  # keep last 8 messages (~4 exchanges) verbatim
-SUMMARIZE_THRESHOLD = 16  # trigger rolling summarization when total exceeds this
+VERBATIM_TOKEN_BUDGET = 6000  # estimated tokens, independent of message count
 RETRIEVAL_TOP_K = 3  # semantic retrieval hits to include
 TURN_MESSAGE_COUNT = 2  # a finished turn adds one user and one assistant message
 
@@ -46,6 +47,22 @@ def _include_in_verbatim(msg: dict[str, Any]) -> bool:
     return True
 
 
+def _verbatim_start(messages: list[dict[str, Any]]) -> int:
+    """Return the start of the most recent whole-message suffix within budget."""
+    used = 0
+    start = len(messages)
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if not _include_in_verbatim(message):
+            continue
+        cost = estimate_tokens({"role": message["role"], "content": message.get("content", "")})
+        if used + cost > VERBATIM_TOKEN_BUDGET:
+            break
+        used += cost
+        start = index
+    return start
+
+
 def build_conversation_context(
     session_id: str | None,
     new_user_message: str,
@@ -58,7 +75,7 @@ def build_conversation_context(
 
     Returns ``(conversation, session_id)`` where *conversation* contains:
       1. An optional context preamble (rolling summary + retrieval hits)
-      2. The last ``VERBATIM_WINDOW`` messages from the session
+      2. Recent tool facts and a token-budgeted suffix of verbatim messages
       3. The new user message
 
     Pass *session* when the turn already loaded it, to skip a second read.
@@ -70,18 +87,19 @@ def build_conversation_context(
     server_msgs: list[dict[str, Any]] = session["server_messages"]
     rolling_summary: str | None = session.get("rolling_summary")
 
-    # Split into old (summarised) and recent (verbatim)
-    verbatim_msgs = [m for m in server_msgs if _include_in_verbatim(m)]
-    if len(verbatim_msgs) > VERBATIM_WINDOW:
-        recent = verbatim_msgs[-VERBATIM_WINDOW:]
-    else:
-        recent = verbatim_msgs
+    # Exclude this turn's persisted user/placeholder; append the user exactly once below.
+    history = server_msgs[: messages_before_turn(session, client_turn_id)]
+    recent = [m for m in history[_verbatim_start(history) :] if _include_in_verbatim(m)]
 
     # --- Build optional context preamble ---
     preamble_parts: list[str] = []
 
     if rolling_summary:
         preamble_parts.append("## Conversation History (summarised)\n" + rolling_summary)
+
+    tool_context = tool_memory_context(history)
+    if tool_context:
+        preamble_parts.append(tool_context)
 
     if enable_retrieval:
         retrieval_context = _retrieve_relevant(new_user_message)
@@ -108,18 +126,7 @@ def build_conversation_context(
     for msg in recent:
         conversation.append({"role": msg["role"], "content": msg["content"]})
 
-    # The new user message (skip if begin_turn already persisted it for this turn)
-    skip_duplicate_user = False
-    if client_turn_id and recent:
-        last = recent[-1]
-        if (
-            last.get("role") == "user"
-            and str(last.get("client_turn_id")) == client_turn_id
-            and str(last.get("content") or "") == new_user_message
-        ):
-            skip_duplicate_user = True
-    if not skip_duplicate_user:
-        conversation.append({"role": "user", "content": new_user_message})
+    conversation.append({"role": "user", "content": new_user_message})
 
     return conversation, sid
 
@@ -437,9 +444,6 @@ def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -
     Returns True when the summary changed.
     """
     total = messages_before_turn + TURN_MESSAGE_COUNT
-    if total < SUMMARIZE_THRESHOLD:
-        return False
-    window_start = total - VERBATIM_WINDOW
 
     from llm_utils import has_llm_api_key
 
@@ -453,8 +457,10 @@ def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -
     for _attempt in range(2):
         session = memory_db.get_or_create_session(session_id)
         existing_summary = session.get("rolling_summary") or ""
-        start = max(0, window_start - TURN_MESSAGE_COUNT) if existing_summary else 0
-        departed: list[dict[str, Any]] = session["server_messages"][start:window_start]
+        messages = session["server_messages"][:total]
+        window_start = _verbatim_start(messages)
+        start = _verbatim_start(messages[:messages_before_turn]) if existing_summary else 0
+        departed: list[dict[str, Any]] = messages[start:window_start]
 
         lines: list[str] = []
         if existing_summary:
@@ -462,6 +468,8 @@ def summarize_departed_messages(session_id: str, *, messages_before_turn: int) -
         lines.append("[New messages to incorporate]")
         new_lines = 0
         for msg in departed:
+            if not _include_in_verbatim(msg):
+                continue
             role = msg.get("role", "?")
             content = str(msg.get("content", "")).strip()
             if content:

@@ -63,6 +63,7 @@ from api.performance import emit as emit_performance
 from api.performance_chat import begin_chat_round, observe_chat_response
 from api.routers.auth import require_actor
 from api.tool_data_quality import aggregate_tool_data_quality
+from api.tool_result_memory import TOOL_MEMORY_GUIDANCE, TOOL_MEMORY_HEADER, compact_tool_result
 from api.workflows import AVAILABLE_WORKFLOWS, execute_workflow
 from decision_quality.candidate_gates import apply_opportunity_candidate_gates
 from decision_quality.context_packs import (
@@ -621,6 +622,7 @@ def _turn_followup(
     provenance_event_id: str | None = None,
     raw_payload: dict[str, Any] | None = None,
     messages_before_turn: int | None = None,
+    session_messages: list[dict[str, Any]] | None = None,
     shadow: dict[str, Any] | None = None,
     intent_router_shadow: dict[str, Any] | None = None,
 ) -> AgentTurnFollowupRequest:
@@ -630,6 +632,13 @@ def _turn_followup(
     for a turn whose messages were saved) and the shadow candidate call. The
     trajectory is built here, so its timings end where the answer did.
     """
+    if messages_before_turn is not None and session_messages is not None:
+        from api.memory_manager import _verbatim_start
+
+        # The turn already loaded this history. Avoid a queued summary's DB read
+        # entirely when every message still fits the token window.
+        if _verbatim_start(session_messages[:messages_before_turn] + messages) == 0:
+            messages_before_turn = None
     return AgentTurnFollowupRequest(
         session_id=session_id,
         client_turn_id=req.client_turn_id,
@@ -854,6 +863,7 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     finalize_turn_fn(session_id, user_msg, assistant_msg)
     followup = _turn_followup(
         messages_before_turn=messages_before_turn(session, req.client_turn_id),
+        session_messages=session["server_messages"],
         req=req,
         session_id=session_id,
         turn_started=turn_started,
@@ -943,6 +953,7 @@ class _TurnTranscriptGuard:
         self._text: list[str] = []
         self._last_partial_save = time.monotonic()
         self.tools: dict[str, dict[str, Any]] = {}
+        self.tool_memory: dict[str, dict[str, Any]] = {}
         self.sources: list[dict[str, Any]] = []
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
@@ -958,7 +969,11 @@ class _TurnTranscriptGuard:
         finalize_fn(session_id, user_msg, assistant_msg)
 
     def metadata(self) -> dict[str, Any]:
-        return {"tool_calls": list(self.tools.values()), "sources": sources_from({"sources": self.sources})}
+        return {
+            "tool_calls": list(self.tools.values()),
+            "sources": sources_from({"sources": self.sources}),
+            "tool_result_memory": list(self.tool_memory.values()),
+        }
 
     def observe(self, frame: str) -> str:
         event_type = frame.split("\n", 1)[0].removeprefix("event: ")
@@ -966,6 +981,10 @@ class _TurnTranscriptGuard:
             payload = json.loads(frame.split("\ndata: ", 1)[1])
             identity = str(payload.get("id") or payload.get("name") or "")
             self.tools[identity] = {**self.tools.get(identity, {}), **payload}
+            if event_type == "tool_result" and "result" in payload:
+                self.tool_memory[identity] = compact_tool_result(
+                    self.tools[identity], observed_at=datetime.now(UTC).isoformat()
+                )
             self.sources.extend(sources_from(payload))
             self._save_partial()
         if frame.startswith(_DELTA_FRAME_PREFIX):
@@ -1828,7 +1847,7 @@ def _build_decision_quality_chat_context(
     route_decision: RouteDecision | None = None,
     opportunity_candidate_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    history = raw_conversation[-8:]
+    history = raw_conversation  # already bounded by the memory manager's token budgets
     tool_data_quality = aggregate_tool_data_quality(tool_results)
     screen_payload = screen_context.model_dump(mode="json") if screen_context else None
     data_quality = {
@@ -4051,6 +4070,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
+                session_messages=session["server_messages"],
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -4088,6 +4108,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             client_turn_id=req.client_turn_id,
             session=session,
         )
+        has_recent_tool_facts = bool(
+            raw_conversation and TOOL_MEMORY_HEADER in str(raw_conversation[0].get("content", ""))
+        )
+        if has_recent_tool_facts:
+            instructions += "\n\n" + TOOL_MEMORY_GUIDANCE
         agent_turn_event_id = _start_agent_turn_provenance(
             session_id=session_id,
             message=req.message,
@@ -4322,6 +4347,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
+                session_messages=session["server_messages"],
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -4935,6 +4961,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=session["server_messages"],
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5236,6 +5263,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=session["server_messages"],
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -5325,7 +5353,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             bool(tool_defs)
             and _is_data_seeking(req.message)
             and not has_rich_screen_data
-            and (not contextual_followup or force_refresh)
+            and (force_refresh or (not contextual_followup and not has_recent_tool_facts))
         )
         tool_result_cache: dict[str, str] = {}
         continuation_round = 0
@@ -5808,6 +5836,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=session["server_messages"],
                     shadow=shadow,
                     req=req,
                     session_id=session_id,

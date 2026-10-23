@@ -87,6 +87,17 @@ def fake_summarizer(monkeypatch):
     monkeypatch.setattr("llm_utils.has_llm_api_key", lambda *args, **kwargs: True)
     monkeypatch.setattr("api.routers.memory._summarize_with_haiku", summarize)
     monkeypatch.setattr(memory_manager, "_index_rolling_summary", lambda *args: None)
+    # Fix an eight-message token budget for these incremental-summary fixtures.
+    monkeypatch.setattr(
+        memory_manager,
+        "VERBATIM_TOKEN_BUDGET",
+        sum(
+            memory_manager.estimate_tokens(
+                {"role": "user" if i % 2 == 0 else "assistant", "content": f"message-{i:02d}"}
+            )
+            for i in range(8)
+        ),
+    )
     return prompts
 
 
@@ -114,10 +125,10 @@ def test_first_summary_covers_every_message_older_than_the_window(temp_memory_db
     assert sent == list(range(8))
 
 
-def test_summary_waits_for_the_threshold(temp_memory_db, fake_summarizer):
-    sid = _seed_session(14)
+def test_summary_waits_until_messages_exceed_the_token_budget(temp_memory_db, fake_summarizer):
+    sid = _seed_session(8)
 
-    assert memory_manager.summarize_departed_messages(sid, messages_before_turn=12) is False
+    assert memory_manager.summarize_departed_messages(sid, messages_before_turn=6) is False
     assert fake_summarizer == []
 
 
@@ -132,7 +143,7 @@ def test_summary_write_does_not_overwrite_a_concurrent_summary(temp_memory_db):
     assert memory_db.update_rolling_summary(fresh, "initial", expected="") is True
 
 
-def test_summary_retries_against_a_summary_written_meanwhile(temp_memory_db, monkeypatch):
+def test_summary_retries_against_a_summary_written_meanwhile(temp_memory_db, monkeypatch, fake_summarizer):
     sid = _seed_session(18, summary="before")
     prompts: list[str] = []
 
