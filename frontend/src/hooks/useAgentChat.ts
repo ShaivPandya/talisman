@@ -68,6 +68,7 @@ interface AgentJobEvent {
   event_type:
     | "status"
     | "delta"
+    | "reset"
     | "phase"
     | "tool_call"
     | "tool_result"
@@ -106,7 +107,7 @@ interface AgentStreamEvent {
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, "")
 const EMPTY_AGENT_RESPONSE_TEXT = "I couldn't generate a response for that request. Please try again."
 const TRANSIENT_JOB_EVENTS: ReadonlySet<AgentJobEvent["event_type"]> = new Set([
-  "delta", "status", "phase", "budget_update",
+  "delta", "reset", "status", "phase", "budget_update",
 ])
 
 function mutatingHeaders(method: string, url: string): Record<string, string> {
@@ -726,6 +727,15 @@ export function useAgentChat() {
                 m.id === assistantId
                   ? { ...m, content: m.content + (typeof data.text === "string" ? data.text : ""), statusText: undefined }
                   : m,
+              ),
+            }
+            break
+          case "reset":
+            // A retried model call: keep only the text from before the failed attempt.
+            next = {
+              ...next,
+              messages: next.messages.map(m =>
+                m.id === assistantId ? { ...m, content: typeof data.text === "string" ? data.text : "" } : m,
               ),
             }
             break

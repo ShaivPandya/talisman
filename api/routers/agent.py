@@ -895,6 +895,7 @@ def _agent_job_session_id(row: dict[str, Any] | None) -> str | None:
 
 TURN_PARTIAL_SAVE_INTERVAL_S = 2.0
 _DELTA_FRAME_PREFIX = "event: delta\ndata: "
+_RESET_FRAME_PREFIX = "event: reset\ndata: "
 _ERROR_FRAME_PREFIX = "event: error\n"
 _DONE_FRAME_PREFIX = "event: done\n"
 
@@ -928,6 +929,9 @@ class _TurnTranscriptGuard:
         if frame.startswith(_DELTA_FRAME_PREFIX):
             self._text.append(str(json.loads(frame[len(_DELTA_FRAME_PREFIX) :]).get("text") or ""))
             self._save_partial()
+        elif frame.startswith(_RESET_FRAME_PREFIX):
+            # A retried model call: the client now shows this text, so that is what a failed or stopped turn keeps.
+            self._text = [str(json.loads(frame[len(_RESET_FRAME_PREFIX) :]).get("text") or "")]
         elif frame.startswith(_ERROR_FRAME_PREFIX):
             self.errored = True
         elif frame.startswith(_DONE_FRAME_PREFIX):
@@ -2526,6 +2530,38 @@ def _is_retryable_error(exc: Exception) -> bool:
     return "overloaded" in lowered or "rate_limit" in lowered
 
 
+def _rewind_streamed_text(text_parts: list[str], keep_parts: int, leading_text: str = "") -> Generator[str, None, None]:
+    """Drop the text a failed model attempt streamed, and tell the client to show only what came before it.
+
+    ``keep_parts`` is how many parts ``text_parts`` held when the attempt started, and ``leading_text`` is what the
+    client shows ahead of that buffer. A ``reset`` frame carries the text to show, not an offset, so the client
+    can't miscount characters. Nothing is sent if the attempt streamed no text.
+    """
+    streamed = any(text_parts[keep_parts:])
+    del text_parts[keep_parts:]
+    if streamed:
+        yield _sse("reset", {"text": leading_text + "".join(text_parts)})
+
+
+def _retry_model_call(
+    exc: Exception,
+    attempt: int,
+    text_parts: list[str] | None = None,
+    keep_parts: int = 0,
+    leading_text: str = "",
+) -> Generator[str, None, bool]:
+    """Back off and report True when a failed model call should be tried again, else False so the caller raises.
+
+    A call that streams text passes its buffer, so the retry doesn't append to the failed attempt's text.
+    """
+    if attempt >= MAX_API_RETRIES - 1 or not _is_retryable_error(exc):
+        return False
+    if text_parts is not None:
+        yield from _rewind_streamed_text(text_parts, keep_parts, leading_text)
+    time.sleep(RETRY_BASE_DELAY * (2**attempt))
+    return True
+
+
 def _serialize_content_blocks(blocks: list[object]) -> list[dict]:
     serialized: list[dict] = []
     for block in blocks:
@@ -3692,12 +3728,16 @@ def get_agent_chat_async_events(
 
 
 def _job_streamed_text(job_id: str) -> str:
-    """Join the delta text a durable chat job has published so far."""
+    """Join the delta text a durable chat job has published so far, as its client shows it."""
     parts: list[str] = []
     after_seq = 0
     while True:
         events = list_job_events(job_id, after_seq=after_seq, limit=1000)
-        parts.extend(str(event["payload"].get("text") or "") for event in events if event["event_type"] == "delta")
+        for event in events:
+            if event["event_type"] == "delta":
+                parts.append(str(event["payload"].get("text") or ""))
+            elif event["event_type"] == "reset":
+                parts[:] = [str(event["payload"].get("text") or "")]
         if len(events) < 1000:
             return "".join(parts)
         after_seq = int(events[-1]["seq"])
@@ -4164,8 +4204,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         status="failed",
                         error=str(retry_exc) or retry_exc.__class__.__name__,
                     )
-                    if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                        time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                    if (yield from _retry_model_call(retry_exc, attempt, synthesis_chunks)):
                         continue
                     raise
 
@@ -4408,8 +4447,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (yield from _retry_model_call(retry_exc, attempt)):
                                 continue
                             raise
 
@@ -4481,8 +4519,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (yield from _retry_model_call(retry_exc, attempt)):
                                 continue
                             raise
 
@@ -4609,8 +4646,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 status="failed",
                                 error=str(retry_exc) or retry_exc.__class__.__name__,
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (
+                                yield from _retry_model_call(
+                                    retry_exc, attempt, synthesis_chunks, leading_text="".join(verdict_chunks)
+                                )
+                            ):
                                 continue
                             raise
                 else:
@@ -4730,8 +4770,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 status="failed",
                                 error=str(retry_exc) or retry_exc.__class__.__name__,
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (
+                                yield from _retry_model_call(
+                                    retry_exc, attempt, synthesis_chunks, leading_text="".join(verdict_chunks)
+                                )
+                            ):
                                 continue
                             raise
 
@@ -5045,8 +5088,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             status="failed",
                             error=str(retry_exc) or retry_exc.__class__.__name__,
                         )
-                        if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                            time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                        if (yield from _retry_model_call(retry_exc, attempt, synthesis_chunks)):
                             continue
                         raise
 
@@ -5205,6 +5247,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     reasoning_effort=reasoning_effort,
                 )
 
+                round_text_start = len(text_parts)
                 for attempt in range(MAX_API_RETRIES):
                     model_phase = "model_thinking" if continuation_round == 0 and tool_defs else "model_writing"
                     model_timing: dict[str, Any] = {
@@ -5336,6 +5379,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         ):
                             from api.owned_model_rollout import map_exception_to_fallback_reason
 
+                            # The baseline provider answers from scratch, not after the failed attempt's text.
+                            yield from _rewind_streamed_text(text_parts, round_text_start)
                             rollout_decision, provider, api_key, client, conversation = _owned_model_apply_fallback(
                                 rollout_decision=rollout_decision,
                                 rollout_telemetry=rollout_telemetry,
@@ -5358,8 +5403,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
-                        if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                            time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                        if (yield from _retry_model_call(retry_exc, attempt, text_parts, round_text_start)):
                             continue
                         raise
 

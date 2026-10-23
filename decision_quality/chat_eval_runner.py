@@ -234,7 +234,12 @@ def parse_sse_events(raw: str) -> list[tuple[str, dict[str, Any]]]:
 
 def run_from_sse_text(raw: str, *, status_code: int = 200, elapsed_ms: float | None = None) -> AgentChatRun:
     events = parse_sse_events(raw)
-    final_text = "".join(payload.get("text", "") for event, payload in events if event == "delta")
+    final_text = ""
+    for event, payload in events:
+        if event == "delta":
+            final_text += payload.get("text", "")
+        elif event == "reset":
+            final_text = payload.get("text", "")
     tool_names: list[str] = []
     for event, payload in events:
         if event in {"tool_call", "tool_result"} and isinstance(payload.get("name"), str):
