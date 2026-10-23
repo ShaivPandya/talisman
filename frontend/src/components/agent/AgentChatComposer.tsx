@@ -93,7 +93,6 @@ export function AgentChatComposer({
     && workflows.some(workflow => workflow.name === commandMatch[1] && workflow.requiresTicker)
     && !commandMatch[2]?.trim())
   const hasInput = Boolean(input.trim())
-  const showStop = isBusy && !hasInput
 
   useImperativeHandle(ref, () => ({
     setInput(value) {
@@ -283,7 +282,7 @@ export function AgentChatComposer({
             className="theme-input min-h-[44px] min-w-0 max-h-[120px] flex-1 resize-none overflow-x-hidden rounded-xl text-sm leading-5"
             style={{ height: "44px", overflowX: "hidden", overflowY: "hidden" }}
           />
-          {showStop ? (
+          {isBusy && (
             <button
               type="button"
               onClick={onStop}
@@ -293,7 +292,8 @@ export function AgentChatComposer({
             >
               <Square size={14} aria-hidden="true" />
             </button>
-          ) : (
+          )}
+          {(!isBusy || hasInput) && (
             <button
               type="button"
               onClick={handleSend}

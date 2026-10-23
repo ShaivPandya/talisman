@@ -66,13 +66,12 @@ test("tool-round paragraphs render live and survive local and server history rel
   await expect(page.getByText(narration, { exact: true })).toBeVisible()
   await pushEvent(page, "tool_result", { name: "query_ontology", id: "round-tool", status: "ok" })
   await pushEvent(page, "delta", { text: `\n\n${answer}` })
-  const liveText = page.getByRole("dialog").locator(".whitespace-pre-wrap").filter({ hasText: narration })
-  await expect(liveText).toHaveText(content)
-  expect(await liveText.textContent()).toBe(content)
+  const paragraphs = page.getByRole("dialog").locator(".prose").filter({ hasText: narration }).locator("p")
+  await expect(paragraphs).toHaveText([narration, answer])
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible()
   await pushEvent(page, "done", { usage: {}, session_id: sessionId })
   await page.evaluate(() => (window as unknown as RoundStream).closeRoundTextStream())
 
-  const paragraphs = page.getByRole("dialog").locator(".prose").filter({ hasText: narration }).locator("p")
   await expect(paragraphs).toHaveText([narration, answer])
   expect(await page.evaluate(() => {
     const saved = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")

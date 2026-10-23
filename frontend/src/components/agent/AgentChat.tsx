@@ -1,5 +1,5 @@
 import * as RadixDialog from "@radix-ui/react-dialog"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
@@ -139,7 +139,10 @@ export function AgentChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const composerRef = useRef<AgentChatComposerHandle>(null)
   const draftRef = useRef<AgentChatDraft>({ value: "", selection: null })
-  const wasOpenRef = useRef(open)
+  const followingLatestRef = useRef(true)
+  const lastScrollTopRef = useRef(0)
+  const scrollViewRef = useRef<{ container: HTMLDivElement | null; firstMessageId?: string }>({ container: null })
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const wasStreamingRef = useRef(isStreaming)
   const pendingWorkflowInvalidationRef = useRef<WorkflowInvalidationTarget | null>(null)
   const lastConsumedCommandRef = useRef<string | null>(null)
@@ -202,10 +205,28 @@ export function AgentChat({
     const container = messagesScrollRef.current
     if (container) {
       container.scrollTo({ top: container.scrollHeight, behavior })
+      lastScrollTopRef.current = container.scrollTop
       return
     }
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" })
   }, [])
+
+  const handleMessagesScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget
+    // A delayed scroll event can arrive after new text changes the height.
+    // Only a changed reading position should change whether we follow.
+    if (container.scrollTop === lastScrollTopRef.current) return
+    lastScrollTopRef.current = container.scrollTop
+    const nearBottom = container.scrollHeight - container.clientHeight - container.scrollTop <= 80
+    followingLatestRef.current = nearBottom
+    setShowJumpToLatest(!nearBottom)
+  }, [])
+
+  const handleJumpToLatest = useCallback(() => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
+    scrollMessagesToBottom("auto")
+  }, [scrollMessagesToBottom])
 
   const focusComposerTextarea = useCallback(() => {
     const textarea = textareaRef.current
@@ -220,15 +241,24 @@ export function AgentChat({
   }, [])
 
   useEffect(() => {
-    const wasOpen = wasOpenRef.current
-    wasOpenRef.current = open
+    if (!open || activePanel !== "chat") {
+      scrollViewRef.current = { container: null }
+      return
+    }
 
-    if (!open || activePanel !== "chat") return
-
-    const behavior: ScrollBehavior = isStreaming || !wasOpen ? "auto" : "smooth"
+    const container = messagesScrollRef.current
+    const firstMessageId = messages[0]?.id
+    // A newly opened view or a different conversation starts at the latest turn.
+    if (scrollViewRef.current.container !== container || scrollViewRef.current.firstMessageId !== firstMessageId) {
+      followingLatestRef.current = true
+    }
+    scrollViewRef.current = { container, firstMessageId }
     // Coalesce token commits into one layout read and scroll per frame.
     const animationFrame = window.requestAnimationFrame(() => {
-      scrollMessagesToBottom(behavior)
+      // Check again here: the user may scroll after this frame was scheduled.
+      if (!followingLatestRef.current) return
+      setShowJumpToLatest(false)
+      scrollMessagesToBottom("auto")
     })
     return () => window.cancelAnimationFrame(animationFrame)
   }, [messages, isStreaming, activePanel, open, scrollMessagesToBottom])
@@ -291,6 +321,8 @@ export function AgentChat({
   }
 
   const handleSend = useCallback((content: string) => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
     const workflow = workflowTargetFromCommand(content)
     pendingWorkflowInvalidationRef.current = workflow
     setActivePanel("chat")
@@ -298,6 +330,8 @@ export function AgentChat({
   }, [isComposerBusy, sendTurn])
 
   const handleQuickPrompt = useCallback((prompt: string) => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
     pendingWorkflowInvalidationRef.current = null
     setActivePanel("chat")
     sendTurn(prompt, isStreaming ? { mode: "enqueue" } : undefined)
@@ -306,6 +340,8 @@ export function AgentChat({
   function handleWorkflow(workflow: AgentWorkflow) {
     const ticker = workflowTicker.trim().toUpperCase()
     if (workflow.requiresTicker && !ticker) return
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
     const command = workflow.requiresTicker
       ? `/workflow:${workflow.name}:${ticker}`
       : `/workflow:${workflow.name}`
@@ -484,7 +520,12 @@ export function AgentChat({
                     isStreaming={isStreaming}
                     error={error}
                     onPrompt={handleQuickPrompt}
+                    onRetry={handleSend}
+                    retryDisabled={isComposerBusy}
                     onOpenTrace={handleOpenTrace}
+                    onScroll={handleMessagesScroll}
+                    showJumpToLatest={showJumpToLatest}
+                    onJumpToLatest={handleJumpToLatest}
                     scrollContainerRef={messagesScrollRef}
                     messagesEndRef={messagesEndRef}
                   />

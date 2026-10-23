@@ -322,12 +322,7 @@ export const AgentMessage = memo(function AgentMessage({
         )}
 
         {/* Markdown content */}
-        {displayContent && message.isStreaming && (
-          <div className="whitespace-pre-wrap">
-            {displayContent}
-          </div>
-        )}
-        {displayContent && !message.isStreaming && (
+        {displayContent && (
           <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1.5 prose-p:leading-6 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-code:break-words">
             <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{displayContent}</Markdown>
           </div>

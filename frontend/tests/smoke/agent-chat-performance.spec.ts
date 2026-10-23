@@ -379,3 +379,139 @@ test("background sessions checkpoint polled text without changing the active con
   expect(current.messages.at(-1).content).toBe("Other conversation answer.")
   expect(current.activeJob).toBeNull()
 })
+
+test("Markdown is formatted before the streamed answer completes", async ({ page }) => {
+  await prepareChat(page, 4)
+  await startStream(page)
+  await pushEvent(page, "delta", { text: "### Live update\n\n**Earnings improving**\n\n| Signal | Reading |\n| --- | --- |\n| Liquidity | Stable |\n\n```ts\nconst risk = " })
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("heading", { name: "Live update" })).toBeVisible()
+  await expect(dialog.locator("strong", { hasText: "Earnings improving" })).toBeVisible()
+  await expect(dialog.getByRole("table").filter({ hasText: "Liquidity" }).last()).toBeVisible()
+  await expect(dialog.locator("pre code")).toHaveText("const risk = \n")
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible()
+  await pushEvent(page, "delta", { text: "0.2\n```\n\n- Keep watching margins." })
+  await expect(dialog.locator("pre code")).toHaveText("const risk = 0.2\n")
+  await expect(dialog.getByRole("listitem").filter({ hasText: "Keep watching margins." })).toBeVisible()
+  await pushEvent(page, "done", { session_id: sessionId })
+  await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeHidden()
+  await expect(dialog.getByRole("heading", { name: "Live update" })).toBeVisible()
+})
+
+test("streaming holds the reader's scroll position and jump to latest resumes following", async ({ page }, testInfo) => {
+  await prepareChat(page)
+  await startStream(page)
+  await pushEvent(page, "delta", { text: "Opening portfolio update.\n\n" })
+  const scroll = page.getByRole("dialog").locator("div.overflow-y-auto").filter({
+    has: page.getByText("Review portfolio risk for position 0.", { exact: true }),
+  })
+  const gap = () => scroll.evaluate(element => element.scrollHeight - element.clientHeight - element.scrollTop)
+  await expect.poll(gap).toBeLessThan(2)
+  await scroll.hover()
+  await page.mouse.wheel(0, -700)
+  await expect.poll(gap).toBeGreaterThan(500)
+  const before = await scroll.evaluate(element => element.scrollTop)
+  await page.evaluate(() => new Promise<void>(resolve => {
+    const browser = window as unknown as {
+      pushChatEvent: (event: string, payload: object) => void
+      chatMetrics: { phase: string; started: number; scrolls: number[] }
+    }
+    browser.chatMetrics.phase = "reading"
+    browser.chatMetrics.started = performance.now()
+    browser.chatMetrics.scrolls = []
+    let count = 0
+    const timer = setInterval(() => {
+      browser.pushChatEvent("delta", { text: `Update ${count++}: earnings and liquidity remain stable.\n\n` })
+      if (count === 40) {
+        clearInterval(timer)
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve()))
+      }
+    }, 25)
+  }))
+  const after = await scroll.evaluate(element => element.scrollTop)
+  const scrollCalls = await page.evaluate(() => {
+    const browser = window as unknown as { chatMetrics: { phase: string; scrolls: number[] } }
+    browser.chatMetrics.phase = "idle"
+    return browser.chatMetrics.scrolls.length
+  })
+  const measurement = { scrollDisplacementPx: Math.abs(after - before), scrollCallsWhileReading: scrollCalls }
+  console.log(JSON.stringify({ streamingScroll: measurement }))
+  await testInfo.attach("streaming-scroll", { body: JSON.stringify(measurement), contentType: "application/json" })
+  expect(measurement.scrollDisplacementPx).toBeLessThanOrEqual(2)
+  expect(measurement.scrollCallsWhileReading).toBe(0)
+  const jump = page.getByRole("button", { name: "Jump to latest" })
+  await expect(jump).toBeVisible()
+  await jump.click()
+  await expect.poll(gap).toBeLessThan(2)
+  await expect(jump).toBeHidden()
+  await pushEvent(page, "delta", { text: "More output.\n\n".repeat(20) })
+  await expect.poll(gap).toBeLessThan(2)
+
+  // Scrolling back near the bottom also resumes following without a click.
+  await scroll.evaluate(element => {
+    element.scrollTop -= 400
+    element.dispatchEvent(new Event("scroll"))
+  })
+  await expect(jump).toBeVisible()
+  await scroll.evaluate(element => {
+    element.scrollTop = element.scrollHeight - element.clientHeight - 40
+    element.dispatchEvent(new Event("scroll"))
+  })
+  await pushEvent(page, "delta", { text: "Following again.\n\n".repeat(20) })
+  await expect.poll(gap).toBeLessThan(2)
+  await scroll.evaluate(element => {
+    element.scrollTop -= 400
+    element.dispatchEvent(new Event("scroll"))
+  })
+  await expect(jump).toBeVisible()
+  const beforeDone = await scroll.evaluate(element => element.scrollTop)
+  await pushEvent(page, "done", { session_id: sessionId })
+  await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeHidden()
+  expect(await scroll.evaluate(element => element.scrollTop)).toBe(beforeDone)
+  await expect(jump).toBeVisible()
+  await startStream(page)
+  await expect.poll(gap).toBeLessThan(2)
+  await page.getByRole("button", { name: "Stop generating" }).click()
+})
+
+test("Retry resends the failed prompt as a new turn and preserves the draft", async ({ page }) => {
+  await prepareChat(page, 4)
+  await startStream(page)
+  await pushEvent(page, "delta", { text: "Partial portfolio answer." })
+  await pushEvent(page, "error", { message: "Provider disconnected" })
+  await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
+  const alert = page.getByRole("alert").filter({ hasText: "Provider disconnected" })
+  await expect(alert).toBeVisible()
+  const input = page.getByRole("textbox", { name: "Message Stan" })
+  await input.fill("Keep this unsent draft")
+  await alert.getByRole("button", { name: "Retry" }).click()
+  await expect(alert).toBeHidden()
+  await expect(page.getByRole("button", { name: "Stop generating" })).toBeVisible()
+  await expect(input).toHaveValue("Keep this unsent draft")
+  await expect(page.getByText("Stream a portfolio update", { exact: true })).toHaveCount(2)
+  await expect(page.getByText("Partial portfolio answer.", { exact: true })).toBeVisible()
+  await pushEvent(page, "delta", { text: "Retried portfolio answer." })
+  await pushEvent(page, "done", { session_id: sessionId })
+  await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
+  await expect(page.getByText("Retried portfolio answer.", { exact: true })).toBeVisible()
+})
+
+test("Stop remains available while typing and queueing a follow-up", async ({ page }) => {
+  await prepareChat(page, 4)
+  await startStream(page)
+  const input = page.getByRole("textbox", { name: "Message Stan" })
+  const stop = page.getByRole("button", { name: "Stop generating" })
+  await input.fill("First follow-up")
+  await expect(stop).toBeVisible()
+  await page.getByRole("button", { name: "Queue follow-up", exact: true }).click()
+  await expect(input).toHaveValue("")
+  await expect(stop).toBeVisible()
+  await input.fill("Unsent follow-up")
+  await expect(stop).toBeVisible()
+  await stop.click()
+  await expect(stop).toBeHidden()
+  await expect(input).toHaveValue("Unsent follow-up")
+  await expect(page.getByRole("button", { name: "Send message", exact: true })).toBeVisible()
+})
