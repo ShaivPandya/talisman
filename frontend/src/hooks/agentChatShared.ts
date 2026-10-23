@@ -66,12 +66,34 @@ const ACTIVE_TOOL_STATUSES: ReadonlySet<ToolCall["status"]> = new Set([
   "retrying",
 ])
 
-/** True when an assistant turn is still in flight (streaming text or active tools). */
+/**
+ * True when an assistant turn is still in flight. Only a streaming message counts: status text or
+ * running tool chips left on a settled message (saved mid tool-run, then restored) do not.
+ */
 export function assistantTurnInProgress(messages: AgentMessage[]): boolean {
-  for (const message of messages) {
-    if (message.role !== "assistant") continue
-    if (message.isStreaming || message.statusText) return true
-    if (message.toolCalls?.some(tool => ACTIVE_TOOL_STATUSES.has(tool.status))) return true
-  }
-  return false
+  return messages.some(message => message.role === "assistant" && message.isStreaming)
+}
+
+/**
+ * Settle assistant messages restored without a live turn behind them: clear streaming state and
+ * status text, and mark tool chips that were still running as cancelled. `liveAssistantId` (the
+ * message an active job is still writing) is left as it is.
+ */
+export function settleInterruptedMessages(
+  messages: AgentMessage[],
+  liveAssistantId?: string | null,
+): AgentMessage[] {
+  return messages.map(message => {
+    if (message.role !== "assistant" || message.id === liveAssistantId) return message
+    const hasActiveTool = message.toolCalls?.some(tool => ACTIVE_TOOL_STATUSES.has(tool.status))
+    if (!message.isStreaming && !message.statusText && !hasActiveTool) return message
+    return {
+      ...message,
+      isStreaming: false,
+      statusText: undefined,
+      toolCalls: message.toolCalls?.map(tool =>
+        ACTIVE_TOOL_STATUSES.has(tool.status) ? { ...tool, status: "cancelled" as const } : tool,
+      ),
+    }
+  })
 }

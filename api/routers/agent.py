@@ -17,7 +17,7 @@ import re
 import time
 import uuid
 from collections import Counter
-from collections.abc import Sized
+from collections.abc import Generator, Sized
 from concurrent.futures import FIRST_COMPLETED, wait
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -25,8 +25,10 @@ from functools import cache, lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.types import Receive, Scope, Send
 
 from api.agent_domain_policy import (
     DOMAIN_BLOCK_RESPONSE,
@@ -384,6 +386,31 @@ def _sse_headers() -> dict[str, str]:
         # Prevent GZipMiddleware and upstream proxies from buffering small SSE frames.
         "Content-Encoding": "identity",
     }
+
+
+class _ClosingStreamingResponse(StreamingResponse):
+    """A StreamingResponse that closes its sync generator as soon as the response ends.
+
+    On a client disconnect Starlette stops iterating but leaves the generator
+    suspended until garbage collection, so its ``finally`` could run seconds
+    later or never. Closing it here runs that cleanup right away, in a thread
+    (closing can wait on in-flight tool calls) and shielded from cancellation.
+    """
+
+    def __init__(self, content: Generator[str, None, None], **kwargs: Any):
+        super().__init__(content, **kwargs)
+        self._generator = content
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            if inspect.getgeneratorstate(self._generator) != inspect.GEN_CLOSED:
+                with anyio.CancelScope(shield=True):
+                    try:
+                        await anyio.to_thread.run_sync(self._generator.close)
+                    except Exception:
+                        logger.exception("Failed to close agent chat stream")
 
 
 def _elapsed_ms(started: float) -> float:
@@ -866,7 +893,74 @@ def _agent_job_session_id(row: dict[str, Any] | None) -> str | None:
     return None
 
 
-_turn_delta_flush_at: dict[tuple[str, str], float] = {}
+TURN_PARTIAL_SAVE_INTERVAL_S = 2.0
+_DELTA_FRAME_PREFIX = "event: delta\ndata: "
+_ERROR_FRAME_PREFIX = "event: error\n"
+_DONE_FRAME_PREFIX = "event: done\n"
+
+
+class _TurnTranscriptGuard:
+    """Keeps a turn's saved assistant message from staying ``is_streaming``.
+
+    It watches the SSE frames the client receives. While the turn streams, it
+    saves the delta text so far every ``TURN_PARTIAL_SAVE_INTERVAL_S``. A turn
+    that ends without finalizing (an error, an early return, a client
+    disconnect) is marked ``failed`` or ``stopped`` with that text, before the
+    client gets ``done`` when there is one.
+    """
+
+    def __init__(self, req: AgentChatRequest):
+        self.req = req
+        self.session_id: str | None = None
+        self.finalized = False
+        self.errored = False
+        self._text: list[str] = []
+        self._last_partial_save = time.monotonic()
+
+    def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
+        from api.memory_manager import finalize_turn, finalize_turn_async
+
+        self.finalized = True
+        finalize_fn = finalize_turn if self.req.finalize_synchronously else finalize_turn_async
+        finalize_fn(session_id, user_msg, assistant_msg)
+
+    def observe(self, frame: str) -> None:
+        if frame.startswith(_DELTA_FRAME_PREFIX):
+            self._text.append(str(json.loads(frame[len(_DELTA_FRAME_PREFIX) :]).get("text") or ""))
+            self._save_partial()
+        elif frame.startswith(_ERROR_FRAME_PREFIX):
+            self.errored = True
+        elif frame.startswith(_DONE_FRAME_PREFIX):
+            self.settle()
+
+    def settle(self, *, failed: bool = False) -> None:
+        """End a turn that never finalized, keeping the text the client already has."""
+        if self.finalized:
+            return
+        self.finalized = True
+        if not self.session_id or not self.req.client_turn_id:
+            return
+        from api.memory_manager import fail_turn, fail_turn_async
+
+        fail_fn = fail_turn if self.req.finalize_synchronously else fail_turn_async
+        fail_fn(
+            self.session_id,
+            self.req.client_turn_id,
+            status="failed" if failed or self.errored else "stopped",
+            content="".join(self._text),
+        )
+
+    def _save_partial(self) -> None:
+        now = time.monotonic()
+        if self.finalized or not self.session_id or not self.req.client_turn_id:
+            return
+        if now - self._last_partial_save < TURN_PARTIAL_SAVE_INTERVAL_S:
+            return
+        self._last_partial_save = now
+        from api.memory_manager import save_partial_turn, save_partial_turn_async
+
+        save_fn = save_partial_turn if self.req.finalize_synchronously else save_partial_turn_async
+        save_fn(self.session_id, self.req.client_turn_id, "".join(self._text))
 
 
 def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
@@ -902,24 +996,6 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         begin_turn(session_id, user_msg, assistant_msg)
     else:
         begin_turn_async(session_id, user_msg, assistant_msg)
-
-
-def _agent_turn_persist_delta(req: AgentChatRequest, session_id: str, content: str) -> None:
-    """Batch incremental assistant content to the session transcript."""
-    if not req.client_turn_id or not content:
-        return
-    key = (session_id, req.client_turn_id)
-    now = time.monotonic()
-    if now - _turn_delta_flush_at.get(key, 0.0) < 2.0:
-        return
-    _turn_delta_flush_at[key] = now
-    from api.memory_manager import update_assistant_message_async
-
-    update_assistant_message_async(
-        session_id,
-        req.client_turn_id,
-        {"content": content, "is_streaming": True},
-    )
 
 
 def _agent_turn_finalize(
@@ -3574,6 +3650,18 @@ def get_agent_chat_async_events(
     return payload
 
 
+def _job_streamed_text(job_id: str) -> str:
+    """Join the delta text a durable chat job has published so far."""
+    parts: list[str] = []
+    after_seq = 0
+    while True:
+        events = list_job_events(job_id, after_seq=after_seq, limit=1000)
+        parts.extend(str(event["payload"].get("text") or "") for event in events if event["event_type"] == "delta")
+        if len(events) < 1000:
+            return "".join(parts)
+        after_seq = int(events[-1]["seq"])
+
+
 @router.post("/agent/chat/async/{job_id}/cancel")
 def cancel_agent_chat_async(job_id: str):
     from api.async_job_runner import poll_registered_job
@@ -3591,7 +3679,7 @@ def cancel_agent_chat_async(job_id: str):
         if isinstance(client_turn_id, str) and client_turn_id:
             from api.memory_manager import fail_turn_async
 
-            fail_turn_async(session_id, client_turn_id, status="cancelled")
+            fail_turn_async(session_id, client_turn_id, status="stopped", content=_job_streamed_text(job_id) or None)
     append_job_event(job_id, "status", {"status": "cancelled", "session_id": session_id})
     append_job_event(job_id, "cancelled", {"status": "cancelled", "session_id": session_id})
     append_job_event(job_id, "error", {"message": "Cancelled.", "session_id": session_id})
@@ -3718,7 +3806,23 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         route_decision.confidence,
     )
 
-    def generate():  # noqa: C901
+    def generate():
+        guard = _TurnTranscriptGuard(req)
+        turn = generate_turn(guard)
+        try:
+            for frame in turn:
+                guard.observe(frame)
+                yield frame
+        except Exception:
+            guard.settle(failed=True)
+            raise
+        finally:
+            # Also runs on GeneratorExit, when Starlette drops a disconnected client's stream.
+            guard.settle()
+            turn.close()
+
+    # Untyped, as generate() was, so mypy keeps skipping this long body.
+    def generate_turn(guard):  # noqa: C901
         nonlocal tool_defs
         timings = _new_agent_timings()
         yield _sse_ping()
@@ -3728,14 +3832,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             return
 
         from api import memory_db
-        from api.memory_manager import (
-            build_conversation_context,
-            finalize_turn,
-            finalize_turn_async,
-            messages_before_turn,
-        )
-
-        finalize = finalize_turn if req.finalize_synchronously else finalize_turn_async
+        from api.memory_manager import build_conversation_context, messages_before_turn
 
         def finalize_turn_fn(sid: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
             # Existing message JSON retains selected/discovered tools even when the model
@@ -3746,9 +3843,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 "tickers": list(dict.fromkeys(tickers)),
                 "tool_names": list(active_tool_names),
             }
-            finalize(sid, user_msg, assistant_msg)
+            guard.finalize(sid, user_msg, assistant_msg)
 
         session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
+        guard.session_id = str(session["session_id"])
         prior_message_count = messages_before_turn(session, req.client_turn_id)
 
         agent_turn_event_id: str | None = None
@@ -4741,11 +4839,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             try:
                 wf_def = AVAILABLE_WORKFLOWS.get(workflow_name, {})
                 if wf_def.get("requires_ticker") and not workflow_ticker:
-                    yield _sse(
-                        "delta",
-                        {
-                            "text": f"I need a ticker to run the **{wf_def.get('label', workflow_name)}** workflow. Which position would you like me to review?"
-                        },
+                    reply = (
+                        f"I need a ticker to run the **{wf_def.get('label', workflow_name)}** workflow. "
+                        "Which position would you like me to review?"
+                    )
+                    yield _sse("delta", {"text": reply})
+                    turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
+                    finalize_turn_fn(
+                        session_id,
+                        {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta},
+                        {"role": "assistant", "content": reply, "timestamp": time.time(), **turn_meta},
                     )
                     _finish_agent_turn_provenance(agent_turn_event_id, status="succeeded", usage={})
                     yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
@@ -5460,7 +5563,6 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     },
                     max_tokens=LLM_CHAT_MAX_TOKENS,
                 )
-                _agent_turn_persist_delta(req, session_id, full_text)
                 turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
                 user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
                 assistant_msg = {"role": "assistant", "content": full_text, "timestamp": time.time(), **turn_meta}
@@ -5555,7 +5657,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 followup,
             )
 
-    return StreamingResponse(
+    return _ClosingStreamingResponse(
         generate(),
         media_type="text/event-stream",
         headers=_sse_headers(),

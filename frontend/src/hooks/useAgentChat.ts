@@ -3,6 +3,7 @@ import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponsePreferences } from "@/lib/api"
 import {
   assistantTurnInProgress,
+  settleInterruptedMessages,
   type ActiveAgentJob,
   type AgentMessage,
   type AgentSendOptions,
@@ -340,11 +341,11 @@ function loadState(): AgentChatState {
           restoredJob = { ...restoredJob, sessionId }
         }
         return {
-          messages: parsed.messages.map(m => ({
-            ...m,
-            isStreaming: restoredJob?.assistantId === m.id,
-            statusText: restoredJob?.assistantId === m.id ? (m.statusText || "Reconnecting...") : m.statusText,
-          })),
+          messages: settleInterruptedMessages(parsed.messages, restoredJob?.assistantId).map(m =>
+            restoredJob?.assistantId === m.id
+              ? { ...m, isStreaming: true, statusText: m.statusText || "Reconnecting..." }
+              : m,
+          ),
           isStreaming: Boolean(restoredJob),
           error: null,
           sessionId,
@@ -1077,7 +1078,12 @@ export function useAgentChat() {
 
   useEffect(() => {
     const activeJob = initialActiveJobRef.current
-    if (!activeJob?.sessionId) return
+    if (!activeJob?.sessionId) {
+      // Messages queued behind a turn the last page load never finished.
+      const sessionId = stateRef.current.sessionId
+      if (sessionId && stateRef.current.queuedMessages.length) void drainQueueRef.current?.(sessionId)
+      return
+    }
     if (inFlightBySessionRef.current[activeJob.sessionId]) return
     const controller = new AbortController()
     jobPollControllersRef.current.set(activeJob.sessionId, controller)
@@ -1436,7 +1442,7 @@ export function useAgentChat() {
     }
 
     const nextState: AgentChatState = {
-      messages: transcript,
+      messages: settleInterruptedMessages(transcript, activeJob?.assistantId),
       isStreaming: Boolean(activeJob),
       error: cached?.error ?? null,
       sessionId,
@@ -1453,6 +1459,10 @@ export function useAgentChat() {
       jobPollControllersRef.current.set(sessionId, controller)
       activeJobRef.current = activeJob
       void pollJob(activeJob, controller)
+    } else if (!activeJob && queuedMessages.length) {
+      // Messages queued behind a turn that was interrupted: nothing else will drain them.
+      stateRef.current = nextState
+      void drainQueueRef.current?.(sessionId)
     }
   }, [persistActiveSessionSnapshot, persistCurrentState, pollJob])
 

@@ -351,9 +351,20 @@ def get_or_create_session(session_id: str | None = None) -> dict[str, Any]:
     }
 
 
-def _load_session_messages(conn: sqlite3.Connection | PostgresStateConnection, session_id: str) -> list[dict[str, Any]]:
+def _load_session_messages(
+    conn: sqlite3.Connection | PostgresStateConnection,
+    session_id: str,
+    *,
+    for_update: bool = False,
+) -> list[dict[str, Any]]:
+    """Read a session's messages. ``for_update`` locks the Postgres row until commit.
+
+    In one process ``_lock`` already serializes writers; the row lock also keeps the
+    API process and a worker from interleaving read-modify-write cycles on one turn.
+    """
+    lock = " FOR UPDATE" if for_update and isinstance(conn, PostgresStateConnection) else ""
     row = conn.execute(
-        "SELECT server_messages, transcript FROM conversation_sessions WHERE session_id = ?",
+        f"SELECT server_messages, transcript FROM conversation_sessions WHERE session_id = ?{lock}",
         (session_id,),
     ).fetchone()
     if row is None:
@@ -425,13 +436,19 @@ def update_assistant_message(
     session_id: str,
     client_turn_id: str,
     patch: dict[str, Any],
+    *,
+    only_streaming: bool = False,
 ) -> bool:
-    """Patch the assistant message for a turn. Returns True if updated."""
+    """Patch the assistant message for a turn. Returns True if updated.
+
+    With ``only_streaming``, the patch applies only while the message is still
+    streaming, so a late write can never change a finished turn.
+    """
     if not client_turn_id:
         return False
     with _get_conn() as conn:
         try:
-            messages = _load_session_messages(conn, session_id)
+            messages = _load_session_messages(conn, session_id, for_update=True)
         except ValueError:
             return False
         updated = False
@@ -440,6 +457,8 @@ def update_assistant_message(
                 continue
             if str(msg.get("client_turn_id")) != client_turn_id:
                 continue
+            if only_streaming and not msg.get("is_streaming"):
+                return False
             for key, value in patch.items():
                 msg[key] = value
             updated = True
@@ -461,7 +480,7 @@ def complete_turn_messages(
     if not client_turn_id:
         return append_messages(session_id, [user_message, assistant_message])
     with _get_conn() as conn:
-        messages = _load_session_messages(conn, session_id)
+        messages = _load_session_messages(conn, session_id, for_update=True)
         found_turn = any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
         if not found_turn:
             messages.extend([user_message, assistant_message])
@@ -493,14 +512,14 @@ def fail_turn(
     session_id: str,
     client_turn_id: str,
     *,
-    status: str = "cancelled",
+    status: str = "stopped",
     content: str | None = None,
 ) -> bool:
-    """Mark an in-progress assistant turn as terminal without a full completion."""
+    """Mark a still-streaming assistant turn as stopped or failed. Never touches a finished turn."""
     patch: dict[str, Any] = {"is_streaming": False, "status": status}
     if content is not None:
         patch["content"] = content
-    return update_assistant_message(session_id, client_turn_id, patch)
+    return update_assistant_message(session_id, client_turn_id, patch, only_streaming=True)
 
 
 def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:

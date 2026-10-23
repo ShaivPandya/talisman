@@ -39,8 +39,8 @@ TURN_MESSAGE_COUNT = 2  # a finished turn adds one user and one assistant messag
 
 
 def _include_in_verbatim(msg: dict[str, Any]) -> bool:
-    """Exclude in-progress assistant placeholders from LLM context."""
-    if msg.get("role") == "assistant" and msg.get("is_streaming"):
+    """Exclude in-progress assistant placeholders, and turns stopped before any text, from LLM context."""
+    if msg.get("role") == "assistant" and (msg.get("is_streaming") or not str(msg.get("content") or "").strip()):
         return False
     return True
 
@@ -170,27 +170,20 @@ def begin_turn_async(
     t.start()
 
 
-def update_assistant_message(
-    session_id: str,
-    client_turn_id: str | None,
-    patch: dict[str, Any],
-) -> None:
+def save_partial_turn(session_id: str, client_turn_id: str | None, content: str) -> None:
+    """Save the text streamed so far. Applies only while the turn is still streaming."""
     if not client_turn_id:
         return
     try:
-        memory_db.update_assistant_message(session_id, client_turn_id, patch)
+        memory_db.update_assistant_message(session_id, client_turn_id, {"content": content}, only_streaming=True)
     except Exception:
-        logger.debug("Failed to update assistant message for session %s", session_id, exc_info=True)
+        logger.debug("Failed to save partial turn for session %s", session_id, exc_info=True)
 
 
-def update_assistant_message_async(
-    session_id: str,
-    client_turn_id: str | None,
-    patch: dict[str, Any],
-) -> None:
+def save_partial_turn_async(session_id: str, client_turn_id: str | None, content: str) -> None:
     t = threading.Thread(
-        target=update_assistant_message,
-        args=(session_id, client_turn_id, patch),
+        target=save_partial_turn,
+        args=(session_id, client_turn_id, content),
         daemon=True,
     )
     t.start()
@@ -207,7 +200,7 @@ def complete_turn(
     (``api.agent_turn_followup``) after the client has the answer.
     """
     client_turn_id = str(user_message.get("client_turn_id") or assistant_message.get("client_turn_id") or "")
-    final_assistant = {**assistant_message, "is_streaming": False}
+    final_assistant = {**assistant_message, "is_streaming": False, "status": "complete"}
     try:
         if client_turn_id:
             # Completes the begun turn in place, or appends it when it was never begun.
@@ -243,9 +236,10 @@ def fail_turn(
     session_id: str,
     client_turn_id: str | None,
     *,
-    status: str = "cancelled",
+    status: str = "stopped",
     content: str | None = None,
 ) -> None:
+    """End a still-streaming turn as ``stopped`` or ``failed``. A finished turn is left alone."""
     if not client_turn_id:
         return
     try:
@@ -258,7 +252,7 @@ def fail_turn_async(
     session_id: str,
     client_turn_id: str | None,
     *,
-    status: str = "cancelled",
+    status: str = "stopped",
     content: str | None = None,
 ) -> None:
     t = threading.Thread(
