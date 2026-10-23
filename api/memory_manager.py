@@ -18,6 +18,7 @@ import os
 import re
 import threading
 import time
+from contextvars import copy_context
 from typing import Any
 
 from api import memory_db
@@ -182,8 +183,8 @@ def save_partial_turn(session_id: str, client_turn_id: str | None, content: str)
 
 def save_partial_turn_async(session_id: str, client_turn_id: str | None, content: str) -> None:
     t = threading.Thread(
-        target=save_partial_turn,
-        args=(session_id, client_turn_id, content),
+        target=copy_context().run,
+        args=(save_partial_turn, session_id, client_turn_id, content),
         daemon=True,
     )
     t.start()

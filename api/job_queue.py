@@ -19,6 +19,10 @@ from api.postgres import connect, database_url, retry_read
 ACTIVE_STATUSES = ("queued", "running")
 TERMINAL_STATUSES = ("completed", "failed", "cancelled")
 
+# Prefix distinguishes new heartbeat-aware claims from workers still draining a rollout.
+AGENT_LEASE_PREFIX = "agent-lease:"
+AGENT_LEASE_LOST_ERROR = "The chat worker stopped responding. Please retry this turn."
+
 _memory_jobs: dict[str, dict[str, Any]] = {}
 _memory_lock = threading.Lock()
 
@@ -329,7 +333,7 @@ def _claim_memory_job(row: dict[str, Any], now: datetime, claimed_by: str) -> di
     row["status"] = "running"
     row["started_at"] = now
     row["updated_at"] = now
-    row["claimed_by"] = claimed_by
+    row["claimed_by"] = (AGENT_LEASE_PREFIX if row.get("job_type") == "agent_chat_turn" else "") + claimed_by
     row["attempt"] = int(row.get("attempt") or 0) + 1
     return dict(row)
 
@@ -349,7 +353,8 @@ def claim_job(job_id: str) -> dict[str, Any] | None:
             """
             UPDATE async_jobs
             SET status = 'running', started_at = %s, updated_at = %s,
-                claimed_by = %s, attempt = attempt + 1
+                claimed_by = (CASE WHEN job_type = 'agent_chat_turn' THEN 'agent-lease:' ELSE '' END) || %s,
+                attempt = attempt + 1
             WHERE job_id = %s AND status = 'queued'
             RETURNING *
             """,
@@ -383,7 +388,10 @@ def complete_job(job_id: str, result: dict[str, Any] | None = None, *, result_tt
     if not postgres_jobs_enabled():
         with _memory_lock:
             if job_id in _memory_jobs:
-                if _memory_jobs[job_id].get("status") == "cancelled":
+                if _memory_jobs[job_id].get("status") == "cancelled" or (
+                    _memory_jobs[job_id].get("job_type") == "agent_chat_turn"
+                    and _memory_jobs[job_id].get("status") not in ACTIVE_STATUSES
+                ):
                     return
                 _memory_jobs[job_id]["status"] = "completed"
                 _memory_jobs[job_id]["result_json"] = result or {}
@@ -406,6 +414,7 @@ def complete_job(job_id: str, result: dict[str, Any] | None = None, *, result_tt
                 error = NULL
             WHERE job_id = %s
               AND status != 'cancelled'
+              AND (job_type != 'agent_chat_turn' OR status IN ('queued', 'running'))
             """,
             (Jsonb(result or {}), now, now, expires_at, job_id),
         )
@@ -418,10 +427,15 @@ def fail_job(job_id: str, error: str, *, result_ttl_seconds: int | None = None) 
     if not postgres_jobs_enabled():
         with _memory_lock:
             if job_id in _memory_jobs:
-                if _memory_jobs[job_id].get("status") == "cancelled":
+                if _memory_jobs[job_id].get("status") == "cancelled" or (
+                    _memory_jobs[job_id].get("job_type") == "agent_chat_turn"
+                    and _memory_jobs[job_id].get("status") not in ACTIVE_STATUSES
+                ):
                     return
                 _memory_jobs[job_id]["status"] = "failed"
                 _memory_jobs[job_id]["error"] = error
+                if _memory_jobs[job_id].get("job_type") == "agent_chat_turn":
+                    _memory_jobs[job_id]["progress_json"] = {"phase": "turn_recovery"}
                 _memory_jobs[job_id]["completed_at"] = now
                 _memory_jobs[job_id]["updated_at"] = now
                 _memory_jobs[job_id]["result_expires_at"] = expires_at
@@ -431,12 +445,15 @@ def fail_job(job_id: str, error: str, *, result_ttl_seconds: int | None = None) 
             """
             UPDATE async_jobs
             SET status = 'failed',
+                progress_json = CASE WHEN job_type = 'agent_chat_turn'
+                    THEN '{"phase":"turn_recovery"}'::jsonb ELSE progress_json END,
                 error = %s,
                 completed_at = %s,
                 updated_at = %s,
                 result_expires_at = %s
             WHERE job_id = %s
               AND status != 'cancelled'
+              AND (job_type != 'agent_chat_turn' OR status IN ('queued', 'running'))
             """,
             (error, now, now, expires_at, job_id),
         )
@@ -606,7 +623,7 @@ def claim_queued_job(job_type: str, *, queue_name: str | None = None) -> dict[st
             SET status = 'running',
                 started_at = %s,
                 updated_at = %s,
-                claimed_by = %s,
+                claimed_by = (CASE WHEN jobs.job_type = 'agent_chat_turn' THEN 'agent-lease:' ELSE '' END) || %s,
                 attempt = jobs.attempt + 1
             FROM candidate
             WHERE jobs.job_id = candidate.job_id
@@ -660,3 +677,96 @@ def cloud_run_job_name(job_type: str | None = None) -> str:
         if value := (os.getenv(env_key) or "").strip():
             return value
     return "talisman-async-job"
+
+
+def renew_agent_job_lease(job_id: str, claimed_by: str) -> bool:
+    """Renew only a running claim still owned by this worker."""
+    now = _now()
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            row = _memory_jobs.get(job_id)
+            if not row or row.get("status") != "running" or row.get("claimed_by") != claimed_by:
+                return False
+            row["updated_at"] = now
+            return True
+    with connect() as conn:
+        row = conn.execute(
+            """UPDATE async_jobs SET updated_at = %s
+               WHERE job_id = %s AND status = 'running' AND claimed_by = %s
+               RETURNING job_id""",
+            (now, job_id, claimed_by),
+        ).fetchone()
+        conn.commit()
+        return row is not None
+
+
+def expire_agent_job_leases(cutoff: datetime, *, job_id: str | None = None, failed_ttl_s: int) -> None:
+    """Atomically expire heartbeat-aware claims; a renewed or terminal job cannot match."""
+    now = _now()
+    expires = now + timedelta(seconds=failed_ttl_s)
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            for row in _memory_jobs.values():
+                if (
+                    (job_id is None or row["job_id"] == job_id)
+                    and row.get("job_type") == "agent_chat_turn"
+                    and row.get("status") == "running"
+                    and str(row.get("claimed_by") or "").startswith(AGENT_LEASE_PREFIX)
+                    and _memory_timestamp(row, "updated_at", "started_at") <= cutoff
+                ):
+                    row.update(
+                        status="failed",
+                        error=AGENT_LEASE_LOST_ERROR,
+                        completed_at=now,
+                        updated_at=now,
+                        result_expires_at=expires,
+                        progress_json={"phase": "turn_recovery"},
+                    )
+        return
+    with connect() as conn:
+        conn.execute(
+            """UPDATE async_jobs
+               SET status = 'failed', error = %s, completed_at = %s, updated_at = %s,
+                   result_expires_at = %s, progress_json = '{"phase":"turn_recovery"}'::jsonb
+               WHERE job_type = 'agent_chat_turn' AND status = 'running'
+                 AND starts_with(claimed_by, %s) AND updated_at <= %s
+                 AND (%s::text IS NULL OR job_id = %s)""",
+            (AGENT_LEASE_LOST_ERROR, now, now, expires, AGENT_LEASE_PREFIX, cutoff, job_id, job_id),
+        )
+        conn.commit()
+
+
+def pending_agent_turn_recoveries(*, job_id: str | None = None) -> list[dict[str, Any]]:
+    """Keep transcript/event repair retryable if the recovering process also crashes."""
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            return [
+                dict(row)
+                for row in _memory_jobs.values()
+                if (job_id is None or row["job_id"] == job_id)
+                and row.get("job_type") == "agent_chat_turn"
+                and row.get("status") == "failed"
+                and (row.get("progress_json") or {}).get("phase") == "turn_recovery"
+            ]
+    with connect(read_only=True) as conn:
+        return [
+            dict(row)
+            for row in conn.execute(
+                """SELECT * FROM async_jobs WHERE job_type = 'agent_chat_turn' AND status = 'failed'
+               AND progress_json->>'phase' = 'turn_recovery'
+               AND (%s::text IS NULL OR job_id = %s)""",
+                (job_id, job_id),
+            ).fetchall()
+        ]
+
+
+def finish_agent_turn_recovery(job_id: str) -> None:
+    if not postgres_jobs_enabled():
+        with _memory_lock:
+            row = _memory_jobs.get(job_id)
+            if row and row.get("status") == "failed":
+                row["progress_json"] = None
+        return
+    with connect() as conn:
+        conn.execute("UPDATE async_jobs SET progress_json = NULL WHERE job_id = %s AND status = 'failed'", (job_id,))
+        conn.commit()

@@ -6,8 +6,8 @@ import os
 import sys
 import threading
 
+from api.job_worker_loop import agent_concurrency, preload_job_path
 from api.job_worker_loop import main as _generic_main
-from api.job_worker_loop import preload_job_path
 from api.job_worker_loop import run_loop as _generic_run_loop
 from api.job_worker_loop import run_once as _generic_run_once
 
@@ -49,6 +49,7 @@ def run_loop(
         queue_name=queue_name,
         poll_interval_s=interval,
         stop_event=stop_event or threading.Event(),
+        concurrency=agent_concurrency(),
     )
 
 

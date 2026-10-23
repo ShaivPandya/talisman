@@ -386,6 +386,9 @@ def _save_session_messages(
     session_id: str,
     messages: list[dict[str, Any]],
 ) -> int:
+    from api.agent_job_recovery import fence_transcript_write
+
+    fence_transcript_write(conn)
     now = datetime.now(UTC).isoformat()
     conn.execute(
         """
@@ -432,12 +435,37 @@ def begin_turn(
         return total
 
 
+def begin_job_turn(session_id: str, client_turn_id: str | None, job_id: str) -> bool:
+    """Bind a claimed job to its placeholder and reopen an explicit retry."""
+    if not client_turn_id:
+        return False
+    with _get_conn() as conn:
+        try:
+            messages = _load_session_messages(conn, session_id, for_update=True)
+        except ValueError:
+            return False
+        for msg in messages:
+            if msg.get("role") != "assistant" or str(msg.get("client_turn_id")) != client_turn_id:
+                continue
+            previous = msg.get("async_job_id")
+            if previous == job_id:
+                return True
+            if previous or not msg.get("is_streaming"):
+                msg.update(content="", is_streaming=True, status="streaming")
+            msg["async_job_id"] = job_id
+            _save_session_messages(conn, session_id, messages)
+            conn.commit()
+            return True
+    return False
+
+
 def update_assistant_message(
     session_id: str,
     client_turn_id: str,
     patch: dict[str, Any],
     *,
     only_streaming: bool = False,
+    expected_job_id: str | None = None,
 ) -> bool:
     """Patch the assistant message for a turn. Returns True if updated.
 
@@ -457,6 +485,8 @@ def update_assistant_message(
                 continue
             if str(msg.get("client_turn_id")) != client_turn_id:
                 continue
+            if expected_job_id and msg.get("async_job_id") not in {None, expected_job_id}:
+                return False
             if only_streaming and not msg.get("is_streaming"):
                 return False
             for key, value in patch.items():
@@ -514,12 +544,13 @@ def fail_turn(
     *,
     status: str = "stopped",
     content: str | None = None,
+    job_id: str | None = None,
 ) -> bool:
     """Mark a still-streaming assistant turn as stopped or failed. Never touches a finished turn."""
     patch: dict[str, Any] = {"is_streaming": False, "status": status}
     if content is not None:
         patch["content"] = content
-    return update_assistant_message(session_id, client_turn_id, patch, only_streaming=True)
+    return update_assistant_message(session_id, client_turn_id, patch, only_streaming=True, expected_job_id=job_id)
 
 
 def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:

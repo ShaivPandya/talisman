@@ -8,8 +8,10 @@ import os
 import signal
 import sys
 import threading
+import time
 from typing import Any
 
+from api.agent_job_recovery import start_recovery_loop
 from api.async_job_runner import execute_claimed
 from api.job_queue import claim_queued_job
 from api.logging_config import configure_logging
@@ -124,10 +126,14 @@ def run_loop(
     queue_name: str = DEFAULT_QUEUE_NAME,
     poll_interval_s: float | None = None,
     stop_event: threading.Event | None = None,
+    concurrency: int = 1,
 ) -> None:
     preload_job_path(job_type)
     interval = poll_interval_s if poll_interval_s is not None else _poll_interval_for_job(job_type)
     stop = stop_event or threading.Event()
+    if concurrency > 1:
+        _run_concurrent_loops(job_type, queue_name, interval, stop, concurrency)
+        return
     logger.info(
         "warm worker loop started job_type=%s queue=%s poll_interval_s=%.3f",
         job_type,
@@ -155,6 +161,47 @@ def run_loop(
     logger.info("warm worker loop stopped job_type=%s queue=%s", job_type, queue_name)
 
 
+def agent_concurrency() -> int:
+    """Never create more chat execution slots than the configured DB pool."""
+
+    def positive_int(name: str, default: int) -> int:
+        try:
+            return max(1, int(os.getenv(name) or default))
+        except ValueError:
+            return default
+
+    return min(positive_int("AGENT_WORKER_CONCURRENCY", 2), positive_int("POSTGRES_POOL_MAX_SIZE", 4))
+
+
+def _run_concurrent_loops(
+    job_type: str, queue_name: str, interval: float, stop: threading.Event, concurrency: int
+) -> None:
+    errors: list[Exception] = []
+
+    def run_slot() -> None:
+        try:
+            run_loop(job_type=job_type, queue_name=queue_name, poll_interval_s=interval, stop_event=stop)
+        except Exception as exc:
+            errors.append(exc)
+            stop.set()
+
+    threads = [
+        threading.Thread(target=run_slot, name=f"{job_type}-{index}", daemon=True) for index in range(concurrency)
+    ]
+    for thread in threads:
+        thread.start()
+    try:
+        while not stop.wait(0.25):
+            pass
+    finally:
+        stop.set()
+        deadline = time.monotonic() + _COMPANION_SHUTDOWN_GRACE_S
+        for thread in threads:
+            thread.join(timeout=max(0.0, deadline - time.monotonic()))
+    if errors:
+        raise errors[0]
+
+
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Run a warm async job worker.")
     parser.add_argument("command", nargs="?", choices=("run", "run-once"), default="run")
@@ -180,16 +227,20 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGTERM, _handle_signal)
     signal.signal(signal.SIGINT, _handle_signal)
+    recovery = start_recovery_loop(stop) if args.job_type == "agent_chat_turn" else None
     companions = _start_companion_loops(args.job_type, args.queue_name, stop)
-    run_loop(
-        job_type=args.job_type,
-        queue_name=args.queue_name,
-        poll_interval_s=args.poll_interval,
-        stop_event=stop,
-    )
-    for thread in companions:
-        # Let an in-flight follow-up finish inside the shutdown window.
-        thread.join(timeout=_COMPANION_SHUTDOWN_GRACE_S)
+    try:
+        run_loop(
+            job_type=args.job_type,
+            queue_name=args.queue_name,
+            poll_interval_s=args.poll_interval,
+            stop_event=stop,
+            concurrency=agent_concurrency() if args.job_type == "agent_chat_turn" else 1,
+        )
+    finally:
+        stop.set()
+        for thread in companions + ([recovery] if recovery else []):
+            thread.join(timeout=_COMPANION_SHUTDOWN_GRACE_S)
     return 0
 
 

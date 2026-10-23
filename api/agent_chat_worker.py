@@ -85,7 +85,7 @@ class _CancellationCheck:
         now = time.monotonic()
         if not self.cancelled and now >= self.next_check:
             self.next_check = now + 1.0
-            self.cancelled = get_job_status(self.job_id) == "cancelled"
+            self.cancelled = get_job_status(self.job_id) in {"cancelled", "failed"}
         return self.cancelled
 
 
@@ -121,6 +121,10 @@ def _run_agent_chat_turn_job(req: AgentChatJobRequest, *, job_id: str) -> dict[s
             "allow_workflow_handoff": False,
         }
     )
+    from api.memory_db import begin_job_turn
+
+    if worker_req.session_id:
+        begin_job_turn(worker_req.session_id, worker_req.client_turn_id, job_id)
     append_job_event(job_id, "status", {"status": "running", "session_id": worker_req.session_id})
     delta_buffer: list[str] = []
     flush_state: dict[str, float] = {}

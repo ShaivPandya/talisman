@@ -28,13 +28,22 @@ def _row_to_event(row: Any) -> dict[str, Any]:
     }
 
 
-def append_job_event(job_id: str, event_type: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+def append_job_event(
+    job_id: str, event_type: str, payload: dict[str, Any] | None = None, *, once: bool = False
+) -> dict[str, Any]:
     """Append one event to a job's replay log and return the stored event."""
+    from api.agent_job_recovery import check_claim
+
     body = payload or {}
     now = _now()
     if not postgres_jobs_enabled():
+        check_claim(get_job(job_id))
         with _memory_lock:
             events = _memory_events.setdefault(job_id, [])
+            if once:
+                existing = next((event for event in events if event["event_type"] == event_type), None)
+                if existing is not None:
+                    return dict(existing)
             event: dict[str, Any] = {
                 "seq": len(events) + 1,
                 "event_type": event_type,
@@ -52,7 +61,19 @@ def append_job_event(job_id: str, event_type: str, payload: dict[str, Any] | Non
     with connect() as conn:
         # Lock the parent job row so concurrent API cancellation and worker
         # writes cannot race on the next sequence number.
-        conn.execute("SELECT job_id FROM async_jobs WHERE job_id = %s FOR UPDATE", (job_id,)).fetchone()
+        parent = conn.execute(
+            "SELECT job_id, status, claimed_by FROM async_jobs WHERE job_id = %s FOR UPDATE", (job_id,)
+        ).fetchone()
+        check_claim(parent)
+        if once:
+            existing = conn.execute(
+                "SELECT seq, event_type, payload_json, created_at FROM async_job_events "
+                "WHERE job_id = %s AND event_type = %s ORDER BY seq LIMIT 1",
+                (job_id, event_type),
+            ).fetchone()
+            if existing is not None:
+                conn.commit()
+                return _row_to_event(existing)
         row = conn.execute(
             """
             WITH inserted AS (
@@ -124,6 +145,8 @@ def read_job_events_snapshot(
                 "cache_key",
                 "created_at",
                 "started_at",
+                "updated_at",
+                "claimed_by",
             )
         }
         snapshot["payload_json"] = {key: payload.get(key) for key in ("session_id", "actor")}
@@ -135,7 +158,7 @@ def read_job_events_snapshot(
             rows = conn.execute(
                 """
                 SELECT j.job_id, j.job_type, j.status, j.error, j.progress_json,
-                       j.cache_key, j.created_at, j.started_at,
+                       j.cache_key, j.created_at, j.started_at, j.updated_at, j.claimed_by,
                        jsonb_build_object('session_id', j.payload_json->'session_id',
                                           'actor', j.payload_json->'actor') AS payload_json,
                        CASE WHEN j.status = 'completed' THEN j.result_json END AS result_json,

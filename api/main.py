@@ -8,6 +8,7 @@ Run from project root:
 import hmac
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager
 
@@ -159,12 +160,18 @@ def _warm_request_imports() -> None:
 
 @asynccontextmanager
 async def _lifespan(_app):
+    from api.agent_job_recovery import start_recovery_loop
+
+    recovery_stop = threading.Event()
+    recovery = start_recovery_loop(recovery_stop)
     try:
         await run_in_threadpool(_warm_request_imports)
         yield
     finally:
         from api.postgres import close_pools
 
+        recovery_stop.set()
+        await run_in_threadpool(recovery.join, 6.0)
         close_pools()
 
 
