@@ -6,6 +6,7 @@ import type { ScreenContext } from "@/contexts/ScreenContext"
 
 interface AgentContextPaneProps {
   screenContext?: ScreenContext | null
+  contextIncluded: boolean
   workflows: AgentWorkflow[]
   workflowsLoading: boolean
   workflowsError: boolean
@@ -33,6 +34,7 @@ function compactEntries(value: Record<string, string> | undefined, limit: number
 
 export function AgentContextPane({
   screenContext,
+  contextIncluded,
   workflows,
   workflowsLoading,
   workflowsError,
@@ -57,7 +59,9 @@ export function AgentContextPane({
             </span>
             <div>
               <h3 className="text-sm font-semibold text-app">Current Context</h3>
-              <p className="text-xs text-subtle">Included with the next turn</p>
+              <p className="text-xs text-subtle">
+                {screenContext && contextIncluded ? "Included with the next turn" : "Not included with the next turn"}
+              </p>
             </div>
           </div>
 

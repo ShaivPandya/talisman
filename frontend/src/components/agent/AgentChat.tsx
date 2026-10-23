@@ -132,6 +132,8 @@ export function AgentChat({
   const [cachedPreferences] = useState<AgentResponsePreferences>(loadResponsePreferences)
   const [draftPreferences, setDraftPreferences] = useState<AgentResponsePreferences>(cachedPreferences)
   const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null)
+  const [includeScreenContext, setIncludeScreenContext] = useState(true)
+  const [thinkingOverride, setThinkingOverride] = useState<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -182,6 +184,15 @@ export function AgentChat({
   const activePreferences = useMemo(() => preferencesQuery.data
     ? normalizePreferences(preferencesQuery.data)
     : cachedPreferences, [preferencesQuery.data, cachedPreferences])
+
+  const sendTurn = useCallback((content: string, options?: Parameters<typeof sendMessage>[3]) => {
+    void sendMessage(content, includeScreenContext ? screenContext : null, {
+      ...activePreferences,
+      thinking_enabled: thinkingOverride ?? activePreferences.thinking_enabled,
+    }, options)
+    setIncludeScreenContext(true)
+    setThinkingOverride(null)
+  }, [sendMessage, includeScreenContext, screenContext, activePreferences, thinkingOverride])
 
   const handleOpenTrace = useCallback((message: AgentMessage) => {
     openDecisionTrace({ kind: "agent_message", record: {}, sessionId, message })
@@ -258,19 +269,19 @@ export function AgentChat({
     if (lastConsumedCommandRef.current === command) return
     lastConsumedCommandRef.current = command
     pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(command)
-    window.setTimeout(() => setActivePanel("chat"), 0)
-    sendMessage(command, screenContext, activePreferences, {
-      durable: pendingCommand.durable ?? true,
-      mode: isStreaming ? "enqueue" : undefined,
-    })
+    window.setTimeout(() => {
+      setActivePanel("chat")
+      sendTurn(command, {
+        durable: pendingCommand.durable ?? true,
+        mode: isStreaming ? "enqueue" : undefined,
+      })
+    }, 0)
     onPendingCommandConsumed?.()
   }, [
     open,
     pendingCommand,
     isStreaming,
-    screenContext,
-    activePreferences,
-    sendMessage,
+    sendTurn,
     onPendingCommandConsumed,
   ])
 
@@ -280,21 +291,17 @@ export function AgentChat({
   }
 
   const handleSend = useCallback((content: string) => {
-    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(content)
+    const workflow = workflowTargetFromCommand(content)
+    pendingWorkflowInvalidationRef.current = workflow
     setActivePanel("chat")
-    void sendMessage(
-      content,
-      screenContext,
-      activePreferences,
-      isComposerBusy ? { mode: "enqueue" } : undefined,
-    )
-  }, [screenContext, activePreferences, isComposerBusy, sendMessage])
+    sendTurn(content, { durable: Boolean(workflow), mode: isComposerBusy ? "enqueue" : undefined })
+  }, [isComposerBusy, sendTurn])
 
   const handleQuickPrompt = useCallback((prompt: string) => {
     pendingWorkflowInvalidationRef.current = null
     setActivePanel("chat")
-    sendMessage(prompt, screenContext, activePreferences, isStreaming ? { mode: "enqueue" } : undefined)
-  }, [screenContext, activePreferences, isStreaming, sendMessage])
+    sendTurn(prompt, isStreaming ? { mode: "enqueue" } : undefined)
+  }, [isStreaming, sendTurn])
 
   function handleWorkflow(workflow: AgentWorkflow) {
     const ticker = workflowTicker.trim().toUpperCase()
@@ -304,7 +311,7 @@ export function AgentChat({
       : `/workflow:${workflow.name}`
     pendingWorkflowInvalidationRef.current = { workflowName: workflow.name, ticker: ticker || null }
     setActivePanel("chat")
-    sendMessage(command, screenContext, activePreferences, {
+    sendTurn(command, {
       durable: true,
       mode: isStreaming ? "enqueue" : undefined,
     })
@@ -405,6 +412,14 @@ export function AgentChat({
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[hsl(var(--background-overlay))]/45 backdrop-blur-[2px]" />
         <RadixDialog.Content
+          onEscapeKeyDown={event => {
+            if (isComposerBusy) {
+              event.preventDefault()
+              stopStreaming()
+            } else if (composerRef.current?.dismissSuggestions()) {
+              event.preventDefault()
+            }
+          }}
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden bg-app focus:outline-none",
             viewMode === "console"
@@ -495,6 +510,14 @@ export function AgentChat({
                     compactWorkflowSlot={compactWorkflowSlot}
                     workflowsOpen={showCompactWorkflows}
                     onToggleWorkflows={() => setShowCompactWorkflows(value => !value)}
+                    workflows={workflows}
+                    workflowsLoading={workflowsQuery.isLoading}
+                    workflowsError={workflowsQuery.isError}
+                    screenContext={screenContext}
+                    includeScreenContext={includeScreenContext}
+                    onToggleScreenContext={() => setIncludeScreenContext(value => !value)}
+                    thinkingEnabled={thinkingOverride ?? activePreferences.thinking_enabled}
+                    onToggleThinking={() => setThinkingOverride(value => !(value ?? activePreferences.thinking_enabled))}
                   />
                 </>
               )}
@@ -503,6 +526,7 @@ export function AgentChat({
             {activePanel === "chat" && viewMode === "console" && (
               <AgentContextPane
                 screenContext={screenContext}
+                contextIncluded={includeScreenContext}
                 workflows={workflows}
                 workflowsLoading={workflowsQuery.isLoading}
                 workflowsError={workflowsQuery.isError}
