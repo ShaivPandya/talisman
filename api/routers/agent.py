@@ -2640,6 +2640,24 @@ def _retry_model_call(
     return True
 
 
+def _stream_with_text_prefix(stream: Generator[str, None, Any], prefix: str) -> Generator[str, None, Any]:
+    """Add a round separator to its first text delta, leaving silent rounds untouched."""
+    try:
+        while True:
+            try:
+                frame = next(stream)
+            except StopIteration as done:
+                return done.value
+            if prefix and frame.startswith(_DELTA_FRAME_PREFIX):
+                payload = json.loads(frame[len(_DELTA_FRAME_PREFIX) :])
+                if payload.get("text"):
+                    frame = _sse("delta", {**payload, "text": prefix + payload["text"]})
+                    prefix = ""
+            yield frame
+    finally:
+        stream.close()
+
+
 def _serialize_content_blocks(blocks: list[object]) -> list[dict]:
     serialized: list[dict] = []
     for block in blocks:
@@ -5313,7 +5331,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         continuation_round = 0
         output_continuation_rounds = 0
         text_only_continuation = False
-        text_parts: list[str] = []
+        round_prefix = ""
+        completed_round_texts: list[str] = []
         normal_tool_payloads: list[dict[str, Any]] = []
         scan_state = ModelEgressScanState()
 
@@ -5326,7 +5345,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     tool_defs if provider in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI} or not round_text_only else []
                 )
                 round_force_tool_use = False if round_text_only else force_tool_use
+                leading_text = "".join(completed_round_texts)
+                # Output-token continuations can resume mid-sentence. Tool and pause rounds start a paragraph.
+                if not text_only_continuation:
+                    round_prefix = "\n\n" if leading_text else ""
                 text_only_continuation = False
+                text_parts: list[str] = []
 
                 stream_kwargs = _model_stream_kwargs(
                     provider=provider,
@@ -5340,7 +5364,6 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     reasoning_effort=reasoning_effort,
                 )
 
-                round_text_start = len(text_parts)
                 for attempt in range(MAX_API_RETRIES):
                     model_phase = "model_thinking" if continuation_round == 0 and tool_defs else "model_writing"
                     model_timing: dict[str, Any] = {
@@ -5384,14 +5407,17 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             attempt=attempt,
                             round_index=continuation_round,
                         )
-                        final_message = yield from _stream_llm_response(
-                            client,
-                            provider,
-                            stream_kwargs,
-                            text_parts,
-                            model_timing=model_timing,
-                            turn_timings=timings,
-                            turn_started=turn_started,
+                        final_message = yield from _stream_with_text_prefix(
+                            _stream_llm_response(
+                                client,
+                                provider,
+                                stream_kwargs,
+                                text_parts,
+                                model_timing=model_timing,
+                                turn_timings=timings,
+                                turn_started=turn_started,
+                            ),
+                            round_prefix,
                         )
                         _record_model_timing(
                             timings,
@@ -5473,7 +5499,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             from api.owned_model_rollout import map_exception_to_fallback_reason
 
                             # The baseline provider answers from scratch, not after the failed attempt's text.
-                            yield from _rewind_streamed_text(text_parts, round_text_start)
+                            yield from _rewind_streamed_text(text_parts, 0, leading_text)
                             rollout_decision, provider, api_key, client, conversation = _owned_model_apply_fallback(
                                 rollout_decision=rollout_decision,
                                 rollout_telemetry=rollout_telemetry,
@@ -5496,9 +5522,13 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
-                        if (yield from _retry_model_call(retry_exc, attempt, text_parts, round_text_start)):
+                        if (yield from _retry_model_call(retry_exc, attempt, text_parts, leading_text=leading_text)):
                             continue
                         raise
+
+                if any(text_parts):
+                    completed_round_texts.append(round_prefix + "".join(text_parts))
+                    round_prefix = ""
 
                 if provider == PROVIDER_ANTHROPIC:
                     assistant_content = _serialize_content_blocks(list(final_message.content))
@@ -5744,7 +5774,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
 
                 usage = _usage_dict(final_message)
                 # Finalize turn before last yield
-                full_text = "".join(text_parts)
+                full_text = "".join(completed_round_texts)
                 if not full_text.strip():
                     logger.warning("Agent chat model returned empty text; using deterministic empty-response fallback")
                     full_text = EMPTY_AGENT_RESPONSE_TEXT

@@ -190,7 +190,7 @@ def test_main_loop_retry_in_a_later_round_keeps_earlier_round_text(monkeypatch):
 
     turn = _run_turn(monkeypatch, NORMAL_PROMPT)
 
-    _assert_answer_once(turn, "Let me check. Based on that, fine.")
+    _assert_answer_once(turn, "Let me check. \n\nBased on that, fine.")
     assert turn.resets == [{"text": "Let me check. "}]
 
 
