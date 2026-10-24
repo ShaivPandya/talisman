@@ -1,5 +1,6 @@
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponseFeedbackRecord, AgentResponsePreferences } from "@/lib/api"
+import type { AgentAttachment } from "@/lib/chatAttachments"
 
 import type { AgentTraceSnapshot } from "@/lib/decisionTrace"
 
@@ -49,7 +50,7 @@ export interface AgentMessage {
   messageStatus?: "streaming" | "complete" | "stopped" | "failed"
   contentParts?: Record<string, unknown>[]
   sources?: Record<string, unknown>[]
-  attachments?: Record<string, unknown>[]
+  attachments?: AgentAttachment[]
   toolCalls?: ToolCall[]
   /** Text the model wrote ahead of its tool calls. It is not part of the answer. */
   narration?: AgentNote[]
@@ -75,6 +76,8 @@ export type AgentMessageDelivery = "enqueue" | "immediate"
 export interface AgentSendOptions {
   durable?: boolean
   mode?: AgentMessageDelivery
+  /** Uploaded files this message cites. */
+  attachments?: AgentAttachment[]
 }
 
 export interface QueuedAgentMessage {

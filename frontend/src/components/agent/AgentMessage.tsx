@@ -6,6 +6,7 @@ import { Pencil, RefreshCw, ShieldAlert } from "lucide-react"
 import { DecisionStateBadge, EffectScopeBadge } from "@/components/shared/DecisionStateBadge"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { AgentActivity } from "./AgentActivity"
+import { AttachmentChips } from "./AgentAttachmentChips"
 import { AgentFeedbackControls } from "./AgentFeedbackControls"
 import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./AgentMessageActions"
 import { AgentSources } from "./AgentSources"
@@ -199,6 +200,10 @@ export const AgentMessage = memo(function AgentMessage({
   if (message.role === "user") {
     return (
       <div className="group mb-4 flex flex-col items-end">
+        {/* An edited message is sent with the same files, so they stay in view while editing. */}
+        {message.attachments?.length ? (
+          <AttachmentChips attachments={message.attachments} className="mb-1.5 max-w-[min(86%,42rem)] justify-end" />
+        ) : null}
         {editing ? (
           <EditMessageForm
             initialValue={message.content}

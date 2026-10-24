@@ -14,6 +14,7 @@ import { AGENT_HISTORY_QUERY_KEY, useAgentHistory } from "@/hooks/useAgentHistor
 import { exportHistorySession } from "@/hooks/agentSessionHistory"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { StanOpenDetail } from "@/lib/stanLauncher"
+import type { AgentAttachment } from "@/lib/chatAttachments"
 import { AgentChatComposer, type AgentChatComposerHandle, type AgentChatDraft } from "./AgentChatComposer"
 import { AgentChatQueuePanel } from "./AgentChatQueuePanel"
 import { AgentChatHeader } from "./AgentChatHeader"
@@ -169,6 +170,11 @@ export function AgentChat({
   const loadComposerDraft = useCallback(() => draftRef.current, [])
   const saveComposerDraft = useCallback((draft: AgentChatDraft) => {
     draftRef.current = draft
+  }, [])
+  const attachmentsDraftRef = useRef<AgentAttachment[]>([])
+  const loadComposerAttachments = useCallback(() => attachmentsDraftRef.current, [])
+  const saveComposerAttachments = useCallback((attachments: AgentAttachment[]) => {
+    attachmentsDraftRef.current = attachments
   }, [])
 
   const workflowsQuery = useQuery({
@@ -340,13 +346,17 @@ export function AgentChat({
     setPreferenceSaveError(null)
   }
 
-  const handleSend = useCallback((content: string) => {
+  const handleSend = useCallback((content: string, attachments?: AgentAttachment[]) => {
     followingLatestRef.current = true
     setShowJumpToLatest(false)
     const workflow = workflowTargetFromCommand(content)
     pendingWorkflowInvalidationRef.current = workflow
     setActivePanel("chat")
-    sendTurn(content, { durable: Boolean(workflow), mode: isComposerBusy ? "enqueue" : undefined })
+    sendTurn(content, {
+      durable: Boolean(workflow),
+      mode: isComposerBusy ? "enqueue" : undefined,
+      ...(attachments?.length && { attachments }),
+    })
   }, [isComposerBusy, sendTurn])
 
   const handleRegenerate = useCallback((messageId: string) => {
@@ -578,8 +588,8 @@ export function AgentChat({
                     queuedMessages={queuedMessages}
                     onSendNow={id => { void sendQueuedMessageNow(id) }}
                     onEdit={id => {
-                      const text = editQueuedMessage(id)
-                      if (text != null) composerRef.current?.setInput(text)
+                      const queued = editQueuedMessage(id)
+                      if (queued) composerRef.current?.setInput(queued.content, queued.attachments)
                     }}
                     onRemove={removeQueuedMessage}
                     onClear={clearQueuedMessages}
@@ -589,6 +599,8 @@ export function AgentChat({
                     loadDraft={loadComposerDraft}
                     onDraftChange={saveComposerDraft}
                     onSend={handleSend}
+                    loadAttachments={loadComposerAttachments}
+                    onAttachmentsChange={saveComposerAttachments}
                     onStop={stopStreaming}
                     isBusy={isComposerBusy}
                     queuedCount={queuedMessages.length}

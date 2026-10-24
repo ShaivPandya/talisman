@@ -5,12 +5,13 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 ChatText = Annotated[str, Field(min_length=1, max_length=64 * 1024)]
 ScreenShortText = Annotated[str, Field(max_length=512)]
 ScreenValueText = Annotated[str, Field(max_length=4096)]
 ToolNameText = Annotated[str, Field(max_length=128)]
+MAX_ATTACHMENTS_PER_MESSAGE = 5
 
 
 class ChatMessage(BaseModel):
@@ -57,10 +58,14 @@ class AgentChatRequest(BaseModel):
     # Regenerate: the assistant message being answered again. The new answer becomes its sibling.
     regenerate_of_message_id: ScreenShortText | None = None
     message: ChatText
+    # Files uploaded through POST /agent/attachments. Only ids travel here; the server owns the bytes.
+    attachment_ids: list[ScreenShortText] = Field(default_factory=list, max_length=MAX_ATTACHMENTS_PER_MESSAGE)
     screen_context: ScreenContextModel | None = None
     response_preferences: AgentResponsePreferences | None = None
     finalize_synchronously: bool = False
     allow_workflow_handoff: bool = True
+    # The stored attachments ``attachment_ids`` name, read once per turn (see ``turn_attachments``).
+    _attachments: list[Any] | None = PrivateAttr(default=None)
 
     @model_validator(mode="after")
     def _one_branch_action(self) -> AgentChatRequest:

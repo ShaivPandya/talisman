@@ -275,3 +275,27 @@ The local experiment is reproducible with
 `.venv/bin/python -m outputs.validate_latency --pairs 12 --runs 2`.
 Its source and raw report are retained in `outputs/validate_latency.py` and
 `outputs/agent-prompt-cache-latency-validation.json` (generated, not committed).
+
+## Attachments (TL-225)
+
+A message can cite PDFs, PNG/JPEG/WebP images and CSVs uploaded through
+`POST /agent/attachments` (20 MiB PDF, 5 MiB image, 2 MiB CSV, five files and
+20 MiB of PDFs and images per message). The bytes live in state storage under
+`chat_attachments/<id>/`; a message row keeps only a descriptor, as an
+`attachment` part. The model sees them as blocks ahead of the message text:
+Anthropic `document`/`image`, OpenAI `input_file`/`input_image`, Gemini
+`inline_data`. A CSV goes in as text, cut at about 100 KB. The Talisman model
+gets PDF text (pdfminer) and a note in place of each image.
+
+Files stay attached to the message that carried them while it is in the
+verbatim window, newest first within the 20 MiB budget. The Anthropic breakpoint
+on the latest message therefore covers a document sent earlier, and a
+follow-up turn reads it from cache. A regenerated answer reuses the stored
+question's files.
+
+Routing, ticker detection and the domain guardrail read `message` only. The
+egress scan, token estimate, classifier and provenance record skip the base64:
+a file counts as private material, is estimated by size (PDF about 25 tokens
+per KB up to 120,000, image about 1,600), and is charged against the turn's
+input budget once rather than on every tool round.
+

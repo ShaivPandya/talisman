@@ -117,11 +117,17 @@ def conversation_to_chat_messages(
         role = str(item.get("role") or "user")
         content = item.get("content")
         if isinstance(content, list):
-            text_parts = []
-            for block in content:
-                if isinstance(block, dict) and block.get("type") in {"text", "input_text", "output_text"}:
-                    text_parts.append(str(block.get("text") or ""))
-            content = "".join(text_parts)
+            if any(isinstance(b, dict) and b.get("type") in {"document", "image"} for b in content):
+                # Attached files: this model reads text, so a PDF becomes its extracted text.
+                from api.chat_attachments import text_content
+
+                content = "\n\n".join(filter(None, (text_content(b) for b in content if isinstance(b, dict))))
+            else:
+                text_parts = []
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") in {"text", "input_text", "output_text"}:
+                        text_parts.append(str(block.get("text") or ""))
+                content = "".join(text_parts)
         if role == "assistant" and item.get("tool_calls"):
             messages.append(
                 {

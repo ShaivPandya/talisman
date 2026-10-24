@@ -3,6 +3,7 @@ import { AgentMessage } from "./AgentMessage"
 import { EMPTY_STATE_PROMPTS } from "./agentChatPrompts"
 import type { AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
 import type { BranchVersion } from "@/hooks/agentChatShared"
+import type { AgentAttachment } from "@/lib/chatAttachments"
 import type { RefObject, UIEventHandler } from "react"
 
 interface AgentMessageStreamProps {
@@ -11,7 +12,7 @@ interface AgentMessageStreamProps {
   isStreaming: boolean
   error: string | null
   onPrompt: (prompt: string) => void
-  onRetry: (prompt: string) => void
+  onRetry: (prompt: string, attachments: AgentAttachment[]) => void
   retryDisabled: boolean
   onOpenTrace?: (message: AgentMessageType) => void
   onScroll: UIEventHandler<HTMLDivElement>
@@ -48,10 +49,12 @@ export function AgentMessageStream({
 }: AgentMessageStreamProps) {
   const isEmpty = messages.length === 0 && !isStreaming
   let retryPrompt: string | undefined
+  let retryAttachments: AgentAttachment[] = []
   if (error) {
     for (let index = messages.length - 1; index >= 0; index--) {
       if (messages[index].role === "user") {
         retryPrompt = messages[index].content
+        retryAttachments = messages[index].attachments ?? []
         break
       }
     }
@@ -114,7 +117,7 @@ export function AgentMessageStream({
                   {retryPrompt && (
                     <button
                       type="button"
-                      onClick={() => onRetry(retryPrompt)}
+                      onClick={() => onRetry(retryPrompt, retryAttachments)}
                       disabled={retryDisabled}
                       className="theme-button-secondary mt-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold disabled:opacity-40"
                     >

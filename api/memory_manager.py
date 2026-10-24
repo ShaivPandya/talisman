@@ -18,11 +18,13 @@ import os
 import re
 import threading
 import time
+from collections.abc import Sequence
 from contextvars import copy_context
 from typing import Any
 
 from api import memory_db
 from api.agent_governance import estimate_tokens
+from api.chat_attachments import MAX_REQUEST_BINARY_BYTES, Attachment, attachments_from_descriptors, user_content
 from api.conversation_messages import TurnLineage, has_forks, message_path, resolve_turn_lineage
 from api.tool_result_memory import tool_memory_context
 
@@ -87,6 +89,7 @@ def build_conversation_context(
     client_turn_id: str | None = None,
     session: dict[str, Any] | None = None,
     lineage: TurnLineage | None = None,
+    attachments: Sequence[Attachment] = (),
 ) -> tuple[list[dict[str, object]], str]:
     """Build the ``messages`` list for a Claude API call.
 
@@ -96,8 +99,9 @@ def build_conversation_context(
       3. The new user message
 
     Pass *session* when the turn already loaded it, to skip a second read, and *lineage* to
-    continue a branch other than the latest. The caller should pass *conversation* directly
-    to ``client.messages.stream()``.
+    continue a branch other than the latest. *attachments* are the files the new message carries;
+    files on earlier verbatim messages stay attached while they fit the request's byte budget.
+    The caller should pass *conversation* directly to ``client.messages.stream()``.
     """
     if session is None:
         session = memory_db.get_or_create_session(session_id)
@@ -140,13 +144,28 @@ def build_conversation_context(
             {"role": "assistant", "content": "Understood — I have this context available and will use it as needed."}
         )
 
-    # Verbatim recent messages
-    for msg in recent:
-        conversation.append({"role": msg["role"], "content": msg["content"]})
+    # Verbatim recent messages, then the new one. The new message's files take the byte budget first.
+    new_content, binary_used = user_content(new_user_message, attachments, binary_left=MAX_REQUEST_BINARY_BYTES)
+    contents = _verbatim_contents(recent, binary_left=MAX_REQUEST_BINARY_BYTES - binary_used)
+    for msg, content in zip(recent, contents, strict=True):
+        conversation.append({"role": msg["role"], "content": content})
 
-    conversation.append({"role": "user", "content": new_user_message})
+    conversation.append({"role": "user", "content": new_content})
 
     return conversation, sid
+
+
+def _verbatim_contents(recent: list[dict[str, Any]], *, binary_left: int) -> list[Any]:
+    """Each verbatim message's content. A message that carried files keeps them, newest first within budget."""
+    contents: list[Any] = [m["content"] for m in recent]
+    for index in range(len(recent) - 1, -1, -1):
+        if not recent[index].get("attachments"):
+            continue
+        files = attachments_from_descriptors(recent[index]["attachments"])
+        if files:
+            contents[index], used = user_content(recent[index]["content"], files, binary_left=binary_left)
+            binary_left -= used
+    return contents
 
 
 def messages_before_turn(

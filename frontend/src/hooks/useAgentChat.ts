@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponsePreferences } from "@/lib/api"
+import { normalizeAttachments, type AgentAttachment } from "@/lib/chatAttachments"
 import {
   assistantTurnInProgress,
   leafBelow,
@@ -318,11 +319,13 @@ function buildAgentRequestBody(
   screenContext?: ScreenContext | null,
   responsePreferences?: AgentResponsePreferences | null,
   messageIds?: { user: string; assistant: string; parent?: string; editOf?: string; regenerateOf?: string },
+  attachments?: AgentAttachment[],
 ): Record<string, unknown> {
   return {
     session_id: sessionId,
     client_turn_id: clientTurnId,
     message: content,
+    ...(attachments?.length && { attachment_ids: attachments.map(attachment => attachment.id) }),
     ...(messageIds && {
       user_message_id: messageIds.user,
       assistant_message_id: messageIds.assistant,
@@ -498,7 +501,7 @@ export async function fetchSession(sessionId: string): Promise<{
       messageStatus: m.status as AgentMessage["messageStatus"],
       contentParts: Array.isArray(m.content_parts) ? m.content_parts as Record<string, unknown>[] : [],
       sources: Array.isArray(m.sources) ? m.sources as Record<string, unknown>[] : [],
-      attachments: Array.isArray(m.attachments) ? m.attachments as Record<string, unknown>[] : [],
+      attachments: normalizeAttachments(m.attachments),
       traceSnapshot: m.trace_snapshot && typeof m.trace_snapshot === "object"
         ? extractAgentTraceSnapshot(m.trace_snapshot as Record<string, unknown>)
         : m.traceSnapshot as AgentMessage["traceSnapshot"],
@@ -1258,6 +1261,8 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     // answer has its own trajectory and feedback.
     const shown = resolveBranch(stateRef.current.messages, stateRef.current.activeLeafId).messages
     const clientTurnId = crypto.randomUUID()
+    // A regenerated answer replies to the stored question, so the server supplies that question's files.
+    const attachments = branchAction?.kind === "regenerate" ? undefined : options?.attachments
     const userMsg: AgentMessage = branchAction?.kind === "regenerate"
       ? branchAction.question
       : {
@@ -1266,6 +1271,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
           content,
           timestamp: Date.now(),
           clientTurnId,
+          ...(attachments?.length && { attachments }),
           parentId: branchAction?.kind === "edit" ? branchAction.parentId : (shown[shown.length - 1]?.id ?? null),
         }
 
@@ -1322,6 +1328,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
         ...(branchAction?.kind === "edit" ? { editOf: branchAction.messageId } : {}),
         ...(branchAction?.kind === "regenerate" ? { regenerateOf: branchAction.answerId } : {}),
       },
+      attachments,
     )
     let sawAssistantDelta = false
 
@@ -1520,7 +1527,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     const original = messages.find(message => message.id === messageId)
     const edited = content.trim()
     if (original?.role !== "user" || !edited || sessionIsBusy(stateRef.current.sessionId)) return
-    await executeSendMessage(edited, screenContext, responsePreferences, undefined, {
+    await executeSendMessage(edited, screenContext, responsePreferences, { attachments: original.attachments }, {
       kind: "edit",
       messageId,
       parentId: parentIdOf(messages, messageId),
@@ -1548,7 +1555,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     const entry = stateRef.current.queuedMessages.find(item => item.id === id)
     if (!entry) return null
     removeQueuedMessage(id)
-    return entry.content
+    return { content: entry.content, attachments: entry.options?.attachments ?? [] }
   }, [removeQueuedMessage])
 
   const clearQueuedMessages = useCallback(() => {

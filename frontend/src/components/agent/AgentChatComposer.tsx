@@ -1,11 +1,32 @@
-import { AtSign, Brain, ChevronDown, Monitor, Plus, Send, Square, X, Zap } from "lucide-react"
+import { AtSign, Brain, ChevronDown, Monitor, Paperclip, Plus, Send, Square, X, Zap } from "lucide-react"
 import { useQuery } from "@tanstack/react-query"
-import { fetchPortfolioPositions, fetchThesisMeta, type AgentWorkflow } from "@/lib/api"
+import { fetchPortfolioPositions, fetchThesisMeta, uploadAgentAttachment, type AgentWorkflow } from "@/lib/api"
 import type { ScreenContext } from "@/contexts/ScreenContext"
+import {
+  ATTACHMENT_ACCEPT,
+  DEFAULT_ATTACHMENT_PROMPT,
+  MAX_ATTACHMENTS,
+  attachmentFileProblem,
+  type AgentAttachment,
+} from "@/lib/chatAttachments"
 import { cn } from "@/lib/utils"
+import { ComposerAttachmentChips, type PendingAttachment } from "./AgentAttachmentChips"
 import { resizeChatTextarea } from "./agentChatTextarea"
 import { composerTrigger, filterComposerSuggestions, mentionSuggestions, type ComposerSuggestion } from "./agentComposerSuggestions"
-import { useEffect, useId, useImperativeHandle, useMemo, useState, type KeyboardEvent, type ReactNode, type Ref, type RefObject } from "react"
+import {
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  type Ref,
+  type RefObject,
+} from "react"
 
 export interface AgentChatDraft {
   value: string
@@ -13,7 +34,7 @@ export interface AgentChatDraft {
 }
 
 export interface AgentChatComposerHandle {
-  setInput: (value: string) => void
+  setInput: (value: string, attachments?: AgentAttachment[]) => void
   dismissSuggestions: () => boolean
 }
 
@@ -21,7 +42,10 @@ interface AgentChatComposerProps {
   ref?: Ref<AgentChatComposerHandle>
   loadDraft: () => AgentChatDraft
   onDraftChange: (draft: AgentChatDraft) => void
-  onSend: (content: string) => void
+  onSend: (content: string, attachments: AgentAttachment[]) => void
+  /** Files uploaded but not yet sent, kept like the draft text while the composer is unmounted. */
+  loadAttachments?: () => AgentAttachment[]
+  onAttachmentsChange?: (attachments: AgentAttachment[]) => void
   onStop: () => void
   /** True while the current turn is in progress (stream, job poll, or active tools). */
   isBusy: boolean
@@ -45,6 +69,8 @@ export function AgentChatComposer({
   loadDraft,
   onDraftChange,
   onSend,
+  loadAttachments,
+  onAttachmentsChange,
   onStop,
   isBusy,
   queuedCount = 0,
@@ -69,6 +95,12 @@ export function AgentChatComposer({
     return draft.selection ?? { start: draft.value.length, end: draft.value.length }
   })
   const [focused, setFocused] = useState(false)
+  const [ready, setReady] = useState<AgentAttachment[]>(() => loadAttachments?.() ?? [])
+  const [pending, setPending] = useState<PendingAttachment[]>([])
+  const [attachProblem, setAttachProblem] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
+  const uploadsRef = useRef(new Map<string, AbortController>())
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [menuState, setMenuState] = useState({ key: "", index: 0, dismissed: false })
   const menuId = useId()
   const trigger = focused ? composerTrigger(input, selection.start, selection.end) : null
@@ -93,12 +125,15 @@ export function AgentChatComposer({
     && workflows.some(workflow => workflow.name === commandMatch[1] && workflow.requiresTicker)
     && !commandMatch[2]?.trim())
   const hasInput = Boolean(input.trim())
+  const uploading = pending.some(item => item.status === "uploading")
+  const canSend = (hasInput || ready.length > 0) && !uploading && !needsWorkflowTicker
 
   useImperativeHandle(ref, () => ({
-    setInput(value) {
+    setInput(value, attachments) {
       onDraftChange({ value, selection: { start: value.length, end: value.length } })
       setInput(value)
       setSelection({ start: value.length, end: value.length })
+      if (attachments) setReady(attachments)
     },
     dismissSuggestions() {
       if (!menuOpen) return false
@@ -112,16 +147,84 @@ export function AgentChatComposer({
   }, [input, textareaRef])
 
   useEffect(() => {
+    onAttachmentsChange?.(ready)
+  }, [ready, onAttachmentsChange])
+
+  useEffect(() => {
+    const uploads = uploadsRef.current
+    return () => uploads.forEach(controller => controller.abort())
+  }, [])
+
+  useEffect(() => {
     if (menuOpen) document.getElementById(`${menuId}-${selectedIndex}`)?.scrollIntoView({ block: "nearest" })
   }, [menuOpen, menuId, selectedIndex])
 
+  function addFiles(files: File[]) {
+    if (!files.length) return
+    const room = MAX_ATTACHMENTS - ready.length - pending.length
+    const problems: string[] = []
+    if (files.length > Math.max(room, 0)) problems.push(`You can attach up to ${MAX_ATTACHMENTS} files to a message.`)
+    for (const file of files.slice(0, Math.max(room, 0))) {
+      const problem = attachmentFileProblem(file)
+      if (problem) {
+        problems.push(problem)
+        continue
+      }
+      const key = crypto.randomUUID()
+      const controller = new AbortController()
+      uploadsRef.current.set(key, controller)
+      setPending(previous => [...previous, { key, name: file.name, size: file.size, status: "uploading" }])
+      uploadAgentAttachment(file, controller.signal)
+        .then(attachment => {
+          setPending(previous => previous.filter(item => item.key !== key))
+          setReady(previous => [...previous, attachment])
+        })
+        .catch((error: unknown) => {
+          if (controller.signal.aborted) return
+          const reason = error instanceof Error && error.message ? error.message : "Upload failed"
+          setPending(previous => previous.map(item => item.key === key ? { ...item, status: "error", error: reason } : item))
+        })
+        .finally(() => uploadsRef.current.delete(key))
+    }
+    setAttachProblem(problems.length ? problems.join(" ") : null)
+  }
+
+  function removePending(key: string) {
+    uploadsRef.current.get(key)?.abort()
+    setPending(previous => previous.filter(item => item.key !== key))
+  }
+
+  function handlePaste(event: ClipboardEvent<HTMLTextAreaElement>) {
+    // A screenshot pastes as a file. Text copied from a spreadsheet also carries an image, so leave that alone.
+    const files = Array.from(event.clipboardData.files)
+    if (!files.length || event.clipboardData.getData("text/plain")) return
+    event.preventDefault()
+    addFiles(files)
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.types.includes("Files")) return
+    event.preventDefault()
+    setDragging(true)
+  }
+
+  function handleDrop(event: DragEvent<HTMLDivElement>) {
+    if (!event.dataTransfer.files.length) return
+    event.preventDefault()
+    setDragging(false)
+    addFiles(Array.from(event.dataTransfer.files))
+  }
+
   function handleSend() {
+    if (!canSend) return
     const content = input.trim()
-    if (!content || needsWorkflowTicker) return
+    const attachments = ready
     onDraftChange({ value: "", selection: { start: 0, end: 0 } })
     setInput("")
     setSelection({ start: 0, end: 0 })
-    onSend(content)
+    setReady([])
+    setAttachProblem(null)
+    onSend(content || DEFAULT_ATTACHMENT_PROMPT, attachments)
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -190,7 +293,12 @@ export function AgentChatComposer({
   const sendTitle = isBusy ? "Queue follow-up" : "Send message"
 
   return (
-    <div className="safe-bottom relative shrink-0 border-t border-app bg-card px-4 py-3">
+    <div
+      className={cn("safe-bottom relative shrink-0 border-t border-app bg-card px-4 py-3", dragging && "ring-2 ring-inset ring-[hsl(var(--accent))]")}
+      onDragOver={handleDragOver}
+      onDragLeave={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false) }}
+      onDrop={handleDrop}
+    >
       {compactWorkflowSlot && onToggleWorkflows && (
         <div className="mb-3">
           <button
@@ -216,6 +324,14 @@ export function AgentChatComposer({
           <span className="h-2 w-2 rounded-full bg-[hsl(var(--accent))] animate-pulse" aria-hidden="true" />
         </div>
       )}
+
+      <ComposerAttachmentChips
+        ready={ready}
+        pending={pending}
+        onRemoveReady={id => setReady(previous => previous.filter(item => item.id !== id))}
+        onRemovePending={removePending}
+      />
+      {attachProblem && <p className="mb-2 text-xs text-negative" role="alert">{attachProblem}</p>}
 
       <div className="relative">
         {menuOpen && trigger && (
@@ -273,6 +389,7 @@ export function AgentChatComposer({
               setFocused(false)
             }}
             onInput={event => resizeChatTextarea(event.currentTarget)}
+            onPaste={handlePaste}
             placeholder="Ask about markets, portfolio, macro..."
             aria-label="Message Stan"
             aria-autocomplete="list"
@@ -293,11 +410,11 @@ export function AgentChatComposer({
               <Square size={14} aria-hidden="true" />
             </button>
           )}
-          {(!isBusy || hasInput) && (
+          {(!isBusy || hasInput || ready.length > 0) && (
             <button
               type="button"
               onClick={handleSend}
-              disabled={!hasInput || needsWorkflowTicker}
+              disabled={!canSend}
               className="theme-button-primary flex h-11 w-11 flex-none items-center justify-center rounded-full text-[hsl(var(--accent-foreground))] disabled:cursor-not-allowed disabled:opacity-40"
               aria-label={sendLabel}
               title={sendTitle}
@@ -312,6 +429,28 @@ export function AgentChatComposer({
         <button type="button" onClick={() => replaceInput("/", 1)} disabled={hasInput} aria-label="Choose workflow" title="Choose workflow (/)" className="theme-button-secondary flex h-9 items-center gap-1 rounded-lg px-2 text-xs disabled:opacity-40">
           <Zap size={13} aria-hidden="true" /> /
         </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          aria-label="Attach files"
+          title="Attach PDFs, images or CSVs. You can also paste or drop them."
+          className="theme-button-secondary flex h-9 items-center rounded-lg px-2 text-xs"
+        >
+          <Paperclip size={13} aria-hidden="true" />
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          accept={ATTACHMENT_ACCEPT}
+          tabIndex={-1}
+          aria-hidden="true"
+          className="hidden"
+          onChange={event => {
+            addFiles(Array.from(event.currentTarget.files ?? []))
+            event.currentTarget.value = ""
+          }}
+        />
         <button type="button" onClick={insertMention} aria-label="Mention ticker, position or thesis" title="Mention ticker, position or thesis (@)" className="theme-button-secondary flex h-9 items-center rounded-lg px-2 text-xs">
           <AtSign size={13} aria-hidden="true" />
         </button>

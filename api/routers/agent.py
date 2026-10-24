@@ -44,6 +44,7 @@ from api.agent_governance import (
     ModelGatewayDenied,
     blocked_tool_payload,
     prepare_model_egress,
+    strip_inline_files,
 )
 from api.agent_models import (
     AgentChatJobRequest,
@@ -54,6 +55,7 @@ from api.agent_models import (
     ScreenContextModel,
 )
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
+from api.chat_attachments import gemini_parts, openai_content, turn_attachments
 from api.conversation_messages import TurnLineage, resolve_turn_lineage, sources_from
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
@@ -1109,6 +1111,8 @@ def _lineage_user_message(req: AgentChatRequest, lineage: TurnLineage, user_msg:
     user_msg = {**user_msg, "id": req.user_message_id}
     if lineage.explicit:
         user_msg["parent_id"] = lineage.parent_id
+    if attachments := turn_attachments(req):
+        user_msg.setdefault("attachments", [a.descriptor() for a in attachments])
     return user_msg
 
 
@@ -1195,6 +1199,7 @@ def _enqueue_agent_chat_turn(
     from api import memory_db
     from api.async_job_runner import enqueue_registered_job
 
+    turn_attachments(req)  # reject unknown files before the turn is stored or queued
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
     _agent_turn_begin(req, session_id, session)
@@ -1907,7 +1912,7 @@ def _build_decision_quality_chat_context(
     route_decision: RouteDecision | None = None,
     opportunity_candidate_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    history = raw_conversation  # already bounded by the memory manager's token budgets
+    history, _ = strip_inline_files(raw_conversation)  # bounded by the memory manager; minus attached files' bytes
     tool_data_quality = aggregate_tool_data_quality(tool_results)
     screen_payload = screen_context.model_dump(mode="json") if screen_context else None
     data_quality = {
@@ -3232,6 +3237,8 @@ def _openai_conversation_from_context(conversation: list[dict[str, object]]) -> 
         content = msg.get("content", "")
         if isinstance(content, str):
             out.append({"role": role, "content": [{"type": _openai_text_type(role), "text": content}]})
+        elif isinstance(content, list):
+            out.append({"role": role, "content": openai_content(content, role)})
         else:
             out.append({"role": role, "content": content})
     return out
@@ -3245,7 +3252,7 @@ def _gemini_conversation_from_context(conversation: list[dict[str, object]]) -> 
         if isinstance(content, str):
             out.append(_gemini_text_content(role, content))
         elif isinstance(content, list):
-            out.append({"role": _gemini_role(role), "parts": content})
+            out.append({"role": _gemini_role(role), "parts": gemini_parts(content)})
         else:
             out.append(_gemini_text_content(role, str(content)))
     return out
@@ -3647,7 +3654,8 @@ def _start_model_call_provenance(
                 "instructions": stream_kwargs.get("instructions")
                 or stream_kwargs.get("system")
                 or config.get("system_instruction"),
-                "conversation": conversation,
+                # Attached files are recorded by their descriptors on the message, not as base64 here.
+                "conversation": strip_inline_files(conversation)[0],
             },
             summary={
                 "provider": provider,
@@ -4081,6 +4089,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     assembles optimal context from a rolling summary, verbatim window,
     and retrieval hits.
     """
+    turn_attachments(req)  # reject unknown files before anything streams
     domain_classification = analyze_agent_domain(req.message, screen_context=req.screen_context)
     if domain_classification.decision != "allow":
         return StreamingResponse(
@@ -4290,6 +4299,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             client_turn_id=req.client_turn_id,
             session=session,
             lineage=lineage,
+            attachments=turn_attachments(req, lineage.reused_user),
         )
         has_recent_tool_facts = bool(
             raw_conversation and TOOL_MEMORY_HEADER in str(raw_conversation[0].get("content", ""))
