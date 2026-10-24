@@ -54,11 +54,34 @@ def _sample_trajectory(**overrides):
     return get_trajectory(trajectory_id)
 
 
-def test_build_training_dataset_joins_approve_feedback_to_trajectory():
+@pytest.mark.parametrize(
+    "route,expected_task_class",
+    [
+        ({"applied": {"intent_class": "thesis_review"}}, "thesis_review"),
+        (
+            {
+                "applied": {"intent_class": "portfolio_query"},
+                "intent_class": "general_research",
+                "telemetry": {"llm_candidate": {"intent_class": "thesis_review"}},
+            },
+            "portfolio_query",
+        ),
+        ({"intent_class": "opportunity_discovery"}, "opportunity_discovery"),
+        ({"intent": "general_research"}, "general_research"),
+        ({"applied": None, "intent_class": "catalyst_status"}, "catalyst_status"),
+        ({"applied": {}, "intent": "workflow_handoff"}, "workflow_handoff"),
+        ({}, "agent_turn"),
+        ({"applied": None}, "agent_turn"),
+        ({"applied": {}}, "agent_turn"),
+        ({"applied": "invalid"}, "agent_turn"),
+        ({"telemetry": {"llm_candidate": {"intent_class": "thesis_review"}}}, "agent_turn"),
+    ],
+)
+def test_build_training_dataset_joins_approve_feedback_to_trajectory(route, expected_task_class):
     from api.agent_response_feedback import response_version_for_trajectory, upsert_feedback
     from decision_quality.agent_training_datasets import build_training_dataset
 
-    trajectory = _sample_trajectory(client_turn_id="turn-sft")
+    trajectory = _sample_trajectory(client_turn_id="turn-sft", route=route)
     response_version = response_version_for_trajectory(trajectory)
     upsert_feedback(
         {
@@ -82,6 +105,7 @@ def test_build_training_dataset_joins_approve_feedback_to_trajectory():
     assert len(bundle["sft_rows"]) == 1
     assert bundle["sft_rows"][0]["source_type"] == "trajectory"
     assert bundle["sft_rows"][0]["signal_source"] == "human_reviewed"
+    assert bundle["sft_rows"][0]["task_class"] == expected_task_class
     assert bundle["preference_rows"] == []
 
 
