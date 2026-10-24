@@ -1197,6 +1197,10 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
     return json(route, responsePreferences)
   }
   if (method === "GET" && path === "/api/memory/sessions") return json(route, agentHistorySessions(state))
+  // The chat looks for suggested follow-up questions after every answer. Specs that want some mock this route.
+  if (method === "GET" && /^\/api\/memory\/sessions\/[^/]+\/messages\/[^/]+\/suggestions$/.test(path)) {
+    return json(route, { suggestions: [] })
+  }
   if (method === "GET" && path === "/api/memory/sessions/history-session-nvda") {
     const session = (agentHistorySessions(state) as JsonValue[])[0] as Record<string, JsonValue>
     return json(route, {

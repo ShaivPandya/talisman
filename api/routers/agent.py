@@ -30,6 +30,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.types import Receive, Scope, Send
 
+from api import chat_rich_parts
 from api.agent_domain_policy import (
     DOMAIN_BLOCK_RESPONSE,
     DOMAIN_CLARIFY_RESPONSE,
@@ -613,6 +614,7 @@ def _turn_followup(
         ),
         shadow=shadow,
         intent_router_shadow=intent_router_shadow,
+        suggest_followups=final_disposition == "succeeded" and bool(req.client_turn_id),
     )
 
 
@@ -926,6 +928,9 @@ class _TurnTranscriptGuard:
         self.thinking: dict[str, str] = {}
         self.narration: dict[str, str] = {}
         self.memory_context: dict[str, Any] = {"enabled": True, "memories": [], "prompt": ""}
+        # Rich parts, keyed by tool call id like ``tools``.
+        self.charts: dict[str, dict[str, Any]] = {}
+        self.proposals: dict[str, dict[str, Any]] = {}
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
         from api.memory_manager import finalize_turn, finalize_turn_async
@@ -945,21 +950,51 @@ class _TurnTranscriptGuard:
             "memory_context": self.memory_context,
             "thinking": [{"id": key, "text": text} for key, text in self.thinking.items()],
             "narration": [{"id": key, "text": text} for key, text in self.narration.items()],
+            "charts": list(self.charts.values()),
+            "proposals": list(self.proposals.values()),
         }
+
+    def _rich_part(self, identity: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """The chart or proposal card a finished tool call adds to the answer, as ``{"chart": ...}`` or ``{"proposal": ...}``."""
+        name = str(payload.get("name") or "")
+        if payload.get("status") not in {"ok", "partial"}:
+            return {}
+        if name in chat_rich_parts.CHART_TOOLS:
+            if len(self.charts) >= chat_rich_parts.MAX_CHARTS_PER_MESSAGE and identity not in self.charts:
+                return {}
+            try:
+                meta = json.loads(payload["result"]).get("_meta")
+            except (ValueError, AttributeError, TypeError):
+                return {}
+            event_id = meta.get("provenance_event_id") if isinstance(meta, dict) else None
+            chart = chat_rich_parts.stashed_chart(event_id) if isinstance(event_id, str) else None
+            if chart is None:
+                return {}
+            self.charts[identity] = {"id": identity, **chart}
+            return {"chart": self.charts[identity]}
+        if name.startswith("propose_"):
+            proposal = chat_rich_parts.build_proposal_part(name, payload["result"])
+            if proposal is None:
+                return {}
+            self.proposals[identity] = {"id": identity, **proposal}
+            return {"proposal": self.proposals[identity]}
+        return {}
 
     def observe(self, frame: str) -> str:
         event_type = frame.split("\n", 1)[0].removeprefix("event: ")
         if event_type in {"tool_call", "tool_result", "tool_progress"} and "\ndata: " in frame:
             payload = json.loads(frame.split("\ndata: ", 1)[1])
             identity = str(payload.get("id") or payload.get("name") or "")
+            rich: dict[str, Any] = {}
             if event_type == "tool_result" and "result" in payload:
                 self.tool_memory[identity] = compact_tool_result(
                     {**self.tools.get(identity, {}), **payload}, observed_at=datetime.now(UTC).isoformat()
                 )
+                rich = self._rich_part(identity, payload)
             if "result" in payload:
                 # The memory above and the trajectory use the whole result. The client and the saved message get a preview.
                 payload = _public_tool_payload(payload)
-                frame = _sse(event_type, payload)
+                frame = _sse(event_type, {**payload, **rich})
             self.tools[identity] = {**self.tools.get(identity, {}), **payload}
             self.sources.extend(sources_from(payload))
             self._save_partial()
@@ -988,6 +1023,8 @@ class _TurnTranscriptGuard:
                 user_message_id=self.req.user_message_id,
                 assistant_message_id=self.req.assistant_message_id,
             )
+            # The client already has each chart from its tool_result frame; the snapshots are the largest part of a message.
+            payload.pop("charts", None)
             if self.session_id and self.req.client_turn_id:
                 from api.memory_db import update_assistant_message
 

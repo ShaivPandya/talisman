@@ -22,6 +22,7 @@ from typing import Any, Literal, cast
 
 from pydantic import ValidationError as PydanticValidationError
 
+from api import chat_rich_parts
 from api.agent_governance import (
     AgentGovernanceError,
     ToolPolicyDenied,
@@ -226,6 +227,21 @@ def _stable_json_dumps(data: object) -> str:
         return json.dumps(data, default=str, separators=(",", ":"))
     except (TypeError, ValueError):
         return json.dumps(str(data), separators=(",", ":"))
+
+
+def _response_payload(response: Any) -> Any:
+    """The data a route function built, when it returned a JSON response object instead of the data."""
+    body = getattr(response, "body", None)
+    return json.loads(body) if isinstance(body, (bytes, bytearray)) else response
+
+
+def _stash_chat_chart(name: str, args: dict[str, Any], result: Any, event_id: str | None) -> None:
+    """Keep a chart snapshot of a chart tool's whole result for the chat stream, which only sees the compacted one."""
+    if not event_id or name not in chat_rich_parts.CHART_TOOLS:
+        return
+    part = chat_rich_parts.build_chart_part(name, args, result)
+    if part is not None:
+        chat_rich_parts.stash_chart(event_id, part)
 
 
 def _safe_iso_date(value: Any) -> str | None:
@@ -1264,6 +1280,7 @@ def execute_tool(
             retry_policy=exposure.retry_policy,
         )
         validate_tool_output(exposure, result)
+        _stash_chat_chart(name, safe_args, result, provenance_event_id)
         payload, _compact_meta = _compact_tool_output(name, result)
         meta = dict(dispatch_meta)
         meta.update(
@@ -2433,13 +2450,13 @@ def _dispatch(
         from api.routers.chart import ChartRequest, run_chart
 
         req = _model_validate(ChartRequest, args)
-        return run_chart(req), {"cache": "n/a"}
+        return _response_payload(run_chart(req)), {"cache": "n/a"}
 
     if name == "run_ratio_chart":
         from api.routers.chart import RatioChartRequest, run_chart_ratio
 
         req = _model_validate(RatioChartRequest, args)
-        return run_chart_ratio(req), {"cache": "n/a"}
+        return _response_payload(run_chart_ratio(req)), {"cache": "n/a"}
 
     if name == "get_fx_model_pairs":
         from api.routers.fx_model import list_pairs

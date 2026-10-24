@@ -1,5 +1,6 @@
 import { AlertCircle, ArrowDown, MessageCircle, RotateCw } from "lucide-react"
 import { AgentMessage } from "./AgentMessage"
+import { AgentSuggestions } from "./AgentSuggestions"
 import { EMPTY_STATE_PROMPTS } from "./agentChatPrompts"
 import type { AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
 import type { BranchVersion } from "@/hooks/agentChatShared"
@@ -48,6 +49,7 @@ export function AgentMessageStream({
   messagesEndRef,
 }: AgentMessageStreamProps) {
   const isEmpty = messages.length === 0 && !isStreaming
+  const lastMessage = messages[messages.length - 1]
   let retryPrompt: string | undefined
   let retryAttachments: AgentAttachment[] = []
   if (error) {
@@ -105,6 +107,9 @@ export function AgentMessageStream({
                 />
               )
             })}
+            {lastMessage?.role === "assistant" && !lastMessage.isStreaming && !actionsDisabled && (
+              <AgentSuggestions suggestions={lastMessage.suggestions ?? []} onSelect={onPrompt} />
+            )}
             {error && (
               <div
                 className="mb-3 flex items-start gap-2 rounded-xl border border-[hsl(var(--destructive)/0.22)] bg-[hsl(var(--destructive-muted))] px-3 py-2 text-sm text-negative"

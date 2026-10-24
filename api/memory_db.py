@@ -479,7 +479,18 @@ def _with_valid_parent(conn: Any, session_id: str, message: dict[str, Any]) -> d
 def _patch_row(conn: Any, row: Any, patch: dict[str, Any]) -> None:
     message = {**record_message(row), **patch}
     if "content_parts" in patch:
-        for key in ("content", "tool_calls", "toolCalls", "sources", "attachments", "thinking", "narration"):
+        for key in (
+            "content",
+            "tool_calls",
+            "toolCalls",
+            "sources",
+            "attachments",
+            "thinking",
+            "narration",
+            "charts",
+            "proposals",
+            "suggestions",
+        ):
             if key not in patch:
                 message.pop(key, None)
     # Identity and ancestry never change during streaming/finalization.
@@ -561,6 +572,42 @@ def attachment_ids_in_use() -> set[str]:
             if isinstance(data, dict) and isinstance(data.get("id"), str):
                 ids.add(data["id"])
     return ids
+
+
+def turn_exchange(session_id: str, client_turn_id: str) -> dict[str, Any]:
+    """A turn's question and answer as saved: the answer's status ("" when it isn't saved yet), text and suggestions."""
+
+    def _read() -> dict[str, Any]:
+        with _get_conn(read_only=True) as conn:
+            rows = {
+                role: conn.execute(
+                    "SELECT * FROM conversation_messages WHERE session_id = ? AND client_turn_id = ? AND role = ? "
+                    "ORDER BY position DESC LIMIT 1",
+                    (session_id, client_turn_id, role),
+                ).fetchone()
+                for role in ("user", "assistant")
+            }
+        user = record_message(rows["user"]) if rows["user"] is not None else {}
+        answer = record_message(rows["assistant"]) if rows["assistant"] is not None else {}
+        return {
+            "status": answer.get("status") or "",
+            "question": str(user.get("content") or ""),
+            "answer": str(answer.get("content") or ""),
+            "suggestions": answer.get("suggestions") or [],
+        }
+
+    return retry_read(_read)
+
+
+def message_suggestions(session_id: str, message_id: str) -> list[dict[str, Any]]:
+    """The suggested follow-up questions saved on an assistant message; none when it has none yet."""
+
+    def _read() -> list[dict[str, Any]]:
+        with _get_conn(read_only=True) as conn:
+            row = _message_row(conn, session_id, message_id, "assistant")
+        return list(record_message(row).get("suggestions") or []) if row is not None else []
+
+    return retry_read(_read)
 
 
 def begin_turn(session_id: str, user_message: dict[str, Any], assistant_placeholder: dict[str, Any]) -> int:

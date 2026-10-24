@@ -15,6 +15,8 @@ os.environ["AUTH_MODE"] = "password"
 os.environ["AUTH_DEFAULT_USERNAME"] = "admin"
 os.environ["AUTH_LOGIN_RATE_LIMIT"] = "1000/minute"
 os.environ["ASYNC_JOB_BACKEND"] = "local"
+# Answered turns would otherwise queue a model call for follow-up suggestions; the tests that cover it turn it on.
+os.environ["AGENT_FOLLOWUP_SUGGESTIONS"] = "false"
 os.environ.setdefault("LLM_PROVIDER", "anthropic")
 os.environ["ENVIRONMENT"] = "development"
 os.environ["TALISMAN_ALLOW_SQLITE_STATE"] = "true"

@@ -30,6 +30,8 @@ class AgentTurnFollowupRequest(BaseModel):
     shadow: dict[str, Any] | None = None
     # Routing context only: credentials are resolved by the worker, never queued.
     intent_router_shadow: dict[str, Any] | None = None
+    # Set for answered turns: write the follow-up questions shown under the answer.
+    suggest_followups: bool = False
 
 
 def followup_cache_key(req: AgentTurnFollowupRequest) -> str | None:
@@ -64,6 +66,14 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
         except Exception:
             logger.exception("Rolling summarization failed for session %s", req.session_id)
             steps["summary"] = "failed"
+
+    # The chat shows them under the answer within seconds, so they go before the slower steps.
+    if req.suggest_followups and req.client_turn_id:
+        try:
+            steps["suggestions"] = _write_suggestions(req.session_id, req.client_turn_id)
+        except Exception:
+            logger.exception("Follow-up suggestions failed for session %s", req.session_id)
+            steps["suggestions"] = "failed"
 
     shadow_comparison: dict[str, Any] | None = None
     router_meta: dict[str, Any] | None = None
@@ -111,6 +121,33 @@ def run_agent_turn_followup(req: AgentTurnFollowupRequest) -> dict[str, Any]:
         steps["trajectory"] = "stored" if insert_trajectory(trajectory) else "not_stored"
 
     return {"session_id": req.session_id, "client_turn_id": req.client_turn_id, "steps": steps}
+
+
+SUGGESTIONS_WAIT_S = 5.0
+
+
+def _write_suggestions(session_id: str, client_turn_id: str) -> str:
+    """Save 2-3 suggested questions on the turn's answer, once the answer itself is saved."""
+    from api import memory_db
+    from api.chat_rich_parts import generate_suggestions, suggestions_enabled
+
+    if not suggestions_enabled():
+        return "disabled"
+    deadline = time.monotonic() + SUGGESTIONS_WAIT_S
+    exchange = memory_db.turn_exchange(session_id, client_turn_id)
+    # The answer is saved by a thread that may still be running when this job starts.
+    while exchange["status"] != "complete" and time.monotonic() < deadline:
+        time.sleep(0.25)
+        exchange = memory_db.turn_exchange(session_id, client_turn_id)
+    if exchange["status"] != "complete" or exchange["suggestions"]:
+        return "skipped"
+    suggestions = generate_suggestions(exchange["question"], exchange["answer"])
+    if not suggestions:
+        return "skipped"
+    saved = memory_db.update_assistant_message(
+        session_id, client_turn_id, {"suggestions": [{"text": text} for text in suggestions]}
+    )
+    return "written" if saved else "skipped"
 
 
 def _run_intent_router_shadow(req: AgentTurnFollowupRequest) -> dict[str, Any]:

@@ -7,8 +7,10 @@ import { DecisionStateBadge, EffectScopeBadge } from "@/components/shared/Decisi
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { AgentActivity } from "./AgentActivity"
 import { AttachmentChips } from "./AgentAttachmentChips"
+import { AgentChart } from "./AgentChart"
 import { AgentFeedbackControls } from "./AgentFeedbackControls"
 import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./AgentMessageActions"
+import { AgentProposalCard } from "./AgentProposalCard"
 import { AgentSources } from "./AgentSources"
 import { toolEffectScope } from "./agentToolDisplay"
 
@@ -268,6 +270,13 @@ export const AgentMessage = memo(function AgentMessage({
         {!displayContent && message.statusText && (
           <span className="text-xs text-muted">{message.statusText}</span>
         )}
+
+        {message.charts?.map(chart => (
+          <AgentChart key={chart.id} chart={chart} />
+        ))}
+        {message.proposals?.map(proposal => (
+          <AgentProposalCard key={proposal.id} proposal={proposal} />
+        ))}
 
         {/* Streaming cursor */}
         {message.isStreaming && (

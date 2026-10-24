@@ -31,6 +31,36 @@ export interface AgentNote {
   text: string
 }
 
+export type ChartYFormat = "price" | "percent" | "yield" | "ratio" | "number"
+
+/** A chart the assistant's tools produced, saved with the message: a snapshot, sampled to a few hundred rows. */
+export interface AgentChartPart {
+  /** The id of the tool call that produced it. */
+  id: string
+  tool: string
+  /** `line`: a series over time. `curve`: values by tenor or contract. `bars`: one bar per label. */
+  kind: "line" | "curve" | "bars"
+  title: string
+  subtitle?: string
+  asOf?: string
+  xKey: string
+  yFormat: ChartYFormat
+  unit?: string
+  series: { key: string; name: string }[]
+  rows: Record<string, unknown>[]
+  sampledFrom?: number
+}
+
+/** A pending approval a `propose_*` tool created. The card reads the approval itself for its details and state. */
+export interface AgentProposalPart {
+  /** The id of the tool call that created it. */
+  id: string
+  tool: string
+  approvalId: string
+  entityType?: string
+  ticker?: string
+}
+
 export interface EgressRecord {
   id: string
   decision: "allowed" | "allowed_with_warning" | "blocked" | string
@@ -57,6 +87,10 @@ export interface AgentMessage {
   narration?: AgentNote[]
   /** Thinking summaries, one per thinking block, when Thinking is on. */
   thinking?: AgentNote[]
+  charts?: AgentChartPart[]
+  proposals?: AgentProposalPart[]
+  /** Questions to ask next, offered under the latest answer. They arrive a few seconds after the answer. */
+  suggestions?: string[]
   isStreaming?: boolean
   statusText?: string
   egressRecords?: EgressRecord[]

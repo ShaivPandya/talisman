@@ -81,6 +81,9 @@ def _parts(message: dict[str, Any]) -> list[dict[str, Any]]:
         ("attachment", ("attachments",)),
         ("thinking", ("thinking",)),
         ("narration", ("narration",)),
+        ("chart", ("charts",)),
+        ("proposal", ("proposals",)),
+        ("suggestion", ("suggestions",)),
     ):
         for key in keys:
             if key not in message:
@@ -137,6 +140,9 @@ def message_record(
         "attachments",
         "thinking",
         "narration",
+        "charts",
+        "proposals",
+        "suggestions",
     }
     return {
         "id": identity,
@@ -175,6 +181,9 @@ def record_message(row: Any) -> dict[str, Any]:
         ("attachment", "attachments"),
         ("thinking", "thinking"),
         ("narration", "narration"),
+        ("chart", "charts"),
+        ("proposal", "proposals"),
+        ("suggestion", "suggestions"),
     ):
         message[key] = [p.get("data", {}) for p in parts if p.get("type") == kind]
     # Older callers use the camelCase spelling.

@@ -18,6 +18,14 @@ import {
   type ToolCall,
 } from "./agentChatShared"
 import {
+  normalizeChart,
+  normalizeCharts,
+  normalizeProposal,
+  normalizeProposals,
+  normalizeSuggestions,
+  upsertById,
+} from "./agentChatRichParts"
+import {
   CURRENT_SESSION_STORAGE_KEY as STORAGE_KEY,
   readActiveJobs,
   readMessageQueue,
@@ -34,9 +42,11 @@ import { agentFeedbackQueryOptions } from "./agentFeedbackQuery"
 
 export type {
   ActiveAgentJob,
+  AgentChartPart,
   AgentMessage,
   AgentMessageDelivery,
   AgentNote,
+  AgentProposalPart,
   AgentSendOptions,
   EgressRecord,
   QueuedAgentMessage,
@@ -475,6 +485,23 @@ export async function fetchSessionHistory(limit = 20): Promise<SessionSummary[]>
   }
 }
 
+/** The questions suggested under an answer. They are written after the answer is done, so this is empty at first. */
+async function fetchMessageSuggestions(sessionId: string, messageId: string): Promise<string[]> {
+  try {
+    const resp = await fetch(
+      `${BASE_URL}/memory/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/suggestions`,
+      { credentials: "include" },
+    )
+    if (!resp.ok) return []
+    return normalizeSuggestions(((await resp.json()) as { suggestions?: unknown }).suggestions)
+  } catch {
+    return []
+  }
+}
+
+// How long after "done" to look for suggestions: the follow-up job usually has them within a few seconds.
+const SUGGESTION_POLL_DELAYS_MS = [1500, 2500, 4000, 6000]
+
 export async function fetchSession(sessionId: string): Promise<{
   transcript: AgentMessage[]
   title: string | null
@@ -510,6 +537,9 @@ export async function fetchSession(sessionId: string): Promise<{
       narration: normalizeNotes(m.narration),
       thinking: normalizeNotes(m.thinking),
       memoryContext: (m.memory_context ?? m.memoryContext) as AgentMessage["memoryContext"],
+      charts: normalizeCharts(m.charts),
+      proposals: normalizeProposals(m.proposals),
+      suggestions: normalizeSuggestions(m.suggestions),
       isStreaming: Boolean(m.is_streaming ?? m.isStreaming ?? m.status === "streaming"),
       statusText: typeof m.status_text === "string"
         ? m.status_text
@@ -723,7 +753,8 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     if (!snapshot.sessionId) return
     if (persistedSessionsRef.current[snapshot.sessionId] === snapshot) return
     writeSessionSnapshot(snapshot.sessionId, {
-      messages: snapshot.messages,
+      // Charts are the bulk of a message and the server keeps them; loading a session fetches it from there.
+      messages: snapshot.messages.map(m => (m.charts?.length ? { ...m, charts: undefined } : m)),
       activeLeafId: snapshot.activeLeafId,
       sessionTitle: snapshot.sessionTitle,
       sessionTitleSource: snapshot.sessionTitleSource,
@@ -784,6 +815,34 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     sessionSnapshotsRef.current[sessionId] = next
     if (options?.persist !== false) persistActiveSessionSnapshot(next)
   }, [persistActiveSessionSnapshot, persistCurrentState])
+
+  const suggestionTimersRef = useRef(new Set<number>())
+  useEffect(() => {
+    const timers = suggestionTimersRef.current
+    return () => {
+      timers.forEach(timer => window.clearTimeout(timer))
+      timers.clear()
+    }
+  }, [])
+
+  /** Looks for the follow-up questions of a finished answer a few times, and shows them once they exist. */
+  const watchSuggestions = useCallback((sessionId: string, messageId: string) => {
+    const attempt = (index: number) => {
+      const timer = window.setTimeout(async () => {
+        suggestionTimersRef.current.delete(timer)
+        const suggestions = await fetchMessageSuggestions(sessionId, messageId)
+        if (suggestions.length) {
+          patchSessionState(sessionId, prev => ({
+            messages: prev.messages.map(m => (m.id === messageId ? { ...m, suggestions } : m)),
+          }))
+        } else if (index + 1 < SUGGESTION_POLL_DELAYS_MS.length) {
+          attempt(index + 1)
+        }
+      }, SUGGESTION_POLL_DELAYS_MS[index])
+      suggestionTimersRef.current.add(timer)
+    }
+    attempt(0)
+  }, [patchSessionState])
 
   // Save completed turns immediately. Streaming checkpoints use the latest
   // state on a fixed interval so a continuous stream cannot postpone the save.
@@ -934,6 +993,8 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
                       statusText: undefined,
                       toolCalls: mergeToolCalls(m.toolCalls, normalizeToolCalls([data])),
                       sources: mergeSources(m.sources, data.sources),
+                      charts: upsertById(m.charts, normalizeChart(data.chart)),
+                      proposals: upsertById(m.proposals, normalizeProposal(data.proposal)),
                     }
                   : m,
               ),
@@ -992,6 +1053,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
                       sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
                       narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
                       thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
+                      proposals: Array.isArray(data.proposals) && data.proposals.length ? normalizeProposals(data.proposals) : m.proposals,
                       messageStatus: "complete",
                       isStreaming: false,
                       statusText: undefined,
@@ -1064,9 +1126,12 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
 
     if (shouldDrain) {
       const drainSessionId = doneSessionId ?? targetSessionId ?? stateRef.current.sessionId
-      if (drainSessionId) void drainQueueRef.current?.(drainSessionId)
+      if (drainSessionId) {
+        void drainQueueRef.current?.(drainSessionId)
+        watchSuggestions(drainSessionId, assistantId)
+      }
     }
-  }, [persistActiveSessionSnapshot, persistCurrentState])
+  }, [persistActiveSessionSnapshot, persistCurrentState, watchSuggestions])
 
   const finishJobState = useCallback((
     assistantId: string,

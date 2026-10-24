@@ -295,6 +295,14 @@ def get_session(session_id: str):
     return {**session, "active_jobs": active_jobs}
 
 
+@router.get("/memory/sessions/{session_id}/messages/{message_id}/suggestions")
+def get_message_suggestions(session_id: str, message_id: str):
+    """The follow-up questions saved under an answer. They are written after the turn's "done", so this is empty at first."""
+    return {
+        "suggestions": [s.get("text") for s in memory_db.message_suggestions(session_id, message_id) if s.get("text")]
+    }
+
+
 @router.patch("/memory/sessions/{session_id}", response_model=SessionListItem)
 def update_session(session_id: str, req: UpdateSessionRequest):
     """Update user-editable session metadata."""
