@@ -211,8 +211,8 @@ export function AgentChatHeader({
                 type="button"
                 onClick={onToggleViewMode}
                 className="theme-icon-button h-10 w-10"
-                aria-label={viewMode === "console" ? "Use compact chat" : "Use console layout"}
-                title={viewMode === "console" ? "Use compact chat" : "Use console layout"}
+                aria-label={viewMode === "console" ? "Use docked chat" : "Use console layout"}
+                title={viewMode === "console" ? "Use docked chat" : "Use console layout"}
               >
                 {viewMode === "console" ? <Minimize2 size={15} aria-hidden="true" /> : <Maximize2 size={15} aria-hidden="true" />}
               </button>
@@ -234,8 +234,8 @@ export function AgentChatHeader({
             type="button"
             onClick={onToggleViewMode}
             className="theme-icon-button h-10 w-10"
-            aria-label={viewMode === "console" ? "Use compact chat" : "Use console layout"}
-            title={viewMode === "console" ? "Use compact chat" : "Use console layout"}
+            aria-label={viewMode === "console" ? "Use docked chat" : "Use console layout"}
+            title={viewMode === "console" ? "Use docked chat" : "Use console layout"}
           >
             <PanelRight size={15} aria-hidden="true" />
           </button>

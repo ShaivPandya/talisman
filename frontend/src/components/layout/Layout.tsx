@@ -16,6 +16,7 @@ import { LoadObservabilityAfterRender } from "@/lib/observabilityShim"
 import { cn } from "@/lib/utils"
 import { useAuth } from "@/contexts/AuthContext"
 import { preloadRoute } from "@/lib/pageRoutes"
+import type { AgentViewMode } from "@/components/agent/AgentChatTypes"
 
 const ACTION_ITEM_ALERT_LIMIT = 50
 
@@ -79,6 +80,7 @@ function LayoutInner({
   const canUseActions = isAuthenticated && !isLoading && !bootstrapping
   const routeLabel = getRouteLabel(location.pathname)
   const [pendingStanCommand, setPendingStanCommand] = useState<StanOpenDetail | null>(null)
+  const [agentViewMode, setAgentViewMode] = useState<AgentViewMode>("compact")
   // Mount the chat on first open, or right away when a saved job needs
   // useAgentChat to resume it. It stays mounted once opened.
   const [agentChatMounted, setAgentChatMounted] = useState(hasResumableActiveJob)
@@ -143,7 +145,7 @@ function LayoutInner({
         onOpenSearch={openPageSearch}
       />
 
-      <main aria-busy={pending} className="theme-page flex-1 overflow-auto min-w-0">
+      <main aria-busy={pending} className={cn("theme-page flex-1 overflow-auto min-w-0", canUseActions && agentOpen && agentViewMode === "compact" && "lg:mr-[28rem] xl:mr-[32rem]")}>
         <div className="theme-page-content">
           <div className="theme-floating mb-4 flex items-center justify-between gap-3 px-3 py-3 md:hidden">
             <button
@@ -204,6 +206,8 @@ function LayoutInner({
             screenContext={effectiveContext}
             pendingCommand={pendingStanCommand}
             onPendingCommandConsumed={() => setPendingStanCommand(null)}
+            desktopViewMode={agentViewMode}
+            onViewModeChange={setAgentViewMode}
           />
         </Suspense>
       )}

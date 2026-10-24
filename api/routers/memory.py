@@ -10,10 +10,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
 from api import memory_db, memory_manager
+from api.conversation_messages import latest_leaf_id, message_path
 from llm_utils import MODEL_LOW, call_llm_text, has_llm_api_key
 
 router = APIRouter()
@@ -55,10 +57,17 @@ class SessionListItem(BaseModel):
     title_source: str | None = None
     title_updated_at: str | None = None
     has_active_job: bool = False
+    pinned_at: str | None = None
+
+
+class SessionHistoryPage(BaseModel):
+    sessions: list[SessionListItem]
+    next_cursor: str | None = None
 
 
 class UpdateSessionRequest(BaseModel):
-    title: str
+    title: str | None = None
+    pinned: bool | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -146,12 +155,43 @@ def _active_agent_chat_session_ids() -> set[str]:
     return active
 
 
-@router.get("/memory/sessions", response_model=list[SessionListItem])
-def list_sessions(limit: int = 20):
-    """List recent sessions (without full transcripts)."""
-    rows = memory_db.list_sessions(limit=min(limit, 100))
+@router.get("/memory/sessions", response_model=SessionHistoryPage | list[SessionListItem])
+def list_sessions(
+    limit: int = Query(default=20, ge=1, le=100),
+    q: str = Query(default="", max_length=200),
+    cursor: str | None = Query(default=None, max_length=2048),
+    paginated: bool = False,
+):
+    """Search nonempty sessions, with optional cursor pagination."""
+    try:
+        rows = memory_db.list_sessions(limit=limit + int(paginated), query=q, cursor=cursor)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    next_cursor = memory_db.session_history_cursor(rows[limit - 1]) if len(rows) > limit else None
     active_sessions = _active_agent_chat_session_ids()
-    return [SessionListItem(**{**r, "has_active_job": r["session_id"] in active_sessions}) for r in rows]
+    sessions = [SessionListItem(**{**r, "has_active_job": r["session_id"] in active_sessions}) for r in rows[:limit]]
+    return SessionHistoryPage(sessions=sessions, next_cursor=next_cursor) if paginated else sessions
+
+
+@router.get("/memory/sessions/{session_id}/export", response_class=PlainTextResponse)
+def export_session(session_id: str):
+    """Export the latest saved branch as Markdown without generating any content."""
+    session = memory_db.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    title = session.get("title") or "Untitled conversation"
+    messages = session.get("transcript") or []
+    sections = [f"# {title}"]
+    for message in message_path(messages, latest_leaf_id(messages)):
+        role = "Stan" if message.get("role") == "assistant" else "User"
+        sections.append(f"## {role}\n\n{message.get('content') or ''}")
+        sources = message.get("sources") or []
+        links = [
+            f"- [{source.get('title') or source['url']}]({source['url']})" for source in sources if source.get("url")
+        ]
+        if links:
+            sections.append("### Sources\n\n" + "\n".join(links))
+    return PlainTextResponse("\n\n".join(sections) + "\n", media_type="text/markdown")
 
 
 @router.get("/memory/sessions/{session_id}")
@@ -195,12 +235,16 @@ def get_session(session_id: str):
 @router.patch("/memory/sessions/{session_id}", response_model=SessionListItem)
 def update_session(session_id: str, req: UpdateSessionRequest):
     """Update user-editable session metadata."""
+    if req.title is None and req.pinned is None:
+        raise HTTPException(status_code=400, detail="Provide a title or pinned status")
+    session = None
     try:
-        title = memory_db.normalize_session_title(req.title)
+        if req.title is not None:
+            session = memory_db.rename_session(session_id, req.title)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    session = memory_db.rename_session(session_id, title)
+    if req.pinned is not None:
+        session = memory_db.pin_session(session_id, req.pinned)
     if session is None:
         raise HTTPException(status_code=404, detail="Session not found")
     return SessionListItem(**session)
@@ -209,6 +253,8 @@ def update_session(session_id: str, req: UpdateSessionRequest):
 @router.delete("/memory/sessions/{session_id}")
 def delete_session(session_id: str):
     """Delete a session."""
+    if session_id in _active_agent_chat_session_ids():
+        raise HTTPException(status_code=409, detail="Stop the running conversation before deleting it")
     deleted = memory_db.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")

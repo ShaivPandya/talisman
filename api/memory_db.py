@@ -7,6 +7,8 @@ research across sessions.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import re
 import sqlite3
@@ -52,13 +54,20 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
     title_source TEXT,
     title_updated_at TEXT,
     rolling_summary TEXT,
-    rolling_summary_through_id TEXT
+    rolling_summary_through_id TEXT,
+    pinned_at TEXT
 )
 """
 
 _CREATE_SESSIONS_IDX = """
 CREATE INDEX IF NOT EXISTS idx_sessions_ended_at
 ON conversation_sessions(ended_at DESC)
+"""
+
+_CREATE_HISTORY_IDX = """
+CREATE INDEX IF NOT EXISTS idx_sessions_history
+ON conversation_sessions(COALESCE(pinned_at, '') DESC, COALESCE(ended_at, started_at, '') DESC, session_id DESC)
+WHERE message_count > 0
 """
 
 SESSION_TITLE_MAX_CHARS = 80
@@ -101,9 +110,17 @@ def _init_db(conn: sqlite3.Connection) -> None:
     conn.execute(_CREATE_SESSIONS)
     conn.execute(_CREATE_SESSIONS_IDX)
     columns = {row[1] for row in conn.execute("PRAGMA table_info(conversation_sessions)")}
-    for col in ("rolling_summary", "title", "title_source", "title_updated_at", "rolling_summary_through_id"):
+    for col in (
+        "rolling_summary",
+        "title",
+        "title_source",
+        "title_updated_at",
+        "rolling_summary_through_id",
+        "pinned_at",
+    ):
         if col not in columns:
             conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} TEXT")
+    conn.execute(_CREATE_HISTORY_IDX)
     conn.execute(CREATE_MESSAGES)
     conn.execute(CREATE_TURN_INDEX)
     if columns & {"transcript", "server_messages"}:
@@ -225,25 +242,80 @@ def update_summary(
         return cur.rowcount > 0
 
 
-def list_sessions(limit: int = 20) -> list[dict[str, Any]]:
-    """List recent sessions (without full transcripts)."""
+def list_sessions(limit: int = 20, *, query: str = "", cursor: str | None = None) -> list[dict[str, Any]]:
+    """List nonempty sessions, pinned first, without loading their transcripts.
+
+    The cursor contains the last row's complete sort key. A new conversation
+    arriving between pages therefore cannot shift the remaining rows.
+    """
+    filters = [
+        "s.message_count > 0",
+        "EXISTS (SELECT 1 FROM conversation_messages m WHERE m.session_id = s.session_id)",
+    ]
+    params: list[Any] = []
+    if query.strip():
+        pattern = "%" + query.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        if use_postgres_state():
+            parts = "conversation_messages m CROSS JOIN LATERAL jsonb_array_elements(m.content_parts::jsonb) part"
+            text_part = "part->>'type' = 'text' AND lower(part->>'text') LIKE ? ESCAPE '\\'"
+        else:
+            parts = "conversation_messages m JOIN json_each(m.content_parts) part"
+            text_part = "json_extract(part.value, '$.type') = 'text' AND lower(json_extract(part.value, '$.text')) LIKE ? ESCAPE '\\'"
+        filters.append(
+            "(lower(COALESCE(s.title, '')) LIKE ? ESCAPE '\\' "
+            "OR lower(COALESCE(s.summary, '')) LIKE ? ESCAPE '\\' "
+            f"OR EXISTS (SELECT 1 FROM {parts} WHERE m.session_id = s.session_id AND {text_part}))"
+        )
+        params.extend([pattern] * 3)
+    if cursor:
+        try:
+            key = json.loads(base64.urlsafe_b64decode(cursor.encode("ascii")))
+            if not isinstance(key, list) or len(key) != 3 or any(not isinstance(item, str) for item in key):
+                raise ValueError
+        except (ValueError, TypeError, UnicodeError, binascii.Error) as exc:
+            raise ValueError("Invalid history cursor") from exc
+        filters.append("(COALESCE(s.pinned_at, ''), COALESCE(s.ended_at, s.started_at, ''), s.session_id) < (?, ?, ?)")
+        params.extend(key)
+    params.append(limit)
 
     def _read() -> list[dict[str, Any]]:
         with _get_conn(read_only=True) as conn:
             rows = conn.execute(
-                """
+                f"""
                 SELECT session_id, started_at, ended_at, message_count,
                        key_tickers, key_topics, summary,
-                       title, title_source, title_updated_at
-                FROM conversation_sessions
-                ORDER BY ended_at DESC
+                       title, title_source, title_updated_at, pinned_at
+                FROM conversation_sessions s
+                WHERE {" AND ".join(filters)}
+                ORDER BY COALESCE(pinned_at, '') DESC, COALESCE(ended_at, started_at, '') DESC, session_id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                params,
             ).fetchall()
             return [_row_to_dict(r) for r in rows]
 
     return retry_read(_read)
+
+
+def session_history_cursor(session: dict[str, Any]) -> str:
+    key = [
+        session.get("pinned_at") or "",
+        session.get("ended_at") or session.get("started_at") or "",
+        session["session_id"],
+    ]
+    return base64.urlsafe_b64encode(json.dumps(key).encode()).decode("ascii")
+
+
+def pin_session(session_id: str, pinned: bool) -> dict[str, Any] | None:
+    with _get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE conversation_sessions SET pinned_at = COALESCE(pinned_at, ?) WHERE session_id = ?"
+            if pinned
+            else "UPDATE conversation_sessions SET pinned_at = ? WHERE session_id = ?",
+            (datetime.now(UTC).isoformat() if pinned else None, session_id),
+        )
+        conn.commit()
+    return get_session_summary(session_id) if cur.rowcount > 0 else None
 
 
 def get_session(session_id: str) -> dict[str, Any] | None:
@@ -735,7 +807,7 @@ def get_session_summary(session_id: str) -> dict[str, Any] | None:
                 """
                 SELECT session_id, started_at, ended_at, message_count,
                        key_tickers, key_topics, summary,
-                       title, title_source, title_updated_at
+                       title, title_source, title_updated_at, pinned_at
                 FROM conversation_sessions
                 WHERE session_id = ?
                 """,

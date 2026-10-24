@@ -54,6 +54,12 @@ export function readSessionSnapshot(sessionId: string): SessionSnapshot | null {
   return readSessionSnapshots()[sessionId] ?? null
 }
 
+export function removeSessionSnapshot(sessionId: string) {
+  const all = readSessionSnapshots()
+  delete all[sessionId]
+  writeJsonRecord(SNAPSHOTS_STORAGE_KEY, all)
+}
+
 export function readActiveJobs(): Record<string, ActiveAgentJob> {
   return readJsonRecord<ActiveAgentJob>(JOBS_STORAGE_KEY)
 }

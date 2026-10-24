@@ -21,6 +21,7 @@ import {
   readActiveJobs,
   readMessageQueue,
   readSessionSnapshot,
+  removeSessionSnapshot,
   writeActiveJob,
   writeMessageQueue,
   writeSessionSnapshot,
@@ -57,6 +58,7 @@ export interface SessionSummary {
   title_source: string | null
   title_updated_at: string | null
   has_active_job?: boolean
+  pinned_at?: string | null
 }
 
 interface AgentChatState {
@@ -1619,6 +1621,20 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     })
   }, [state.sessionId])
 
+  const forgetSession = useCallback((targetSessionId: string) => {
+    delete sessionSnapshotsRef.current[targetSessionId]
+    removeSessionSnapshot(targetSessionId)
+    writeMessageQueue(targetSessionId, [])
+    writeActiveJob(targetSessionId, null)
+    if (stateRef.current.sessionId !== targetSessionId) return
+    liveAbortRef.current?.abort()
+    activeJobRef.current = null
+    setState({
+      messages: [], isStreaming: false, error: null, sessionId: null,
+      sessionTitle: null, sessionTitleSource: null, activeJob: null, queuedMessages: [],
+    })
+  }, [])
+
   // ------ loadSession ------
   const loadSession = useCallback(async (sessionId: string) => {
     const previousSessionId = stateRef.current.sessionId
@@ -1718,6 +1734,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     switchBranch,
     stopStreaming,
     clearChat,
+    forgetSession,
     loadSession,
     applySessionTitle,
     removeQueuedMessage,

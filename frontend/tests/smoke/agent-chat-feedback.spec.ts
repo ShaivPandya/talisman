@@ -225,6 +225,7 @@ for (const outcome of ["done", "error", "cancelled"] as const) {
       } })
     })
     await openChat(page, 1)
+    await page.getByRole("button", { name: "Use console layout" }).click()
     await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
     await expect.poll(() => polls).toBe(1)
     await page.getByRole("button", { name: "Close Stan", exact: true }).click()
@@ -317,6 +318,7 @@ test("keyboard focus reveals feedback and Enter submits the rating", async ({ pa
 
 test("a completed durable response in the initial job reply also notifies", async ({ page }) => {
   await openChat(page, 1)
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
   await expect(page.getByText("Stan finished responding", { exact: true })).toHaveCount(1)
 })
@@ -343,6 +345,7 @@ test("finishing another conversation notifies without replacing the visible tran
     title: "Other conversation", transcript: [{ id: "other-answer", role: "assistant", content: "Other answer", timestamp: 1 }], active_jobs: [],
   } }))
   await openChat(page, 1)
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
   await expect.poll(() => polls).toBe(1)
   await page.getByRole("button", { name: "Open conversation history" }).click()

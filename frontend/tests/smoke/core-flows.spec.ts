@@ -267,6 +267,7 @@ test("renders liquidity data-quality warning and formatted screen context", asyn
   await page.getByRole("button", { name: "Open Stan" }).click()
 
   await expect(page.getByRole("dialog", { name: "Stan" })).toBeVisible()
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await expect(page.getByText("Regional Scores")).toBeVisible()
   await expect(page.getByText("us: +0.05, europe: -0.37, japan: +0.47")).toBeVisible()
 })
@@ -299,6 +300,7 @@ test("opens the agent chat shell with workflow and preference fixtures", async (
   await expect(page.getByRole("dialog", { name: "Stan" })).toBeVisible()
   await expect(page.getByText("Stan is ready")).toBeVisible()
   await expect(page.getByPlaceholder("Ask about markets, portfolio, macro...")).toBeVisible()
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await expect(page.getByRole("heading", { name: "Workflows" })).toBeVisible()
   await expect(page.getByRole("button", { name: "Weekly Portfolio Review" })).toBeVisible()
 

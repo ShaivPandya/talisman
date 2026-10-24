@@ -79,6 +79,7 @@ test("a durable job replays a retry's reset and shows the answer once", async ({
     ],
   } }))
   await openChat(page)
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
 
   await expect(page.getByText("Hello world", { exact: true })).toBeVisible()

@@ -284,6 +284,7 @@ test("polled deltas and resume cursors are checkpointed together across reload",
       events: [{ seq: 5, event_type: "done", payload: { session_id: sessionId } }],
     } })
   })
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
   await expect(page.getByText("alpha beta gamma", { exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => {
@@ -358,6 +359,7 @@ test("background sessions checkpoint polled text without changing the active con
       } }],
     } })
   })
+  await page.getByRole("button", { name: "Use console layout" }).click()
   await page.getByRole("button", { name: "Weekly Portfolio Review", exact: true }).click()
   await expect(page.getByText("foreground", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Open conversation history" }).click()

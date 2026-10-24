@@ -207,6 +207,7 @@ def test_finalize_turn_sets_title_and_schedules_refinement(temp_memory_db, monke
 def test_patch_session_title_updates_metadata(temp_memory_db, auth_client):
     session = memory_db.get_or_create_session(None)
     sid = session["session_id"]
+    memory_db.append_messages(sid, [{"role": "user", "content": "A saved conversation"}])
 
     resp = auth_client.patch(f"/api/memory/sessions/{sid}", json={"title": "  Renamed   chat  "})
 
