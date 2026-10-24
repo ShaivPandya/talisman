@@ -55,6 +55,7 @@ from api.agent_models import (
     ChatMessage,
     ScreenContextModel,
 )
+from api.agent_stream_liveness import DirectStreamLease, stream_lease_metadata
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
 from api.chat_attachments import gemini_parts, openai_content, turn_attachments
 from api.conversation_messages import TurnLineage, resolve_turn_lineage, sources_from
@@ -931,6 +932,28 @@ class _TurnTranscriptGuard:
         # Rich parts, keyed by tool call id like ``tools``.
         self.charts: dict[str, dict[str, Any]] = {}
         self.proposals: dict[str, dict[str, Any]] = {}
+        self.stream_lease: DirectStreamLease | None = None
+
+    def begin(self, session_id: str, session: dict[str, Any]) -> None:
+        existing = [
+            m
+            for m in session.get("server_messages") or []
+            if m.get("role") == "assistant" and m.get("client_turn_id") == self.req.client_turn_id
+        ]
+        # Durable workers already have their own job heartbeat and recovery.
+        if self.req.client_turn_id and not any(m.get("async_job_id") for m in existing):
+            self.stream_lease = DirectStreamLease(session_id, self.req.client_turn_id)
+            if existing:
+                self.stream_lease.renew()
+        _agent_turn_begin(
+            self.req, session_id, session, assistant_metadata=stream_lease_metadata() if self.stream_lease else None
+        )
+        if self.stream_lease:
+            self.stream_lease.start()
+
+    def close(self) -> None:
+        if self.stream_lease:
+            self.stream_lease.close()
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
         from api.memory_manager import finalize_turn, finalize_turn_async
@@ -1104,7 +1127,13 @@ def _lineage_user_message(req: AgentChatRequest, lineage: TurnLineage, user_msg:
     return user_msg
 
 
-def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str, Any] | None = None) -> None:
+def _agent_turn_begin(
+    req: AgentChatRequest,
+    session_id: str,
+    session: dict[str, Any] | None = None,
+    *,
+    assistant_metadata: dict[str, Any] | None = None,
+) -> None:
     """Persist user + streaming assistant at turn start (idempotent).
 
     Pass the already-loaded *session* to skip the write when the turn is saved
@@ -1142,6 +1171,7 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         "timestamp": time.time(),
         "is_streaming": True,
         **meta,
+        **(assistant_metadata or {}),
     }
     if req.finalize_synchronously:
         begin_turn(session_id, user_msg, assistant_msg)
@@ -4193,8 +4223,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             raise
         finally:
             # Also runs on GeneratorExit, when Starlette drops a disconnected client's stream.
-            guard.settle()
-            turn.close()
+            try:
+                guard.settle()
+                turn.close()
+            finally:
+                guard.close()
 
     # Untyped, as generate() was, so mypy keeps skipping this long body.
     def generate_turn(guard):  # noqa: C901
@@ -4238,7 +4271,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         if casual and not workflow_name:
             yield _sse("memory_context", {"session_id": guard.session_id, **guard.memory_context})
             session_id = str(session["session_id"])
-            _agent_turn_begin(req, session_id, session)
+            guard.begin(session_id, session)
             agent_turn_event_id = _start_agent_turn_provenance(
                 session_id=session_id,
                 message=req.message,
@@ -4307,7 +4340,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             budget.record_model_usage(usage)
 
         session_id = str(session["session_id"])
-        _agent_turn_begin(req, session_id, session)
+        guard.begin(session_id, session)
         raw_conversation, session_id = build_conversation_context(
             session_id,
             req.message,
