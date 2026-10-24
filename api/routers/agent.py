@@ -4274,7 +4274,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 raw_payload={"path": "casual"},
             )
             yield from _done_then_followup(
-                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                _sse(
+                    "done",
+                    _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started),
+                ),
                 followup,
             )
             return
@@ -4290,6 +4293,13 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         )
         client = _get_provider_client(provider, api_key)
         budget = AgentBudgetState()
+        usage_totals: Counter[str] = Counter()
+
+        def record_model_usage(usage: dict[str, int]) -> None:
+            # Count each reported call once, including calls that exhaust the turn budget.
+            usage_totals.update(usage)
+            budget.record_model_usage(usage)
+
         session_id = str(session["session_id"])
         _agent_turn_begin(req, session_id, session)
         raw_conversation, session_id = build_conversation_context(
@@ -4494,7 +4504,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         final_message=final_message,
                         output_text="".join(synthesis_chunks),
                     )
-                    budget.record_model_usage(_usage_dict(final_message))
+                    record_model_usage(_usage_dict(final_message))
                     yield _sse("budget_update", budget.to_meta())
                     break
                 except ModelGatewayDenied as exc:
@@ -4543,7 +4553,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 agent_turn_event_id,
                 status="succeeded",
                 output_value=synthesis_text,
-                usage=_usage_dict(final_message),
+                usage=dict(usage_totals),
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
@@ -4554,7 +4564,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 timings=timings,
                 final_disposition="succeeded",
                 messages=[user_msg, assistant_msg],
-                usage=_usage_dict(final_message),
+                usage=dict(usage_totals),
                 provider=provider,
                 model=locals().get("stream_kwargs", {}).get("model")
                 if isinstance(locals().get("stream_kwargs"), dict)
@@ -4571,7 +4581,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     "done",
                     _done_payload(
                         {
-                            "usage": _usage_dict(final_message),
+                            "usage": dict(usage_totals),
                             "session_id": session_id,
                             "tool_calls": [tool_payload],
                             "tools_used": [call_info["name"]],
@@ -4760,7 +4770,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            budget.record_model_usage(oc_result.get("usage") or {})
+                            record_model_usage(oc_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
                             if router_shadow is not None:
                                 router_shadow["opportunity_candidate_metadata"] = (
@@ -4842,7 +4852,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            budget.record_model_usage(dq_result.get("usage") or {})
+                            record_model_usage(dq_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except Exception as retry_exc:
@@ -4950,7 +4960,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 final_message=final_message,
                                 output_text="".join(synthesis_chunks),
                             )
-                            budget.record_model_usage(_usage_dict(final_message))
+                            record_model_usage(_usage_dict(final_message))
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
@@ -5074,7 +5084,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 final_message=final_message,
                                 output_text="".join(synthesis_chunks),
                             )
-                            budget.record_model_usage(_usage_dict(final_message))
+                            record_model_usage(_usage_dict(final_message))
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
@@ -5128,7 +5138,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     yield _sse("delta", {"text": synthesis_text})
 
                 synthesis_text = "".join(verdict_chunks) + synthesis_text
-                usage = _usage_dict(final_message)
+                usage = dict(usage_totals)
                 done_payload_data: dict[str, Any] = {
                     "usage": usage,
                     "session_id": session_id,
@@ -5221,7 +5231,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 _finish_agent_turn_provenance(
                     agent_turn_event_id,
                     status="failed",
-                    usage={},
+                    usage=dict(usage_totals),
                     error=str(exc) or exc.__class__.__name__,
                 )
                 followup = _turn_followup(
@@ -5238,7 +5248,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             "timestamp": time.time(),
                         },
                     ],
-                    usage={},
+                    usage=dict(usage_totals),
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
@@ -5253,7 +5263,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         "done",
                         _done_payload(
                             {
-                                "usage": {},
+                                "usage": dict(usage_totals),
                                 "session_id": session_id,
                                 "tool_calls": tool_payloads,
                                 "tools_used": [call["name"] for call in tool_payloads],
@@ -5291,8 +5301,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta},
                         {"role": "assistant", "content": reply, "timestamp": time.time(), **turn_meta},
                     )
-                    _finish_agent_turn_provenance(agent_turn_event_id, status="succeeded", usage={})
-                    yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+                    _finish_agent_turn_provenance(agent_turn_event_id, status="succeeded", usage=dict(usage_totals))
+                    yield _sse(
+                        "done",
+                        _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                    )
                     return
 
                 yield _phase_sse(
@@ -5402,7 +5415,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             final_message=final_message,
                             output_text="".join(synthesis_chunks),
                         )
-                        budget.record_model_usage(_usage_dict(final_message))
+                        record_model_usage(_usage_dict(final_message))
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
@@ -5449,7 +5462,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 except Exception:
                     logger.debug("Failed to persist workflow run %s", run_id, exc_info=True)
 
-                usage = _usage_dict(final_message)
+                usage = dict(usage_totals)
                 # Finalize turn before last yield
                 turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
                 user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
@@ -5519,7 +5532,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 _finish_agent_turn_provenance(
                     agent_turn_event_id,
                     status="failed",
-                    usage={},
+                    usage=dict(usage_totals),
                     error=str(exc) or exc.__class__.__name__,
                 )
                 followup = _turn_followup(
@@ -5532,7 +5545,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         {"role": "user", "content": req.message, "timestamp": time.time()},
                         {"role": "assistant", "content": f"Workflow failed: {exc}", "timestamp": time.time()},
                     ],
-                    usage={},
+                    usage=dict(usage_totals),
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
@@ -5546,7 +5559,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 yield _sse("error", {"message": f"Workflow failed: {exc}"})
                 yield from _done_then_followup(
-                    _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                    _sse(
+                        "done",
+                        _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                    ),
                     followup,
                 )
                 return
@@ -5668,7 +5684,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             final_message=final_message,
                             output_text="".join(text_parts),
                         )
-                        budget.record_model_usage(_usage_dict(final_message))
+                        record_model_usage(_usage_dict(final_message))
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
@@ -6021,7 +6037,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     continuation_round += 1
                     continue
 
-                usage = _usage_dict(final_message)
+                usage = dict(usage_totals)
                 # Finalize turn before last yield
                 full_text = "".join(completed_round_texts)
                 if not full_text.strip():
@@ -6111,7 +6127,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             _finish_agent_turn_provenance(
                 agent_turn_event_id,
                 status="failed",
-                usage={},
+                usage=dict(usage_totals),
                 error=str(exc) or exc.__class__.__name__,
             )
             followup = _turn_followup(
@@ -6124,7 +6140,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     {"role": "user", "content": req.message, "timestamp": time.time()},
                     {"role": "assistant", "content": _format_stream_error(exc), "timestamp": time.time()},
                 ],
-                usage={},
+                usage=dict(usage_totals),
                 provider=provider,
                 route_decision=route_decision,
                 route_meta=route_meta,
@@ -6135,7 +6151,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             yield _sse("error", {"message": _format_stream_error(exc)})
             yield from _done_then_followup(
-                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                _sse(
+                    "done",
+                    _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                ),
                 followup,
             )
 

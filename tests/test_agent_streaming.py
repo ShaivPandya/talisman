@@ -415,6 +415,7 @@ def test_agent_stream_tracks_args_per_call_id(auth_client, monkeypatch):
     tool_results = [p for e, p in parsed if e == "tool_result"]
     assert len(tool_results) == 2
     assert all(p["status"] == "ok" for p in tool_results)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 2, "output_tokens": 3}
 
 
 def test_agent_stream_openai_function_call_roundtrip(auth_client, monkeypatch):
@@ -475,6 +476,7 @@ def test_agent_stream_openai_function_call_roundtrip(auth_client, monkeypatch):
     assert any(e == "tool_call" and p["name"] == "query_ontology" for e, p in parsed)
     assert any(e == "tool_result" and p["status"] == "ok" for e, p in parsed)
     assert any(e == "delta" and p["text"] == "analysis" for e, p in parsed)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 3, "output_tokens": 4}
 
 
 def test_agent_stream_gemini_function_call_roundtrip(auth_client, monkeypatch):
@@ -526,6 +528,7 @@ def test_agent_stream_gemini_function_call_roundtrip(auth_client, monkeypatch):
     }
     assert seen_args == [{"query": "A"}]
     parsed = _parse_sse(resp.text)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 3, "output_tokens": 4}
     assert any(e == "tool_call" and p["name"] == "query_ontology" for e, p in parsed)
     assert any(e == "tool_result" and p["status"] == "ok" for e, p in parsed)
     assert any(e == "delta" and p["text"] == "analysis" for e, p in parsed)
@@ -791,9 +794,73 @@ def test_anthropic_output_continuation_preserves_cached_prefix(auth_client, monk
     events = _parse_sse(response.text)
     assert not any(name == "error" for name, _payload in events)
     done = next(payload for name, payload in events if name == "done")
-    assert done["usage"]["input_tokens"] == 6023
+    assert done["usage"]["input_tokens"] == 12025
+    assert done["usage"]["output_tokens"] == 7
     assert done["usage"]["cache_read_input_tokens"] == 6000
+    assert done["usage"]["cache_creation_input_tokens"] == 6020
+    assert done["usage"]["uncached_input_tokens"] == 5
+    assert done["timings"]["models"][-1]["input_tokens"] == 6023
     assert done["timings"]["models"][-1]["cache_read_input_tokens"] == 6000
+
+
+@pytest.mark.parametrize("failure", [None, "provider", "budget"])
+def test_turn_usage_survives_later_model_errors(auth_client, monkeypatch, failure):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    if failure == "budget":
+        monkeypatch.setenv("AGENT_MAX_OUTPUT_TOKENS", "1")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    monkeypatch.setattr(agent_router, "execute_tool", lambda *args, **kwargs: json.dumps({"ok": True}))
+    turn_events = []
+    followups = []
+    original_followup = agent_router._turn_followup
+    monkeypatch.setattr(
+        agent_router, "_finish_agent_turn_provenance", lambda event_id, **kwargs: turn_events.append(kwargs)
+    )
+
+    def capture_followup(**kwargs):
+        followups.append(kwargs)
+        return original_followup(**kwargs)
+
+    monkeypatch.setattr(agent_router, "_turn_followup", capture_followup)
+
+    def response_events():
+        if failure == "provider":
+            raise RuntimeError("Model connection failed")
+        yield _event_text_delta("Answer")
+
+    _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_tool_use_start("query_ontology", "call-1")],
+                SimpleNamespace(
+                    content=[{"type": "tool_use", "name": "query_ontology", "id": "call-1", "input": {"query": "A"}}],
+                    stop_reason="tool_use",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            ),
+            (
+                response_events(),
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "Answer"}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=2, output_tokens=3),
+                ),
+            ),
+        ],
+    )
+    response = auth_client.post("/api/agent/chat", json={"message": "portfolio test"})
+    events = _parse_sse(response.text)
+    expected = (
+        {"input_tokens": 1, "output_tokens": 1} if failure == "provider" else {"input_tokens": 3, "output_tokens": 4}
+    )
+    done = next(payload for event, payload in events if event == "done")
+
+    assert done["usage"] == expected
+    assert turn_events[-1]["usage"] == expected
+    assert followups[-1]["usage"] == expected
+    assert any(event == "error" for event, payload in events) == (failure is not None)
 
 
 def test_agent_chat_rejects_non_anthropic_key(auth_client, monkeypatch):

@@ -200,6 +200,10 @@ def test_main_loop_retry_in_a_later_round_keeps_earlier_round_narration(monkeypa
     assert turn.saved["narration"] == [{"id": "narration:0", "text": "Let me check."}]
     # The first reset moves the narration out of the answer. The second undoes the failed attempt's text.
     assert turn.resets == [{"text": ""}, {"text": ""}]
+    assert next(payload for event, payload in turn.parsed if event == "done")["usage"] == {
+        "input_tokens": 2,
+        "output_tokens": 3,
+    }
 
 
 def test_main_loop_error_after_a_retry_saves_the_text_the_client_shows(monkeypatch):

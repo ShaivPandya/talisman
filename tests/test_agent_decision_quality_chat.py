@@ -236,6 +236,7 @@ def test_serious_thesis_prompt_triggers_hidden_pass_and_metadata(auth_client, mo
     done = [payload for event, payload in parsed if event == "done"][-1]
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["decision_quality_chat"]["ran"] is True
+    assert done["usage"] == {"input_tokens": 12, "output_tokens": 24}
     assert done["decision_quality_chat"]["final_action"] == "buy"
     assert done["opportunity_candidate_preflight"]["ran"] is True
     assert done["opportunity_candidate_preflight"]["should_graduate"] is True
@@ -346,6 +347,7 @@ def test_discovery_prompt_runs_candidate_preflight_without_decision_quality(auth
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["opportunity_candidate_preflight"]["ran"] is True
     assert done["opportunity_candidate_preflight"]["final_action"] == "research"
+    assert done["usage"] == {"input_tokens": 11, "output_tokens": 22}
     assert "decision_quality_chat" not in done
     assert "buy" not in final_text.lower()
     assert "short" not in final_text.lower()
