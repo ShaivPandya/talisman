@@ -37,11 +37,11 @@ def fetch_imf_datamapper_json(path: str) -> dict:
 
 
 def fetch_imf_datamapper_indicator(
-    indicator: str, iso3: str, cache_dir: Path, refresh: bool = False, *, payload: dict | None = None
+    indicator: str, iso3: str, cache_dir: Path | None, refresh: bool = False, *, payload: dict | None = None
 ) -> pd.Series:
-    # Fetch an IMF DataMapper indicator for an ISO3 country code. Cache extracted annual series to CSV.
-    cache_path = cache_dir / f"imf_{indicator}_{iso3}.csv"
-    if cache_path.exists() and not refresh and payload is None:
+    # Snapshot-backed production reads pass None; other callers retain the CSV cache.
+    cache_path = cache_dir / f"imf_{indicator}_{iso3}.csv" if cache_dir is not None else None
+    if cache_path is not None and cache_path.exists() and not refresh and payload is None:
         df = pd.read_csv(cache_path, parse_dates=["date"])
         s = pd.to_numeric(df["value"], errors="coerce")
         return pd.Series(s.values, index=df["date"], name=f"{indicator}_{iso3}").sort_index()
@@ -62,8 +62,9 @@ def fetch_imf_datamapper_indicator(
     s = pd.Series(values, dtype="float64")
     idx = pd.to_datetime(s.index.astype(str) + "-12-31")  # annual -> year-end date index
 
-    out = pd.DataFrame({"date": idx, "value": s.values})
-    cache_dir.mkdir(parents=True, exist_ok=True)
-    out.to_csv(cache_path, index=False)
+    if cache_path is not None:
+        out = pd.DataFrame({"date": idx, "value": s.values})
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        out.to_csv(cache_path, index=False)
 
     return pd.Series(s.values, index=idx, name=f"{indicator}_{iso3}").sort_index()

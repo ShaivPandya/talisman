@@ -81,6 +81,7 @@ def test_imf_reuses_client_and_keeps_country_coverage_and_edition(monkeypatch):
     calls = []
 
     def fetch(indicator, iso, cache, *, payload):
+        assert cache is None
         calls.append((indicator, iso))
         return pd.Series([2.2, float("nan")], index=pd.to_datetime([f"{year}-12-31", f"{year + 1}-12-31"]))
 
@@ -90,6 +91,36 @@ def test_imf_reuses_client_and_keeps_country_coverage_and_edition(monkeypatch):
     assert {r["country"] for r in rows} == set(backdrop.COUNTRIES)
     assert rows[0]["vintage"] == "World Economic Outlook (October 2026)"
     assert rows[0]["vintage_date"] == "2026-10-08" and rows[1]["value"] is None
+
+
+def test_imf_forecasts_work_with_production_filesystem_guard(monkeypatch):
+    from api.local_write_guard import install_production_write_guard
+    from paths import PROJECT_ROOT
+
+    install_production_write_guard(PROJECT_ROOT)
+    year = date.today().year
+    metadata = {
+        indicator: {
+            "label": label,
+            "dataset": "WEO",
+            "source": "World Economic Outlook (October 2026)",
+            "unit": "Annual percent change",
+            "last-modified": "2026-10-08 14:43:32",
+        }
+        for indicator, label in (("NGDP_RPCH", "Real GDP growth"), ("PCPIPCH", "Inflation"))
+    }
+    values = {
+        indicator: {iso: {str(year): 2.2, str(year + 1): 2.3} for iso in backdrop.COUNTRIES.values()}
+        for indicator in metadata
+    }
+    monkeypatch.setattr(
+        "fx.model.src.data_imf.fetch_imf_datamapper_json",
+        lambda path: {"indicators": metadata} if path == "indicators" else {"values": values},
+    )
+    monkeypatch.setenv("ENVIRONMENT", "production")
+    rows = backdrop.imf()
+    assert len(rows) == 36 and all(row["value"] is not None for row in rows)
+    assert all(row["status"] == "ok" for row in rows)
 
 
 def test_backdrop_route_and_existing_agent_read_use_same_snapshot(auth_client, monkeypatch):

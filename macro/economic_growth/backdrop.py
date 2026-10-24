@@ -221,8 +221,7 @@ def cleveland() -> list[dict[str, Any]]:
 
 
 def imf() -> list[dict[str, Any]]:
-    from fx.model.src.data_imf import fetch_imf_datamapper_indicator, fetch_imf_datamapper_json
-    from paths import PROJECT_ROOT
+    from fx.model.src.data_imf import ImfError, fetch_imf_datamapper_indicator, fetch_imf_datamapper_json
 
     metadata = fetch_imf_datamapper_json("indicators")["indicators"]
     result = []
@@ -237,10 +236,8 @@ def imf() -> list[dict[str, Any]]:
             raise SourceAccessError("IMF WEO series schema changed.")
         for country, iso in COUNTRIES.items():
             try:
-                series = fetch_imf_datamapper_indicator(
-                    indicator, iso, PROJECT_ROOT / "data_cache" / "economic_backdrop", payload=data
-                )
-            except Exception:
+                series = fetch_imf_datamapper_indicator(indicator, iso, None, payload=data)
+            except ImfError:
                 series = pd.Series(dtype=float)
             for year in (current_year, current_year + 1):
                 value = next((number(value) for timestamp, value in series.items() if timestamp.year == year), None)
