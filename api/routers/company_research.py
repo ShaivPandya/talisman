@@ -63,7 +63,8 @@ class StartCompanyResearchRequest(BaseModel):
 def _report_status(state, kind, actor_id=None):
     report = state["reports"][kind]
     expired = state["deadline"] <= time.time()
-    stopped = report["status"] != "done" and (
+    # A later deadline expiry must not overwrite a completed attempt's failure.
+    stopped = report["status"] in {"queued", "running"} and (
         expired or (state["status"] == "running" and state.get("lease_until", 0) <= time.time())
     )
     status = "incomplete" if stopped else report["status"]
