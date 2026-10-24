@@ -885,6 +885,50 @@ def test_verified_reports_publish_as_requesting_actor_once_and_pending_approval_
     assert sum(action == "save_overview_content" for action, _, _ in published) == 1
 
 
+def test_overview_sheet_uses_the_uploaded_markdown_loader(monkeypatch):
+    from api.routers.overview import _MARKDOWN_USER_PROMPT, _SYSTEM_PROMPT, _finish_llm_overview
+
+    seen: dict[str, dict] = {}
+
+    class RecordingProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if step in {"overview/business", "overview/sections/0", "overview/summary"}:
+                seen[step] = kwargs
+            return super().request(step, model, **kwargs)
+
+    FakeProvider.calls = []
+    monkeypatch.setattr(workflow, "ResearchProvider", RecordingProvider)
+    published = []
+
+    def publish(action, payload, **kwargs):
+        published.append((action, payload))
+        return {"application_status": "applied", "approval_id": "approval"}
+
+    monkeypatch.setattr(legacy, "stage_api_action", publish)
+    state = create_run(apply=True)
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="overview-loader"
+    )
+    assert result["status"] == "done"
+    gather = seen["overview/business"]
+    assert gather["web"] and gather["effort"] == "high" and gather["tool_calls"] == 12
+    assert "deep-research report" in gather["prompt"]
+    assert "The facility will open next year." in seen["overview/sections/0"]["prompt"]
+    loaded = seen["overview/summary"]
+    assert loaded["instructions"] == _SYSTEM_PROMPT.format(ticker="EL")
+    assert loaded["prompt"].startswith(_MARKDOWN_USER_PROMPT)
+    assert "<uploaded_markdown>" in loaded["prompt"]
+    assert "Prepare the company-sheet summary" not in loaded["prompt"]
+    assert not loaded.get("web")
+    assert "overview/summary-audit" not in FakeProvider.calls
+    saved = next(payload["content"] for action, payload in published if action == "save_overview_content")
+    assert saved == _finish_llm_overview(
+        "EL",
+        f"# EL\n\n## Financials\n\nSupported claim [filing]({URL}).\n\n"
+        "## Sensitivity to Extrinsic Factors\n\nInsufficient evidence.\n\n## Industry\n\nMakes products.",
+    )
+
+
 def test_in_order_returns_results_in_input_order_within_the_inflight_cap():
     lock = threading.Lock()
     first_wave = threading.Barrier(store.MAX_INFLIGHT, timeout=5)
