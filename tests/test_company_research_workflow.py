@@ -205,6 +205,30 @@ def test_limit_reached_status_names_the_runs_own_allowance(minutes):
     assert status["budget"]["max_seconds"] == minutes * 60
 
 
+@pytest.mark.parametrize("expired", [False, True])
+def test_finished_failure_is_not_replaced_by_later_deadline_expiry(expired):
+    from api.routers.company_research import _report_status
+
+    run_id = claimed()
+    age_run(run_id, elapsed=(90 if expired else 30) * 60, allowance=80 * 60)
+    original = store.get_run(run_id)
+    error = "Source passages could not be independently supported: citation location was inaccurate."
+
+    def fail(state):
+        state.update(status="incomplete", finished_at=state["created_at"] + 1674, lease_until=0)
+        state["reports"]["overview"].update(status="incomplete", error=error)
+        state["reports"]["management_quality"].update(status="done", error=None)
+
+    state = store.mutate_run(run_id, fail)
+    status = _report_status(state, "overview", original["snapshot"]["actor"]["actor_id"])
+    assert status["status"] == "incomplete"
+    assert status["error"] == error
+    assert status["resumable"] is (not expired)
+    assert status["budget"]["elapsed_seconds"] == 1674
+    assert _report_status(state, "management_quality")["error"] is None
+    assert _report_status(state, "management_quality")["status"] == "done"
+
+
 def test_fiscal_coverage_requires_consecutive_quarters_and_chronology():
     p = plan()
     validate_plan(p, as_of=AS_OF, overview=True, management=True)
@@ -337,6 +361,163 @@ def test_provider_rejects_unobserved_sources(monkeypatch):
 def test_tracking_parameters_do_not_change_source_identity_but_document_ids_do():
     assert provider._canonical(URL + "?utm_source=openai#page=4") == provider._canonical(URL)
     assert provider._canonical(URL + "?id=1&utm_source=openai") != provider._canonical(URL + "?id=2")
+
+
+def test_escaped_document_filenames_match_without_merging_encoded_path_separators():
+    assert provider._canonical(URL + "/CDW (signed).pdf") == provider._canonical(URL + "/CDW%20%28signed%29.pdf")
+    assert provider._canonical(URL + "/report%2fone") != provider._canonical(URL + "/report/one")
+    assert provider._canonical(URL + "/report%2fone") == provider._canonical(URL + "/report%2Fone")
+    assert provider._canonical(URL + "/report%3Fid=1") != provider._canonical(URL + "/report?id=1")
+
+
+def test_observed_escaped_pdf_does_not_trigger_another_search(monkeypatch):
+    document_url = URL + "/Contract%20-%20(signed).pdf"
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": document_url})])
+    research = response(packet.model_dump(mode="json"))
+    research["output"][-1]["action"] = {"type": "open_page", "url": document_url.replace("(signed)", "%28signed%29")}
+    client = mock_client(monkeypatch, [research])
+    result = provider.ResearchProvider(claimed(), "worker").request(
+        "sources", OverviewPacket, prompt="Research", instructions="Research", web=True
+    )
+    assert result == packet
+    assert client.responses.create.call_count == 1
+
+
+def test_negative_source_check_repairs_retained_evidence_instead_of_rechecking_the_same_failure(monkeypatch):
+    missing = "https://issuer.example/unavailable"
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": missing})])
+    checked = response({"checks": [{"url": missing, "supported": False, "explanation": "The filing is inaccessible."}]})
+    repaired = OverviewPacket(
+        facts=[], gaps=["Original filing inaccessible; used the issuer release."], searched_sources=[source()]
+    )
+    client = mock_client(
+        monkeypatch, [response(packet.model_dump(mode="json")), checked, response(repaired.model_dump(mode="json"))]
+    )
+    run_id = claimed()
+    result = provider.ResearchProvider(run_id, "worker").request(
+        "sources", OverviewPacket, prompt="Research", instructions="Research", web=True
+    )
+    assert result == repaired
+    requests = [call.kwargs for call in client.responses.create.call_args_list]
+    assert [request["text"]["format"]["name"] for request in requests] == [
+        "OverviewPacket",
+        "SourceChecks",
+        "OverviewPacket",
+    ]
+    assert "The filing is inaccessible" in requests[2]["input"]
+    assert "Retained evidence" in requests[2]["input"]
+    assert missing in requests[2]["input"]
+    state = store.get_run(run_id)
+    assert len([key for key in state["calls"] if "/source-check/" in key]) == 1
+    assert all(call["settled"] for call in state["calls"].values())
+    assert state["charged_usd"] > 0
+
+
+def test_positive_source_check_still_requires_an_observed_url(monkeypatch):
+    checked = response(
+        {"checks": [{"url": "https://invented.example/", "supported": True, "explanation": "Claimed support"}]}
+    )
+    client = mock_client(monkeypatch, [checked])
+    with pytest.raises(RuntimeError, match="Source URLs not observed"):
+        provider.ResearchProvider(claimed(), "worker").request(
+            "check",
+            provider.SourceChecks,
+            prompt="Check",
+            instructions="Check",
+            web=True,
+            resolve_unobserved=False,
+            attempts=1,
+        )
+    assert client.responses.create.call_count == 1
+
+
+def test_source_check_corrects_locations_without_researching_or_rewriting_facts(monkeypatch):
+    extra_url = "https://issuer.example/annual"
+    original = source().model_copy(update={"url": extra_url, "location": "Page 35"})
+    packet = OverviewPacket(
+        facts=[Fact(record_id="fact", section="Business", claim="Facility opens next year", sources=[original])],
+        gaps=[],
+        searched_sources=[original],
+    )
+    checked = response(
+        {
+            "checks": [
+                {
+                    "url": extra_url,
+                    "supported": True,
+                    "explanation": "Passage and date are supported on page 36.",
+                    "location_corrections": [{"source_index": 0, "location": "Page 36"}],
+                }
+            ]
+        }
+    )
+    checked["output"][-1]["action"]["sources"] = [{"url": extra_url}]
+    client = mock_client(monkeypatch, [response(packet.model_dump(mode="json")), checked])
+    instance = provider.ResearchProvider(claimed(), "worker")
+    result = instance.request("sources", OverviewPacket, prompt="Research", instructions="Research", web=True)
+    assert result.facts[0].claim == packet.facts[0].claim
+    assert result.facts[0].sources[0] == original.model_copy(update={"location": "Page 36"})
+    assert result.searched_sources[0] == result.facts[0].sources[0]
+    assert packet.searched_sources[0].location == "Page 35"
+    assert client.responses.create.call_count == 2
+    assert instance.load("sources", OverviewPacket) == result
+    supplied = client.responses.create.call_args_list[1].kwargs["input"].split("Sources:\n")[1]
+    assert len(json.loads(supplied)) == 1
+
+
+@pytest.mark.parametrize(
+    "corrections",
+    [
+        [{"source_index": 9, "location": "Page 36"}],
+        [{"source_index": 0, "location": "Page 36"}, {"source_index": 0, "location": "Page 37"}],
+    ],
+)
+def test_invalid_source_location_corrections_are_not_applied(monkeypatch, corrections):
+    extra_url = "https://issuer.example/annual"
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": extra_url})])
+    instance = provider.ResearchProvider.__new__(provider.ResearchProvider)
+
+    def invalid_check(*args, **kwargs):
+        checked = provider.SourceChecks.model_validate(
+            {
+                "checks": [
+                    {
+                        "url": extra_url,
+                        "supported": True,
+                        "explanation": "Supported",
+                        "location_corrections": corrections,
+                    }
+                ]
+            }
+        )
+        kwargs["validate"](checked)
+        return checked
+
+    monkeypatch.setattr(instance, "request", invalid_check)
+    with pytest.raises(ValueError, match="Location corrections"):
+        instance.resolve_sources("sources", packet, {extra_url}, gathering=True)
+    assert packet.searched_sources[0].location == source().location
+
+
+@pytest.mark.parametrize(
+    ("failure", "expected"),
+    [
+        (provider.ResearchValidationFailed, ValueError),
+        (store.ResearchLimitReached, store.ResearchLimitReached),
+        (store.ResearchLeaseLost, store.ResearchLeaseLost),
+    ],
+)
+def test_source_check_repair_only_catches_validation_failures(monkeypatch, failure, expected):
+    extra_url = "https://issuer.example/annual"
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": extra_url})])
+    instance = provider.ResearchProvider.__new__(provider.ResearchProvider)
+
+    def fail(*args, **kwargs):
+        raise failure("Stop this check")
+
+    monkeypatch.setattr(instance, "request", fail)
+    with pytest.raises(expected, match="Stop this check"):
+        instance.resolve_sources("sources", packet, {extra_url}, gathering=True)
 
 
 def test_unobserved_citation_is_checked_without_regenerating_the_evidence_packet(monkeypatch):

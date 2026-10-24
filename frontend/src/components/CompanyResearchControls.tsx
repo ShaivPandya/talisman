@@ -234,14 +234,23 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
         </div>
       )}
       {mutation.error && <p role="alert" className="text-sm text-red-600">{mutation.error.message}</p>}
-      {budgets.map(budget => (
-        <p key={budget.run_id} className="text-xs text-subtle" aria-label="Research allowance">
-          {Math.floor(budget.elapsed_seconds / 60)} / {Math.round(budget.max_seconds / 60)} minutes · ${budget.charged_usd.toFixed(2)} budget used
-          {budget.reserved_usd > 0 && ` + $${budget.reserved_usd.toFixed(2)} reserved`} / ${budget.max_cost_usd.toFixed(2)} total
-          {budget.remaining_seconds > 0 ? ` · ${Math.ceil(budget.remaining_seconds / 60)} minutes remaining` : " · Time allowance exhausted"}
-          {" · Cost includes a conservative margin; resume keeps the original allowance."}
-        </p>
-      ))}
+      {budgets.map(budget => {
+        const reports = KINDS.map(kind => query.data?.reports[kind]).filter(report => report?.budget?.run_id === budget.run_id)
+        const active = reports.some(isActive)
+        const completed = reports.every(report => report?.status === "done")
+        const remaining = Math.ceil(budget.remaining_seconds / 60)
+        const allowanceStatus = completed ? "Run completed" : active
+          ? budget.remaining_seconds > 0 ? `${remaining} minutes remaining` : "Time allowance exhausted"
+          : budget.remaining_seconds > 0 ? `Run stopped; ${remaining} minutes left to resume` : "Run stopped; resume window expired"
+        return (
+          <p key={budget.run_id} className="text-xs text-subtle" aria-label="Research allowance">
+            {Math.floor(budget.elapsed_seconds / 60)} / {Math.round(budget.max_seconds / 60)} minutes · ${budget.charged_usd.toFixed(2)} budget used
+            {budget.reserved_usd > 0 && ` + $${budget.reserved_usd.toFixed(2)} reserved`} / ${budget.max_cost_usd.toFixed(2)} total
+            {` · ${allowanceStatus}`}
+            {" · Cost includes a conservative margin; resume keeps the original allowance."}
+          </p>
+        )
+      })}
       {KINDS.map(kind => {
         const report = query.data?.reports[kind]
         if (!report || report.status === "idle") return null

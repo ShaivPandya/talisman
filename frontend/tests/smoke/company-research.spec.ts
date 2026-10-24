@@ -91,7 +91,7 @@ test("shows a shared allowance and resumes the original run without clearing the
   await expect(controls.getByLabel("Research allowance")).toHaveCount(1)
   await expect(controls.getByLabel("Research allowance")).toContainText("$4.25 budget used")
   await expect(controls.getByLabel("Research allowance")).toContainText("20 / 80 minutes")
-  await expect(controls.getByLabel("Research allowance")).toContainText("60 minutes remaining")
+  await expect(controls.getByLabel("Research allowance")).toContainText("Run stopped; 60 minutes left to resume")
   await expect(controls.getByText(/Each new run allows up to 80 minutes/)).toBeVisible()
   await expect(controls.getByText(/12 \/ 20 quarters researched/)).toBeVisible()
   await page.screenshot({ path: test.info().outputPath("research-shared-budget.png"), fullPage: true })
@@ -143,6 +143,23 @@ test("an exhausted run retains evidence and cannot silently retry with a new all
   await expect(controls.getByRole("button", { name: "Run Company Research" })).toBeEnabled()
 })
 
+test("a run that failed early distinguishes its expired resume window from a research timeout", async ({ page }) => {
+  const research = await mockResearch(page)
+  const runId = "failed-early"
+  const budget = { run_id: runId, elapsed_seconds: 1674, remaining_seconds: 0, max_seconds: 4800,
+    charged_usd: 6.6864, reserved_usd: 0, max_cost_usd: 25, deadline: "2026-10-24T21:33:17Z", estimated: false }
+  research.reports.overview = { status: "incomplete", run_id: runId, budget, resumable: false,
+    error: "Source passages could not be independently supported: citation location was inaccurate." }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await expect(controls.getByLabel("Research allowance")).toContainText("27 / 80 minutes")
+  await expect(controls.getByLabel("Research allowance")).toContainText("$6.69 budget used")
+  await expect(controls.getByLabel("Research allowance")).toContainText("Run stopped; resume window expired")
+  await expect(controls.getByText(/citation location was inaccurate/)).toBeVisible()
+  await expect(controls.getByText(/Time allowance exhausted|reached its 80-minute limit/)).toHaveCount(0)
+  await expect(controls.getByRole("button", { name: /Resume|Retry/ })).toHaveCount(0)
+})
+
 test("a run started under the old 55-minute allowance keeps showing its own limit", async ({ page }) => {
   const research = await mockResearch(page)
   const runId = "7c1d6a52-3f0e-4c7b-9a41-5b1f0e2d8a90"
@@ -153,7 +170,7 @@ test("a run started under the old 55-minute allowance keeps showing its own limi
   await page.goto("/dossier/MSFT")
   const controls = page.getByRole("region", { name: "Company research" })
   await expect(controls.getByLabel("Research allowance")).toContainText("20 / 55 minutes")
-  await expect(controls.getByLabel("Research allowance")).toContainText("35 minutes remaining")
+  await expect(controls.getByLabel("Research allowance")).toContainText("Run stopped; 35 minutes left to resume")
 })
 
 test("starts both reports, recovers after reload, refreshes summaries and displays cited full reports", async ({ page }) => {
