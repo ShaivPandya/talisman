@@ -21,6 +21,7 @@ import {
   House,
   Landmark,
   LayoutDashboard,
+  Library,
   Lightbulb,
   ListChecks,
   ListFilter,
@@ -128,6 +129,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "AI Settings", path: "/settings/ai", icon: Bot },
       { label: "Policy Matrix", path: "/settings/policy-matrix", icon: Grid3x3 },
       { label: "Personalization", path: PERSONALIZATION_PATH, icon: Palette, locked: true },
+      { label: "Source Library", path: "/source-files", icon: Library },
     ],
   },
 ]

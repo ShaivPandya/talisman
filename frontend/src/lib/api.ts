@@ -1263,6 +1263,21 @@ export const deleteNameDocument = (ticker: string, id: string) => client.delete(
 export const attachNameDocument = (ticker: string, id: string, tickers: string[]) =>
   client.post(`${nameDocumentsPath(ticker)}/${id}/attach`, { tickers })
 
+export interface SourceLibraryFile {
+  sha256: string
+  name: string
+  other_names: string[]
+  mime_type: string
+  size: number
+  created_at: string
+  url: string
+  tickers: string[]
+}
+
+export const fetchSourceLibrary = () => client.get("/source-files")
+  .then(r => r.data as { files: SourceLibraryFile[]; count: number })
+export const deleteSourceFile = (sha256: string) => client.delete(`/source-files/${sha256}`)
+
 export const uploadAgentAttachment = (file: File, signal?: AbortSignal) => {
   const formData = new FormData()
   formData.append("file", file)

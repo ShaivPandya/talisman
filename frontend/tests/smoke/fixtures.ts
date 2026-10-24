@@ -1251,6 +1251,9 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
   if (method === "GET" && /^\/api\/names\/[^/]+\/documents$/.test(path)) {
     return json(route, { ticker: path.split("/")[3], documents: [], count: 0 })
   }
+  if (method === "GET" && path === "/api/source-files") {
+    return json(route, { files: [], count: 0 })
+  }
   state.unknownRequests.push(signature)
   return json(route, { detail: `Unmocked API request in smoke test: ${signature}` }, 599)
 }

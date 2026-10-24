@@ -82,6 +82,104 @@ def test_duplicate_attachment_is_idempotent_and_destination_validation_is_atomic
     assert docs.list_documents("MSFT")["count"] == 0
 
 
+def test_library_lists_each_file_once_with_every_name_it_is_attached_to(auth_client):
+    assert auth_client.get("/api/source-files").json() == {"files": [], "count": 0}
+    first = docs.upload("MU", FACT.encode(), "survey.txt")
+    second = docs.upload("MSFT", b"A different note", "note.md")
+    docs.attach("MU", first["id"], ["GC=F", "EURUSD=X"])
+    library = auth_client.get("/api/source-files").json()
+    assert library["count"] == 2
+    by_hash = {file["sha256"]: file for file in library["files"]}
+    survey, note = by_hash[first["sha256"]], by_hash[second["sha256"]]
+    assert survey["name"] == "survey.txt"
+    assert survey["size"] == len(FACT.encode())
+    assert survey["created_at"] == first["created_at"]
+    assert survey["tickers"] == ["EURUSD=X", "GC=F", "MU"]
+    assert survey["other_names"] == []
+    assert auth_client.get(survey["url"]).content == FACT.encode()
+    assert (note["name"], note["tickers"]) == ("note.md", ["MSFT"])
+    assert [file["sha256"] for file in library["files"]] == [second["sha256"], first["sha256"]]
+
+
+def test_identical_content_uploaded_to_different_names_is_one_library_entry():
+    first = docs.upload("MU", FACT.encode(), "survey.txt")
+    second = docs.upload("GC=F", FACT.encode(), "Survey copy.txt")
+    assert first["id"] != second["id"]
+    [entry] = docs.library()["files"]
+    assert entry["tickers"] == ["GC=F", "MU"]
+    assert {entry["name"], *entry["other_names"]} == {"survey.txt", "Survey copy.txt"}
+    assert len(entry["other_names"]) == 1
+
+
+def test_library_delete_removes_the_content_from_every_name_and_leaves_other_files(auth_client):
+    first = docs.upload("MU", FACT.encode(), "survey.txt")
+    kept = docs.upload("MU", b"A different note", "note.md")
+    twin = docs.upload("GC=F", FACT.encode(), "survey again.txt")
+    docs.attach("MU", first["id"], ["EURUSD=X"])
+    snapshot = docs.research_snapshot("MU")
+    assert {doc["id"] for doc in snapshot} == {first["id"], kept["id"]}
+
+    assert auth_client.delete(f"/api/source-files/{first['sha256']}").status_code == 204
+
+    assert [doc["id"] for doc in docs.list_documents("MU")["documents"]] == [kept["id"]]
+    for ticker in ("GC=F", "EURUSD=X"):
+        assert docs.list_documents(ticker)["count"] == 0
+    for document in (first, twin):
+        assert auth_client.get(document["url"]).status_code == 404
+    with pytest.raises(NotFoundError):
+        docs.read_document("GC=F", twin["id"])
+    passages = docs.research_passages(snapshot, "violet satellites")
+    assert passages
+    assert {passage["id"] for passage in passages} == {kept["id"]}
+    assert [file["sha256"] for file in docs.library()["files"]] == [kept["sha256"]]
+    assert docs.original("MU", kept["id"]) == b"A different note"
+    assert len(list(docs.DOCUMENT_DIR.rglob("original"))) == 1
+    assert len(list(docs.DOCUMENT_DIR.rglob("text.json"))) == 1
+
+
+@pytest.mark.parametrize("sha256", ["a" * 64, "not-a-hash", "A" * 64, "a" * 63])
+def test_library_delete_of_an_unknown_file_is_not_found(auth_client, sha256):
+    kept = docs.upload("MU", FACT.encode(), "survey.txt")
+    assert auth_client.delete(f"/api/source-files/{sha256}").status_code == 404
+    assert docs.list_documents("MU")["count"] == 1
+    assert docs.original("MU", kept["id"]) == FACT.encode()
+    gone = auth_client.delete(f"/api/source-files/{kept['sha256']}")
+    assert gone.status_code == 204
+    assert auth_client.delete(f"/api/source-files/{kept['sha256']}").status_code == 404
+
+
+def test_library_skips_incomplete_uploads_and_stray_directories():
+    kept = docs.upload("MU", FACT.encode(), "survey.txt")
+    (docs.DOCUMENT_DIR / "MU" / ("b" * 32)).mkdir(parents=True)
+    (docs.DOCUMENT_DIR / "MU" / ("b" * 32) / "original").write_bytes(b"partial")
+    stray = docs.DOCUMENT_DIR / "not a name" / ("c" * 32)
+    stray.mkdir(parents=True)
+    (stray / "meta.json").write_text("{}")
+    assert [file["sha256"] for file in docs.library()["files"]] == [kept["sha256"]]
+
+
+def test_unauthenticated_requests_cannot_read_or_delete_from_the_library(client):
+    document = docs.upload("MU", FACT.encode(), "survey.txt")
+    assert client.get("/api/source-files").status_code == 401
+    assert client.delete(f"/api/source-files/{document['sha256']}").status_code == 401
+    assert docs.list_documents("MU")["count"] == 1
+
+
+def test_viewer_can_read_the_library_but_only_administrators_can_delete(auth_client):
+    from api.main import app
+    from api.routers.auth import require_actor
+    from ontology.policy import user_actor
+
+    document = docs.upload("MU", FACT.encode(), "survey.txt")
+    app.dependency_overrides[require_actor] = lambda: user_actor("viewer", ("viewer",))
+    try:
+        assert auth_client.get("/api/source-files").json()["count"] == 1
+        assert auth_client.delete(f"/api/source-files/{document['sha256']}").status_code == 403
+    finally:
+        app.dependency_overrides.pop(require_actor)
+    assert docs.list_documents("MU")["count"] == 1
+
+
 @pytest.mark.parametrize(
     "filename,payload",
     [
@@ -201,6 +299,12 @@ def test_gcs_storage_survives_listing_and_deleting_without_local_files(monkeypat
     assert not docs.DOCUMENT_DIR.exists()
     docs.delete("GC=F", document["id"])
     assert not objects
+    shared = docs.upload("GC=F", FACT.encode(), "survey.txt")
+    docs.attach("GC=F", shared["id"], ["MU"])
+    assert [file["tickers"] for file in docs.library()["files"]] == [["GC=F", "MU"]]
+    docs.delete_everywhere(shared["sha256"])
+    assert not objects
+    assert docs.library()["count"] == 0
 
 
 def test_fresh_agent_tools_retrieve_private_fact_only_for_its_name():
