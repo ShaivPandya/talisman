@@ -9,12 +9,13 @@ import {
   type AgentResponsePreferences,
   type AgentWorkflow,
 } from "@/lib/api"
-import { deleteSession, fetchSessionHistory, renameSessionTitle, useAgentChat, type AgentMessage, type SessionSummary } from "@/hooks/useAgentChat"
+import { deleteSession, fetchSessionHistory, renameSessionTitle, useAgentChat, type AgentJobCompletion, type AgentMessage, type SessionSummary } from "@/hooks/useAgentChat"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { StanOpenDetail } from "@/lib/stanLauncher"
 import { AgentChatComposer, type AgentChatComposerHandle, type AgentChatDraft } from "./AgentChatComposer"
 import { AgentChatQueuePanel } from "./AgentChatQueuePanel"
 import { AgentChatHeader } from "./AgentChatHeader"
+import { AgentCompletionToast } from "./AgentCompletionToast"
 import { AgentContextPane } from "./AgentContextPane"
 import { AgentHistoryPanel } from "./AgentHistoryPanel"
 import { AgentMessageStream } from "./AgentMessageStream"
@@ -101,6 +102,13 @@ export function AgentChat({
   pendingCommand,
   onPendingCommandConsumed,
 }: AgentChatProps) {
+  const [completions, setCompletions] = useState<AgentJobCompletion[]>([])
+  const handleDurableComplete = useCallback((completion: AgentJobCompletion) => {
+    setCompletions(current => [...current, completion])
+  }, [])
+  const dismissCompletion = useCallback((jobId: string) => {
+    setCompletions(current => current.filter(completion => completion.jobId !== jobId))
+  }, [])
   const {
     messages,
     messageVersions,
@@ -122,7 +130,7 @@ export function AgentChat({
     editQueuedMessage,
     clearQueuedMessages,
     sendQueuedMessageNow,
-  } = useAgentChat()
+  } = useAgentChat(handleDurableComplete)
   const { openDecisionTrace } = useDecisionTrace()
   const queryClient = useQueryClient()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
@@ -459,6 +467,7 @@ export function AgentChat({
 
   return (
     <RadixDialog.Root open={open} onOpenChange={handleOpenChange}>
+      <AgentCompletionToast completions={completions} onDismiss={dismissCompletion} />
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[hsl(var(--background-overlay))]/45 backdrop-blur-[2px]" />
         <RadixDialog.Content

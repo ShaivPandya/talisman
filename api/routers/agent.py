@@ -3868,6 +3868,7 @@ def _submit_agent_response_feedback(req: AgentResponseFeedbackRequest, actor: Ac
             "reviewed_at": stored.get("reviewed_at"),
             "failure_tags": stored.get("failure_tags") or [],
             "notes": stored.get("notes"),
+            "corrected_response": stored.get("corrected_response"),
             "training_eligible": stored.get("training_eligible"),
             "human_reviewed": True,
             "signal_source": stored.get("signal_source"),
@@ -3915,6 +3916,17 @@ def list_agent_response_feedback(
         )
         rows = list_feedback_for_trajectory(str(trajectory["trajectory_id"]))
         return {"feedback": rows, "trajectory_id": trajectory["trajectory_id"]}
+
+    if session_id:
+        # Hydrate the whole transcript in one indexed query, including long chats.
+        # Ratings belong to the reviewer, rather than whoever last rated a turn.
+        return {
+            "feedback": list_feedback(
+                session_id=session_id,
+                reviewer_actor_id=str(actor.actor_id or "unknown"),
+                limit=None,
+            )
+        }
 
     return {"feedback": list_feedback(limit=limit)}
 

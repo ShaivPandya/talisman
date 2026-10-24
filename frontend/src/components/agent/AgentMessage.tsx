@@ -238,18 +238,12 @@ export const AgentMessage = memo(function AgentMessage({
   return (
     <div className="group mb-4 flex flex-col items-start">
       <div className="max-w-[min(92%,48rem)] rounded-2xl rounded-bl-md border border-app bg-card px-4 py-3 text-sm leading-6 text-app shadow-sm">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <DecisionStateBadge state={messageDecisionState} />
-          <EffectScopeBadge scope={messageScope} />
-          {!message.isStreaming && onOpenTrace && (
-            <TraceTriggerButton
-              compact
-              label="Trace Stan response"
-              className="ml-auto"
-              onClick={() => onOpenTrace(message)}
-            />
-          )}
-        </div>
+        {messageDecisionState === "proposal" && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <DecisionStateBadge state={messageDecisionState} />
+            <EffectScopeBadge scope={messageScope} />
+          </div>
+        )}
         <AgentActivity message={message} />
         {egressGroups.length > 0 && (
           <div className="flex flex-wrap mb-2">
@@ -276,14 +270,14 @@ export const AgentMessage = memo(function AgentMessage({
         )}
 
         <AgentSources sources={message.sources} />
-
-        {!message.isStreaming && (
-          <AgentFeedbackControls message={message} sessionId={sessionId ?? null} />
-        )}
       </div>
       {!message.isStreaming && (
         <MessageActionRow align="start" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>
           {displayContent && <CopyButton label="Copy response" getText={() => displayContent} />}
+          {onOpenTrace && (
+            <TraceTriggerButton compact label="Trace Stan response" className="h-6 w-6" onClick={() => onOpenTrace(message)} />
+          )}
+          <AgentFeedbackControls message={message} sessionId={sessionId ?? null} />
           {canRegenerate && onRegenerate && (
             <ActionButton label="Regenerate response" onClick={() => onRegenerate(message.id)} disabled={actionsDisabled}>
               <RefreshCw size={13} aria-hidden="true" />

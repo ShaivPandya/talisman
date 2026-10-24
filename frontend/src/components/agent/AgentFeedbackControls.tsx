@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react"
-import { CheckCircle2, PencilLine, ThumbsDown, ThumbsUp } from "lucide-react"
+import { useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { MessageSquare, PencilLine, ThumbsDown, ThumbsUp } from "lucide-react"
 import type { AgentMessage } from "@/hooks/agentChatShared"
+import { agentFeedbackQueryKey, agentFeedbackQueryOptions, type SessionFeedback } from "@/hooks/agentFeedbackQuery"
 import {
-  fetchAgentResponseFeedback,
   submitAgentResponseFeedback,
   type AgentFeedbackDecision,
-  type AgentFeedbackFailureTag,
-  type AgentResponseFeedbackRecord,
+  type SubmitAgentResponseFeedbackRequest,
 } from "@/lib/api"
 import { AgentResponseFeedbackDialog } from "./AgentResponseFeedbackDialog"
 
@@ -15,146 +15,114 @@ interface AgentFeedbackControlsProps {
   sessionId: string | null
 }
 
-function decisionLabel(decision: AgentFeedbackDecision): string {
-  switch (decision) {
-    case "approve":
-      return "Approved"
-    case "reject":
-      return "Rejected"
-    case "correct":
-      return "Corrected"
-  }
-}
+const BUTTON_CLASS = "inline-flex h-6 min-w-6 items-center justify-center gap-1 rounded-md px-1.5 text-xs text-muted hover:bg-muted-surface hover:text-app focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 disabled:opacity-40 aria-pressed:text-link"
 
 export function AgentFeedbackControls({ message, sessionId }: AgentFeedbackControlsProps) {
-  const [feedback, setFeedback] = useState<AgentResponseFeedbackRecord | null>(message.feedback ?? null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [dialogDecision, setDialogDecision] = useState<AgentFeedbackDecision>("approve")
+  const queryClient = useQueryClient()
+  // The chat hook owns the fetch. This observer selects just this turn's rating,
+  // so mounting messages or switching branches never starts another request.
+  const feedbackQuery = useQuery({
+    ...agentFeedbackQueryOptions(sessionId),
+    enabled: false,
+    select: data => data[message.clientTurnId ?? ""] ?? null,
+  })
+  const feedback = feedbackQuery.data ?? message.feedback ?? null
+  const [dialogDecision, setDialogDecision] = useState<AgentFeedbackDecision | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
   const [error, setError] = useState<string | null>(null)
-  const [disclosure, setDisclosure] = useState<string | null>(null)
+  const canSubmit = Boolean(sessionId && message.clientTurnId && !message.isStreaming
+    && message.messageStatus !== "stopped" && message.messageStatus !== "failed")
 
-  const canSubmit = Boolean(sessionId && message.clientTurnId && !message.isStreaming)
-
-  useEffect(() => {
-    if (!canSubmit || feedback) return
-    let cancelled = false
-    void fetchAgentResponseFeedback({
-      session_id: sessionId ?? undefined,
-      client_turn_id: message.clientTurnId,
-    })
-      .then(data => {
-        if (cancelled) return
-        const existing = data.feedback?.[0]
-        if (existing) setFeedback(existing)
-      })
-      .catch(() => {
-        // Best-effort hydration; controls remain available for first submission.
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [canSubmit, feedback, message.clientTurnId, sessionId])
-
-  const openDialog = (decision: AgentFeedbackDecision) => {
-    setDialogDecision(decision)
-    setError(null)
-    setDialogOpen(true)
-  }
-
-  const handleSubmit = async (payload: {
-    decision: AgentFeedbackDecision
-    corrected_response?: string
-    failure_tags: AgentFeedbackFailureTag[]
-    notes?: string
-    eligible_for_training: boolean
-  }) => {
-    if (!sessionId || !message.clientTurnId) return
+  const handleSubmit = async (payload: SubmitAgentResponseFeedbackRequest) => {
+    if (!sessionId || !message.clientTurnId || submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     setError(null)
     try {
       const response = await submitAgentResponseFeedback({
+        ...payload,
         session_id: sessionId,
         client_turn_id: message.clientTurnId,
-        decision: payload.decision,
-        corrected_response: payload.corrected_response,
-        failure_tags: payload.failure_tags,
-        notes: payload.notes,
-        eligible_for_training: payload.eligible_for_training,
       })
-      setFeedback(response.feedback)
-      setDisclosure(response.disclosure)
-      setDialogOpen(false)
+      queryClient.setQueryData<SessionFeedback>(agentFeedbackQueryKey(sessionId), current => ({
+        ...current,
+        [message.clientTurnId!]: response.feedback,
+      }))
+      setDialogDecision(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save feedback")
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
 
   if (!canSubmit) return null
+  const disabled = submitting || feedbackQuery.isFetching
 
   return (
-    <div className="mt-2 border-t border-app pt-2">
-      {feedback ? (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
-          <CheckCircle2 size={12} className="text-positive" aria-hidden="true" />
-          <span>
-            {decisionLabel(feedback.decision)}
-            {feedback.training_eligible ? " · eligible for governed training" : ""}
-          </span>
+    <>
+      <div className="flex items-center gap-0.5" role="group" aria-label="Response feedback">
+        <button
+          type="button"
+          aria-label="Good response"
+          title="Good response"
+          aria-pressed={feedback?.decision === "approve"}
+          disabled={disabled}
+          onClick={() => void handleSubmit({ decision: "approve", eligible_for_training: false })}
+          className={BUTTON_CLASS}
+        >
+          <ThumbsUp size={13} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          aria-label="Bad response"
+          title="Bad response"
+          aria-pressed={feedback?.decision === "reject"}
+          disabled={disabled}
+          onClick={() => void handleSubmit({ decision: "reject", eligible_for_training: false })}
+          className={BUTTON_CLASS}
+        >
+          <ThumbsDown size={13} aria-hidden="true" />
+        </button>
+        {feedback && (
           <button
             type="button"
-            onClick={() => openDialog(feedback.decision)}
-            className="theme-button-secondary px-2 py-1 text-xs"
+            aria-label="Feedback details"
+            title="Feedback details"
+            disabled={disabled}
+            onClick={() => { setError(null); setDialogDecision(feedback.decision) }}
+            className={BUTTON_CLASS}
           >
-            Update
+            <MessageSquare size={13} aria-hidden="true" />
           </button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted">Review this response:</span>
-          <button
-            type="button"
-            onClick={() => openDialog("approve")}
-            className="inline-flex items-center gap-1 rounded-md border border-app px-2 py-1 text-xs text-muted hover:text-app"
-          >
-            <ThumbsUp size={12} aria-hidden="true" />
-            Approve
-          </button>
-          <button
-            type="button"
-            onClick={() => openDialog("reject")}
-            className="inline-flex items-center gap-1 rounded-md border border-app px-2 py-1 text-xs text-muted hover:text-app"
-          >
-            <ThumbsDown size={12} aria-hidden="true" />
-            Reject
-          </button>
-          <button
-            type="button"
-            onClick={() => openDialog("correct")}
-            className="inline-flex items-center gap-1 rounded-md border border-app px-2 py-1 text-xs text-muted hover:text-app"
-          >
-            <PencilLine size={12} aria-hidden="true" />
-            Correct
-          </button>
-        </div>
+        )}
+        <button
+          type="button"
+          aria-label="Correct response"
+          title="Correct response"
+          aria-pressed={feedback?.decision === "correct"}
+          disabled={disabled}
+          onClick={() => { setError(null); setDialogDecision("correct") }}
+          className={BUTTON_CLASS}
+        >
+          <PencilLine size={13} aria-hidden="true" />
+        </button>
+        {error && dialogDecision === null && <span role="alert" className="ml-1 text-xs text-negative">{error}</span>}
+      </div>
+      {dialogDecision !== null && (
+        <AgentResponseFeedbackDialog
+          open
+          onOpenChange={open => { if (!open) setDialogDecision(null) }}
+          decision={dialogDecision}
+          initialContent={message.content}
+          initialFeedback={feedback}
+          submitting={submitting}
+          error={error}
+          onSubmit={payload => void handleSubmit(payload)}
+        />
       )}
-
-      <p className="mt-2 text-[11px] leading-5 text-subtle">
-        {disclosure
-          ?? "Human-reviewed feedback is stored with this trajectory and model version for evaluation and optional governed training use."}
-      </p>
-
-      <AgentResponseFeedbackDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        decision={dialogDecision}
-        initialContent={message.content}
-        submitting={submitting}
-        error={error}
-        onSubmit={handleSubmit}
-      />
-    </div>
+    </>
   )
 }

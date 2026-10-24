@@ -262,3 +262,82 @@ def test_correct_feedback_requires_corrected_response(auth_client):
         },
     )
     assert response.status_code == 400
+
+
+def test_session_feedback_is_one_query_scoped_to_reviewer_without_truncation(auth_client, monkeypatch):
+    from api import agent_response_feedback as store
+
+    trajectory = _sample_trajectory()
+    submitted = auth_client.post(
+        "/api/agent/feedback",
+        json={
+            "session_id": trajectory["session_id"],
+            "client_turn_id": trajectory["client_turn_id"],
+            "decision": "approve",
+        },
+    )
+    assert submitted.status_code == 200
+    own_feedback = store.get_feedback(submitted.json()["feedback"]["feedback_id"])
+    assert own_feedback
+    # More than the endpoint's normal 50-row limit, plus records that must not leak.
+    for index in range(60):
+        store.upsert_feedback(
+            {
+                **own_feedback,
+                "feedback_id": f"fb-{index}",
+                "trajectory_id": f"trajectory-{index}",
+                "client_turn_id": f"turn-{index}",
+            }
+        )
+    store.upsert_feedback({**own_feedback, "feedback_id": "other-reviewer", "reviewer_actor_id": "someone-else"})
+    store.upsert_feedback(
+        {**own_feedback, "feedback_id": "other-session", "trajectory_id": "other", "session_id": "other"}
+    )
+    store.upsert_feedback({**own_feedback, "feedback_id": "deleted", "trajectory_id": "deleted"})
+    store.tombstone_feedback_for_trajectory("deleted")
+
+    statements = []
+    original_connect = store._sqlite_connect
+
+    def traced_connect():
+        conn = original_connect()
+        conn.set_trace_callback(statements.append)
+        return conn
+
+    monkeypatch.setattr(store, "_sqlite_connect", traced_connect)
+    response = auth_client.get("/api/agent/feedback", params={"session_id": trajectory["session_id"]})
+    assert response.status_code == 200
+    rows = response.json()["feedback"]
+    assert len(rows) == 61
+    assert {row["reviewer_actor_id"] for row in rows} == {own_feedback["reviewer_actor_id"]}
+    assert {row["session_id"] for row in rows} == {trajectory["session_id"]}
+    assert not {"other-reviewer", "other-session", "deleted"} & {row["feedback_id"] for row in rows}
+    selects = [sql for sql in statements if sql.lstrip().upper().startswith("SELECT")]
+    assert len(selects) == 1
+    assert "agent_response_feedback" in selects[0]
+    assert "agent_trajectories" not in selects[0]
+    assert auth_client.get("/api/agent/feedback", params={"session_id": "' OR 1=1 --"}).json()["feedback"] == []
+
+
+def test_session_feedback_requires_auth(client):
+    assert client.get("/api/agent/feedback", params={"session_id": "sess-feedback"}).status_code == 401
+
+
+def test_postgres_session_feedback_uses_one_parameterized_query(monkeypatch):
+    from unittest.mock import MagicMock
+
+    from api import agent_response_feedback as store
+
+    monkeypatch.setattr(store, "use_postgres_state", lambda: True)
+    connection = MagicMock()
+    cursor = connection.__enter__.return_value.cursor.return_value.__enter__.return_value
+    cursor.fetchall.return_value = []
+    monkeypatch.setattr(store, "connect", lambda **kwargs: connection)
+    assert store.list_feedback(session_id="session", reviewer_actor_id="reviewer", limit=None) == []
+    cursor.execute.assert_called_once()
+    sql, params = cursor.execute.call_args.args
+    assert "session_id = %s" in sql
+    assert "reviewer_actor_id = %s" in sql
+    assert "tombstoned_at IS NULL" in sql
+    assert "LIMIT" not in sql
+    assert params == ("session", "reviewer")

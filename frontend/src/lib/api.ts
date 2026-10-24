@@ -1131,6 +1131,7 @@ export interface AgentResponseFeedbackRecord {
   reviewed_at?: string
   failure_tags?: AgentFeedbackFailureTag[]
   notes?: string | null
+  corrected_response?: string | null
   training_eligible?: boolean
   human_reviewed?: boolean
   signal_source?: string

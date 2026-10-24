@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponsePreferences } from "@/lib/api"
 import {
@@ -27,6 +28,7 @@ import {
 } from "./agentChatSessionStore"
 import { extractAgentTraceSnapshot } from "@/lib/decisionTrace"
 import { csrfHeaders } from "@/lib/csrfToken"
+import { agentFeedbackQueryOptions } from "./agentFeedbackQuery"
 
 export type {
   ActiveAgentJob,
@@ -112,6 +114,12 @@ interface AgentJobResponse {
 interface AgentStreamEvent {
   event_type: AgentJobEvent["event_type"] | "ping" | "handoff"
   payload: Record<string, unknown>
+}
+
+export interface AgentJobCompletion {
+  jobId: string
+  sessionId: string
+  title: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -673,8 +681,13 @@ function statusTextForPhase(data: Record<string, unknown>): string | undefined {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useAgentChat() {
+export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion) => void) {
   const [state, setState] = useState<AgentChatState>(loadState)
+  const queryClient = useQueryClient()
+  useQuery(agentFeedbackQueryOptions(state.sessionId))
+  const completionHandlerRef = useRef(onDurableComplete)
+  completionHandlerRef.current = onDurableComplete
+  const completedJobsRef = useRef(new Set<string>())
   const liveAbortRef = useRef<AbortController | null>(null)
   const inFlightBySessionRef = useRef<Record<string, boolean>>({})
   const activeJobRef = useRef<ActiveAgentJob | null>(state.activeJob)
@@ -685,6 +698,19 @@ export function useAgentChat() {
   const persistedCurrentRef = useRef<AgentChatState | null>(null)
   const stateRef = useRef(state)
   stateRef.current = state
+
+  const notifyDurableCompletion = useCallback((jobId: string, sessionId: string, response: AgentJobResponse) => {
+    const events = response.events ?? []
+    if (response.status === "error" || response.status === "cancelled"
+      || events.some(event => ["error", "cancelled", "blocked", "timeout"].includes(event.event_type))) return
+    if (response.status !== "done" && !events.some(event => event.event_type === "done")) return
+    if (completedJobsRef.current.has(jobId)) return
+    completedJobsRef.current.add(jobId)
+    const snapshot = stateRef.current.sessionId === sessionId
+      ? stateRef.current
+      : sessionSnapshotsRef.current[sessionId]
+    completionHandlerRef.current?.({ jobId, sessionId, title: snapshot?.sessionTitle ?? null })
+  }, [])
 
   const persistActiveSessionSnapshot = useCallback((snapshot: AgentChatState) => {
     if (!snapshot.sessionId) return
@@ -1062,6 +1088,7 @@ export function useAgentChat() {
         const response = await fetchAgentJobEvents(job.jobId, afterSeq, controller.signal)
         const events = response.events ?? []
         const eventSessionId = response.session_id ?? sessionId
+        notifyDurableCompletion(job.jobId, eventSessionId, response)
         afterSeq = response.next_seq ?? nextSeqFrom(events, afterSeq)
         const nextJob = { ...job, afterSeq, sessionId: eventSessionId }
         // Commit the cursor and its transcript together. A cursor saved ahead
@@ -1105,7 +1132,7 @@ export function useAgentChat() {
         jobPollControllersRef.current.delete(sessionId)
       }
     }
-  }, [applyJobEvents, finishJobState, patchSessionState])
+  }, [applyJobEvents, finishJobState, patchSessionState, notifyDurableCompletion])
 
   useEffect(() => {
     const checkpoint = () => {
@@ -1159,6 +1186,7 @@ export function useAgentChat() {
 
     const resolvedSessionId = started.session_id ?? stateRef.current.sessionId
     if (!resolvedSessionId) return
+    notifyDurableCompletion(started.job_id, resolvedSessionId, started)
 
     if (events.some(event => event.event_type === "done" || event.event_type === "error")) {
       delete inFlightBySessionRef.current[resolvedSessionId]
@@ -1186,7 +1214,7 @@ export function useAgentChat() {
       return next
     })
     await pollJob(activeJob, pollController)
-  }, [applyJobEvents, finishJobState, pollJob, persistCurrentState])
+  }, [applyJobEvents, finishJobState, pollJob, persistCurrentState, notifyDurableCompletion])
 
   useEffect(() => {
     const activeJob = initialActiveJobRef.current
@@ -1601,6 +1629,9 @@ export function useAgentChat() {
     }
 
     const cached = readSessionSnapshot(sessionId)
+    // Start alongside the transcript, without letting optional feedback delay it.
+    // The active query below reuses this request when the session becomes visible.
+    void queryClient.fetchQuery(agentFeedbackQueryOptions(sessionId)).catch(() => {})
     const data = await fetchSession(sessionId)
     const transcript = data?.transcript ?? cached?.messages ?? []
     const queuedMessages = readMessageQueue(sessionId)
@@ -1648,7 +1679,7 @@ export function useAgentChat() {
       stateRef.current = nextState
       void drainQueueRef.current?.(sessionId)
     }
-  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob])
+  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob, queryClient])
 
   const applySessionTitle = useCallback((sessionId: string, title: string | null, source?: string | null) => {
     setState(prev => {
