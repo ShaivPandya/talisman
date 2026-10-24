@@ -299,3 +299,10 @@ a file counts as private material, is estimated by size (PDF about 25 tokens
 per KB up to 120,000, image about 1,600), and is charged against the turn's
 input budget once rather than on every tool round.
 
+An upload that no stored message cites is deleted once it is a week old, which
+covers files removed from the composer, abandoned drafts and the files of deleted
+conversations. The scheduled `async_job_sweep` runs this (`sweep_orphaned_attachments`,
+at most 500 per run). Set `CHAT_ATTACHMENT_ORPHAN_TTL_HOURS` to change the
+period, or to `0` to keep every upload. If the message table cannot be read the
+sweep deletes nothing.
+

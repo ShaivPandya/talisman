@@ -2,6 +2,8 @@
 
 import base64
 import json
+import os
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -574,3 +576,217 @@ def test_the_queued_job_carries_attachment_ids_and_never_their_bytes(monkeypatch
         m for m in memory_db.get_session(captured["payload"]["session_id"])["transcript"] if m["role"] == "user"
     ]
     assert stored_user[0]["attachments"] == [pdf.descriptor()]
+
+
+# --- orphaned uploads --------------------------------------------------------------------------------------------
+
+
+def age(attachment: chat_attachments.Attachment, days: float) -> None:
+    """Make the upload look ``days`` old."""
+    path, _key = chat_attachments._paths(attachment.id, "meta.json")
+    meta = json.loads(path.read_text())
+    meta["created_at"] = (datetime.now(UTC) - timedelta(days=days)).isoformat()
+    path.write_text(json.dumps(meta))
+
+
+def cite(attachment: chat_attachments.Attachment, turn: str = "t1") -> str:
+    """Store a message that cites the upload, and return its session id."""
+    session_id = str(memory_db.get_or_create_session(None)["session_id"])
+    memory_db.begin_turn(
+        session_id,
+        {
+            "id": f"u-{turn}",
+            "role": "user",
+            "content": "see file",
+            "client_turn_id": turn,
+            "attachments": [attachment.descriptor()],
+        },
+        {"id": f"a-{turn}", "role": "assistant", "content": "", "client_turn_id": turn, "is_streaming": True},
+    )
+    return session_id
+
+
+def stored_ids() -> set[str]:
+    return set(chat_attachments._stored_ids())
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_the_sweep_removes_old_uploads_that_no_message_cites_and_keeps_the_rest():
+    cited, orphan, recent = stored(PNG, "cited.png"), stored(CSV, "orphan.csv"), stored(make_pdf(), "recent.pdf")
+    cite(cited)
+    for attachment in (cited, orphan):
+        age(attachment, 8)
+    age(recent, 1)
+
+    assert chat_attachments.sweep_orphaned_attachments() == 1
+
+    assert stored_ids() == {cited.id, recent.id}
+    assert chat_attachments.load_attachment(orphan.id) is None
+    assert not (chat_attachments.ATTACHMENT_DIR / orphan.id).exists()
+    assert chat_attachments.read_attachment_bytes(cited) == PNG  # a cited file is kept however old
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_files_of_a_deleted_conversation_become_orphans():
+    attachment = stored(PNG, "chart.png")
+    session_id = cite(attachment)
+    age(attachment, 30)
+    assert chat_attachments.sweep_orphaned_attachments() == 0
+
+    assert memory_db.delete_session(session_id)
+
+    assert chat_attachments.sweep_orphaned_attachments() == 1
+    assert stored_ids() == set()
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_a_file_cited_by_any_session_is_kept():
+    attachment = stored(CSV, "weights.csv")
+    cite(attachment, "t1")
+    cite(attachment, "t2")  # the same upload cited from two conversations
+    age(attachment, 30)
+
+    assert chat_attachments.sweep_orphaned_attachments() == 0
+    assert memory_db.attachment_ids_in_use() == {attachment.id}
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_the_retention_period_is_configurable_and_zero_turns_the_sweep_off(monkeypatch):
+    orphan = stored(CSV, "orphan.csv")
+    age(orphan, 2)
+    assert chat_attachments.sweep_orphaned_attachments() == 0  # younger than the 7-day default
+
+    monkeypatch.setenv(chat_attachments.ORPHAN_TTL_ENV, "0")
+    assert chat_attachments.sweep_orphaned_attachments() == 0
+    assert stored_ids() == {orphan.id}
+
+    monkeypatch.setenv(chat_attachments.ORPHAN_TTL_ENV, "24")
+    assert chat_attachments.sweep_orphaned_attachments() == 1
+
+    monkeypatch.setenv(chat_attachments.ORPHAN_TTL_ENV, "not a number")
+    assert chat_attachments.orphan_ttl_seconds() == 7 * 24 * 3600
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_the_sweep_deletes_nothing_when_it_cannot_tell_what_is_cited(monkeypatch):
+    orphan = stored(CSV, "maybe-cited.csv")
+    age(orphan, 30)
+
+    def unreadable():
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(memory_db, "attachment_ids_in_use", unreadable)
+
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        chat_attachments.sweep_orphaned_attachments()
+    assert stored_ids() == {orphan.id}
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_bytes_whose_metadata_never_landed_are_aged_by_the_file_and_removed():
+    stranded = "c" * 32
+    path, key = chat_attachments._paths(stranded, "data.bin")
+    chat_attachments.write_bytes(path, key, PNG)
+    assert chat_attachments.sweep_orphaned_attachments() == 0  # just written
+
+    old = (datetime.now(UTC) - timedelta(days=30)).timestamp()
+    os.utime(path, (old, old))
+
+    assert chat_attachments.sweep_orphaned_attachments() == 1
+    assert stored_ids() == set()
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_an_empty_upload_folder_is_cleaned_up_too():
+    (chat_attachments.ATTACHMENT_DIR / ("d" * 32)).mkdir(parents=True)
+    (chat_attachments.ATTACHMENT_DIR / "not-an-upload-id").mkdir()
+
+    chat_attachments.sweep_orphaned_attachments()
+
+    assert not (chat_attachments.ATTACHMENT_DIR / ("d" * 32)).exists()
+    assert (chat_attachments.ATTACHMENT_DIR / "not-an-upload-id").exists()  # only upload ids are touched
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_one_sweep_removes_at_most_its_limit():
+    uploads = [stored(CSV, f"{n}.csv") for n in range(5)]
+    for attachment in uploads:
+        age(attachment, 30)
+
+    assert chat_attachments.sweep_orphaned_attachments(limit=2) == 2
+    assert chat_attachments.sweep_orphaned_attachments() == 3
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_a_failed_delete_is_left_for_the_next_sweep(monkeypatch):
+    orphan = stored(CSV, "stuck.csv")
+    age(orphan, 30)
+    real_delete = chat_attachments.delete_file
+    monkeypatch.setattr(chat_attachments, "delete_file", lambda *_a: (_ for _ in ()).throw(OSError("busy")))
+
+    assert chat_attachments.sweep_orphaned_attachments() == 0
+    assert stored_ids() == {orphan.id}
+
+    monkeypatch.setattr(chat_attachments, "delete_file", real_delete)
+    assert chat_attachments.sweep_orphaned_attachments() == 1
+
+
+def test_an_upload_whose_metadata_cannot_be_saved_leaves_no_bytes_behind(monkeypatch):
+    def fail(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(chat_attachments, "write_text", fail)
+
+    with pytest.raises(OSError, match="disk full"):
+        stored(PNG, "chart.png")
+    assert not list(chat_attachments.ATTACHMENT_DIR.rglob("data.bin"))
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_the_scheduled_async_job_sweep_runs_it(monkeypatch):
+    from api import maintenance_jobs
+
+    monkeypatch.setattr("api.async_job_runner.fail_stale_active_jobs", lambda: 0)
+    monkeypatch.setattr("api.job_queue.sweep_expired_jobs", lambda: 0)
+    monkeypatch.setattr("portfolio.portfolio_optimizer.portfolio_analyzer.cleanup_analyzer_input_snapshots", lambda: 0)
+    orphan = stored(CSV, "orphan.csv")
+    age(orphan, 30)
+
+    result = maintenance_jobs.sweep_async_jobs()
+
+    assert result["orphaned_attachments_deleted"] == 1
+    assert stored_ids() == set()
+
+
+@pytest.mark.usefixtures("temp_memory_db")
+def test_a_failing_attachment_sweep_does_not_fail_the_scheduled_job(monkeypatch):
+    from api import maintenance_jobs
+
+    monkeypatch.setattr("api.async_job_runner.fail_stale_active_jobs", lambda: 3)
+    monkeypatch.setattr("api.job_queue.sweep_expired_jobs", lambda: 4)
+    monkeypatch.setattr("portfolio.portfolio_optimizer.portfolio_analyzer.cleanup_analyzer_input_snapshots", lambda: 0)
+    monkeypatch.setattr(
+        chat_attachments, "sweep_orphaned_attachments", lambda: (_ for _ in ()).throw(RuntimeError("x"))
+    )
+
+    assert maintenance_jobs.sweep_async_jobs() == {
+        "stale_failed": 3,
+        "deleted": 4,
+        "analyzer_input_snapshots_deleted": 0,
+        "orphaned_attachments_deleted": 0,
+    }
+
+
+def test_on_cloud_storage_upload_ids_come_from_the_object_keys(monkeypatch):
+    first, second = "e" * 32, "f" * 32
+    keys = [
+        f"chat_attachments/{first}/meta.json",
+        f"chat_attachments/{first}/data.bin",
+        f"chat_attachments/{second}/data.bin",
+        "chat_attachments/not-an-id/meta.json",
+        f"chat_attachments/{first}",
+    ]
+    monkeypatch.setattr(chat_attachments, "use_gcs_state", lambda: True)
+    monkeypatch.setattr(chat_attachments, "list_keys", lambda prefix: keys if prefix == "chat_attachments/" else [])
+
+    assert chat_attachments._stored_ids() == [first, second]

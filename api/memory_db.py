@@ -530,6 +530,29 @@ def turn_exists(session_id: str, client_turn_id: str) -> bool:
     return retry_read(_read)
 
 
+def attachment_ids_in_use() -> set[str]:
+    """Ids of every uploaded file a stored message cites, across all sessions.
+
+    A row that cannot be read raises instead of being skipped: the caller uses this to decide what
+    is safe to delete, and a missed citation would delete a file a message still shows.
+    """
+
+    def _read() -> list[str]:
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(
+                "SELECT content_parts FROM conversation_messages WHERE content_parts LIKE ?", ('%"attachment"%',)
+            ).fetchall()
+            return [row["content_parts"] for row in rows]
+
+    ids: set[str] = set()
+    for raw in retry_read(_read):
+        for part in json.loads(raw):
+            data = part.get("data") if isinstance(part, dict) and part.get("type") == "attachment" else None
+            if isinstance(data, dict) and isinstance(data.get("id"), str):
+                ids.add(data["id"])
+    return ids
+
+
 def begin_turn(session_id: str, user_message: dict[str, Any], assistant_placeholder: dict[str, Any]) -> int:
     """Insert the user and streaming assistant once per client turn.
 

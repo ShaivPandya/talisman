@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import logging
+import os
 import re
 import uuid
 from collections.abc import Iterable, Mapping, Sequence
@@ -23,7 +24,17 @@ from typing import Any, Literal
 
 from api.agent_models import MAX_ATTACHMENTS_PER_MESSAGE, AgentChatRequest
 from api.exceptions import ValidationError
-from api.state_storage import exists_text, read_bytes, read_text, write_bytes, write_text
+from api.state_storage import (
+    delete_file,
+    exists_text,
+    list_keys,
+    object_updated,
+    read_bytes,
+    read_text,
+    use_gcs_state,
+    write_bytes,
+    write_text,
+)
 from paths import PROJECT_ROOT
 
 logger = logging.getLogger("api.chat_attachments")
@@ -41,6 +52,11 @@ MAX_REQUEST_BINARY_BYTES = 20 * MIB
 CSV_TEXT_CHARS = 100_000
 PDF_TEXT_CHARS = 120_000
 PDF_TEXT_MAX_PAGES = 150
+# An upload that no stored message cites is deleted after this long. It outlasts a draft or a queued
+# message waiting in a browser; 0 turns the sweep off.
+ORPHAN_TTL_ENV = "CHAT_ATTACHMENT_ORPHAN_TTL_HOURS"
+DEFAULT_ORPHAN_TTL_HOURS = 24 * 7
+SWEEP_BATCH_LIMIT = 500
 SUPPORTED_TYPES_HINT = "Attach a PDF, a PNG, JPEG or WebP image, or a CSV file."
 
 _ID_RX = re.compile(r"^[0-9a-f]{32}$")
@@ -121,12 +137,20 @@ def store_attachment(data: bytes, *, filename: str = "", content_type: str = "")
     data_path, data_key = _paths(attachment.id, _DATA_NAME)
     write_bytes(data_path, data_key, data, content_type=mime_type)
     meta_path, meta_key = _paths(attachment.id, _META_NAME)
-    write_text(
-        meta_path,
-        meta_key,
-        json.dumps({**attachment.descriptor(), "created_at": datetime.now(UTC).isoformat()}),
-        content_type="application/json",
-    )
+    try:
+        write_text(
+            meta_path,
+            meta_key,
+            json.dumps({**attachment.descriptor(), "created_at": datetime.now(UTC).isoformat()}),
+            content_type="application/json",
+        )
+    except Exception:
+        # Without its metadata the file can never be cited, so do not leave the bytes behind.
+        try:
+            delete_file(data_path, data_key)
+        except Exception:
+            logger.warning("Could not remove the bytes of a failed upload %s", attachment.id, exc_info=True)
+        raise
     return attachment
 
 
@@ -172,6 +196,85 @@ def resolve_attachments(ids: Iterable[str]) -> list[Attachment]:
             f"The attached PDFs and images are larger than {MAX_REQUEST_BINARY_BYTES // MIB} MiB together."
         )
     return found
+
+
+def orphan_ttl_seconds() -> int:
+    raw = (os.getenv(ORPHAN_TTL_ENV) or "").strip()
+    try:
+        hours = int(raw) if raw else DEFAULT_ORPHAN_TTL_HOURS
+    except ValueError:
+        hours = DEFAULT_ORPHAN_TTL_HOURS
+    return max(0, hours) * 3600
+
+
+def _stored_ids() -> list[str]:
+    if use_gcs_state():
+        keys = list_keys(f"{ATTACHMENT_PREFIX}/")
+        found = (key.split("/") for key in keys)
+        return sorted({parts[1] for parts in found if len(parts) == 3 and _ID_RX.match(parts[1])})
+    if not ATTACHMENT_DIR.is_dir():
+        return []
+    return sorted(path.name for path in ATTACHMENT_DIR.iterdir() if path.is_dir() and _ID_RX.match(path.name))
+
+
+def _uploaded_at(attachment_id: str) -> datetime | None:
+    """When the upload happened: from its metadata, or from the bytes when the metadata never landed."""
+    meta_path, meta_key = _paths(attachment_id, _META_NAME)
+    try:
+        if exists_text(meta_path, meta_key):
+            created = json.loads(read_text(meta_path, meta_key)).get("created_at")
+            if created:
+                return datetime.fromisoformat(created)
+    except Exception:
+        logger.debug("Could not read the upload time of attachment %s", attachment_id, exc_info=True)
+    data_path, data_key = _paths(attachment_id, _DATA_NAME)
+    return object_updated(data_path, data_key)
+
+
+def _remove(attachment_id: str) -> bool:
+    removed = False
+    for name in (_META_NAME, _DATA_NAME):  # metadata first: without it the file can no longer be cited
+        path, key = _paths(attachment_id, name)
+        try:
+            removed = delete_file(path, key) or removed
+        except Exception:
+            logger.warning("Could not delete %s of attachment %s", name, attachment_id, exc_info=True)
+            return False
+    if not use_gcs_state():
+        try:
+            (ATTACHMENT_DIR / attachment_id).rmdir()
+        except OSError:
+            pass
+    return removed
+
+
+def sweep_orphaned_attachments(
+    *, max_age_seconds: int | None = None, limit: int = SWEEP_BATCH_LIMIT, now: datetime | None = None
+) -> int:
+    """Delete uploads that no stored message cites and that are older than the retention period.
+
+    Uploads abandoned in the composer, and files of deleted conversations, end up here. Returns how many
+    were removed, at most ``limit`` per call. If the messages cannot be read, nothing is deleted and the
+    error is raised.
+    """
+    ttl = orphan_ttl_seconds() if max_age_seconds is None else max_age_seconds
+    if ttl <= 0:
+        return 0
+    from api import memory_db
+
+    in_use = memory_db.attachment_ids_in_use()
+    now = now or datetime.now(UTC)
+    removed = 0
+    for attachment_id in _stored_ids():
+        if removed >= limit:
+            break
+        if attachment_id in in_use:
+            continue
+        uploaded = _uploaded_at(attachment_id)
+        if uploaded is not None and (now - uploaded).total_seconds() <= ttl:
+            continue
+        removed += _remove(attachment_id)
+    return removed
 
 
 def attachments_from_descriptors(descriptors: object) -> list[Attachment]:
