@@ -81,7 +81,7 @@ async function mockResearch(page: Page) {
 test("shows a shared allowance and resumes the original run without clearing the saved report", async ({ page }) => {
   const research = await mockResearch(page)
   const runId = "38e149b0-49fb-4b69-9412-d40d51c8cde1"
-  const budget = { run_id: runId, elapsed_seconds: 1200, remaining_seconds: 2100, max_seconds: 3300,
+  const budget = { run_id: runId, elapsed_seconds: 1200, remaining_seconds: 3600, max_seconds: 4800,
     charged_usd: 4.25, reserved_usd: 0, max_cost_usd: 25, deadline: "2026-10-17T20:00:00Z", estimated: false }
   research.reports.overview = { status: "done", job_id: runId, run_id: runId, budget, report_available: true }
   research.reports.management_quality = { status: "incomplete", job_id: runId, run_id: runId, budget,
@@ -90,6 +90,9 @@ test("shows a shared allowance and resumes the original run without clearing the
   const controls = page.getByRole("region", { name: "Company research" })
   await expect(controls.getByLabel("Research allowance")).toHaveCount(1)
   await expect(controls.getByLabel("Research allowance")).toContainText("$4.25 budget used")
+  await expect(controls.getByLabel("Research allowance")).toContainText("20 / 80 minutes")
+  await expect(controls.getByLabel("Research allowance")).toContainText("60 minutes remaining")
+  await expect(controls.getByText(/Each new run allows up to 80 minutes/)).toBeVisible()
   await expect(controls.getByText(/12 \/ 20 quarters researched/)).toBeVisible()
   await page.screenshot({ path: test.info().outputPath("research-shared-budget.png"), fullPage: true })
   await controls.getByRole("button", { name: "Resume management quality" }).click()
@@ -131,13 +134,26 @@ test("renders private Talisman snapshot citations alongside public research", as
 test("an exhausted run retains evidence and cannot silently retry with a new allowance", async ({ page }) => {
   const research = await mockResearch(page)
   research.reports.management_quality = { status: "incomplete", run_id: "exhausted", resumable: false,
-    error: "Research reached its 55-minute limit; completed evidence is retained.", report_available: true }
+    error: "Research reached its 80-minute limit; completed evidence is retained.", report_available: true }
   await page.goto("/dossier/MSFT")
   const controls = page.getByRole("region", { name: "Company research" })
-  await expect(controls.getByText(/55-minute limit/)).toBeVisible()
+  await expect(controls.getByText(/80-minute limit/)).toBeVisible()
   await expect(controls.getByRole("button", { name: /Resume|Retry/ })).toHaveCount(0)
   await expect(controls.getByText("Full management quality research", { exact: true })).toBeVisible()
   await expect(controls.getByRole("button", { name: "Run Company Research" })).toBeEnabled()
+})
+
+test("a run started under the old 55-minute allowance keeps showing its own limit", async ({ page }) => {
+  const research = await mockResearch(page)
+  const runId = "7c1d6a52-3f0e-4c7b-9a41-5b1f0e2d8a90"
+  const budget = { run_id: runId, elapsed_seconds: 1200, remaining_seconds: 2100, max_seconds: 3300,
+    charged_usd: 4.25, reserved_usd: 0, max_cost_usd: 25, deadline: "2026-10-17T20:00:00Z", estimated: false }
+  research.reports.management_quality = { status: "incomplete", job_id: runId, run_id: runId, budget,
+    resumable: true, error: "Completed evidence retained" }
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await expect(controls.getByLabel("Research allowance")).toContainText("20 / 55 minutes")
+  await expect(controls.getByLabel("Research allowance")).toContainText("35 minutes remaining")
 })
 
 test("starts both reports, recovers after reload, refreshes summaries and displays cited full reports", async ({ page }) => {

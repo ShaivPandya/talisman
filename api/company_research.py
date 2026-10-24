@@ -193,7 +193,7 @@ def _check_deadline(job_id: str, deadline: float) -> None:
     if row and row.get("status") in {"cancelled", "failed"}:
         raise RuntimeError("Research job is no longer active.")
     if time.monotonic() >= deadline:
-        raise RuntimeError("Company research exceeded its 55-minute deadline.")
+        raise RuntimeError("Company research exceeded its 80-minute deadline.")
 
 
 def _phase_response(
@@ -299,7 +299,7 @@ def run_company_research_job(req: CompanyResearchJobRequest, *, job_id: str) -> 
     prefix = f"{req.ticker}/{req.kind}/{job_id}"
     checkpoint_key = f"{prefix}/checkpoint.json"
     checkpoint = _read_json(checkpoint_key) or {}
-    timeout_s = min(get_job_spec("company_research").timeout_s, 55 * 60)
+    timeout_s = min(get_job_spec("company_research").timeout_s, 80 * 60)
     deadline = time.monotonic() + timeout_s
     rendered_prompt = req.prompt.replace("{ticker}", req.ticker)
     standard = (

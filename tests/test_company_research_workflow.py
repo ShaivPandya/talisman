@@ -156,6 +156,55 @@ def test_finishing_reserves_and_deadline_survive_resume():
     store.check_run(run_id, "replacement")
 
 
+def age_run(run_id, *, elapsed, allowance):
+    now = time.time()
+    store.mutate_run(run_id, lambda s: s.update(created_at=now - elapsed, deadline=now - elapsed + allowance))
+
+
+def test_new_run_gets_eighty_minutes_with_fifteen_held_back_for_finishing():
+    run_id = claimed()
+    state = store.get_run(run_id)
+    assert state["deadline"] - state["created_at"] == pytest.approx(80 * 60, abs=1)
+    assert state["deadline"] - state["created_at"] - store.FINISH_RESERVE_S == pytest.approx(65 * 60, abs=1)
+    assert store.budget_summary(state)["max_seconds"] == 80 * 60
+    age_run(run_id, elapsed=65 * 60 - 5, allowance=80 * 60)
+    store.check_run(run_id, "worker", gathering=True)
+    age_run(run_id, elapsed=65 * 60 + 5, allowance=80 * 60)
+    with pytest.raises(store.ResearchLimitReached, match="Source gathering"):
+        store.check_run(run_id, "worker", gathering=True)
+    store.check_run(run_id, "worker")
+    age_run(run_id, elapsed=80 * 60 + 5, allowance=80 * 60)
+    with pytest.raises(store.ResearchLimitReached, match="80-minute research limit"):
+        store.check_run(run_id, "worker")
+
+
+def test_run_created_under_the_old_allowance_keeps_its_55_minute_deadline():
+    run_id = claimed()
+    age_run(run_id, elapsed=10 * 60, allowance=55 * 60)
+    original = store.get_run(run_id)
+    assert store.budget_summary(original)["max_seconds"] == 55 * 60
+    store.mutate_run(run_id, lambda s: s.update(status="incomplete", lease_until=0))
+    assert store.resume_run(run_id)["deadline"] == original["deadline"]
+    assert store.claim_run(run_id, "replacement")
+    age_run(run_id, elapsed=55 * 60 + 5, allowance=55 * 60)
+    with pytest.raises(store.ResearchLimitReached, match="55-minute research limit"):
+        store.check_run(run_id, "replacement")
+    with pytest.raises(store.ResearchLimitReached):
+        store.resume_run(run_id)
+
+
+@pytest.mark.parametrize("minutes", [80, 55])
+def test_limit_reached_status_names_the_runs_own_allowance(minutes):
+    from api.routers.company_research import _report_status
+
+    run_id = claimed()
+    age_run(run_id, elapsed=minutes * 60 + 5, allowance=minutes * 60)
+    status = _report_status(store.get_run(run_id), "overview")
+    assert status["status"] == "incomplete"
+    assert status["error"] == f"Research reached its {minutes}-minute limit; completed evidence is retained."
+    assert status["budget"]["max_seconds"] == minutes * 60
+
+
 def test_fiscal_coverage_requires_consecutive_quarters_and_chronology():
     p = plan()
     validate_plan(p, as_of=AS_OF, overview=True, management=True)

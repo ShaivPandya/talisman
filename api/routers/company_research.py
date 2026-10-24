@@ -77,7 +77,8 @@ def _report_status(state, kind, actor_id=None):
         "job_id": state["run_id"],
         "run_id": state["run_id"],
         "status": status,
-        "error": "Research reached its 55-minute limit; completed evidence is retained."
+        "error": f"Research reached its {store.allowance_seconds(state) // 60}-minute limit; "
+        "completed evidence is retained."
         if expired and stopped
         else report.get("error"),
         "report_available": report.get("report_available", False),

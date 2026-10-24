@@ -5,7 +5,7 @@ The previous sources phase requested five years of operational evidence in one r
 ## Run contract
 
 - One run snapshots ticker, requesting actor, as-of date, prompts, model and pricing version. It covers both reports by default. Concurrent starts reuse the active company run.
-- Both reports and every attempt share $25 and 55 minutes from creation. Gathering stops admitting requests when 15 minutes or $7 must be reserved for verification, writing and publication. Limits are ceilings, not completion guarantees.
+- Both reports and every attempt share $25 and 80 minutes from creation, so gathering has about 65 minutes. Gathering stops admitting requests when 15 minutes or $7 must be reserved for verification, writing and publication. Runs created before the 80-minute allowance keep their original 55-minute deadline. Limits are ceilings, not completion guarantees.
 - PostgreSQL transactions protect leases and in-flight reservations. At most three requests are in flight; reservations can reduce this further. The SDK has no hidden retries. Unknown submission/cancellation outcomes consume their full reserved liability; known rejected submissions consume zero.
 - A resume reuses evidence, response IDs, prompt snapshots, charged costs and the original deadline. It never grants another allowance. Only the original actor can resume. A distinct **Run Company Research** action starts a new allowance after the prior run is no longer active.
 - A completed report is independently saved through the existing governed company-sheet action. Incomplete evidence remains available for inspection and never replaces a company sheet. Existing legacy jobs/reports remain readable.

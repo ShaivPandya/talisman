@@ -811,6 +811,34 @@ def test_stale_active_job_is_failed_and_no_longer_blocks_dedupe(monkeypatch):
     assert dispatched == [first["job_id"], second["job_id"]]
 
 
+def test_company_research_run_job_outlasts_its_research_deadline(monkeypatch):
+    from uuid import uuid4
+
+    from api import async_job_runner, cache
+    from api.company_research_store import MAX_DURATION_S
+    from api.job_queue import get_job
+    from api.job_registry import get_job_spec
+
+    cache.invalidate_all()
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    monkeypatch.delenv("ASYNC_TIMEOUT_COMPANY_RESEARCH_SECONDS", raising=False)
+    monkeypatch.setenv("ASYNC_JOB_BACKEND", "cloud_run_jobs")
+    monkeypatch.setattr(async_job_runner, "_enqueue_cloud_run_job", lambda _job_type, _job_id: None)
+
+    spec = get_job_spec("company_research_run")
+    assert MAX_DURATION_S == 80 * 60
+    assert spec.timeout_s >= MAX_DURATION_S
+    assert spec.stale_grace_s == 60
+    assert get_job_spec("company_research").timeout_s >= MAX_DURATION_S
+
+    row, _disposition = async_job_runner.enqueue_registered_job("company_research_run", {"run_id": str(uuid4())})
+    async_job_runner.fail_stale_active_jobs(datetime.now(UTC) + timedelta(seconds=MAX_DURATION_S))
+    assert get_job(row["job_id"])["status"] != "failed"
+
+    async_job_runner.fail_stale_active_jobs(datetime.now(UTC) + timedelta(seconds=MAX_DURATION_S + 60 + 1))
+    assert get_job(row["job_id"])["status"] == "failed"
+
+
 def test_local_async_jobs_dedupe_concurrent_active(monkeypatch):
     from api import cache
     from api.async_job_runner import enqueue_registered_job, poll_registered_job
