@@ -232,13 +232,14 @@ class Workflow:
             OverviewPacket,
             web=True,
             gathering=True,
-            tool_calls=8,
-            effort="medium",
+            tool_calls=12,
+            effort="high",
             instructions=self.context,
-            prompt="Gather detailed evidence for this assigned topic and every question in its requirements. "
-            "Include original numbers, units, periods and inputs for calculations. Distinguish estimates "
-            "from reported figures, and unavailable projections from zero. Each fact belongs to a section. "
-            "Explicitly name any section with insufficient evidence in gaps. Topic:\n"
+            prompt="Investigate this topic on the public web and keep the detail a deep-research report would "
+            "keep. Read primary documents. For every question in the requirements, record figures with units "
+            "and periods, names, dates, and disagreements between sources. Each fact is a complete statement "
+            "with its supporting passage, not a label or a rating. Name a gap only when the sources do not "
+            "answer that part. Topic:\n"
             + _json(topic)
             + "\nIssuer and fiscal calendar: "
             + plan.issuer
@@ -538,7 +539,16 @@ class Workflow:
         def write_pair(index: int) -> list[str]:
             titles = sections[index : index + 2]
             relevant = evidence if kind == "management_quality" else [f for f in evidence if f.section in titles]
-            compact = narrative_bundle(relevant)
+            # Overview writing is the document an uploaded Markdown file already is. Keep the
+            # passages so the memorandum can carry figures, names and dates through to the loader.
+            compact = evidence_bundle(relevant) if kind == "overview" else narrative_bundle(relevant)
+            prose = (
+                "and write a deep-research memorandum, not a scorecard. Answer every question in the "
+                "requirements with the figures, units, periods, names, dates and source passages in the "
+                "evidence. Keep that detail in the prose and cite it with markdown links. "
+                if kind == "overview"
+                else "and distinguish judgments from facts. Reconcile initiatives across quarters where relevant. "
+            )
 
             def validate(w: WrittenSections, expected: list[str] = titles, records: list[Any] = relevant) -> None:
                 validate_sections(w, expected, {r.record_id for r in records}, source_urls(records))
@@ -552,8 +562,8 @@ class Workflow:
                 prompt="Write ONLY these report sections, preserving exact titles and order: "
                 + _json(titles)
                 + ". Use the supplied verified evidence, cite material factual claims with clickable source links, "
-                "and distinguish judgments from facts. Reconcile initiatives across quarters where relevant. "
-                "Do not generate the quarter tracker. Include evidence gaps and the IDs of evidence actually "
+                + prose
+                + "Do not generate the quarter tracker. Include evidence gaps and the IDs of evidence actually "
                 "used. Full requirements:\n"
                 + self.prompt(kind)
                 + "\nEvidence:\n"
@@ -563,7 +573,7 @@ class Workflow:
                 validate=validate,
             )
             try:
-                self.audit(f"{kind}/sections-audit/{index}", _json(written), relevant)
+                self.audit(f"{kind}/sections-audit/{index}", _json(written), relevant, detailed=kind == "overview")
             except ValueError as exc:
                 written = self.provider.request(
                     f"{kind}/sections/{index}/repair",
@@ -578,7 +588,12 @@ class Workflow:
                     + compact,
                     validate=validate,
                 )
-                self.audit(f"{kind}/sections-audit/{index}/repair", _json(written), relevant)
+                self.audit(
+                    f"{kind}/sections-audit/{index}/repair",
+                    _json(written),
+                    relevant,
+                    detailed=kind == "overview",
+                )
             return [f"## {section.title}\n\n{section.markdown}" for section in written.sections]
 
         return [part for pair in _in_order(write_pair, range(0, len(sections), 2)) for part in pair]
@@ -620,7 +635,7 @@ class Workflow:
         content += "\n\n## Coverage limitations\n\n" + "\n".join(f"- {gap}" for gap in gaps)
         self.archive(kind, content, accepted, complete=False, verified_partial=True, gaps=gaps)
 
-    def audit(self, step: str, content: str, evidence: Any) -> None:
+    def audit(self, step: str, content: str, evidence: Any, *, detailed: bool = False) -> None:
         result = self.provider.request(
             step,
             ReportReview,
@@ -634,7 +649,7 @@ class Workflow:
             "material unsupported claims or contradictions. Draft:\n"
             + content
             + "\nEvidence:\n"
-            + narrative_bundle(evidence),
+            + (evidence_bundle(evidence) if detailed else narrative_bundle(evidence)),
         )
         if not result.supported or result.issues:
             raise ValueError("Report did not pass evidence review: " + "; ".join(result.issues))
@@ -679,36 +694,49 @@ class Workflow:
             content += "\n\n## Evidence gaps and exclusions\n\n" + "\n".join(f"- {gap}" for gap in gaps)
         self.archive(kind, content, evidence, complete=True, gaps=gaps)
         self.progress(kind, phase="formatting", evidence_gaps=len(gaps))
-        template = overview._SYSTEM_PROMPT if kind == "overview" else management_quality._SYSTEM_PROMPT
-        summary = self.provider.request(
-            f"{kind}/summary",
-            SheetSummary,
-            private=has_private_sources(evidence),
-            effort="high",
-            instructions=self.context + "\n" + template.format(ticker=self.state["ticker"]),
-            prompt="Prepare the company-sheet summary using only this verified full report. Preserve citations "
-            "and evidence gaps. Return the required Markdown in the markdown field.\n" + summary_input,
-        )
-        try:
-            self.audit(f"{kind}/summary-audit", summary.markdown, evidence)
-        except ValueError as exc:
+        if kind == "overview":
+            # Same loader as an uploaded ChatGPT Markdown file. The dossier parser renders that
+            # schema; a second evidence audit strips the ratings and structure the screen needs.
             summary = self.provider.request(
-                f"{kind}/summary/repair",
+                f"{kind}/summary",
                 SheetSummary,
                 private=has_private_sources(evidence),
-                effort="max",
-                instructions=self.context + "\n" + template.format(ticker=self.state["ticker"]),
-                prompt=f"Repair these audit findings: {exc}\nDraft:\n"
-                + summary.markdown
-                + "\nVerified report:\n"
-                + summary_input,
+                effort="high",
+                output_tokens=16_000,
+                instructions=overview._SYSTEM_PROMPT.format(ticker=self.state["ticker"]),
+                prompt=overview._MARKDOWN_USER_PROMPT
+                + "\n\n<uploaded_markdown>\n"
+                + content
+                + "\n</uploaded_markdown>",
             )
-            self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence)
-        normalized = (
-            overview._finish_llm_overview(self.state["ticker"], summary.markdown)
-            if kind == "overview"
-            else management_quality._finish_llm_management_quality(self.state["ticker"], summary.markdown)
-        )
+            normalized = overview._finish_llm_overview(self.state["ticker"], summary.markdown)
+        else:
+            template = management_quality._SYSTEM_PROMPT
+            summary = self.provider.request(
+                f"{kind}/summary",
+                SheetSummary,
+                private=has_private_sources(evidence),
+                effort="high",
+                instructions=self.context + "\n" + template.format(ticker=self.state["ticker"]),
+                prompt="Prepare the company-sheet summary using only this verified full report. Preserve citations "
+                "and evidence gaps. Return the required Markdown in the markdown field.\n" + summary_input,
+            )
+            try:
+                self.audit(f"{kind}/summary-audit", summary.markdown, evidence)
+            except ValueError as exc:
+                summary = self.provider.request(
+                    f"{kind}/summary/repair",
+                    SheetSummary,
+                    private=has_private_sources(evidence),
+                    effort="max",
+                    instructions=self.context + "\n" + template.format(ticker=self.state["ticker"]),
+                    prompt=f"Repair these audit findings: {exc}\nDraft:\n"
+                    + summary.markdown
+                    + "\nVerified report:\n"
+                    + summary_input,
+                )
+                self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence)
+            normalized = management_quality._finish_llm_management_quality(self.state["ticker"], summary.markdown)
         store.check_run(self.run_id, self.owner)
         applied: dict[str, Any] = {}
         if self.state["apply"]:
