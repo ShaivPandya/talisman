@@ -10,6 +10,8 @@ from urllib.parse import urlparse
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from api.name_documents import PRIVATE_URL
+
 
 class EvidenceModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -248,7 +250,8 @@ def source_urls(value: Any) -> set[str]:
 
 def is_private_source_url(url: str) -> bool:
     return bool(
-        re.fullmatch(
+        PRIVATE_URL.fullmatch(url)
+        or re.fullmatch(
             r"/api/company-research/[A-Z0-9.^_-]+/runs/"
             r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/sources/[0-9a-f]{24}",
             url,

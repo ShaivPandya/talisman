@@ -1240,6 +1240,29 @@ export interface IbkrFlexImportResponse extends StagedMutationResponse {
   import_summary?: IbkrFlexImportSummary
 }
 
+export interface NameDocument {
+  id: string
+  ticker: string
+  name: string
+  mime_type: string
+  size: number
+  created_at: string
+  url: string
+  source_kind: "private_upload"
+}
+
+const nameDocumentsPath = (ticker: string) => `/names/${encodeURIComponent(ticker)}/documents`
+export const fetchNameDocuments = (ticker: string) => client.get(nameDocumentsPath(ticker))
+  .then(r => r.data as { ticker: string; documents: NameDocument[]; count: number })
+export const uploadNameDocument = (ticker: string, file: File) => {
+  const body = new FormData()
+  body.append("file", file)
+  return client.post(nameDocumentsPath(ticker), body, { timeout: 120_000 }).then(r => r.data as NameDocument)
+}
+export const deleteNameDocument = (ticker: string, id: string) => client.delete(`${nameDocumentsPath(ticker)}/${id}`)
+export const attachNameDocument = (ticker: string, id: string, tickers: string[]) =>
+  client.post(`${nameDocumentsPath(ticker)}/${id}/attach`, { tickers })
+
 export const uploadAgentAttachment = (file: File, signal?: AbortSignal) => {
   const formData = new FormData()
   formData.append("file", file)

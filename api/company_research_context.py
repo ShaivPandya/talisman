@@ -15,6 +15,7 @@ from api.agent_governance import redact_secrets
 from api.agent_tools import execute_tool
 from api.company_research_evidence import Commitment, EvidenceModel, Fact, Source, is_private_source_url
 from api.company_research_provider import ResearchProvider
+from api.name_documents import SOURCE_INSTRUCTIONS, research_passages, validate_private_sources
 from ontology.action_registry import ToolExposure, iter_tool_exposures, validate_tool_input
 from ontology.policy import actor_from_dict
 
@@ -127,11 +128,41 @@ class ResearchContext:
         self.sources: list[dict[str, Any]] = []
         self.warnings: list[str] = []
 
+    def collect_uploads(self) -> None:
+        """Register the run's uploaded excerpts in the existing private-only evidence context."""
+        documents = [doc for doc in self.state["snapshot"].get("private_documents", []) if doc["ticker"] == self.ticker]
+        if not documents:
+            return
+        passages = research_passages(documents, " ".join(self.state["snapshot"]["prompts"].values()))
+        for document in documents:
+            selected = [passage for passage in passages if passage["id"] == document["id"]]
+            if not selected:
+                self.warnings.append(f"{document['name']}: no upload excerpts available within the context allowance.")
+                continue
+            source = {
+                "url": document["url"],
+                "title": f"Private upload: {document['name']}",
+                "source_kind": "private_upload",
+                "tool": "read_name_document",
+                "arguments": {"ticker": self.ticker, "document_id": document["id"]},
+                "reason": "User-supplied reference material attached to this name.",
+                "retrieved_at": datetime.now(UTC).isoformat(),
+                "data": {"source_kind": "private_upload", "name": document["name"], "passages": selected},
+            }
+            source, _ = redact_secrets(source)
+            self.sources.append(source)
+            if len(selected) < document["passage_count"]:
+                self.warnings.append(f"{document['name']}: only selected excerpts fit in this run's context allowance.")
+
     def collect(self, issuer: str) -> None:
         saved = legacy._read_json(self.key)
         if saved is not None:
             self.sources, self.warnings = saved["sources"], saved["warnings"]
             return
+        try:
+            self.collect_uploads()
+        except Exception:
+            self.warnings.append("Uploaded source files were unavailable; other research sources remain available.")
         catalog = read_catalog()
         seen: set[str] = set()
         try:
@@ -227,6 +258,8 @@ class ResearchContext:
                     snapshot = registered.get(source.url)
                     if snapshot is None or source.title != snapshot["title"]:
                         raise ValueError("Private evidence must cite a registered snapshot from this run.")
+                    if snapshot.get("source_kind") == "private_upload":
+                        validate_private_sources(item, snapshot["data"]["passages"])
                     text = _json(snapshot["data"])
                     if not source.passage.strip() or (
                         source.passage not in text and not _contains_passage(snapshot["data"], source.passage)
@@ -279,7 +312,10 @@ class ResearchContext:
             "after the as-of date. Do not infer management commitments from a thesis. Cite only supplied "
             "snapshot URLs and exact titles, with short verbatim supporting passages from data and field "
             "locations. published_on must be an explicit date in the data, or null. Do not invent public "
-            "URLs or add any facts without evidence. Return empty lists when nothing is relevant.",
+            "URLs or add any facts without evidence. Return empty lists when nothing is relevant. "
+            "Sources labelled Private upload are user documents, not computed Talisman data. Preserve "
+            "their exact filename attribution, citation URL, and supplied page/line excerpt location. "
+            + SOURCE_INSTRUCTIONS,
             prompt=_json(
                 {
                     "ticker": self.ticker,

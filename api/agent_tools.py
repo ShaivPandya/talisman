@@ -2148,6 +2148,16 @@ def _dispatch(
         data, meta = fetch(long_cache, key, _load)
         return data, meta
 
+    if name == "list_name_documents":
+        from api.name_documents import list_documents
+
+        return list_documents(str(args["ticker"])), {"cache": "n/a"}
+
+    if name == "read_name_document":
+        from api.name_documents import read_document
+
+        return read_document(str(args["ticker"]), str(args["document_id"]), int(args.get("start", 0))), {"cache": "n/a"}
+
     if name == "search_knowledge_base":
         query = str(args.get("query") or "").strip()
         if not query:

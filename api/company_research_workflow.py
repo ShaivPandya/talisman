@@ -249,17 +249,28 @@ class Workflow:
     def archive(
         self, kind: str, content: str, evidence: Any, *, complete: bool = False, **extra: Any
     ) -> dict[str, Any]:
-        private_sources = {s["url"]: s["title"] for s in self.talisman.sources}
+        private_sources = {s["url"]: s for s in self.talisman.sources}
         report = {
             "ticker": self.state["ticker"],
             "kind": kind,
             "job_id": self.run_id,
             "run_id": self.run_id,
             "content": content,
-            "sources": [{"url": url, "title": private_sources.get(url, url)} for url in sorted(source_urls(evidence))],
+            "sources": [
+                {
+                    "url": url,
+                    "title": private_sources[url]["title"],
+                    "source_kind": private_sources[url].get("source_kind", "private_talisman"),
+                }
+                if url in private_sources
+                else {"url": url, "title": url, "source_kind": "public_web"}
+                for url in sorted(source_urls(evidence))
+            ],
             "talisman_data": {
                 "sources": [
-                    {k: s[k] for k in ("url", "title", "tool", "reason", "retrieved_at")} for s in self.talisman.sources
+                    {k: s[k] for k in ("url", "title", "tool", "reason", "retrieved_at")}
+                    for s in self.talisman.sources
+                    if s.get("source_kind") != "private_upload"
                 ],
                 "warnings": self.talisman.warnings,
             },

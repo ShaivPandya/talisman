@@ -8,6 +8,7 @@ import { EquityOverviewReadView } from "@/components/overview/EquityOverviewRead
 import { ActionPill, EvaluationPanel } from "@/components/idea/EvaluationPanel"
 import { ManagementQualityPreview } from "@/components/idea/ManagementQualityPreview"
 import { CompanyResearchControls } from "@/components/CompanyResearchControls"
+import { NameDocumentsPanel } from "@/components/NameDocumentsPanel"
 import { PositionValuationTab } from "@/components/valuation/PositionValuationTab"
 import { ErrorMessage, LoadingSpinner } from "@/components/shared/LoadingSpinner"
 import { SelectInput, TextInput } from "@/components/shared/FormControls"
@@ -525,6 +526,7 @@ export function IdeaDetail() {
       ) : (
         <>
           {selectedIdeaIsEquitySecurity && <CompanyResearchControls key={selectedIdea.ticker} ticker={selectedIdea.ticker} />}
+          <NameDocumentsPanel key={selectedIdea.ticker} ticker={selectedIdea.ticker} />
           <section className="theme-surface mb-4 rounded-lg p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>

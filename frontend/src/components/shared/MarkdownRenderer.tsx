@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import { memo, useMemo, type ReactNode } from "react"
+import { isPrivateSourceUrl } from "@/lib/sourceLinks"
 
 type ListType = "ul" | "ol"
 
@@ -86,7 +87,7 @@ export function renderInlineMarkdown(text: string) {
                 if (closeUrl !== -1) {
                     const label = text.slice(i + 1, closeLabel)
                     const url = text.slice(closeLabel + 2, closeUrl).trim()
-                    const safeUrl = /^https?:\/\//i.test(url) ? url : null
+                    const safeUrl = /^https?:\/\//i.test(url) || isPrivateSourceUrl(url) ? url : null
                     if (safeUrl) {
                         nodes.push(
                             <a

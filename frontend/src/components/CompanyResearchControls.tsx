@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { BookOpen, Loader2, Play, Save, Settings2 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { isPrivateSourceUrl } from "@/lib/sourceLinks"
 
 import { Dialog } from "@/components/shared/Dialog"
 import {
@@ -135,6 +136,14 @@ function FullResearchReport({ ticker, kind, jobId, status }: { ticker: string; k
                 {!query.data.summary_applied && " · Company sheet has not been updated"}
                 {query.data.complete === false && " · Incomplete evidence; verification is still required"}
               </p>
+              {query.data.sources.some(source => isPrivateSourceUrl(source.url)) && (
+                <div aria-label="Private research sources" className="rounded border border-app bg-card-muted p-2 text-xs text-muted">
+                  <span className="font-medium">Private uploads: </span>
+                  {query.data.sources.filter(source => isPrivateSourceUrl(source.url)).map(source => (
+                    <a key={source.url} href={source.url} className="mr-3 text-link underline">{source.title}</a>
+                  ))}
+                </div>
+              )}
               <div className="min-w-0 space-y-3 break-words text-sm leading-6 text-app">
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={{
                   a: ({ href, children }) => <a href={href} target="_blank" rel="noreferrer" className="text-link underline underline-offset-2">{children}</a>,

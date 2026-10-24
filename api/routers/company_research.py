@@ -129,6 +129,8 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
             )
         state = store.resume_run(state["run_id"])
     else:
+        from api.name_documents import research_snapshot
+
         settings = research_settings()
         if settings["model"] != "gpt-6.1-sol":
             raise AppError("Budgeted research requires COMPANY_RESEARCH_MODEL=gpt-6.1-sol.", status_code=503)
@@ -143,6 +145,7 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
                     "actor": actor_to_dict(actor),
                     "requested_at": datetime.now(UTC).isoformat(),
                     "pricing_version": "gpt-6.1-sol-standard-2026-10-17",
+                    "private_documents": research_snapshot(ticker),
                 }
             )
         except store.ResearchLimitReached as exc:

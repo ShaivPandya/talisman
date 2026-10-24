@@ -1674,8 +1674,12 @@ def _select_tool_names(
     if "workspace" in text:
         add("get_workspace")
 
+    if re.search(r"\b(upload|uploaded|file|files|document|documents|survey|note|notes)\b", text):
+        add("list_name_documents", "read_name_document")
     if _routing_tickers(user_text, screen_context, recent_conversation):
         add(
+            "list_name_documents",
+            "read_name_document",
             "search_alternative_data_catalog",
             "fetch_alternative_data",
             "get_portfolio",

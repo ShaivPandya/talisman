@@ -1248,6 +1248,9 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
   }
 
   const signature = `${method} ${path}${url.search}`
+  if (method === "GET" && /^\/api\/names\/[^/]+\/documents$/.test(path)) {
+    return json(route, { ticker: path.split("/")[3], documents: [], count: 0 })
+  }
   state.unknownRequests.push(signature)
   return json(route, { detail: `Unmocked API request in smoke test: ${signature}` }, 599)
 }
