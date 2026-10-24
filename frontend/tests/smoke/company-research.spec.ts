@@ -110,6 +110,24 @@ test("an expanded draft refreshes when the same run completes", async ({ page })
   await expect(controls.getByText("Unverified draft evidence.", { exact: false })).toHaveCount(0)
 })
 
+test("renders private Talisman snapshot citations alongside public research", async ({ page }) => {
+  const research = await mockResearch(page)
+  research.complete("overview")
+  const source = "/api/company-research/MSFT/runs/38e149b0-49fb-4b69-9412-d40d51c8cde1/sources/aaaaaaaaaaaaaaaaaaaaaaaa"
+  await page.route("**/api/company-research/MSFT/reports/overview*", route => route.fulfill({ json: {
+    ticker: "MSFT", kind: "overview", job_id: "38e149b0-49fb-4b69-9412-d40d51c8cde1",
+    generated_at: "2026-10-24T16:00:00Z", model: "gpt-6.1-sol", summary_applied: true,
+    sources: [{ title: "Private Talisman snapshot", url: source }, { title: "Issuer filing", url: "https://example.com/issuer-filing" }],
+    content: `# Company research\n\nPrivate forecast: 37 units. [Private Talisman snapshot](${source}). Public context [Issuer filing](https://example.com/issuer-filing).`,
+  } }))
+  await page.goto("/dossier/MSFT")
+  const controls = page.getByRole("region", { name: "Company research" })
+  await controls.getByText("Full overview research", { exact: true }).click()
+  await expect(controls.getByText(/Private forecast: 37 units/)).toBeVisible()
+  await expect(controls.getByRole("link", { name: "Private Talisman snapshot" })).toHaveAttribute("href", source)
+  await expect(controls.getByRole("link", { name: "Issuer filing" })).toHaveAttribute("href", "https://example.com/issuer-filing")
+})
+
 test("an exhausted run retains evidence and cannot silently retry with a new allowance", async ({ page }) => {
   const research = await mockResearch(page)
   research.reports.management_quality = { status: "incomplete", run_id: "exhausted", resumable: false,

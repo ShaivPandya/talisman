@@ -246,13 +246,25 @@ def source_urls(value: Any) -> set[str]:
     return set()
 
 
+def is_private_source_url(url: str) -> bool:
+    return bool(
+        re.fullmatch(
+            r"/api/company-research/[A-Z0-9.^_-]+/runs/"
+            r"[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/sources/[0-9a-f]{24}",
+            url,
+        )
+    )
+
+
 def validate_sources(value: Any, *, as_of: date) -> None:
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
     if isinstance(value, dict):
         if "url" in value:
             parsed = urlparse(value["url"])
-            if parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password:
+            if not is_private_source_url(value["url"]) and (
+                parsed.scheme not in {"http", "https"} or not parsed.netloc or parsed.username or parsed.password
+            ):
                 raise ValueError("Evidence contains an invalid public source URL.")
             if value.get("published_on") and date.fromisoformat(value["published_on"]) > as_of:
                 raise ValueError("Evidence cites a source published after the as-of date.")
@@ -349,7 +361,7 @@ def validate_sections(written: WrittenSections, expected: list[str], evidence_id
     for section in written.sections:
         if not section.markdown.strip() or not set(section.evidence_ids).issubset(evidence_ids):
             raise ValueError("Report references missing evidence.")
-        links = re.findall(r"\]\((https?://[^\s)]+)\)", section.markdown)
+        links = [link for link in re.findall(r"\]\(([^\s)]+)\)", section.markdown) if not link.startswith("#")]
         if any(link not in urls for link in links):
             raise ValueError("Report introduced a source that was not researched.")
         if section.evidence_ids and not links:

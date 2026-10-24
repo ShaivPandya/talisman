@@ -14,6 +14,7 @@ from api import company_research as legacy
 from api import company_research_provider as provider
 from api import company_research_store as store
 from api import company_research_workflow as workflow
+from api.company_research_context import ContextEvidence, ReadChoice, ReadSelection
 from api.company_research_evidence import (
     CheckedCommitments,
     CheckedFacts,
@@ -365,6 +366,8 @@ class FakeProvider:
         prompt = kwargs["prompt"]
         if model is ResearchPlan:
             result = plan()
+        elif model is ReadSelection:
+            result = ReadSelection(reads=[])
         elif model is QuarterPacket:
             assigned = json.loads(prompt.split("Assigned quarters:\n")[1])
             result = QuarterPacket(
@@ -461,6 +464,123 @@ def test_complete_workflow_covers_all_quarters_and_eval_never_publishes(monkeypa
     assert all(q.label in report["content"] for q in plan().quarters)
     assert len(report["evidence"]) == 20
     assert legacy._read_json("EL/management_quality/latest.json") is None
+
+
+@pytest.mark.parametrize("talisman_enabled", [False, True])
+def test_private_data_reaches_both_reports_with_snapshot_citations_and_without_web_egress(
+    monkeypatch, talisman_enabled
+):
+    from api import company_research_context as local
+
+    private_claim = "Private plant throughput is 37 units."
+    private_requests = []
+    selections = []
+
+    class PrivateProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is ReadSelection:
+                selections.append(step)
+                result = ReadSelection(
+                    reads=[
+                        ReadChoice(
+                            tool="get_industry_monitor",
+                            arguments_json="{}",
+                            reason="Company operating capacity",
+                        )
+                    ]
+                    if talisman_enabled and step.endswith("/0")
+                    else []
+                )
+            elif model is ContextEvidence:
+                snapshot = legacy._read_json(f"runs/{self.run_id}/talisman/context.json")["sources"][0]
+                citation = Source(
+                    url=snapshot["url"],
+                    title=snapshot["title"],
+                    published_on=AS_OF,
+                    passage=private_claim,
+                    location="transcript",
+                )
+                if "/overview/" in step:
+                    result = ContextEvidence(
+                        facts=[Fact(record_id="local", section="Business", claim=private_claim, sources=[citation])],
+                        commitments=[],
+                        gaps=[],
+                    )
+                else:
+                    record = commitment("FY2025 Q4")
+                    record.claim, record.claim_sources = private_claim, [citation]
+                    result = ContextEvidence(facts=[], commitments=[record], gaps=[])
+            elif model is WrittenSections:
+                titles = json.loads(
+                    kwargs["prompt"].split("preserving exact titles and order: ")[1].split(". Use the supplied")[0]
+                )
+                bundle = json.loads(kwargs["prompt"].split("\nEvidence:\n")[1].split("\nGaps:\n")[0])
+                result = WrittenSections(
+                    sections=[
+                        Section(
+                            title=title,
+                            markdown=" ".join(r["claim"] for r in bundle["records"])
+                            + " "
+                            + " ".join(f"[{s['title']}]({s['url']})" for s in bundle["sources"].values()),
+                            evidence_ids=[r["record_id"] for r in bundle["records"]],
+                        )
+                        for title in titles
+                    ]
+                )
+            else:
+                result = super().request(step, model, **kwargs)
+            if private_claim in kwargs["prompt"]:
+                assert kwargs.get("private") and not kwargs.get("web")
+                private_requests.append(step)
+            if kwargs.get("validate"):
+                kwargs["validate"](result)
+            return result
+
+    read = MagicMock(return_value=json.dumps({"transcript": private_claim, "observed_on": AS_OF.isoformat()}))
+    monkeypatch.setattr(local, "execute_tool", read)
+    monkeypatch.setattr(workflow, "ResearchProvider", PrivateProvider)
+    state = create_run()
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="private"
+    )
+    assert result["status"] == "done"
+    for kind in ("overview", "management_quality"):
+        report = legacy.read_research_report("EL", kind, state["run_id"])
+        assert (private_claim in report["content"]) == talisman_enabled
+        assert any(s["url"].startswith("/api/company-research/EL/runs/") for s in report["sources"]) == talisman_enabled
+        assert any("Private Talisman snapshot" in s["title"] for s in report["sources"]) == talisman_enabled
+        assert any(step.startswith(f"{kind}/verification-decisions/") for step in private_requests) == talisman_enabled
+    assert len(selections) == (2 if talisman_enabled else 1) and read.call_count == int(talisman_enabled)
+
+
+def test_provider_private_egress_is_classified_and_cannot_enable_web(monkeypatch):
+    client = mock_client(monkeypatch, [response({"supported": True, "issues": []}, web=False)])
+    seen = []
+
+    def prepare(**kwargs):
+        from api.agent_governance import classify_model_payload
+
+        seen.append(classify_model_payload(kwargs["stream_kwargs"]))
+        return kwargs["stream_kwargs"], {}
+
+    monkeypatch.setattr(provider, "prepare_model_egress", prepare)
+    instance = provider.ResearchProvider(claimed(), "worker")
+    instance.request("private-audit", ReportReview, prompt="Read capacity", instructions="Audit", private=True)
+    assert seen == ["portfolio_private"]
+    assert "tools" not in client.responses.create.call_args.kwargs
+    with pytest.raises(ValueError, match="cannot be sent to web"):
+        instance.request("unsafe", ReportReview, prompt="Private data", instructions="Audit", private=True, web=True)
+
+
+def test_public_research_cannot_forge_private_citations(monkeypatch):
+    run_id = claimed()
+    private_url = f"/api/company-research/EL/runs/{run_id}/sources/" + "a" * 24
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": private_url})])
+    mock_client(monkeypatch, [response(packet.model_dump(mode="json"))] * 2)
+    with pytest.raises(RuntimeError, match="cannot introduce private"):
+        provider.ResearchProvider(run_id, "worker").request(
+            "forged", OverviewPacket, prompt="Research", instructions="Research", web=True
+        )
 
 
 def test_failed_report_does_not_discard_completed_report(monkeypatch):
