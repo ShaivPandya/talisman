@@ -757,7 +757,14 @@ def test_agent_stream_auth_error_is_user_friendly(auth_client, monkeypatch):
 def test_anthropic_output_continuation_preserves_cached_prefix(auth_client, monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(agent_router, "_build_memory_context", lambda: "Synthetic memory")
+    monkeypatch.setattr(
+        "api.memory_context.select_memory_context",
+        lambda *_args, **_kwargs: {
+            "enabled": True,
+            "memories": [{"session_id": "synthetic", "summary": "Synthetic memory"}],
+            "prompt": "Synthetic memory",
+        },
+    )
     fake_client = _install_fake_anthropic(
         monkeypatch,
         [
@@ -1992,7 +1999,14 @@ def test_cache_catalog_survives_discovery_output_limit_and_next_turn(auth_client
     monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
     monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
     monkeypatch.setattr("api.memory_manager._retrieve_relevant", lambda _message: "")
-    monkeypatch.setattr(agent_router, "_build_memory_context", lambda: "Synthetic memory")
+    monkeypatch.setattr(
+        "api.memory_context.select_memory_context",
+        lambda *_args, **_kwargs: {
+            "enabled": True,
+            "memories": [{"session_id": "synthetic", "summary": "Synthetic memory"}],
+            "prompt": "Synthetic memory",
+        },
+    )
     monkeypatch.setattr(
         agent_router, "execute_tool", lambda *_args, **_kwargs: json.dumps({"matches": [{"name": "get_fx_dashboard"}]})
     )

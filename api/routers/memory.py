@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
 
 from api import memory_db, memory_manager
 from api.conversation_messages import latest_leaf_id, message_path
@@ -68,6 +68,69 @@ class SessionHistoryPage(BaseModel):
 class UpdateSessionRequest(BaseModel):
     title: str | None = None
     pinned: bool | None = None
+
+
+class MemorySettingsRequest(BaseModel):
+    enabled: bool
+
+
+class EditMemoryRequest(BaseModel):
+    summary: str = Field(min_length=1, max_length=12000)
+
+    @field_validator("summary")
+    @classmethod
+    def nonempty_summary(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Memory cannot be empty")
+        return value.strip()
+
+
+@router.get("/memory/entries")
+def list_memory_entries(
+    q: str = Query("", max_length=200), limit: int = Query(30, ge=1, le=100), offset: int = Query(0, ge=0)
+):
+    from api.memory_context import list_memories
+
+    entries = list_memories(query=q, limit=limit + 1, offset=offset)
+    return {"entries": entries[:limit], "has_more": len(entries) > limit}
+
+
+@router.patch("/memory/entries/{session_id}")
+def edit_memory_entry(session_id: str, req: EditMemoryRequest):
+    from api.memory_context import edit_memory
+
+    if not edit_memory(session_id, req.summary):
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return {"status": "updated"}
+
+
+@router.delete("/memory/entries/{session_id}")
+def delete_memory_entry(session_id: str):
+    from api.memory_context import delete_memory
+
+    if not delete_memory(session_id):
+        raise HTTPException(status_code=404, detail="Memory not found")
+    return {"status": "deleted"}
+
+
+@router.get("/memory/sessions/{session_id}/memory")
+def get_memory_settings(session_id: str):
+    with memory_db._get_conn(read_only=True) as conn:
+        row = conn.execute(
+            "SELECT memory_enabled FROM conversation_sessions WHERE session_id = ?", (session_id,)
+        ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"enabled": bool(row["memory_enabled"])}
+
+
+@router.patch("/memory/sessions/{session_id}/memory")
+def update_memory_settings(session_id: str, req: MemorySettingsRequest):
+    from api.memory_context import set_memory_enabled
+
+    if not set_memory_enabled(session_id, req.enabled):
+        raise HTTPException(status_code=404, detail="Session not found")
+    return {"enabled": req.enabled}
 
 
 # ---------------------------------------------------------------------------

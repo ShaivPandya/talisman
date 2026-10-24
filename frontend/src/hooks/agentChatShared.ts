@@ -1,5 +1,6 @@
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponseFeedbackRecord, AgentResponsePreferences } from "@/lib/api"
+import type { MemoryContext } from "./agentMemory"
 import type { AgentAttachment } from "@/lib/chatAttachments"
 
 import type { AgentTraceSnapshot } from "@/lib/decisionTrace"
@@ -61,6 +62,7 @@ export interface AgentMessage {
   egressRecords?: EgressRecord[]
   traceSnapshot?: AgentTraceSnapshot | null
   feedback?: AgentResponseFeedbackRecord | null
+  memoryContext?: MemoryContext
 }
 
 export interface ActiveAgentJob {
@@ -75,6 +77,7 @@ export type AgentMessageDelivery = "enqueue" | "immediate"
 
 export interface AgentSendOptions {
   durable?: boolean
+  memoryEnabled?: boolean
   mode?: AgentMessageDelivery
   /** Uploaded files this message cites. */
   attachments?: AgentAttachment[]

@@ -20,6 +20,8 @@ import { AgentChatQueuePanel } from "./AgentChatQueuePanel"
 import { AgentChatHeader } from "./AgentChatHeader"
 import { AgentCompletionToast } from "./AgentCompletionToast"
 import { AgentContextPane } from "./AgentContextPane"
+import { useAgentMemory } from "@/hooks/agentMemory"
+import { AgentMemoryPanel } from "./AgentMemoryPanel"
 import { AgentHistoryPanel } from "./AgentHistoryPanel"
 import { AgentMessageStream } from "./AgentMessageStream"
 import { AgentPreferencesPanel } from "./AgentPreferencesPanel"
@@ -145,6 +147,8 @@ export function AgentChat({
   const viewMode: AgentViewMode = isDesktop ? desktopViewMode : "compact"
   const docked = isDesktop && viewMode === "compact"
   const [activePanel, setActivePanel] = useState<AgentPanel>("chat")
+  const lastMemoryContext = messages[messages.length - 1]?.memoryContext
+  const memory = useAgentMemory(sessionId, open && activePanel === "memory", lastMemoryContext)
   const history = useAgentHistory(open && activePanel === "history", forgetSession)
   const [workflowTicker, setWorkflowTicker] = useState("")
   const [showCompactWorkflows, setShowCompactWorkflows] = useState(false)
@@ -217,10 +221,10 @@ export function AgentChat({
     void sendMessage(content, includeScreenContext ? screenContext : null, {
       ...activePreferences,
       thinking_enabled: thinkingOverride ?? activePreferences.thinking_enabled,
-    }, options)
+    }, { ...options, ...(!sessionId && { memoryEnabled: memory.draftEnabled }) })
     setIncludeScreenContext(true)
     setThinkingOverride(null)
-  }, [sendMessage, includeScreenContext, screenContext, activePreferences, thinkingOverride])
+  }, [sendMessage, includeScreenContext, screenContext, activePreferences, thinkingOverride, sessionId, memory.draftEnabled])
 
   const handleOpenTrace = useCallback((message: AgentMessage) => {
     openDecisionTrace({ kind: "agent_message", record: {}, sessionId, message })
@@ -437,6 +441,7 @@ export function AgentChat({
   }
 
   function handleClearChat() {
+    memory.resetDraft()
     clearChat()
     setActivePanel("chat")
   }
@@ -525,7 +530,9 @@ export function AgentChat({
               if (!sessionId) return Promise.resolve()
               return handleRenameSession(sessionId, title)
             }}
+            backDisabled={activePanel === "memory" && memory.saving}
             onBack={() => setActivePanel("chat")}
+            onShowMemory={() => setActivePanel("memory")}
             onShowHistory={handleShowHistory}
             onShowPreferences={handleShowPreferences}
             onToggleViewMode={() => onViewModeChange?.(viewMode === "console" ? "compact" : "console")}
@@ -536,7 +543,9 @@ export function AgentChat({
 
           <div className="flex min-h-0 flex-1">
             <section className="flex min-w-0 flex-1 flex-col">
-              {activePanel === "history" ? (
+              {activePanel === "memory" ? (
+                <AgentMemoryPanel memory={memory} lastContext={lastMemoryContext} />
+              ) : activePanel === "history" ? (
                 <AgentHistoryPanel
                   history={history.history}
                   loading={history.loading}

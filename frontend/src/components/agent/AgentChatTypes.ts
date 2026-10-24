@@ -1,4 +1,4 @@
-export type AgentPanel = "chat" | "history" | "preferences"
+export type AgentPanel = "chat" | "history" | "preferences" | "memory"
 
 export type AgentViewMode = "compact" | "console"
 

@@ -47,6 +47,7 @@ def migrated_database():
         "20261023_tl220_conversation_messages.py",
         "20261023_tl224_rolling_summary_through_id.py",
         "20261024_tl214_session_history.py",
+        "20261024_tl215_conversation_memory.py",
     )
     with psycopg.connect(url, autocommit=True) as admin:
         admin.execute(psycopg.sql.SQL("CREATE SCHEMA {}").format(psycopg.sql.Identifier(schema)))

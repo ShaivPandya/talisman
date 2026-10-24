@@ -55,7 +55,10 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
     title_updated_at TEXT,
     rolling_summary TEXT,
     rolling_summary_through_id TEXT,
-    pinned_at TEXT
+    pinned_at TEXT,
+    memory_enabled INTEGER NOT NULL DEFAULT 1,
+    memory_excluded INTEGER NOT NULL DEFAULT 0,
+    memory_summary TEXT
 )
 """
 
@@ -120,6 +123,13 @@ def _init_db(conn: sqlite3.Connection) -> None:
     ):
         if col not in columns:
             conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} TEXT")
+    for col, declaration in (
+        ("memory_enabled", "INTEGER NOT NULL DEFAULT 1"),
+        ("memory_excluded", "INTEGER NOT NULL DEFAULT 0"),
+        ("memory_summary", "TEXT"),
+    ):
+        if col not in columns:
+            conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} {declaration}")
     conn.execute(_CREATE_HISTORY_IDX)
     conn.execute(CREATE_MESSAGES)
     conn.execute(CREATE_TURN_INDEX)

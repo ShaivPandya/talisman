@@ -16,9 +16,9 @@ from scripts.benchmark_agent_prompt_cache import summarize, uncached_request
 def test_static_system_prefix_survives_changing_request_context(monkeypatch):
     requests = []
     for index in range(2):
-        monkeypatch.setattr(agent, "_build_memory_context", lambda index=index: f"Memory version {index}")
         instructions = agent._with_response_preferences(
-            agent._build_agent_instructions(ScreenContextModel(page_name=f"Page {index}", route=f"/page/{index}")),
+            agent._build_agent_instructions(ScreenContextModel(page_name=f"Page {index}", route=f"/page/{index}"))
+            + f"\n\nMemory version {index}",
             AgentResponsePreferences(custom_instructions=f"Preference {index}"),
         )
         kwargs = agent._model_stream_kwargs(

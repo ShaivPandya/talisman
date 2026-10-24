@@ -62,6 +62,7 @@ class AgentChatRequest(BaseModel):
     attachment_ids: list[ScreenShortText] = Field(default_factory=list, max_length=MAX_ATTACHMENTS_PER_MESSAGE)
     screen_context: ScreenContextModel | None = None
     response_preferences: AgentResponsePreferences | None = None
+    memory_enabled: bool | None = None
     finalize_synchronously: bool = False
     allow_workflow_handoff: bool = True
     # The stored attachments ``attachment_ids`` name, read once per turn (see ``turn_attachments``).

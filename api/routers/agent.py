@@ -244,10 +244,6 @@ def _build_agent_base_instructions() -> str:
 def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
     base = _build_agent_base_instructions()
 
-    memory_section = _build_memory_context()
-    if memory_section:
-        base += "\n\n---\n\n" + memory_section
-
     screen_section = _build_screen_context_section(screen_context)
     if screen_section:
         base += "\n\n---\n\n" + screen_section
@@ -308,53 +304,6 @@ def _build_response_preferences_section(prefs: AgentResponsePreferences | None) 
             ]
         )
     return "\n".join(lines)
-
-
-_memory_cache: tuple[float, str] | None = None
-_MEMORY_CACHE_TTL = 60.0
-
-
-def _build_memory_context() -> str:
-    """Build a Recent Research Context section from past session summaries."""
-    global _memory_cache
-    now = time.monotonic()
-    if _memory_cache is not None and now - _memory_cache[0] < _MEMORY_CACHE_TTL:
-        return _memory_cache[1]
-
-    try:
-        from api.memory_db import get_recent_summaries
-
-        summaries = get_recent_summaries(limit=5)
-        if not summaries:
-            _memory_cache = (now, "")
-            return ""
-
-        lines = [
-            "## Recent Research Context\n",
-            "**WARNING: The summaries below are historical records of past conversations. "
-            "ALL prices, percentages, scores, and numerical data in these summaries are "
-            "from the date shown and are STALE. NEVER cite any numerical value from these "
-            "summaries as current. Always use tools to fetch current data before making "
-            "any market claims. These summaries exist only to remind you what topics and "
-            "tickers were previously discussed, NOT to provide current data.**\n",
-        ]
-        for s in summaries:
-            ended = str(s.get("ended_at") or s.get("started_at") or "")[:10]
-            summary = str(s.get("summary") or "").strip()
-            tickers = s.get("key_tickers")
-            if not summary:
-                continue
-            header = f"[{ended}]"
-            if isinstance(tickers, list) and tickers:
-                header += f" ({', '.join(tickers[:5])})"
-            lines.append(f"{header} {summary}")
-
-        result = "\n".join(lines) if len(lines) > 1 else ""
-        _memory_cache = (now, result)
-        return result
-    except Exception:
-        logger.debug("Failed to load memory context", exc_info=True)
-        return ""
 
 
 @router.get("/agent/workflows")
@@ -976,6 +925,7 @@ class _TurnTranscriptGuard:
         # Keyed by event id, so a retried model call's summary replaces the one its failed attempt sent.
         self.thinking: dict[str, str] = {}
         self.narration: dict[str, str] = {}
+        self.memory_context: dict[str, Any] = {"enabled": True, "memories": [], "prompt": ""}
 
     def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
         from api.memory_manager import finalize_turn, finalize_turn_async
@@ -992,6 +942,7 @@ class _TurnTranscriptGuard:
             "tool_calls": list(self.tools.values()),
             "sources": sources_from({"sources": self.sources}),
             "tool_result_memory": list(self.tool_memory.values()),
+            "memory_context": self.memory_context,
             "thinking": [{"id": key, "text": text} for key, text in self.thinking.items()],
             "narration": [{"id": key, "text": text} for key, text in self.narration.items()],
         }
@@ -4235,8 +4186,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         turn_history = lineage.history(session["server_messages"])
         prior_message_count = messages_before_turn(session, req.client_turn_id, lineage)
 
+        from api.memory_context import select_memory_context, set_memory_enabled
+
+        if req.memory_enabled is not None:
+            set_memory_enabled(guard.session_id, req.memory_enabled)
+            session["memory_enabled"] = int(req.memory_enabled)
+        guard.memory_context = {"enabled": bool(session.get("memory_enabled", True)), "memories": [], "prompt": ""}
+
         agent_turn_event_id: str | None = None
         if casual and not workflow_name:
+            yield _sse("memory_context", {"session_id": guard.session_id, **guard.memory_context})
             session_id = str(session["session_id"])
             _agent_turn_begin(req, session_id, session)
             agent_turn_event_id = _start_agent_turn_provenance(
@@ -4282,6 +4241,10 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             return
 
+        guard.memory_context = select_memory_context(
+            session, req.message, ticker=req.screen_context.ticker if req.screen_context else None, history=turn_history
+        )
+        yield _sse("memory_context", {"session_id": guard.session_id, **guard.memory_context})
         provider, api_key = llm_credentials or _read_llm_api_key()
         reasoning_effort = _chat_reasoning_effort(provider, req.response_preferences)
         instructions = _with_domain_guardrail_instruction(
@@ -4291,6 +4254,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             ),
             domain_classification,
         )
+        if guard.memory_context["prompt"]:
+            instructions += "\n\n---\n\n" + guard.memory_context["prompt"]
         client = _get_provider_client(provider, api_key)
         budget = AgentBudgetState()
         usage_totals: Counter[str] = Counter()

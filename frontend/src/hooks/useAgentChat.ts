@@ -83,6 +83,7 @@ type BranchAction =
 interface AgentJobEvent {
   seq: number
   event_type:
+    | "memory_context"
     | "status"
     | "delta"
     | "reset"
@@ -508,6 +509,7 @@ export async function fetchSession(sessionId: string): Promise<{
       toolCalls: normalizeToolCalls(m.toolCalls ?? m.tool_calls),
       narration: normalizeNotes(m.narration),
       thinking: normalizeNotes(m.thinking),
+      memoryContext: (m.memory_context ?? m.memoryContext) as AgentMessage["memoryContext"],
       isStreaming: Boolean(m.is_streaming ?? m.isStreaming ?? m.status === "streaming"),
       statusText: typeof m.status_text === "string"
         ? m.status_text
@@ -817,6 +819,9 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
       for (const event of events) {
         const data = event.payload ?? {}
         switch (event.event_type) {
+          case "memory_context":
+            next = { ...next, messages: next.messages.map(m => m.id === assistantId ? { ...m, memoryContext: data as unknown as AgentMessage["memoryContext"] } : m) }
+            break
           case "status": {
             const rawStatus = typeof data.status === "string" ? data.status : "running"
             const label = statusTextForEventStatus(rawStatus)
@@ -983,6 +988,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
                       ...m,
                       toolCalls: mergeToolCalls(m.toolCalls, toolCallsFromDonePayload(data)),
                       traceSnapshot: extractAgentTraceSnapshot(data),
+                      memoryContext: data.memory_context as AgentMessage["memoryContext"] ?? m.memoryContext,
                       sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
                       narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
                       thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
@@ -1255,6 +1261,8 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     branchAction?: BranchAction,
   ) => {
     const targetSessionId = stateRef.current.sessionId
+    // Stream events can name a new session before React renders that state update.
+    let resolvedSessionId = targetSessionId
     inFlightBySessionRef.current[targetSessionId ?? "pending"] = true
     // A new turn continues the branch being shown. Regenerating adds an answer to the same question,
     // and editing adds a question beside the original. Both get a turn id of their own, so the new
@@ -1293,7 +1301,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     // The first turn of a new chat is flagged "pending" until the stream names its session, so
     // clear that flag too. Without it, the chat stays busy and the next message only queues.
     const releaseSession = () => {
-      const sessionId = targetSessionId ?? stateRef.current.sessionId
+      const sessionId = resolvedSessionId ?? stateRef.current.sessionId
       if (sessionId) delete inFlightBySessionRef.current[sessionId]
       if (!targetSessionId) delete inFlightBySessionRef.current["pending"]
     }
@@ -1330,6 +1338,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
       },
       attachments,
     )
+    if (options?.memoryEnabled !== undefined) body.memory_enabled = options.memoryEnabled
     let sawAssistantDelta = false
 
     const handleAbort = () => {
@@ -1379,6 +1388,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
           sawAssistantDelta = true
         }
         const sessionId = typeof event.payload.session_id === "string" ? event.payload.session_id : null
+        if (sessionId) resolvedSessionId = sessionId
         applyJobEvents(assistantId, [{
           seq: ++directSeq,
           event_type: event.event_type as AgentJobEvent["event_type"],
@@ -1406,7 +1416,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
         ),
       }))
       releaseSession()
-      void drainQueueRef.current?.(targetSessionId ?? stateRef.current.sessionId ?? "")
+      void drainQueueRef.current?.(resolvedSessionId ?? stateRef.current.sessionId ?? "")
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         handleAbort()

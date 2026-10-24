@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, History, Maximize2, MessageCircle, Minimize2, PanelRight, Pencil, SlidersHorizontal, SquarePen, X } from "lucide-react"
+import { ArrowLeft, Brain, Check, History, Maximize2, MessageCircle, Minimize2, PanelRight, Pencil, SlidersHorizontal, SquarePen, X } from "lucide-react"
 import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import type { AgentPanel, AgentViewMode } from "./AgentChatTypes"
 
@@ -10,7 +10,9 @@ interface AgentChatHeaderProps {
   sessionId: string | null
   sessionTitle: string | null
   onRenameTitle: (title: string) => Promise<void>
+  backDisabled?: boolean
   onBack: () => void
+  onShowMemory: () => void
   onShowHistory: () => void
   onShowPreferences: () => void
   onToggleViewMode: () => void
@@ -19,12 +21,14 @@ interface AgentChatHeaderProps {
 }
 
 function panelTitle(panel: AgentPanel) {
+  if (panel === "memory") return "Memory"
   if (panel === "history") return "History"
   if (panel === "preferences") return "Preferences"
   return "Stan"
 }
 
 function panelSubtitle(panel: AgentPanel, viewMode: AgentViewMode) {
+  if (panel === "memory") return "Conversation memory"
   if (panel === "history") return "Conversation continuity"
   if (panel === "preferences") return "Response behavior"
   return viewMode === "console" ? "Market intelligence console" : "Market intelligence"
@@ -38,7 +42,9 @@ export function AgentChatHeader({
   sessionId,
   sessionTitle,
   onRenameTitle,
+  backDisabled = false,
   onBack,
+  onShowMemory,
   onShowHistory,
   onShowPreferences,
   onToggleViewMode,
@@ -114,7 +120,8 @@ export function AgentChatHeader({
           <button
             type="button"
             onClick={onBack}
-            className="theme-icon-button h-10 w-10 shrink-0"
+            disabled={backDisabled}
+            className="theme-icon-button h-10 w-10 shrink-0 disabled:opacity-40"
             aria-label="Back to chat"
             title="Back to chat"
           >
@@ -188,6 +195,9 @@ export function AgentChatHeader({
       <div className="flex shrink-0 items-center gap-1">
         {activePanel === "chat" && (
           <>
+            <button type="button" onClick={onShowMemory} className="theme-icon-button h-10 w-10" aria-label="Open conversation memory" title="Memory">
+              <Brain size={15} aria-hidden="true" />
+            </button>
             <button
               type="button"
               onClick={onShowPreferences}

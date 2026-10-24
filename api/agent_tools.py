@@ -2140,7 +2140,15 @@ def _dispatch(
         top_k = int(args.get("top_k", 5))
         top_k = max(1, min(top_k, 20))
 
-        doc_types = [t.strip() for t in doc_types_raw.split(",") if t.strip()] or None
+        # Conversation memory has one user-controlled path; legacy retrieval chunks must not bypass it.
+        requested_types = [t.strip() for t in doc_types_raw.split(",") if t.strip()]
+        doc_types = (
+            [t for t in requested_types if t != "conversation_summary"]
+            if requested_types
+            else ["thesis", "management_quality", "news_digest", "weekly_report", "daily_report"]
+        )
+        if not doc_types:
+            return {"results": [], "query": query, "count": 0}, {"cache": "n/a"}
         tickers = [t.strip().upper() for t in tickers_raw.split(",") if t.strip()] or None
 
         try:
