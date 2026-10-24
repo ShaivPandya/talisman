@@ -879,3 +879,80 @@ def test_gemini_pdf_input_shape(monkeypatch):
     assert fake_models.kwargs["contents"][0]["parts"][0]["inline_data"]["data"].startswith("JVBERi10ZXN0")
     assert fake_models.kwargs["contents"][0]["parts"][1] == {"text": "read"}
     assert fake_models.kwargs["config"]["thinking_config"] == {"thinking_level": "minimal"}
+
+
+def test_json_cache_key_survives_repair_and_reaches_openai_transport(monkeypatch):
+    calls = []
+    responses = iter(["not JSON", '{"ok":true}'])
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(output_text=next(responses))
+
+    monkeypatch.setattr(
+        llm_utils, "get_llm_client", lambda *args, **kwargs: SimpleNamespace(responses=SimpleNamespace(create=create))
+    )
+    parsed, _, _, diagnostics = llm_utils.call_llm_json(
+        prompt="return JSON", model=llm_utils.MODEL_MID, provider="openai", prompt_cache_key="session-key"
+    )
+    assert parsed == {"ok": True}
+    assert diagnostics["status"] == "repaired"
+    assert len(calls) == 2
+    assert all(call["prompt_cache_key"] == "session-key" for call in calls)
+
+
+def test_default_openai_calls_do_not_add_a_cache_key(monkeypatch):
+    calls = []
+
+    def create(**kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(output_text="Ready")
+
+    monkeypatch.setattr(
+        llm_utils, "get_llm_client", lambda *args, **kwargs: SimpleNamespace(responses=SimpleNamespace(create=create))
+    )
+    llm_utils.call_llm_text(prompt="hello", model=llm_utils.MODEL_MID, provider="openai")
+    assert "prompt_cache_key" not in calls[0]
+
+
+@pytest.mark.parametrize(
+    ("provider", "model", "summarized", "plain"),
+    [
+        (
+            "anthropic",
+            "claude-opus-5-5",
+            {"thinking": {"type": "adaptive", "display": "summarized"}},
+            {"thinking": {"type": "adaptive", "display": "omitted"}},
+        ),
+        (
+            "anthropic",
+            "claude-sonnet-4-5",
+            {"thinking": {"type": "enabled", "budget_tokens": 4096, "display": "summarized"}},
+            {"thinking": {"type": "enabled", "budget_tokens": 4096, "display": "omitted"}},
+        ),
+        (
+            "openai",
+            "gpt-5.4",
+            {"reasoning": {"effort": "medium", "summary": "auto"}},
+            {"reasoning": {"effort": "medium"}},
+        ),
+        (
+            "gemini",
+            "gemini-4-argon",
+            {"config": {"thinking_config": {"thinking_level": "medium", "include_thoughts": True}}},
+            {"config": {"thinking_config": {"thinking_level": "medium"}}},
+        ),
+    ],
+)
+def test_reasoning_config_asks_for_a_thinking_summary_only_when_told_to(provider, model, summarized, plain):
+    for summarize, expected in ((True, summarized), (False, plain)):
+        kwargs: dict = {}
+        llm_utils.apply_reasoning_config(
+            kwargs,
+            provider=provider,
+            model=model,
+            max_tokens=8192,
+            reasoning_effort="medium",
+            summarize=summarize,
+        )
+        assert {key: kwargs[key] for key in expected} == expected

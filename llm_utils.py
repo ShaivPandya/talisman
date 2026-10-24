@@ -617,6 +617,7 @@ def call_llm_text(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
     stream: bool = False,
 ) -> tuple[str, list[tuple[str, str]], Any]:
     resolved_provider = _provider_for_model_argument(model, provider)
@@ -657,6 +658,7 @@ def call_llm_text(
             reasoning_effort=reasoning_effort,
             json_schema=json_schema,
             json_schema_name=json_schema_name,
+            prompt_cache_key=prompt_cache_key,
         )
     elif resolved_provider == PROVIDER_TALISMAN:
         if web_search_enabled:
@@ -702,6 +704,7 @@ def call_llm_json(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
     require_object: bool = True,
 ) -> tuple[Any, list[tuple[str, str]], Any, dict[str, Any]]:
     """Call an LLM and return parsed JSON with sanitized diagnostics."""
@@ -743,6 +746,7 @@ def call_llm_json(
             reasoning_effort=reasoning_effort,
             json_schema=json_schema,
             json_schema_name=json_schema_name,
+            prompt_cache_key=prompt_cache_key,
         )
 
     def parsed_object(text: str) -> Any:
@@ -1162,6 +1166,7 @@ def _call_openai_response(
     reasoning_effort: str | None = None,
     json_schema: dict[str, Any] | None = None,
     json_schema_name: str | None = None,
+    prompt_cache_key: str | None = None,
 ) -> Any:
     resolved_provider = _normalize_provider(provider)
     client = get_llm_client(resolved_provider, api_key=api_key)
@@ -1178,6 +1183,8 @@ def _call_openai_response(
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
     )
+    if prompt_cache_key:
+        kwargs["prompt_cache_key"] = prompt_cache_key
     if system:
         kwargs["instructions"] = system
     if json_schema:
@@ -1255,7 +1262,9 @@ def apply_reasoning_config(
     model: str,
     max_tokens: int,
     reasoning_effort: str | None,
+    summarize: bool = False,
 ) -> None:
+    """Request reasoning at ``reasoning_effort``. ``summarize`` also asks the provider to return a thinking summary."""
     resolved_provider = _normalize_provider(provider)
     effort = _normalize_reasoning_effort(reasoning_effort, provider=resolved_provider, model=model)
     if effort is None:
@@ -1263,17 +1272,18 @@ def apply_reasoning_config(
 
     if resolved_provider in {PROVIDER_OPENAI, PROVIDER_TALISMAN}:
         if resolved_provider == PROVIDER_OPENAI:
-            kwargs["reasoning"] = {"effort": effort}
+            kwargs["reasoning"] = {"effort": effort, **({"summary": "auto"} if summarize else {})}
         return
 
     if resolved_provider == PROVIDER_GEMINI:
         config = dict(kwargs.get("config") or {})
-        config["thinking_config"] = {"thinking_level": effort}
+        config["thinking_config"] = {"thinking_level": effort, **({"include_thoughts": True} if summarize else {})}
         kwargs["config"] = config
         return
 
+    display = "summarized" if summarize else "omitted"
     if _anthropic_supports_adaptive_thinking(model):
-        kwargs["thinking"] = {"type": "adaptive", "display": "omitted"}
+        kwargs["thinking"] = {"type": "adaptive", "display": display}
         output_config = dict(kwargs.get("output_config") or {})
         output_config["effort"] = effort
         kwargs["output_config"] = output_config
@@ -1282,7 +1292,7 @@ def apply_reasoning_config(
     kwargs["thinking"] = {
         "type": "enabled",
         "budget_tokens": _anthropic_manual_thinking_budget(max_tokens=max_tokens, effort=effort),
-        "display": "omitted",
+        "display": display,
     }
     output_config = dict(kwargs.get("output_config") or {})
     output_config["effort"] = effort

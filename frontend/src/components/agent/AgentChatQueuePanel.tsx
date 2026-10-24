@@ -39,7 +39,14 @@ export function AgentChatQueuePanel({
             key={entry.id}
             className="flex items-start gap-2 rounded-lg border border-app/60 bg-card px-2 py-1.5 text-sm text-app"
           >
-            <p className="min-w-0 flex-1 line-clamp-2">{entry.content}</p>
+            <p className="min-w-0 flex-1 line-clamp-2">
+              {entry.content}
+              {entry.options?.attachments?.length ? (
+                <span className="ml-1 text-xs text-subtle">
+                  · {entry.options.attachments.length} file{entry.options.attachments.length === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </p>
             <div className="flex shrink-0 items-center gap-0.5">
               <button
                 type="button"

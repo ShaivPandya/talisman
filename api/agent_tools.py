@@ -22,6 +22,7 @@ from typing import Any, Literal, cast
 
 from pydantic import ValidationError as PydanticValidationError
 
+from api import chat_rich_parts
 from api.agent_governance import (
     AgentGovernanceError,
     ToolPolicyDenied,
@@ -88,510 +89,6 @@ class AgentCapability:
             "description": self.description,
             "parameters": self.parameters,
         }
-
-
-def _schema(properties: dict[str, Any] | None = None, required: list[str] | None = None) -> dict[str, Any]:
-    return {"type": "object", "properties": properties or {}, "required": required or []}
-
-
-def _cap(
-    name: str,
-    description: str,
-    parameters: dict[str, Any] | None = None,
-    *,
-    category: str,
-    access_mode: str = "read",
-    aliases: tuple[str, ...] = (),
-    selectable: bool = True,
-) -> AgentCapability:
-    return AgentCapability(
-        name=name,
-        description=description,
-        parameters=parameters or _schema(),
-        category=category,
-        access_mode=access_mode,
-        aliases=aliases,
-        selectable=selectable,
-    )
-
-
-_BASE_CAPABILITY_META: dict[str, tuple[str, str, tuple[str, ...]]] = {
-    "get_liquidity": ("macro", "read", ("liquidity", "global liquidity", "credit")),
-    "get_market_breadth": ("technical", "read", ("breadth", "market breadth", "participation")),
-    "get_vix_term_structure": ("technical", "read", ("vix", "volatility", "term structure")),
-    "get_positioning": ("macro", "read", ("positioning", "cftc", "cot", "crowded")),
-    "get_signal_aggregator": ("macro", "read", ("signal aggregator", "regime", "risk on", "risk off")),
-    "get_economic_growth": ("macro", "read", ("growth", "economic growth", "cross asset")),
-    "get_labor_market": ("macro", "read", ("labor", "jobs", "claims", "payrolls")),
-    "get_housing": ("macro", "read", ("housing", "starts", "permits", "nahb")),
-    "get_sector_metrics": ("equities", "read", ("sector", "rotation", "sector metrics")),
-    "get_portfolio": ("portfolio", "read", ("portfolio", "holdings", "positions", "pnl", "p&l")),
-    "get_yield_curve": ("fixed_income", "read", ("yield curve", "rates", "bonds")),
-    "get_bond_dashboard": ("fixed_income", "read", ("bond dashboard", "sovereign yields")),
-    "get_sentiment": ("macro", "read", ("sentiment", "put call", "aaii", "naaim")),
-    "get_central_banks": ("macro", "read", ("central banks", "fed", "ecb", "boe", "boj")),
-    "get_industry_monitor": ("macro", "read", ("industry monitor", "transcripts", "management commentary")),
-    "query_ontology": ("ontology", "read", ("ontology", "risk exposure", "portfolio risk")),
-    "get_thesis": ("thesis", "read", ("thesis", "investment thesis")),
-    "get_thesis_evaluations": ("thesis", "read", ("thesis evaluations", "monitoring history")),
-    "get_record_evolution_timeline": (
-        "thesis",
-        "read",
-        ("record evolution timeline", "record timeline", "evolution timeline"),
-    ),
-    "search_knowledge_base": (
-        "research",
-        "read",
-        ("knowledge base", "past research", "notes", "news digests", "management quality"),
-    ),
-    "get_ontology_diff": ("ontology", "read", ("ontology diff", "risk changes")),
-    "search_web": ("research", "read", ("web", "news", "latest", "recent")),
-    "get_catalysts": ("process", "read", ("catalysts",)),
-    "get_kill_conditions": ("process", "read", ("kill conditions", "invalidation")),
-    "get_action_items": ("process", "read", ("action items", "tasks")),
-    "get_watch_triggers": ("process", "read", ("watch triggers", "monitoring")),
-    "get_pending_approvals": ("approvals", "read", ("approvals", "pending approvals")),
-    "get_dossier": ("portfolio", "read", ("dossier", "position dossier", "management quality")),
-    "get_workflow_history": ("workflows", "read", ("workflow history", "workflow runs")),
-    "propose_thesis_status_change": ("thesis", "proposal", ("propose thesis status", "thesis status")),
-    "propose_action_item": ("process", "proposal", ("propose action", "action item")),
-    "propose_catalyst_status_change": ("process", "proposal", ("propose catalyst status",)),
-    "propose_kill_condition_status_change": ("process", "proposal", ("propose kill condition status",)),
-    "propose_watch_trigger": ("process", "proposal", ("propose watch trigger", "set trigger")),
-}
-
-
-def _base_capability(tool: dict[str, Any]) -> AgentCapability:
-    name = str(tool["name"])
-    category, access_mode, aliases = _BASE_CAPABILITY_META.get(
-        name,
-        ("misc", "read", tuple(name.replace("_", " ").split())),
-    )
-    return _cap(
-        name,
-        str(tool.get("description", "")),
-        tool.get("parameters") or _schema(),
-        category=category,
-        access_mode=access_mode,
-        aliases=aliases + (name.replace("_", " "),),
-    )
-
-
-_STRING = {"type": "string"}
-_NUMBER = {"type": "number"}
-_INTEGER = {"type": "integer"}
-_BOOLEAN = {"type": "boolean"}
-_OBJECT = {"type": "object"}
-_ARRAY_STRINGS = {"type": "array", "items": {"type": "string"}}
-_ARRAY_OBJECTS = {"type": "array", "items": {"type": "object"}}
-
-
-_EXTRA_CAPABILITIES: list[AgentCapability] = [
-    _cap(
-        "search_agent_capabilities",
-        "Search Stan's available app capabilities by natural-language query. Use when you need a tool that was not in the initially visible set.",
-        _schema(
-            {
-                "query": {"type": "string", "description": "Capability or app feature to find."},
-                "top_k": {"type": "integer", "description": "Maximum matches to return. Default 8."},
-            },
-            ["query"],
-        ),
-        category="agent",
-        aliases=("capability search", "available tools", "what can you access"),
-    ),
-    _cap(
-        "get_workspace",
-        "Fetch the Workspace landing page aggregate: regime, portfolio summary, thesis pressure, approvals, action items, triggers, and workflow runs.",
-        category="workspace",
-        aliases=("workspace", "dashboard home"),
-    ),
-    _cap(
-        "get_portfolio_positions",
-        "Fetch editable portfolio positions, optionally including hedges.",
-        _schema({"include_hedges": _BOOLEAN}),
-        category="portfolio",
-        aliases=("portfolio positions", "editable holdings"),
-    ),
-    _cap(
-        "get_hedge_positions",
-        "Fetch hedge positions from the portfolio editor.",
-        category="portfolio",
-        aliases=("hedge positions", "hedges"),
-    ),
-    _cap(
-        "get_portfolio_news",
-        "List uploaded news digests, or fetch one digest when digest_id is provided.",
-        _schema({"digest_id": {"type": "string", "description": "Optional digest id for detail."}}),
-        category="research",
-        aliases=("news digests", "portfolio news", "uploaded news"),
-    ),
-    _cap(
-        "get_workflow_run",
-        "Fetch one persisted workflow run by run_id.",
-        _schema({"run_id": _STRING}, ["run_id"]),
-        category="workflows",
-        aliases=("workflow run detail", "run detail"),
-    ),
-    _cap(
-        "get_commodities",
-        "Fetch the commodity dashboard across major commodities for a timeframe.",
-        _schema(
-            {"timeframe": {"type": "string", "description": "This Week, Daily, Weekly, or Monthly. Default Daily."}}
-        ),
-        category="commodities",
-        aliases=("commodities dashboard", "commodity prices"),
-    ),
-    _cap(
-        "get_commodities_curve",
-        "Fetch futures curve data for CL, BZ, NG, or TTF.",
-        _schema({"commodity": _STRING, "lookback_days": _INTEGER}),
-        category="commodities",
-        aliases=("commodities curve", "oil curve", "gas curve", "futures curve"),
-    ),
-    _cap(
-        "get_commodity_research",
-        "Fetch the commodity proxy research screener.",
-        category="commodities",
-        aliases=("commodity research", "commodity proxy", "aluminum research"),
-    ),
-    _cap(
-        "get_country_dashboard",
-        "Fetch the country dashboard.",
-        category="macro",
-        aliases=("country dashboard", "countries"),
-    ),
-    _cap(
-        "get_index_dashboard", "Fetch the index dashboard.", category="equities", aliases=("index dashboard", "indices")
-    ),
-    _cap("get_fx_dashboard", "Fetch the FX dashboard.", category="fx", aliases=("fx dashboard", "currencies")),
-    _cap(
-        "get_momentum",
-        "Fetch price momentum dashboard data.",
-        category="portfolio",
-        aliases=("momentum", "price momentum"),
-    ),
-    _cap(
-        "get_top50_breadth",
-        "Fetch S&P 500 top-50 breadth data.",
-        category="technical",
-        aliases=("top50 breadth", "top 50 breadth"),
-    ),
-    _cap(
-        "get_price_volume_signals",
-        "Fetch price-volume technical signals.",
-        category="technical",
-        aliases=("price volume", "volume signals"),
-    ),
-    _cap(
-        "get_financials",
-        "Fetch single-company financial history and metrics.",
-        _schema({"ticker": _STRING}, ["ticker"]),
-        category="equities",
-        aliases=("financials", "company financials", "revenue", "eps"),
-    ),
-    _cap(
-        "get_dcf_historical",
-        "Fetch historical financials and multiples for DCF work.",
-        _schema({"ticker": _STRING}, ["ticker"]),
-        category="equities",
-        aliases=("dcf historical", "valuation historical"),
-    ),
-    _cap(
-        "run_dcf_valuation",
-        "Run a DCF valuation from explicit assumptions.",
-        _schema(
-            {
-                "ticker": _STRING,
-                "revenue_growth_rates": {
-                    "type": "array",
-                    "items": {"type": "number"},
-                    "description": "Five annual revenue growth rates as decimals.",
-                },
-                "ebitda_margin": _NUMBER,
-                "tax_rate": _NUMBER,
-                "da_pct_revenue": _NUMBER,
-                "nwc_pct_revenue": _NUMBER,
-                "capex_pct_revenue": _NUMBER,
-                "wacc": _NUMBER,
-                "terminal_growth_rates": _OBJECT,
-                "exit_ev_ebitda": _OBJECT,
-                "exit_ev_revenue": _OBJECT,
-            },
-            [
-                "ticker",
-                "revenue_growth_rates",
-                "ebitda_margin",
-                "da_pct_revenue",
-                "nwc_pct_revenue",
-                "capex_pct_revenue",
-                "wacc",
-                "exit_ev_ebitda",
-                "exit_ev_revenue",
-            ],
-        ),
-        category="equities",
-        access_mode="compute",
-        aliases=("run dcf", "dcf valuation", "valuation"),
-    ),
-    _cap(
-        "run_chart",
-        "Run technical analysis for a ticker.",
-        _schema({"ticker": _STRING, "lookback": _STRING}, ["ticker"]),
-        category="technical",
-        access_mode="compute",
-        aliases=("chart", "technical analysis"),
-    ),
-    _cap(
-        "run_ratio_chart",
-        "Run a ratio chart between two symbols.",
-        _schema(
-            {"symbol_a": _STRING, "symbol_b": _STRING, "start_date": _STRING, "end_date": _STRING, "method": _STRING},
-            ["symbol_a", "symbol_b"],
-        ),
-        category="technical",
-        access_mode="compute",
-        aliases=("ratio chart", "pair ratio"),
-    ),
-    _cap(
-        "get_fx_model_pairs",
-        "List supported FX model pairs.",
-        category="fx",
-        aliases=("fx model pairs", "currency pairs"),
-    ),
-    _cap(
-        "run_fx_model",
-        "Run the FX valuation/forecast model for a supported pair.",
-        _schema({"pair": _STRING, "bootstrap": _INTEGER, "skip_bis": _BOOLEAN, "horizons": _STRING}, ["pair"]),
-        category="fx",
-        access_mode="compute",
-        aliases=("fx model", "currency model"),
-    ),
-    _cap(
-        "run_quality_screen",
-        "Run the quality equity screen.",
-        _schema({"universe": _STRING, "tickers": _STRING, "benchmark": _STRING, "input_mode": _STRING}),
-        category="screeners",
-        access_mode="compute",
-        aliases=("quality screen", "quality screener"),
-    ),
-    _cap(
-        "run_short_screen",
-        "Start or reuse a short screen job.",
-        _schema(
-            {
-                "input_mode": _STRING,
-                "universe": _STRING,
-                "tickers": _STRING,
-                "pb_threshold": _NUMBER,
-                "loss_type": _STRING,
-                "check_issuance": _BOOLEAN,
-                "check_revenue": _BOOLEAN,
-                "max_revenue_growth": _NUMBER,
-                "check_eps": _BOOLEAN,
-                "max_eps_growth": _NUMBER,
-                "check_52w_positive": _BOOLEAN,
-                "check_min_drawdown": _BOOLEAN,
-                "min_drawdown_pct": _NUMBER,
-                "check_max_drawdown": _BOOLEAN,
-                "max_drawdown_pct": _NUMBER,
-                "check_3m_neg_momentum": _BOOLEAN,
-                "check_2m_neg_rel_momentum": _BOOLEAN,
-                "rel_momentum_benchmark": _STRING,
-            }
-        ),
-        category="screeners",
-        access_mode="compute",
-        aliases=("short screen", "short screener"),
-    ),
-    _cap(
-        "run_long_screen",
-        "Start or reuse a long screen job.",
-        _schema(
-            {
-                "input_mode": _STRING,
-                "universe": _STRING,
-                "tickers": _STRING,
-                "pb_threshold": _NUMBER,
-                "profit_type": _STRING,
-                "check_issuance": _BOOLEAN,
-                "check_revenue": _BOOLEAN,
-                "min_revenue_growth": _NUMBER,
-                "check_eps": _BOOLEAN,
-                "min_eps_growth": _NUMBER,
-                "check_ebit_multiple": _BOOLEAN,
-                "max_ebit_multiple": _NUMBER,
-                "check_52w_positive": _BOOLEAN,
-                "check_min_drawdown": _BOOLEAN,
-                "min_drawdown_pct": _NUMBER,
-                "check_max_drawdown": _BOOLEAN,
-                "max_drawdown_pct": _NUMBER,
-                "check_3m_pos_momentum": _BOOLEAN,
-                "check_2m_pos_rel_momentum": _BOOLEAN,
-                "rel_momentum_benchmark": _STRING,
-            }
-        ),
-        category="screeners",
-        access_mode="compute",
-        aliases=("long screen", "long screener"),
-    ),
-    _cap(
-        "run_fundamental_momentum",
-        "Start or reuse an EPS/revenue fundamental momentum screen.",
-        _schema(
-            {
-                "screen_type": _STRING,
-                "universe": _STRING,
-                "tickers": _STRING,
-                "benchmark": _STRING,
-                "input_mode": _STRING,
-            }
-        ),
-        category="screeners",
-        access_mode="compute",
-        aliases=("fundamental momentum", "eps momentum", "revenue momentum"),
-    ),
-    _cap(
-        "run_portfolio_analyzer",
-        "Start or reuse the portfolio analyzer.",
-        _schema(
-            {
-                "book": _NUMBER,
-                "target_leverage": _NUMBER,
-                "beta_neutral": _BOOLEAN,
-                "scenario": _OBJECT,
-            }
-        ),
-        category="portfolio",
-        access_mode="compute",
-        aliases=("portfolio analyzer", "portfolio optimizer"),
-    ),
-    _cap(
-        "run_portfolio_sizer",
-        "Start or reuse the portfolio sizer.",
-        _schema(
-            {
-                "book": _NUMBER,
-                "target_leverage": _NUMBER,
-                "beta_hedge_mode": {
-                    "type": "string",
-                    "enum": ["spy", "iwm", "qqq", "spy_iwm", "spy_qqq", "iwm_qqq", "spy_iwm_qqq"],
-                    "description": "Legacy preset fallback; ignored when hedge_tickers is provided.",
-                },
-                "hedge_tickers": _ARRAY_STRINGS,
-                "positions": _ARRAY_OBJECTS,
-            }
-        ),
-        category="portfolio",
-        access_mode="compute",
-        aliases=("portfolio sizer", "sizing"),
-    ),
-    _cap(
-        "get_portfolio_sizer_prefill",
-        "Fetch portfolio sizer prefill positions.",
-        category="portfolio",
-        aliases=("sizer prefill",),
-    ),
-    _cap(
-        "run_hedging_tool",
-        "Start or reuse the hedging tool.",
-        _schema({"book": _NUMBER, "positions": _ARRAY_OBJECTS}),
-        category="portfolio",
-        access_mode="compute",
-        aliases=("hedging tool", "hedge analysis"),
-    ),
-    _cap(
-        "get_hedging_tool_prefill",
-        "Fetch hedging tool prefill positions.",
-        category="portfolio",
-        aliases=("hedging prefill",),
-    ),
-    _cap(
-        "get_hedging_portfolio_weights",
-        "Derive hedging weights from the portfolio database.",
-        _schema({"book": _NUMBER}),
-        category="portfolio",
-        aliases=("hedging weights", "portfolio weights"),
-    ),
-    _cap(
-        "run_hedging_recommendation",
-        "Generate LLM hedging recommendations from hedging analysis tables.",
-        _schema(
-            {
-                "net_beta_spy": _NUMBER,
-                "net_beta_iwm": _NUMBER,
-                "post_hedge_beta_spy": _NUMBER,
-                "post_hedge_beta_iwm": _NUMBER,
-                "gross_input": _NUMBER,
-                "net_input": _NUMBER,
-                "gross_after_hedging": _NUMBER,
-                "volatility_after_hedging": _NUMBER,
-                "hedge_spy_weight": _NUMBER,
-                "hedge_iwm_weight": _NUMBER,
-                "positions_df": _ARRAY_OBJECTS,
-                "hedges_df": _ARRAY_OBJECTS,
-                "book_size": _NUMBER,
-            }
-        ),
-        category="portfolio",
-        access_mode="compute",
-        aliases=("hedging recommendation", "hedge recommendation"),
-    ),
-    _cap(
-        "propose_portfolio_positions_update",
-        "Propose replacing editable portfolio positions. Creates a pending approval.",
-        _schema({"positions": _ARRAY_OBJECTS, "reason": _STRING}, ["positions", "reason"]),
-        category="portfolio",
-        access_mode="proposal",
-        aliases=("propose portfolio edit", "update portfolio positions"),
-    ),
-    _cap(
-        "propose_hedge_positions_update",
-        "Propose replacing hedge positions. Creates a pending approval.",
-        _schema({"positions": _ARRAY_OBJECTS, "reason": _STRING}, ["positions", "reason"]),
-        category="portfolio",
-        access_mode="proposal",
-        aliases=("propose hedge edit", "update hedge positions"),
-    ),
-    _cap(
-        "propose_thesis_content_update",
-        "Propose replacing a ticker's thesis markdown. Creates a pending approval.",
-        _schema({"ticker": _STRING, "content": _STRING, "reason": _STRING}, ["ticker", "content", "reason"]),
-        category="thesis",
-        access_mode="proposal",
-        aliases=("propose thesis edit", "update thesis content"),
-    ),
-    _cap(
-        "propose_catalyst",
-        "Propose creating a catalyst. Creates a pending approval.",
-        _schema(
-            {"ticker": _STRING, "description": _STRING, "category": _STRING, "target_date": _STRING, "reason": _STRING},
-            ["ticker", "description", "reason"],
-        ),
-        category="process",
-        access_mode="proposal",
-        aliases=("propose catalyst", "create catalyst"),
-    ),
-    _cap(
-        "propose_kill_condition",
-        "Propose creating a kill condition. Creates a pending approval.",
-        _schema(
-            {"ticker": _STRING, "condition": _STRING, "metric": _STRING, "threshold": _STRING, "reason": _STRING},
-            ["ticker", "condition", "reason"],
-        ),
-        category="process",
-        access_mode="proposal",
-        aliases=("propose kill condition", "create kill condition"),
-    ),
-    _cap(
-        "propose_news_digest_delete",
-        "Propose deleting an uploaded news digest. Creates a pending approval.",
-        _schema({"digest_id": _STRING, "reason": _STRING}, ["digest_id", "reason"]),
-        category="research",
-        access_mode="proposal",
-        aliases=("delete news digest", "remove digest"),
-    ),
-]
 
 
 def _capability_from_exposure(tool) -> AgentCapability:
@@ -730,6 +227,21 @@ def _stable_json_dumps(data: object) -> str:
         return json.dumps(data, default=str, separators=(",", ":"))
     except (TypeError, ValueError):
         return json.dumps(str(data), separators=(",", ":"))
+
+
+def _response_payload(response: Any) -> Any:
+    """The data a route function built, when it returned a JSON response object instead of the data."""
+    body = getattr(response, "body", None)
+    return json.loads(body) if isinstance(body, (bytes, bytearray)) else response
+
+
+def _stash_chat_chart(name: str, args: dict[str, Any], result: Any, event_id: str | None) -> None:
+    """Keep a chart snapshot of a chart tool's whole result for the chat stream, which only sees the compacted one."""
+    if not event_id or name not in chat_rich_parts.CHART_TOOLS:
+        return
+    part = chat_rich_parts.build_chart_part(name, args, result)
+    if part is not None:
+        chat_rich_parts.stash_chart(event_id, part)
 
 
 def _safe_iso_date(value: Any) -> str | None:
@@ -1169,7 +681,7 @@ def _summarize_payload(value: Any) -> dict[str, Any]:
 
 
 def _attach_meta(payload: Any, meta: dict[str, Any]) -> dict[str, Any]:
-    base = payload if isinstance(payload, dict) else {"data": payload}
+    base = dict(payload) if isinstance(payload, dict) else {"data": payload}
     raw_meta = base.get("_meta")
     existing = raw_meta if isinstance(raw_meta, dict) else {}
     merged = dict(existing)
@@ -1595,9 +1107,14 @@ def _finish_tool_provenance(
     try:
         from api import provenance
 
+        terminal_status = status
+        if status in {"denied", "timed_out"}:
+            # ProvenanceEvent has succeeded/failed terminal states; keep the tool outcome.
+            terminal_status = "failed"
+            metadata = {**(metadata if isinstance(metadata, Mapping) else {}), "tool_status": status}
         provenance.finish_event(
             provenance_event_id,
-            status=status,
+            status=terminal_status,
             output_value=output_value,
             summary=summary,
             metadata=metadata,
@@ -1763,6 +1280,7 @@ def execute_tool(
             retry_policy=exposure.retry_policy,
         )
         validate_tool_output(exposure, result)
+        _stash_chat_chart(name, safe_args, result, provenance_event_id)
         payload, _compact_meta = _compact_tool_output(name, result)
         meta = dict(dispatch_meta)
         meta.update(
@@ -2639,7 +2157,15 @@ def _dispatch(
         top_k = int(args.get("top_k", 5))
         top_k = max(1, min(top_k, 20))
 
-        doc_types = [t.strip() for t in doc_types_raw.split(",") if t.strip()] or None
+        # Conversation memory has one user-controlled path; legacy retrieval chunks must not bypass it.
+        requested_types = [t.strip() for t in doc_types_raw.split(",") if t.strip()]
+        doc_types = (
+            [t for t in requested_types if t != "conversation_summary"]
+            if requested_types
+            else ["thesis", "management_quality", "news_digest", "weekly_report", "daily_report"]
+        )
+        if not doc_types:
+            return {"results": [], "query": query, "count": 0}, {"cache": "n/a"}
         tickers = [t.strip().upper() for t in tickers_raw.split(",") if t.strip()] or None
 
         try:
@@ -2924,13 +2450,13 @@ def _dispatch(
         from api.routers.chart import ChartRequest, run_chart
 
         req = _model_validate(ChartRequest, args)
-        return run_chart(req), {"cache": "n/a"}
+        return _response_payload(run_chart(req)), {"cache": "n/a"}
 
     if name == "run_ratio_chart":
         from api.routers.chart import RatioChartRequest, run_chart_ratio
 
         req = _model_validate(RatioChartRequest, args)
-        return run_chart_ratio(req), {"cache": "n/a"}
+        return _response_payload(run_chart_ratio(req)), {"cache": "n/a"}
 
     if name == "get_fx_model_pairs":
         from api.routers.fx_model import list_pairs

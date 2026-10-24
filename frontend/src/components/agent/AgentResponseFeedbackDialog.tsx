@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { Dialog } from "@/components/shared/Dialog"
 import { ActionButton } from "@/components/shared/FormControls"
-import type { AgentFeedbackDecision, AgentFeedbackFailureTag } from "@/lib/api"
+import type { AgentFeedbackDecision, AgentFeedbackFailureTag, AgentResponseFeedbackRecord } from "@/lib/api"
 
 const FAILURE_TAGS: { id: AgentFeedbackFailureTag; label: string }[] = [
   { id: "routing", label: "Routing" },
@@ -17,6 +17,7 @@ interface AgentResponseFeedbackDialogProps {
   onOpenChange: (open: boolean) => void
   decision: AgentFeedbackDecision
   initialContent?: string
+  initialFeedback?: AgentResponseFeedbackRecord | null
   submitting?: boolean
   error?: string | null
   onSubmit: (payload: {
@@ -33,15 +34,16 @@ export function AgentResponseFeedbackDialog({
   onOpenChange,
   decision,
   initialContent = "",
+  initialFeedback,
   submitting = false,
   error = null,
   onSubmit,
 }: AgentResponseFeedbackDialogProps) {
   const [activeDecision, setActiveDecision] = useState<AgentFeedbackDecision>(decision)
-  const [correctedResponse, setCorrectedResponse] = useState(initialContent)
-  const [notes, setNotes] = useState("")
-  const [failureTags, setFailureTags] = useState<AgentFeedbackFailureTag[]>([])
-  const [eligibleForTraining, setEligibleForTraining] = useState(false)
+  const [correctedResponse, setCorrectedResponse] = useState(initialFeedback?.corrected_response ?? initialContent)
+  const [notes, setNotes] = useState(initialFeedback?.notes ?? "")
+  const [failureTags, setFailureTags] = useState<AgentFeedbackFailureTag[]>(initialFeedback?.failure_tags ?? [])
+  const [eligibleForTraining, setEligibleForTraining] = useState(initialFeedback?.training_eligible ?? false)
 
   const toggleTag = (tag: AgentFeedbackFailureTag) => {
     setFailureTags(current => (current.includes(tag) ? current.filter(item => item !== tag) : [...current, tag]))
@@ -69,6 +71,8 @@ export function AgentResponseFeedbackDialog({
                 key={option}
                 type="button"
                 onClick={() => setActiveDecision(option)}
+                aria-pressed={activeDecision === option}
+                disabled={submitting}
                 className={`rounded-lg border px-3 py-1.5 text-sm capitalize ${
                   activeDecision === option
                     ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300"
@@ -83,8 +87,9 @@ export function AgentResponseFeedbackDialog({
 
         {activeDecision === "correct" && (
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted">Corrected response</label>
+            <label htmlFor="feedback-corrected-response" className="text-xs font-medium text-muted">Corrected response</label>
             <textarea
+              id="feedback-corrected-response"
               value={correctedResponse}
               onChange={event => setCorrectedResponse(event.target.value)}
               rows={5}
@@ -95,39 +100,39 @@ export function AgentResponseFeedbackDialog({
         )}
 
         {(activeDecision === "reject" || activeDecision === "correct") && (
-          <>
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted">Failure categories</label>
-              <div className="flex flex-wrap gap-2">
-                {FAILURE_TAGS.map(tag => (
-                  <button
-                    key={tag.id}
-                    type="button"
-                    onClick={() => toggleTag(tag.id)}
-                    className={`rounded-lg border px-2.5 py-1 text-xs ${
-                      failureTags.includes(tag.id)
-                        ? "border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                        : "border-app text-muted hover:text-app"
-                    }`}
-                  >
-                    {tag.label}
-                  </button>
-                ))}
-              </div>
+          <div className="space-y-2">
+            <label className="text-xs font-medium text-muted">Failure categories</label>
+            <div className="flex flex-wrap gap-2">
+              {FAILURE_TAGS.map(tag => (
+                <button
+                  key={tag.id}
+                  type="button"
+                  onClick={() => toggleTag(tag.id)}
+                  aria-pressed={failureTags.includes(tag.id)}
+                  className={`rounded-lg border px-2.5 py-1 text-xs ${
+                    failureTags.includes(tag.id)
+                      ? "border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                      : "border-app text-muted hover:text-app"
+                  }`}
+                >
+                  {tag.label}
+                </button>
+              ))}
             </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-medium text-muted">Review note</label>
-              <textarea
-                value={notes}
-                onChange={event => setNotes(event.target.value)}
-                rows={3}
-                className="w-full rounded-lg border border-app bg-transparent px-3 py-2 text-sm text-app"
-                placeholder="Explain what went wrong or how the answer should improve."
-              />
-            </div>
-          </>
+          </div>
         )}
+
+        <div className="space-y-2">
+          <label htmlFor="feedback-review-note" className="text-xs font-medium text-muted">Review note (optional)</label>
+          <textarea
+            id="feedback-review-note"
+            value={notes}
+            onChange={event => setNotes(event.target.value)}
+            rows={3}
+            className="w-full rounded-lg border border-app bg-transparent px-3 py-2 text-sm text-app"
+            placeholder="Add details about this response."
+          />
+        </div>
 
         <label className="flex items-start gap-2 rounded-lg border border-app bg-[hsl(var(--muted-2))] px-3 py-2 text-xs leading-5 text-muted">
           <input

@@ -150,6 +150,9 @@ def _assistant_content(messages: list[dict[str, Any]]) -> str:
 def _task_class_from_trajectory(payload: dict[str, Any]) -> str:
     route = payload.get("route")
     if isinstance(route, dict):
+        applied = route.get("applied")
+        if isinstance(applied, dict) and applied.get("intent_class"):
+            return str(applied["intent_class"])
         intent = route.get("intent_class") or route.get("intent")
         if intent:
             return str(intent)

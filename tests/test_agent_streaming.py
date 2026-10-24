@@ -6,9 +6,12 @@ import time
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 import api.agent_chat_worker as agent_chat_worker
 import api.routers.agent as agent_router
 from api.agent_domain_policy import DOMAIN_CLARIFY_RESPONSE, AgentDomainClassification
+from decision_quality.chat_eval_runner import deterministic_score, load_cases, run_agent_chat_in_process
 
 
 def _parse_sse(raw: str) -> list[tuple[str, dict]]:
@@ -123,6 +126,150 @@ def _install_fake_anthropic(monkeypatch, streams: list[tuple[list[Any], Any]]):
     fake_client = _FakeClient(streams)
     monkeypatch.setattr("anthropic.Anthropic", lambda *args, **kwargs: fake_client)
     return fake_client
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        case
+        for case in load_cases(case_selectors=["routing_"])
+        if "candidate_tickers" in case.data["routing_expectations"]
+    ],
+    ids=lambda case: case.case_id,
+)
+def test_negative_routing_corpus_through_chat_endpoint(auth_client, monkeypatch, case):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    monkeypatch.setattr("api.memory_manager._retrieve_relevant", lambda _message: "")
+    text = "The conversation and screen provide context for this explanation."
+    _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_text_delta(text)],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": text}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+        ],
+    )
+    run = run_agent_chat_in_process(case, auth_password="testpass")
+    score = deterministic_score(case, run)
+    assert score["passed"], score["checks"]
+    assert "decision_quality_chat" not in run.done_payload
+    assert "opportunity_candidate_preflight" not in run.done_payload
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_followup_retains_selected_tools_and_tickers_without_forcing_a_call(auth_client, monkeypatch, provider):
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    replies = ["1. NVDA has the higher multiple. 2. MSFT has steadier cash flows.", "MSFT has the lower valuation."]
+    if provider == "anthropic":
+        streams = [
+            (
+                [_event_text_delta(text)],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": text}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+            for text in replies
+        ]
+        fake = _install_fake_anthropic(monkeypatch, streams)
+        calls = fake.messages.kwargs_history
+    else:
+        streams = [
+            (
+                [_openai_event_text_delta(text)],
+                SimpleNamespace(
+                    output=[{"type": "message", "content": [{"type": "output_text", "text": text}]}],
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+            for text in replies
+        ]
+        fake = _install_fake_openai(monkeypatch, streams)
+        calls = fake.responses.kwargs_history
+    first = auth_client.post(
+        "/api/agent/chat",
+        json={"message": "Compare NVDA and MSFT valuation", "finalize_synchronously": True},
+    )
+    first_done = next(payload for event, payload in _parse_sse(first.text) if event == "done")
+    session_id = first_done["session_id"]
+    second = auth_client.post(
+        "/api/agent/chat",
+        json={
+            "message": "What about the second one's valuation?",
+            "session_id": session_id,
+            "screen_context": {"page_name": "Research", "route": "/research/AAPL", "ticker": "AAPL"},
+            "finalize_synchronously": True,
+        },
+    )
+    assert first.status_code == second.status_code == 200
+    assert calls[0].get("tool_choice") in ({"type": "any"}, "required")
+    assert "tool_choice" not in calls[1]
+    second_done = next(payload for event, payload in _parse_sse(second.text) if event == "done")
+    assert second_done["intent_router"]["telemetry"]["candidate_tickers"] == ["MSFT"]
+    assert "get_financials" in second_done["intent_router"]["applied"]["tool_names"]
+    from api import memory_db
+
+    stored = memory_db.get_or_create_session(session_id)["server_messages"][-1]["routing_context"]
+    assert stored["tickers"] == ["MSFT"]
+    assert "run_chart" in stored["tool_names"]
+
+
+@pytest.mark.parametrize(
+    "message", ["Summarize the portfolio performance you just listed.", "What about the latest portfolio risks?"]
+)
+def test_followup_reuses_context_but_explicit_refresh_can_require_tools(auth_client, monkeypatch, message):
+    from api import memory_db
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    session = memory_db.get_or_create_session()
+    memory_db.append_messages(
+        session["session_id"],
+        [
+            {"role": "user", "content": "What are my portfolio risks?"},
+            {"role": "assistant", "content": "Portfolio performance is positive, with concentrated sector risk."},
+        ],
+    )
+    fake = _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_text_delta("The portfolio has concentrated sector risk.")],
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "The portfolio has concentrated sector risk."}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            )
+        ],
+    )
+    response = auth_client.post(
+        "/api/agent/chat",
+        json={"message": message, "session_id": session["session_id"], "finalize_synchronously": True},
+    )
+    assert response.status_code == 200
+    assert len(fake.messages.kwargs_history) == 1
+    if "latest" in message:
+        assert fake.messages.kwargs_history[0]["tool_choice"] == {"type": "any"}
+    else:
+        assert "tool_choice" not in fake.messages.kwargs_history[0]
+        assert not any(event == "tool_call" for event, _payload in _parse_sse(response.text))
 
 
 def _openai_event_text_delta(text: str):
@@ -268,6 +415,7 @@ def test_agent_stream_tracks_args_per_call_id(auth_client, monkeypatch):
     tool_results = [p for e, p in parsed if e == "tool_result"]
     assert len(tool_results) == 2
     assert all(p["status"] == "ok" for p in tool_results)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 2, "output_tokens": 3}
 
 
 def test_agent_stream_openai_function_call_roundtrip(auth_client, monkeypatch):
@@ -328,6 +476,7 @@ def test_agent_stream_openai_function_call_roundtrip(auth_client, monkeypatch):
     assert any(e == "tool_call" and p["name"] == "query_ontology" for e, p in parsed)
     assert any(e == "tool_result" and p["status"] == "ok" for e, p in parsed)
     assert any(e == "delta" and p["text"] == "analysis" for e, p in parsed)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 3, "output_tokens": 4}
 
 
 def test_agent_stream_gemini_function_call_roundtrip(auth_client, monkeypatch):
@@ -379,6 +528,7 @@ def test_agent_stream_gemini_function_call_roundtrip(auth_client, monkeypatch):
     }
     assert seen_args == [{"query": "A"}]
     parsed = _parse_sse(resp.text)
+    assert next(p for e, p in parsed if e == "done")["usage"] == {"input_tokens": 3, "output_tokens": 4}
     assert any(e == "tool_call" and p["name"] == "query_ontology" for e, p in parsed)
     assert any(e == "tool_result" and p["status"] == "ok" for e, p in parsed)
     assert any(e == "delta" and p["text"] == "analysis" for e, p in parsed)
@@ -411,7 +561,7 @@ def test_agent_gemini_v2_conversation_conversion_and_kwargs():
     assert kwargs["contents"] == conversation
     assert kwargs["config"]["max_output_tokens"] == 123
     assert kwargs["config"]["system_instruction"] == "instructions"
-    assert kwargs["config"]["thinking_config"] == {"thinking_level": "high"}
+    assert kwargs["config"]["thinking_config"] == {"thinking_level": "high", "include_thoughts": True}
     assert kwargs["config"]["tool_config"]["function_calling_config"]["mode"] == "ANY"
 
 
@@ -465,9 +615,9 @@ def test_agent_stream_openai_thinking_keeps_required_tool_choice(auth_client, mo
     )
 
     assert resp.status_code == 200
-    assert fake_client.responses.kwargs_history[0]["reasoning"] == {"effort": "xhigh"}
+    assert fake_client.responses.kwargs_history[0]["reasoning"] == {"effort": "xhigh", "summary": "auto"}
     assert fake_client.responses.kwargs_history[0]["tool_choice"] == "required"
-    assert fake_client.responses.kwargs_history[1]["reasoning"] == {"effort": "xhigh"}
+    assert fake_client.responses.kwargs_history[1]["reasoning"] == {"effort": "xhigh", "summary": "auto"}
 
 
 def test_agent_stream_anthropic_thinking_relaxes_forced_tool_choice(auth_client, monkeypatch):
@@ -496,7 +646,7 @@ def test_agent_stream_anthropic_thinking_relaxes_forced_tool_choice(auth_client,
     )
 
     assert resp.status_code == 200
-    assert fake_client.messages.kwargs_history[0]["thinking"] == {"type": "adaptive", "display": "omitted"}
+    assert fake_client.messages.kwargs_history[0]["thinking"] == {"type": "adaptive", "display": "summarized"}
     assert fake_client.messages.kwargs_history[0]["output_config"] == {"effort": "high"}
     assert "tool_choice" not in fake_client.messages.kwargs_history[0]
     assert fake_client.messages.kwargs_history[0]["tools"]
@@ -607,7 +757,14 @@ def test_agent_stream_auth_error_is_user_friendly(auth_client, monkeypatch):
 def test_anthropic_output_continuation_preserves_cached_prefix(auth_client, monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
-    monkeypatch.setattr(agent_router, "_build_memory_context", lambda: "Synthetic memory")
+    monkeypatch.setattr(
+        "api.memory_context.select_memory_context",
+        lambda *_args, **_kwargs: {
+            "enabled": True,
+            "memories": [{"session_id": "synthetic", "summary": "Synthetic memory"}],
+            "prompt": "Synthetic memory",
+        },
+    )
     fake_client = _install_fake_anthropic(
         monkeypatch,
         [
@@ -644,9 +801,73 @@ def test_anthropic_output_continuation_preserves_cached_prefix(auth_client, monk
     events = _parse_sse(response.text)
     assert not any(name == "error" for name, _payload in events)
     done = next(payload for name, payload in events if name == "done")
-    assert done["usage"]["input_tokens"] == 6023
+    assert done["usage"]["input_tokens"] == 12025
+    assert done["usage"]["output_tokens"] == 7
     assert done["usage"]["cache_read_input_tokens"] == 6000
+    assert done["usage"]["cache_creation_input_tokens"] == 6020
+    assert done["usage"]["uncached_input_tokens"] == 5
+    assert done["timings"]["models"][-1]["input_tokens"] == 6023
     assert done["timings"]["models"][-1]["cache_read_input_tokens"] == 6000
+
+
+@pytest.mark.parametrize("failure", [None, "provider", "budget"])
+def test_turn_usage_survives_later_model_errors(auth_client, monkeypatch, failure):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    if failure == "budget":
+        monkeypatch.setenv("AGENT_MAX_OUTPUT_TOKENS", "1")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    monkeypatch.setattr(agent_router, "execute_tool", lambda *args, **kwargs: json.dumps({"ok": True}))
+    turn_events = []
+    followups = []
+    original_followup = agent_router._turn_followup
+    monkeypatch.setattr(
+        agent_router, "_finish_agent_turn_provenance", lambda event_id, **kwargs: turn_events.append(kwargs)
+    )
+
+    def capture_followup(**kwargs):
+        followups.append(kwargs)
+        return original_followup(**kwargs)
+
+    monkeypatch.setattr(agent_router, "_turn_followup", capture_followup)
+
+    def response_events():
+        if failure == "provider":
+            raise RuntimeError("Model connection failed")
+        yield _event_text_delta("Answer")
+
+    _install_fake_anthropic(
+        monkeypatch,
+        [
+            (
+                [_event_tool_use_start("query_ontology", "call-1")],
+                SimpleNamespace(
+                    content=[{"type": "tool_use", "name": "query_ontology", "id": "call-1", "input": {"query": "A"}}],
+                    stop_reason="tool_use",
+                    usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+                ),
+            ),
+            (
+                response_events(),
+                SimpleNamespace(
+                    content=[{"type": "text", "text": "Answer"}],
+                    stop_reason="end_turn",
+                    usage=SimpleNamespace(input_tokens=2, output_tokens=3),
+                ),
+            ),
+        ],
+    )
+    response = auth_client.post("/api/agent/chat", json={"message": "portfolio test"})
+    events = _parse_sse(response.text)
+    expected = (
+        {"input_tokens": 1, "output_tokens": 1} if failure == "provider" else {"input_tokens": 3, "output_tokens": 4}
+    )
+    done = next(payload for event, payload in events if event == "done")
+
+    assert done["usage"] == expected
+    assert turn_events[-1]["usage"] == expected
+    assert followups[-1]["usage"] == expected
+    assert any(event == "error" for event, payload in events) == (failure is not None)
 
 
 def test_agent_chat_rejects_non_anthropic_key(auth_client, monkeypatch):
@@ -1708,7 +1929,7 @@ def test_agent_chat_openai_continues_after_output_token_limit(auth_client, monke
     monkeypatch.setenv("LLM_PROVIDER", "openai")
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
-    monkeypatch.setattr(agent_router, "_select_tool_names", lambda _message: [])
+    monkeypatch.setattr(agent_router, "_select_tool_names", lambda _message, **_kwargs: [])
     monkeypatch.setattr(
         "api.memory_manager.build_conversation_context",
         lambda _session_id, new_user_message, **_kwargs: (
@@ -1769,3 +1990,122 @@ def test_agent_chat_openai_continues_after_output_token_limit(auth_client, monke
     assert continuation_input[-1]["role"] == "user"
     assert "Continue exactly from where" in continuation_input[-1]["content"][0]["text"]
     assert finalized[-1]["content"] == "The BOJ should hike because imported inflation is accelerating."
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai"])
+def test_cache_catalog_survives_discovery_output_limit_and_next_turn(auth_client, monkeypatch, provider):
+    monkeypatch.setenv("LLM_PROVIDER", provider)
+    monkeypatch.setenv(f"{provider.upper()}_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_ENABLED", "false")
+    monkeypatch.setenv("AGENT_INTENT_ROUTER_SUPERVISED_ENABLED", "false")
+    monkeypatch.setattr("api.memory_manager._retrieve_relevant", lambda _message: "")
+    monkeypatch.setattr(
+        "api.memory_context.select_memory_context",
+        lambda *_args, **_kwargs: {
+            "enabled": True,
+            "memories": [{"session_id": "synthetic", "summary": "Synthetic memory"}],
+            "prompt": "Synthetic memory",
+        },
+    )
+    monkeypatch.setattr(
+        agent_router, "execute_tool", lambda *_args, **_kwargs: json.dumps({"matches": [{"name": "get_fx_dashboard"}]})
+    )
+    if provider == "anthropic":
+
+        def response(content, limited=False):
+            return SimpleNamespace(
+                content=content,
+                stop_reason="max_tokens" if limited else "end_turn",
+                usage=SimpleNamespace(
+                    input_tokens=10, output_tokens=2, cache_read_input_tokens=6000, cache_creation_input_tokens=0
+                ),
+            )
+
+        streams = [
+            (
+                [_event_tool_use_start("search_agent_capabilities", "discover-1")],
+                response(
+                    [
+                        {
+                            "type": "tool_use",
+                            "name": "search_agent_capabilities",
+                            "id": "discover-1",
+                            "input": {"query": "currency"},
+                        }
+                    ]
+                ),
+            ),
+            ([_event_text_delta("First. ")], response([{"type": "text", "text": "First. "}], limited=True)),
+            ([_event_text_delta("Last.")], response([{"type": "text", "text": "Last."}])),
+            ([_event_text_delta("Rates.")], response([{"type": "text", "text": "Rates."}])),
+        ]
+        fake = _install_fake_anthropic(monkeypatch, streams)
+        calls = fake.messages.kwargs_history
+    else:
+
+        def response(output, limited=False):
+            return SimpleNamespace(
+                output=output,
+                status="incomplete" if limited else "completed",
+                incomplete_details={"reason": "max_output_tokens"} if limited else None,
+                usage=SimpleNamespace(
+                    input_tokens=6010, output_tokens=2, input_tokens_details=SimpleNamespace(cached_tokens=6000)
+                ),
+            )
+
+        streams = [
+            (
+                [_openai_event_function_call("search_agent_capabilities", "discover-1")],
+                response(
+                    [
+                        {
+                            "type": "function_call",
+                            "name": "search_agent_capabilities",
+                            "call_id": "discover-1",
+                            "arguments": '{"query":"currency"}',
+                        }
+                    ]
+                ),
+            ),
+            *[
+                (
+                    [_openai_event_text_delta(text)],
+                    response(
+                        [{"type": "message", "role": "assistant", "content": [{"type": "output_text", "text": text}]}],
+                        limited=limited,
+                    ),
+                )
+                for text, limited in [("First. ", True), ("Last.", False), ("Rates.", False)]
+            ],
+        ]
+        fake = _install_fake_openai(monkeypatch, streams)
+        calls = fake.responses.kwargs_history
+    first = auth_client.post("/api/agent/chat", json={"message": "Chart NVDA", "finalize_synchronously": True})
+    first_events = _parse_sse(first.text)
+    assert not any(event == "error" for event, _ in first_events), first.text
+    first_done = next(payload for event, payload in first_events if event == "done")
+    second = auth_client.post(
+        "/api/agent/chat",
+        json={
+            "message": "How do rates affect my portfolio?",
+            "session_id": first_done["session_id"],
+            "screen_context": {"page_name": "Rates", "route": "/rates", "summary": "Synthetic yields"},
+            "response_preferences": {"custom_instructions": "Use a brief answer"},
+            "finalize_synchronously": True,
+        },
+    )
+    second_events = _parse_sse(second.text)
+    assert not any(event == "error" for event, _ in second_events), second.text
+    assert len(calls) == 4
+    assert all(call["tools"] == calls[0]["tools"] for call in calls)
+    assert calls[2]["tool_choice"] == ({"type": "none"} if provider == "anthropic" else "none")
+    for events in (first_events, second_events):
+        done = next(payload for event, payload in events if event == "done")
+        assert all(model["cache_read_input_tokens"] == 6000 for model in done["timings"]["models"])
+        assert all(model["cached_input_percent"] > 99 for model in done["timings"]["models"])
+    if provider == "openai":
+        assert len({call["prompt_cache_key"] for call in calls}) == 1
+        assert calls[0]["instructions"] != calls[-1]["instructions"]
+    else:
+        assert calls[0]["system"][0] == calls[-1]["system"][0]
+        assert calls[0]["system"][1:] != calls[-1]["system"][1:]

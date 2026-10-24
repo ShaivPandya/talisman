@@ -7,6 +7,8 @@ research across sessions.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import re
 import sqlite3
@@ -18,6 +20,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from api.conversation_messages import (
+    CREATE_MESSAGES,
+    CREATE_TURN_INDEX,
+    MESSAGE_COLUMNS,
+    legacy_messages,
+    message_record,
+    record_message,
+)
 from api.postgres import retry_read, use_postgres_state
 from api.postgres_state import PostgresStateConnection
 
@@ -43,13 +53,24 @@ CREATE TABLE IF NOT EXISTS conversation_sessions (
     title        TEXT,
     title_source TEXT,
     title_updated_at TEXT,
-    transcript   TEXT NOT NULL  -- JSON array of messages
+    rolling_summary TEXT,
+    rolling_summary_through_id TEXT,
+    pinned_at TEXT,
+    memory_enabled INTEGER NOT NULL DEFAULT 1,
+    memory_excluded INTEGER NOT NULL DEFAULT 0,
+    memory_summary TEXT
 )
 """
 
 _CREATE_SESSIONS_IDX = """
 CREATE INDEX IF NOT EXISTS idx_sessions_ended_at
 ON conversation_sessions(ended_at DESC)
+"""
+
+_CREATE_HISTORY_IDX = """
+CREATE INDEX IF NOT EXISTS idx_sessions_history
+ON conversation_sessions(COALESCE(pinned_at, '') DESC, COALESCE(ended_at, started_at, '') DESC, session_id DESC)
+WHERE message_count > 0
 """
 
 SESSION_TITLE_MAX_CHARS = 80
@@ -71,8 +92,15 @@ def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | Postg
                 _DB_PATH.parent.mkdir(parents=True, exist_ok=True)
                 _conn = sqlite3.connect(str(_DB_PATH), check_same_thread=False)
                 _conn.execute("PRAGMA journal_mode=WAL")
+                _conn.execute("PRAGMA foreign_keys=ON")
                 _conn.row_factory = sqlite3.Row
-                _init_db(_conn)
+                try:
+                    _init_db(_conn)
+                except BaseException:
+                    _conn.rollback()
+                    _conn.close()
+                    _conn = None
+                    raise
             try:
                 yield _conn
             except BaseException:
@@ -81,20 +109,45 @@ def _get_conn(*, read_only: bool = False) -> Iterator[sqlite3.Connection | Postg
 
 
 def _init_db(conn: sqlite3.Connection) -> None:
+    conn.execute("BEGIN")
     conn.execute(_CREATE_SESSIONS)
     conn.execute(_CREATE_SESSIONS_IDX)
-    # Migrate: add columns for server-managed rolling memory
-    for col, typedef in [
-        ("rolling_summary", "TEXT"),
-        ("server_messages", "TEXT NOT NULL DEFAULT '[]'"),
-        ("title", "TEXT"),
-        ("title_source", "TEXT"),
-        ("title_updated_at", "TEXT"),
-    ]:
-        try:
-            conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} {typedef}")
-        except sqlite3.OperationalError:
-            pass  # column already exists
+    columns = {row[1] for row in conn.execute("PRAGMA table_info(conversation_sessions)")}
+    for col in (
+        "rolling_summary",
+        "title",
+        "title_source",
+        "title_updated_at",
+        "rolling_summary_through_id",
+        "pinned_at",
+    ):
+        if col not in columns:
+            conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} TEXT")
+    for col, declaration in (
+        ("memory_enabled", "INTEGER NOT NULL DEFAULT 1"),
+        ("memory_excluded", "INTEGER NOT NULL DEFAULT 0"),
+        ("memory_summary", "TEXT"),
+    ):
+        if col not in columns:
+            conn.execute(f"ALTER TABLE conversation_sessions ADD COLUMN {col} {declaration}")
+    conn.execute(_CREATE_HISTORY_IDX)
+    conn.execute(CREATE_MESSAGES)
+    conn.execute(CREATE_TURN_INDEX)
+    if columns & {"transcript", "server_messages"}:
+        for row in conn.execute("SELECT * FROM conversation_sessions").fetchall():
+            sid = row["session_id"]
+            parent = None
+            messages = legacy_messages(dict(row))
+            for position, msg in enumerate(messages):
+                record = message_record(sid, msg, position, parent, legacy=True)
+                _insert_record(conn, record)
+                parent = record["id"]
+            conn.execute(
+                "UPDATE conversation_sessions SET message_count = ? WHERE session_id = ?", (len(messages), sid)
+            )
+        for col in ("transcript", "server_messages"):
+            if col in columns:
+                conn.execute(f"ALTER TABLE conversation_sessions DROP COLUMN {col}")
     _backfill_missing_titles(conn)
     conn.commit()
 
@@ -108,41 +161,68 @@ def save_session(
     messages: list[dict[str, Any]],
     session_id: str | None = None,
 ) -> dict[str, Any]:
-    """Save a conversation transcript. Returns the session record."""
+    """Import a transcript snapshot; ordinary turns use targeted message writes."""
+    sid = get_or_create_session(session_id)["session_id"]
+    now = datetime.now(UTC).isoformat()
     with _get_conn() as conn:
-        sid = session_id or str(uuid.uuid4())
-        now = datetime.now(UTC).isoformat()
-
-        timestamps: list[float] = [m["timestamp"] for m in messages if m.get("timestamp") is not None]
-        started_at = datetime.fromtimestamp(min(timestamps) / 1000, tz=UTC).isoformat() if timestamps else now
-
-        transcript_json = json.dumps(messages, default=str)
-
+        session = _session_for_write(conn, sid)
+        previous_rows = [
+            dict(row)
+            for row in conn.execute(
+                "SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY position",
+                (sid,),
+            ).fetchall()
+        ]
+        existing = [record_message(row) for row in previous_rows]
+        by_id = {row["id"]: row for row in previous_rows}
+        records = []
+        parent = None
+        for position, message in enumerate(messages):
+            msg = dict(message)
+            if not msg.get("id") and position < len(existing) and existing[position]["role"] == msg.get("role"):
+                msg["id"] = existing[position]["id"]
+            old = by_id.get(msg.get("id"))
+            if old:
+                msg = {**record_message(old), **msg}
+                if "toolCalls" in message and "tool_calls" not in message:
+                    msg["tool_calls"] = message["toolCalls"]
+            record = message_record(sid, msg, position, parent)
+            if old and any(record[key] != old[key] for key in ("position", "role", "parent_id")):
+                raise ValueError("Existing message identity and ancestry are immutable")
+            records.append(record)
+            parent = record["id"]
+        if len({record["id"] for record in records}) != len(records):
+            raise ValueError("Message ids must be unique within a transcript")
+        retained = {record["id"] for record in records}
+        removed = [row["id"] for row in previous_rows if row["id"] not in retained]
+        if removed:
+            conn.execute(
+                f"DELETE FROM conversation_messages WHERE session_id = ? AND id IN ({', '.join('?' for _ in removed)})",
+                (sid, *removed),
+            )
+        for record in records:
+            old = by_id.get(record["id"])
+            if old is None:
+                _insert_record(conn, record)
+            elif any(
+                (
+                    json.loads(record[key]) != json.loads(old[key])
+                    if key in {"content_parts", "metadata_json"}
+                    else record[key] != old[key]
+                )
+                for key in MESSAGE_COLUMNS
+                if key != "updated_at"
+            ):
+                _patch_row(conn, old, record_message(record))
         conn.execute(
-            """
-            INSERT INTO conversation_sessions
-                (session_id, started_at, ended_at, message_count, transcript, server_messages)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(session_id) DO UPDATE SET
-                ended_at = excluded.ended_at,
-                message_count = excluded.message_count,
-                transcript = excluded.transcript,
-                server_messages = excluded.server_messages
-            """,
-            (sid, started_at, now, len(messages), transcript_json, transcript_json),
+            "UPDATE conversation_sessions SET message_count = ?, ended_at = ? WHERE session_id = ?",
+            (len(records), now, sid),
         )
         conn.commit()
-
     first_user = _first_user_content(messages)
     if first_user:
         set_deterministic_title_if_missing(sid, first_user)
-
-    return {
-        "session_id": sid,
-        "started_at": started_at,
-        "ended_at": now,
-        "message_count": len(messages),
-    }
+    return {"session_id": sid, "started_at": session["started_at"], "ended_at": now, "message_count": len(messages)}
 
 
 def update_summary(
@@ -172,57 +252,91 @@ def update_summary(
         return cur.rowcount > 0
 
 
-def list_sessions(limit: int = 20) -> list[dict[str, Any]]:
-    """List recent sessions (without full transcripts)."""
+def list_sessions(limit: int = 20, *, query: str = "", cursor: str | None = None) -> list[dict[str, Any]]:
+    """List nonempty sessions, pinned first, without loading their transcripts.
+
+    The cursor contains the last row's complete sort key. A new conversation
+    arriving between pages therefore cannot shift the remaining rows.
+    """
+    filters = [
+        "s.message_count > 0",
+        "EXISTS (SELECT 1 FROM conversation_messages m WHERE m.session_id = s.session_id)",
+    ]
+    params: list[Any] = []
+    if query.strip():
+        pattern = "%" + query.strip().lower().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        if use_postgres_state():
+            parts = "conversation_messages m CROSS JOIN LATERAL jsonb_array_elements(m.content_parts::jsonb) part"
+            text_part = "part->>'type' = 'text' AND lower(part->>'text') LIKE ? ESCAPE '\\'"
+        else:
+            parts = "conversation_messages m JOIN json_each(m.content_parts) part"
+            text_part = "json_extract(part.value, '$.type') = 'text' AND lower(json_extract(part.value, '$.text')) LIKE ? ESCAPE '\\'"
+        filters.append(
+            "(lower(COALESCE(s.title, '')) LIKE ? ESCAPE '\\' "
+            "OR lower(COALESCE(s.summary, '')) LIKE ? ESCAPE '\\' "
+            f"OR EXISTS (SELECT 1 FROM {parts} WHERE m.session_id = s.session_id AND {text_part}))"
+        )
+        params.extend([pattern] * 3)
+    if cursor:
+        try:
+            key = json.loads(base64.urlsafe_b64decode(cursor.encode("ascii")))
+            if not isinstance(key, list) or len(key) != 3 or any(not isinstance(item, str) for item in key):
+                raise ValueError
+        except (ValueError, TypeError, UnicodeError, binascii.Error) as exc:
+            raise ValueError("Invalid history cursor") from exc
+        filters.append("(COALESCE(s.pinned_at, ''), COALESCE(s.ended_at, s.started_at, ''), s.session_id) < (?, ?, ?)")
+        params.extend(key)
+    params.append(limit)
 
     def _read() -> list[dict[str, Any]]:
         with _get_conn(read_only=True) as conn:
             rows = conn.execute(
-                """
+                f"""
                 SELECT session_id, started_at, ended_at, message_count,
                        key_tickers, key_topics, summary,
-                       title, title_source, title_updated_at
-                FROM conversation_sessions
-                ORDER BY ended_at DESC
+                       title, title_source, title_updated_at, pinned_at
+                FROM conversation_sessions s
+                WHERE {" AND ".join(filters)}
+                ORDER BY COALESCE(pinned_at, '') DESC, COALESCE(ended_at, started_at, '') DESC, session_id DESC
                 LIMIT ?
                 """,
-                (limit,),
+                params,
             ).fetchall()
             return [_row_to_dict(r) for r in rows]
 
     return retry_read(_read)
 
 
+def session_history_cursor(session: dict[str, Any]) -> str:
+    key = [
+        session.get("pinned_at") or "",
+        session.get("ended_at") or session.get("started_at") or "",
+        session["session_id"],
+    ]
+    return base64.urlsafe_b64encode(json.dumps(key).encode()).decode("ascii")
+
+
+def pin_session(session_id: str, pinned: bool) -> dict[str, Any] | None:
+    with _get_conn() as conn:
+        cur = conn.execute(
+            "UPDATE conversation_sessions SET pinned_at = COALESCE(pinned_at, ?) WHERE session_id = ?"
+            if pinned
+            else "UPDATE conversation_sessions SET pinned_at = ? WHERE session_id = ?",
+            (datetime.now(UTC).isoformat() if pinned else None, session_id),
+        )
+        conn.commit()
+    return get_session_summary(session_id) if cur.rowcount > 0 else None
+
+
 def get_session(session_id: str) -> dict[str, Any] | None:
-    """Load a full session including transcript."""
+    """Assemble the compatibility transcript from ordered message rows."""
 
     def _read() -> dict[str, Any] | None:
         with _get_conn(read_only=True) as conn:
-            row = conn.execute(
-                """
-                    SELECT session_id, started_at, ended_at, message_count,
-                       key_tickers, key_topics, summary,
-                       title, title_source, title_updated_at,
-                       transcript, server_messages
-                FROM conversation_sessions
-                WHERE session_id = ?
-                """,
-                (session_id,),
-            ).fetchone()
+            row = conn.execute("SELECT * FROM conversation_sessions WHERE session_id = ?", (session_id,)).fetchone()
             if row is None:
                 return None
-            result = _row_to_dict(row)
-            try:
-                result["transcript"] = json.loads(row["transcript"])
-            except Exception:
-                result["transcript"] = []
-            if not result["transcript"]:
-                try:
-                    result["transcript"] = json.loads(row["server_messages"]) if row["server_messages"] else []
-                except Exception:
-                    result["transcript"] = []
-            result.pop("server_messages", None)
-            return result
+            return {**_row_to_dict(row), "transcript": _load_session_messages(conn, session_id)}
 
     return retry_read(_read)
 
@@ -282,60 +396,18 @@ def get_recent_summaries(
 
 
 def get_or_create_session(session_id: str | None = None) -> dict[str, Any]:
-    """Load an existing session or create a new one.
-
-    Returns a dict with parsed ``server_messages`` (list) and
-    ``rolling_summary`` (str | None).
-    """
+    """Return metadata and a server-memory view assembled from message rows."""
     sid = session_id or str(uuid.uuid4())
-
     if session_id:
-
-        def _read():
-            with _get_conn(read_only=True) as conn:
-                row = conn.execute(
-                    """
-                    SELECT session_id, started_at, ended_at, message_count,
-                           rolling_summary, server_messages, transcript,
-                           title, title_source, title_updated_at
-                    FROM conversation_sessions
-                    WHERE session_id = ?
-                    """,
-                    (sid,),
-                ).fetchone()
-            return row
-
-        row = retry_read(_read)
-        if row is not None:
-            try:
-                msgs = json.loads(row["server_messages"]) if row["server_messages"] else []
-            except Exception:
-                msgs = []
-            if not msgs:
-                try:
-                    msgs = json.loads(row["transcript"]) if row["transcript"] else []
-                except Exception:
-                    msgs = []
-            return {
-                "session_id": row["session_id"],
-                "started_at": row["started_at"],
-                "rolling_summary": row["rolling_summary"],
-                "server_messages": msgs,
-                "message_count": row["message_count"] or 0,
-                "title": row["title"],
-                "title_source": row["title_source"],
-                "title_updated_at": row["title_updated_at"],
-            }
-
-    # Create a new session
+        session = get_session(sid)
+        if session is not None:
+            messages = session.pop("transcript")
+            return {**session, "server_messages": messages}
     now = datetime.now(UTC).isoformat()
     with _get_conn() as conn:
         conn.execute(
-            """
-            INSERT OR IGNORE INTO conversation_sessions
-                (session_id, started_at, ended_at, message_count, transcript, server_messages)
-            VALUES (?, ?, ?, 0, '[]', '[]')
-            """,
+            "INSERT OR IGNORE INTO conversation_sessions (session_id, started_at, ended_at, message_count) "
+            "VALUES (?, ?, ?, 0)",
             (sid, now, now),
         )
         conn.commit()
@@ -351,102 +423,260 @@ def get_or_create_session(session_id: str | None = None) -> dict[str, Any]:
     }
 
 
-def _load_session_messages(conn: sqlite3.Connection | PostgresStateConnection, session_id: str) -> list[dict[str, Any]]:
-    row = conn.execute(
-        "SELECT server_messages, transcript FROM conversation_sessions WHERE session_id = ?",
-        (session_id,),
-    ).fetchone()
+def _load_session_messages(conn: Any, session_id: str) -> list[dict[str, Any]]:
+    return [
+        record_message(row)
+        for row in conn.execute(
+            "SELECT * FROM conversation_messages WHERE session_id = ? ORDER BY position",
+            (session_id,),
+        ).fetchall()
+    ]
+
+
+def _session_for_write(conn: Any, session_id: str) -> Any:
+    from api.agent_job_recovery import fence_transcript_write
+
+    fence_transcript_write(conn)
+    lock = " FOR UPDATE" if isinstance(conn, PostgresStateConnection) else ""
+    row = conn.execute(f"SELECT * FROM conversation_sessions WHERE session_id = ?{lock}", (session_id,)).fetchone()
     if row is None:
         raise ValueError(f"Session {session_id} not found")
-    try:
-        existing = json.loads(row["server_messages"]) if row["server_messages"] else []
-    except Exception:
-        existing = []
-    if not existing:
-        try:
-            existing = json.loads(row["transcript"]) if row["transcript"] else []
-        except Exception:
-            existing = []
-    return [m for m in existing if isinstance(m, dict)]
+    return row
 
 
-def _save_session_messages(
-    conn: sqlite3.Connection | PostgresStateConnection,
-    session_id: str,
-    messages: list[dict[str, Any]],
-) -> int:
-    now = datetime.now(UTC).isoformat()
+def _insert_record(conn: Any, record: dict[str, Any]) -> None:
     conn.execute(
-        """
-        UPDATE conversation_sessions
-        SET server_messages = ?, transcript = ?, message_count = ?, ended_at = ?
-        WHERE session_id = ?
-        """,
-        (json.dumps(messages, default=str), json.dumps(messages, default=str), len(messages), now, session_id),
+        f"INSERT INTO conversation_messages ({', '.join(MESSAGE_COLUMNS)}) VALUES ({', '.join('?' for _ in MESSAGE_COLUMNS)})",
+        tuple(record[col] for col in MESSAGE_COLUMNS),
     )
-    return len(messages)
+
+
+def _turn_row(conn: Any, session_id: str, turn_id: str, role: str = "assistant") -> Any:
+    lock = " FOR UPDATE" if isinstance(conn, PostgresStateConnection) else ""
+    return conn.execute(
+        "SELECT * FROM conversation_messages WHERE session_id = ? AND client_turn_id = ? AND role = ? "
+        f"ORDER BY position DESC LIMIT 1{lock}",
+        (session_id, turn_id, role),
+    ).fetchone()
+
+
+def _message_row(conn: Any, session_id: str, message_id: Any, role: str | None = None) -> Any:
+    if not message_id:
+        return None
+    row = conn.execute(
+        "SELECT * FROM conversation_messages WHERE session_id = ? AND id = ?", (session_id, message_id)
+    ).fetchone()
+    return row if row is not None and (role is None or row["role"] == role) else None
+
+
+def _with_valid_parent(conn: Any, session_id: str, message: dict[str, Any]) -> dict[str, Any]:
+    """Drop a named parent that isn't stored in this session, so the message continues the latest branch."""
+    if message.get("parent_id") and _message_row(conn, session_id, message["parent_id"]) is None:
+        return {key: value for key, value in message.items() if key != "parent_id"}
+    return message
+
+
+def _patch_row(conn: Any, row: Any, patch: dict[str, Any]) -> None:
+    message = {**record_message(row), **patch}
+    if "content_parts" in patch:
+        for key in (
+            "content",
+            "tool_calls",
+            "toolCalls",
+            "sources",
+            "attachments",
+            "thinking",
+            "narration",
+            "charts",
+            "proposals",
+            "suggestions",
+        ):
+            if key not in patch:
+                message.pop(key, None)
+    # Identity and ancestry never change during streaming/finalization.
+    message.update(
+        id=row["id"], parent_id=row["parent_id"], created_at=row["created_at"], updated_at=datetime.now(UTC).isoformat()
+    )
+    if "is_streaming" in patch and "status" not in patch:
+        message["status"] = "streaming" if patch["is_streaming"] else "complete"
+    if "toolCalls" in patch and "tool_calls" not in patch:
+        message["tool_calls"] = patch["toolCalls"]
+    record = message_record(row["session_id"], message, row["position"], row["parent_id"])
+    conn.execute(
+        "UPDATE conversation_messages SET status = ?, content_parts = ?, metadata_json = ?, updated_at = ? WHERE id = ? AND session_id = ?",
+        (
+            record["status"],
+            record["content_parts"],
+            record["metadata_json"],
+            record["updated_at"],
+            row["id"],
+            row["session_id"],
+        ),
+    )
+
+
+def _append(conn: Any, session_id: str, messages: list[dict[str, Any]], count: int) -> int:
+    previous = conn.execute(
+        "SELECT id, position FROM conversation_messages WHERE session_id = ? ORDER BY position DESC LIMIT 1",
+        (session_id,),
+    ).fetchone()
+    position = previous["position"] + 1 if previous else 0
+    parent = previous["id"] if previous else None
+    for message in messages:
+        record = message_record(session_id, message, position, parent)
+        _insert_record(conn, record)
+        parent, position = record["id"], position + 1
+    total = count + len(messages)
+    conn.execute(
+        "UPDATE conversation_sessions SET message_count = ?, ended_at = ? WHERE session_id = ?",
+        (total, datetime.now(UTC).isoformat(), session_id),
+    )
+    return total
 
 
 def turn_exists(session_id: str, client_turn_id: str) -> bool:
-    """Return True if any message in the session carries this client_turn_id."""
     if not client_turn_id:
         return False
 
     def _read() -> bool:
         with _get_conn(read_only=True) as conn:
-            try:
-                messages = _load_session_messages(conn, session_id)
-            except ValueError:
-                return False
-            return any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
+            return (
+                conn.execute(
+                    "SELECT 1 FROM conversation_messages WHERE session_id = ? AND client_turn_id = ? LIMIT 1",
+                    (session_id, client_turn_id),
+                ).fetchone()
+                is not None
+            )
 
     return retry_read(_read)
 
 
-def begin_turn(
-    session_id: str,
-    user_message: dict[str, Any],
-    assistant_placeholder: dict[str, Any],
-) -> int:
-    """Append user + streaming assistant for a turn. Idempotent per client_turn_id."""
-    client_turn_id = str(user_message.get("client_turn_id") or assistant_placeholder.get("client_turn_id") or "")
+def attachment_ids_in_use() -> set[str]:
+    """Ids of every uploaded file a stored message cites, across all sessions.
+
+    A row that cannot be read raises instead of being skipped: the caller uses this to decide what
+    is safe to delete, and a missed citation would delete a file a message still shows.
+    """
+
+    def _read() -> list[str]:
+        with _get_conn(read_only=True) as conn:
+            rows = conn.execute(
+                "SELECT content_parts FROM conversation_messages WHERE content_parts LIKE ?", ('%"attachment"%',)
+            ).fetchall()
+            return [row["content_parts"] for row in rows]
+
+    ids: set[str] = set()
+    for raw in retry_read(_read):
+        for part in json.loads(raw):
+            data = part.get("data") if isinstance(part, dict) and part.get("type") == "attachment" else None
+            if isinstance(data, dict) and isinstance(data.get("id"), str):
+                ids.add(data["id"])
+    return ids
+
+
+def turn_exchange(session_id: str, client_turn_id: str) -> dict[str, Any]:
+    """A turn's question and answer as saved: the answer's status ("" when it isn't saved yet), text and suggestions."""
+
+    def _read() -> dict[str, Any]:
+        with _get_conn(read_only=True) as conn:
+            rows = {
+                role: conn.execute(
+                    "SELECT * FROM conversation_messages WHERE session_id = ? AND client_turn_id = ? AND role = ? "
+                    "ORDER BY position DESC LIMIT 1",
+                    (session_id, client_turn_id, role),
+                ).fetchone()
+                for role in ("user", "assistant")
+            }
+        user = record_message(rows["user"]) if rows["user"] is not None else {}
+        answer = record_message(rows["assistant"]) if rows["assistant"] is not None else {}
+        return {
+            "status": answer.get("status") or "",
+            "question": str(user.get("content") or ""),
+            "answer": str(answer.get("content") or ""),
+            "suggestions": answer.get("suggestions") or [],
+        }
+
+    return retry_read(_read)
+
+
+def message_suggestions(session_id: str, message_id: str) -> list[dict[str, Any]]:
+    """The suggested follow-up questions saved on an assistant message; none when it has none yet."""
+
+    def _read() -> list[dict[str, Any]]:
+        with _get_conn(read_only=True) as conn:
+            row = _message_row(conn, session_id, message_id, "assistant")
+        return list(record_message(row).get("suggestions") or []) if row is not None else []
+
+    return retry_read(_read)
+
+
+def begin_turn(session_id: str, user_message: dict[str, Any], assistant_placeholder: dict[str, Any]) -> int:
+    """Insert the user and streaming assistant once per client turn.
+
+    A user message that is already stored (regenerating its answer) is not inserted again:
+    the new streaming assistant becomes another reply to it.
+    """
+    turn_id = str(user_message.get("client_turn_id") or assistant_placeholder.get("client_turn_id") or "")
     with _get_conn() as conn:
-        messages = _load_session_messages(conn, session_id)
-        if client_turn_id and any(str(m.get("client_turn_id")) == client_turn_id for m in messages):
-            return len(messages)
-        messages.append(user_message)
-        messages.append(assistant_placeholder)
-        total = _save_session_messages(conn, session_id, messages)
+        session = _session_for_write(conn, session_id)
+        if turn_id and any(_turn_row(conn, session_id, turn_id, role) is not None for role in ("user", "assistant")):
+            return int(session["message_count"] or 0)
+        placeholder = {"is_streaming": True, **assistant_placeholder}
+        stored_user = _message_row(conn, session_id, user_message.get("id"), "user")
+        new_messages = [_with_valid_parent(conn, session_id, user_message), placeholder]
+        if stored_user is not None:
+            new_messages = [{**placeholder, "parent_id": stored_user["id"]}]
+        total = _append(conn, session_id, new_messages, int(session["message_count"] or 0))
         conn.commit()
         return total
+
+
+def begin_job_turn(session_id: str, client_turn_id: str | None, job_id: str) -> bool:
+    if not client_turn_id:
+        return False
+    with _get_conn() as conn:
+        try:
+            _session_for_write(conn, session_id)
+        except ValueError:
+            return False
+        row = _turn_row(conn, session_id, client_turn_id)
+        if row is None:
+            return False
+        message = record_message(row)
+        previous = message.get("async_job_id")
+        if previous == job_id:
+            return True
+        patch: dict[str, Any] = {"async_job_id": job_id}
+        if previous or row["status"] != "streaming":
+            patch.update(
+                content="", is_streaming=True, status="streaming", tool_calls=[], sources=[], thinking=[], narration=[]
+            )
+        _patch_row(conn, row, patch)
+        conn.commit()
+        return True
 
 
 def update_assistant_message(
     session_id: str,
     client_turn_id: str,
     patch: dict[str, Any],
+    *,
+    only_streaming: bool = False,
+    expected_job_id: str | None = None,
 ) -> bool:
-    """Patch the assistant message for a turn. Returns True if updated."""
+    """Lock and update just the target row, fenced against stale workers/writes."""
     if not client_turn_id:
         return False
+    from api.agent_job_recovery import fence_transcript_write
+
     with _get_conn() as conn:
-        try:
-            messages = _load_session_messages(conn, session_id)
-        except ValueError:
+        fence_transcript_write(conn)
+        row = _turn_row(conn, session_id, client_turn_id)
+        if row is None or (only_streaming and row["status"] != "streaming"):
             return False
-        updated = False
-        for msg in messages:
-            if msg.get("role") != "assistant":
-                continue
-            if str(msg.get("client_turn_id")) != client_turn_id:
-                continue
-            for key, value in patch.items():
-                msg[key] = value
-            updated = True
-            break
-        if not updated:
+        if expected_job_id and record_message(row).get("async_job_id") not in {None, expected_job_id}:
             return False
-        _save_session_messages(conn, session_id, messages)
+        _patch_row(conn, row, patch)
         conn.commit()
         return True
 
@@ -457,34 +687,32 @@ def complete_turn_messages(
     user_message: dict[str, Any],
     assistant_message: dict[str, Any],
 ) -> int:
-    """Finalize an incremental turn in place. Idempotent if already complete."""
+    final = {**assistant_message, "status": "complete", "is_streaming": False}
     if not client_turn_id:
-        return append_messages(session_id, [user_message, assistant_message])
+        return append_messages(session_id, [user_message, final])
     with _get_conn() as conn:
-        messages = _load_session_messages(conn, session_id)
-        found_turn = any(str(m.get("client_turn_id")) == client_turn_id for m in messages)
-        if not found_turn:
-            messages.extend([user_message, assistant_message])
-            total = _save_session_messages(conn, session_id, messages)
-            conn.commit()
-            return total
-
-        new_messages: list[dict[str, Any]] = []
-        replaced = False
-        for msg in messages:
-            if str(msg.get("client_turn_id")) != client_turn_id:
-                new_messages.append(msg)
-                continue
-            if msg.get("role") == "user":
-                merged = {**msg, **user_message}
-                new_messages.append(merged)
-            elif msg.get("role") == "assistant":
-                merged = {**msg, **assistant_message, "is_streaming": False}
-                new_messages.append(merged)
-                replaced = True
-        if not replaced:
-            new_messages.append(assistant_message)
-        total = _save_session_messages(conn, session_id, new_messages)
+        session = _session_for_write(conn, session_id)
+        row = _turn_row(conn, session_id, client_turn_id)
+        if row is None:
+            user = _turn_row(conn, session_id, client_turn_id, "user") or _message_row(
+                conn, session_id, user_message.get("id"), "user"
+            )
+            new_messages = (
+                [_with_valid_parent(conn, session_id, user_message), final]
+                if user is None
+                else [{**final, "parent_id": user["id"]}]
+            )
+            total = _append(conn, session_id, new_messages, int(session["message_count"] or 0))
+        else:
+            # Stop/failure and already completed messages are terminal. Only an
+            # explicit retry in begin_job_turn may reopen a terminal message.
+            if row["status"] == "streaming":
+                _patch_row(conn, row, final)
+            total = int(session["message_count"] or 0)
+            conn.execute(
+                "UPDATE conversation_sessions SET ended_at = ? WHERE session_id = ?",
+                (datetime.now(UTC).isoformat(), session_id),
+            )
         conn.commit()
         return total
 
@@ -493,53 +721,43 @@ def fail_turn(
     session_id: str,
     client_turn_id: str,
     *,
-    status: str = "cancelled",
+    status: str = "stopped",
     content: str | None = None,
+    job_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
 ) -> bool:
-    """Mark an in-progress assistant turn as terminal without a full completion."""
-    patch: dict[str, Any] = {"is_streaming": False, "status": status}
+    patch: dict[str, Any] = {**(metadata or {}), "is_streaming": False, "status": status}
     if content is not None:
         patch["content"] = content
-    return update_assistant_message(session_id, client_turn_id, patch)
+    return update_assistant_message(session_id, client_turn_id, patch, only_streaming=True, expected_job_id=job_id)
 
 
 def append_messages(session_id: str, messages: list[dict[str, Any]]) -> int:
-    """Append messages to a session's server_messages. Returns new total count."""
     with _get_conn() as conn:
-        now = datetime.now(UTC).isoformat()
-        turn_ids = {str(m.get("client_turn_id")) for m in messages if m.get("client_turn_id")}
-        row = conn.execute(
-            "SELECT server_messages, transcript FROM conversation_sessions WHERE session_id = ?",
-            (session_id,),
-        ).fetchone()
-        if row is None:
-            raise ValueError(f"Session {session_id} not found")
-        try:
-            existing = json.loads(row["server_messages"]) if row["server_messages"] else []
-        except Exception:
-            existing = []
-        if not existing:
-            try:
-                existing = json.loads(row["transcript"]) if row["transcript"] else []
-            except Exception:
-                existing = []
-        if turn_ids and any(str(m.get("client_turn_id")) in turn_ids for m in existing if isinstance(m, dict)):
-            return len(existing)
-        existing.extend(messages)
-        conn.execute(
-            """
-            UPDATE conversation_sessions
-            SET server_messages = ?, transcript = ?, message_count = ?, ended_at = ?
-            WHERE session_id = ?
-            """,
-            (json.dumps(existing, default=str), json.dumps(existing, default=str), len(existing), now, session_id),
-        )
+        session = _session_for_write(conn, session_id)
+        for message in messages:
+            turn_id = message.get("client_turn_id") or message.get("clientTurnId")
+            if (
+                turn_id
+                and conn.execute(
+                    "SELECT 1 FROM conversation_messages WHERE session_id = ? AND client_turn_id = ? LIMIT 1",
+                    (session_id, turn_id),
+                ).fetchone()
+                is not None
+            ):
+                return int(session["message_count"] or 0)
+        total = _append(conn, session_id, messages, int(session["message_count"] or 0))
         conn.commit()
-        return len(existing)
+        return total
 
 
-def update_rolling_summary(session_id: str, summary: str, *, expected: str | None = None) -> bool:
+def update_rolling_summary(
+    session_id: str, summary: str, *, expected: str | None = None, through_id: str | None = None
+) -> bool:
     """Update the rolling summary for a session. Returns True if the row was updated.
+
+    ``through_id`` is the last message the summary covers. A conversation with branches uses
+    it to tell whether the summary belongs to the branch being continued.
 
     With ``expected``, the update applies only while the stored summary still equals it
     (an empty string matches no summary), so concurrent summarizers can't overwrite
@@ -548,14 +766,15 @@ def update_rolling_summary(session_id: str, summary: str, *, expected: str | Non
     with _get_conn() as conn:
         if expected is None:
             cur = conn.execute(
-                "UPDATE conversation_sessions SET rolling_summary = ? WHERE session_id = ?",
-                (summary, session_id),
+                "UPDATE conversation_sessions SET rolling_summary = ?, rolling_summary_through_id = ? "
+                "WHERE session_id = ?",
+                (summary, through_id, session_id),
             )
         else:
             cur = conn.execute(
-                "UPDATE conversation_sessions SET rolling_summary = ? "
+                "UPDATE conversation_sessions SET rolling_summary = ?, rolling_summary_through_id = ? "
                 "WHERE session_id = ? AND COALESCE(rolling_summary, '') = ?",
-                (summary, session_id, expected),
+                (summary, through_id, session_id, expected),
             )
         conn.commit()
         return cur.rowcount > 0
@@ -668,7 +887,7 @@ def get_session_summary(session_id: str) -> dict[str, Any] | None:
                 """
                 SELECT session_id, started_at, ended_at, message_count,
                        key_tickers, key_topics, summary,
-                       title, title_source, title_updated_at
+                       title, title_source, title_updated_at, pinned_at
                 FROM conversation_sessions
                 WHERE session_id = ?
                 """,
@@ -737,28 +956,13 @@ def _first_user_content(messages: list[dict[str, Any]]) -> str | None:
 
 
 def _backfill_missing_titles(conn: sqlite3.Connection) -> None:
-    try:
-        rows = conn.execute(
-            """
-            SELECT session_id, transcript, server_messages
-            FROM conversation_sessions
-            WHERE title IS NULL OR trim(title) = ''
-            """
-        ).fetchall()
-    except Exception:
-        return
+    rows = conn.execute(
+        "SELECT session_id FROM conversation_sessions WHERE title IS NULL OR trim(title) = ''",
+    ).fetchall()
+
     now = datetime.now(UTC).isoformat()
     for row in rows:
-        messages: list[dict[str, Any]] = []
-        for field in ("transcript", "server_messages"):
-            try:
-                raw = row[field]
-                parsed = json.loads(raw) if raw else []
-                if isinstance(parsed, list) and parsed:
-                    messages = [m for m in parsed if isinstance(m, dict)]
-                    break
-            except Exception:
-                continue
+        messages = _load_session_messages(conn, row["session_id"])
         title = deterministic_title_from_text(_first_user_content(messages))
         if not title:
             continue

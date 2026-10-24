@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 from api.tool_data_quality import PRICE_CONFIRMATION_TOOLS, normalize_tool_quality
 from decision_quality.models import OpportunityType
+from decision_quality.routing_signals import extract_candidate_ticker
 
 ContextPackId = Literal[
     "catalyst",
@@ -246,23 +247,8 @@ def get_context_pack(pack_id: str | None) -> ContextPackTemplate:
     return CONTEXT_PACKS[DEFAULT_CONTEXT_PACK]
 
 
-def _screen_ticker(screen_context: dict[str, Any] | None) -> str | None:
-    if not isinstance(screen_context, dict):
-        return None
-    ticker = str(screen_context.get("ticker") or "").strip().upper()
-    return ticker or None
-
-
 def _extract_ticker(user_text: str, screen_context: dict[str, Any] | None) -> str | None:
-    ticker = _screen_ticker(screen_context)
-    if ticker:
-        return ticker
-    stop = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO"}
-    matches = re.findall(r"\b([A-Z]{1,5})\b", user_text or "")
-    for match in matches:
-        if match not in stop and len(match) >= 2:
-            return str(match)
-    return None
+    return extract_candidate_ticker(user_text, screen_context)
 
 
 def resolve_context_pack(
@@ -320,10 +306,11 @@ def build_context_pack_tool_calls(
     user_text: str,
     screen_context: dict[str, Any] | None = None,
     allowed_tool_names: set[str] | frozenset[str] | None = None,
+    ticker: str | None = None,
 ) -> list[dict[str, Any]]:
     """Build hidden chat tool calls for a resolved context pack."""
     allowed = set(allowed_tool_names or ())
-    ticker = _extract_ticker(user_text, screen_context)
+    ticker = ticker or _extract_ticker(user_text, screen_context)
     calls: list[dict[str, Any]] = []
 
     def add(name: str, args: dict[str, Any]) -> None:

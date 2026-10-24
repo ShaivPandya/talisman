@@ -64,6 +64,8 @@ def disposable_job_database(dsn: str) -> Iterator[str]:
         "20260429_0002_async_jobs_rq.py",
         "20260503_0014_async_job_events.py",
         "20261021_0002_async_job_claims.py",
+        "20260515_0002_conversation_session_titles.py",
+        "20261023_tl220_conversation_messages.py",
     )
     with psycopg.connect(dsn, autocommit=True) as admin:
         admin.execute("CREATE EXTENSION IF NOT EXISTS vector")

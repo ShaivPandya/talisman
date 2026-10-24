@@ -24,6 +24,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from api.conversation_messages import MESSAGE_COLUMNS, legacy_messages, message_record
 from api.postgres import require_database_url
 
 SOURCE_DBS: dict[str, str] = {
@@ -1057,26 +1058,41 @@ class StateMigrator:
         counts = {"conversation_sessions": _sqlite_count(db, "conversation_sessions")}
         if self._source_completed("memory", source_hash):
             return SourceResult("memory", source_hash, counts)
-        self._upsert_rows(
-            "conversation_sessions",
-            [
-                "session_id",
-                "started_at",
-                "ended_at",
-                "message_count",
-                "key_tickers",
-                "key_topics",
-                "summary",
-                "title",
-                "title_source",
-                "title_updated_at",
-                "transcript",
-                "rolling_summary",
-                "server_messages",
-            ],
-            ["session_id"],
-            _sqlite_rows(db, "conversation_sessions"),
-        )
+        sessions = _sqlite_rows(db, "conversation_sessions")
+        columns = [
+            "session_id",
+            "started_at",
+            "ended_at",
+            "message_count",
+            "key_tickers",
+            "key_topics",
+            "summary",
+            "title",
+            "title_source",
+            "title_updated_at",
+            "rolling_summary",
+        ]
+        with sqlite3.connect(str(db)) as source:
+            normalized = source.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'conversation_messages'"
+            ).fetchone()
+        if normalized:
+            records = _sqlite_rows(db, "conversation_messages")
+        else:
+            records = []
+            for session in sessions:
+                parent = None
+                messages = legacy_messages(session)
+                session["message_count"] = len(messages)
+                for position, message in enumerate(messages):
+                    record = message_record(session["session_id"], message, position, parent, legacy=True)
+                    records.append(record)
+                    parent = record["id"]
+        self._upsert_rows("conversation_sessions", columns, ["session_id"], sessions)
+        # Self-referencing parent rows must be imported before their children.
+        for record in sorted(records, key=lambda row: (row["session_id"], row["position"])):
+            self._upsert_rows("conversation_messages", list(MESSAGE_COLUMNS), ["id"], [record])
+        counts["conversation_messages"] = len(records)
         result = SourceResult("memory", source_hash, counts)
         self._record_source(result)
         return result

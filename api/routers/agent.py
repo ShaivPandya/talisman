@@ -17,7 +17,7 @@ import re
 import time
 import uuid
 from collections import Counter
-from collections.abc import Sized
+from collections.abc import Generator, Sized
 from concurrent.futures import FIRST_COMPLETED, wait
 from dataclasses import asdict
 from datetime import UTC, datetime
@@ -25,9 +25,12 @@ from functools import cache, lru_cache
 from pathlib import Path
 from typing import Annotated, Any
 
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse, StreamingResponse
+from starlette.types import Receive, Scope, Send
 
+from api import chat_rich_parts
 from api.agent_domain_policy import (
     DOMAIN_BLOCK_RESPONSE,
     DOMAIN_CLARIFY_RESPONSE,
@@ -42,6 +45,7 @@ from api.agent_governance import (
     ModelGatewayDenied,
     blocked_tool_payload,
     prepare_model_egress,
+    strip_inline_files,
 )
 from api.agent_models import (
     AgentChatJobRequest,
@@ -52,6 +56,8 @@ from api.agent_models import (
     ScreenContextModel,
 )
 from api.agent_turn_followup import AgentTurnFollowupRequest, queue_agent_turn_followup
+from api.chat_attachments import gemini_parts, openai_content, turn_attachments
+from api.conversation_messages import TurnLineage, resolve_turn_lineage, sources_from
 from api.exceptions import ConfigurationError
 from api.job_events import append_job_event, list_job_events, read_job_events_snapshot
 from api.job_queue import cancel_job, get_job
@@ -60,6 +66,7 @@ from api.performance import emit as emit_performance
 from api.performance_chat import begin_chat_round, observe_chat_response
 from api.routers.auth import require_actor
 from api.tool_data_quality import aggregate_tool_data_quality
+from api.tool_result_memory import TOOL_MEMORY_GUIDANCE, TOOL_MEMORY_HEADER, compact_tool_result
 from api.workflows import AVAILABLE_WORKFLOWS, execute_workflow
 from decision_quality.candidate_gates import apply_opportunity_candidate_gates
 from decision_quality.context_packs import (
@@ -88,6 +95,12 @@ from decision_quality.opportunity_candidate import (
     OpportunityCandidateGate,
     opportunity_candidate_schema,
     parse_opportunity_candidate,
+)
+from decision_quality.routing_signals import (
+    extract_candidate_ticker,
+    extract_tickers,
+    is_contextual_followup,
+    previous_turn,
 )
 from decision_quality.scout_skeptic_sizer_gate import build_chat_scout_skeptic_sizer_gate
 from decision_quality.synthesis_supervised import apply_supervised_triage_overlay
@@ -232,10 +245,6 @@ def _build_agent_base_instructions() -> str:
 def _build_agent_instructions(screen_context: ScreenContextModel | None = None) -> str:
     base = _build_agent_base_instructions()
 
-    memory_section = _build_memory_context()
-    if memory_section:
-        base += "\n\n---\n\n" + memory_section
-
     screen_section = _build_screen_context_section(screen_context)
     if screen_section:
         base += "\n\n---\n\n" + screen_section
@@ -298,53 +307,6 @@ def _build_response_preferences_section(prefs: AgentResponsePreferences | None) 
     return "\n".join(lines)
 
 
-_memory_cache: tuple[float, str] | None = None
-_MEMORY_CACHE_TTL = 60.0
-
-
-def _build_memory_context() -> str:
-    """Build a Recent Research Context section from past session summaries."""
-    global _memory_cache
-    now = time.monotonic()
-    if _memory_cache is not None and now - _memory_cache[0] < _MEMORY_CACHE_TTL:
-        return _memory_cache[1]
-
-    try:
-        from api.memory_db import get_recent_summaries
-
-        summaries = get_recent_summaries(limit=5)
-        if not summaries:
-            _memory_cache = (now, "")
-            return ""
-
-        lines = [
-            "## Recent Research Context\n",
-            "**WARNING: The summaries below are historical records of past conversations. "
-            "ALL prices, percentages, scores, and numerical data in these summaries are "
-            "from the date shown and are STALE. NEVER cite any numerical value from these "
-            "summaries as current. Always use tools to fetch current data before making "
-            "any market claims. These summaries exist only to remind you what topics and "
-            "tickers were previously discussed, NOT to provide current data.**\n",
-        ]
-        for s in summaries:
-            ended = str(s.get("ended_at") or s.get("started_at") or "")[:10]
-            summary = str(s.get("summary") or "").strip()
-            tickers = s.get("key_tickers")
-            if not summary:
-                continue
-            header = f"[{ended}]"
-            if isinstance(tickers, list) and tickers:
-                header += f" ({', '.join(tickers[:5])})"
-            lines.append(f"{header} {summary}")
-
-        result = "\n".join(lines) if len(lines) > 1 else ""
-        _memory_cache = (now, result)
-        return result
-    except Exception:
-        logger.debug("Failed to load memory context", exc_info=True)
-        return ""
-
-
 @router.get("/agent/workflows")
 def list_workflows():
     """List available deterministic workflows."""
@@ -378,6 +340,31 @@ def _sse_headers() -> dict[str, str]:
         # Prevent GZipMiddleware and upstream proxies from buffering small SSE frames.
         "Content-Encoding": "identity",
     }
+
+
+class _ClosingStreamingResponse(StreamingResponse):
+    """A StreamingResponse that closes its sync generator as soon as the response ends.
+
+    On a client disconnect Starlette stops iterating but leaves the generator
+    suspended until garbage collection, so its ``finally`` could run seconds
+    later or never. Closing it here runs that cleanup right away, in a thread
+    (closing can wait on in-flight tool calls) and shielded from cancellation.
+    """
+
+    def __init__(self, content: Generator[str, None, None], **kwargs: Any):
+        super().__init__(content, **kwargs)
+        self._generator = content
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        try:
+            await super().__call__(scope, receive, send)
+        finally:
+            if inspect.getgeneratorstate(self._generator) != inspect.GEN_CLOSED:
+                with anyio.CancelScope(shield=True):
+                    try:
+                        await anyio.to_thread.run_sync(self._generator.close)
+                    except Exception:
+                        logger.exception("Failed to close agent chat stream")
 
 
 def _elapsed_ms(started: float) -> float:
@@ -587,6 +574,7 @@ def _turn_followup(
     provenance_event_id: str | None = None,
     raw_payload: dict[str, Any] | None = None,
     messages_before_turn: int | None = None,
+    session_messages: list[dict[str, Any]] | None = None,
     shadow: dict[str, Any] | None = None,
     intent_router_shadow: dict[str, Any] | None = None,
 ) -> AgentTurnFollowupRequest:
@@ -596,6 +584,13 @@ def _turn_followup(
     for a turn whose messages were saved) and the shadow candidate call. The
     trajectory is built here, so its timings end where the answer did.
     """
+    if messages_before_turn is not None and session_messages is not None:
+        from api.memory_manager import _verbatim_start
+
+        # The turn already loaded this history. Avoid a queued summary's DB read
+        # entirely when every message still fits the token window.
+        if _verbatim_start(session_messages[:messages_before_turn] + messages) == 0:
+            messages_before_turn = None
     return AgentTurnFollowupRequest(
         session_id=session_id,
         client_turn_id=req.client_turn_id,
@@ -619,6 +614,7 @@ def _turn_followup(
         ),
         shadow=shadow,
         intent_router_shadow=intent_router_shadow,
+        suggest_followups=final_disposition == "succeeded" and bool(req.client_turn_id),
     )
 
 
@@ -635,6 +631,20 @@ def _done_then_followup(done_frame: str, followup: AgentTurnFollowupRequest):
                 followup.session_id,
                 followup.client_turn_id,
             )
+
+
+def _regenerated_split_group(req: AgentChatRequest, session_id: str) -> str | None:
+    """A regenerated answer joins its prompt's dataset split group, so one prompt never lands in both train and eval."""
+    if not req.regenerate_of_message_id:
+        return None
+    from api import memory_db
+    from api.agent_trajectories import dataset_split_group_for
+
+    prompt = _turn_lineage(req, memory_db.get_or_create_session(session_id)).reused_user
+    prompt_turn_id = prompt.get("client_turn_id") if prompt else None
+    if not prompt_turn_id:
+        return None
+    return dataset_split_group_for(session_id=session_id, client_turn_id=str(prompt_turn_id), messages=[])
 
 
 def _agent_trajectory_payload(
@@ -750,10 +760,12 @@ def _agent_trajectory_payload(
             except Exception:
                 provider_model = None
 
+        split_group = _regenerated_split_group(req, session_id)
         return {
             "trajectory_id": trajectory_id,
             "session_id": session_id,
             "client_turn_id": req.client_turn_id,
+            **({"dataset_split_group": split_group} if split_group else {}),
             "captured_at": captured_at,
             "completed_at": datetime.now(UTC).isoformat(),
             "final_disposition": final_disposition,
@@ -797,9 +809,20 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     text = _domain_guardrail_text(classification)
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
+    lineage = _turn_lineage(req, session)
     turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
-    user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
-    assistant_msg = {"role": "assistant", "content": text, "timestamp": time.time(), **turn_meta}
+    user_msg = _lineage_user_message(
+        req,
+        lineage,
+        {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta},
+    )
+    assistant_msg = {
+        "id": req.assistant_message_id,
+        "role": "assistant",
+        "content": text,
+        "timestamp": time.time(),
+        **turn_meta,
+    }
     finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
 
     yield _sse_ping()
@@ -807,7 +830,8 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
     yield _sse("delta", {"text": text})
     finalize_turn_fn(session_id, user_msg, assistant_msg)
     followup = _turn_followup(
-        messages_before_turn=messages_before_turn(session, req.client_turn_id),
+        messages_before_turn=messages_before_turn(session, req.client_turn_id, lineage),
+        session_messages=lineage.history(session["server_messages"]),
         req=req,
         session_id=session_id,
         turn_started=turn_started,
@@ -829,7 +853,13 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
         _sse(
             "done",
             _done_payload(
-                {"usage": {}, "session_id": session_id, **_domain_done_meta(classification)},
+                {
+                    "usage": {},
+                    "session_id": session_id,
+                    "user_message_id": user_msg["id"],
+                    "assistant_message_id": req.assistant_message_id,
+                    **_domain_done_meta(classification),
+                },
                 timings,
                 turn_started,
             ),
@@ -843,7 +873,13 @@ def _agent_chat_job_cache_key(req: AgentChatJobRequest) -> str:
     if req.client_turn_id:
         return f"agent_chat_turn:{session_id}:{req.client_turn_id}"
     payload = req.model_dump(
-        exclude={"actor", "finalize_synchronously", "allow_workflow_handoff"},
+        exclude={
+            "actor",
+            "finalize_synchronously",
+            "allow_workflow_handoff",
+            "user_message_id",
+            "assistant_message_id",
+        },
         exclude_none=True,
     )
     stable = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
@@ -860,11 +896,212 @@ def _agent_job_session_id(row: dict[str, Any] | None) -> str | None:
     return None
 
 
-_turn_delta_flush_at: dict[tuple[str, str], float] = {}
+TURN_PARTIAL_SAVE_INTERVAL_S = 2.0
+_DELTA_FRAME_PREFIX = "event: delta\ndata: "
+_RESET_FRAME_PREFIX = "event: reset\ndata: "
+_ERROR_FRAME_PREFIX = "event: error\n"
+_DONE_FRAME_PREFIX = "event: done\n"
+
+
+class _TurnTranscriptGuard:
+    """Keeps a turn's saved assistant message from staying ``is_streaming``.
+
+    It watches the SSE frames the client receives. While the turn streams, it
+    saves the delta text so far every ``TURN_PARTIAL_SAVE_INTERVAL_S``. A turn
+    that ends without finalizing (an error, an early return, a client
+    disconnect) is marked ``failed`` or ``stopped`` with that text, before the
+    client gets ``done`` when there is one.
+    """
+
+    def __init__(self, req: AgentChatRequest):
+        self.req = req
+        self.session_id: str | None = None
+        self.lineage = TurnLineage()
+        self.finalized = False
+        self.errored = False
+        self._text: list[str] = []
+        self._last_partial_save = time.monotonic()
+        self.tools: dict[str, dict[str, Any]] = {}
+        self.tool_memory: dict[str, dict[str, Any]] = {}
+        self.sources: list[dict[str, Any]] = []
+        # Keyed by event id, so a retried model call's summary replaces the one its failed attempt sent.
+        self.thinking: dict[str, str] = {}
+        self.narration: dict[str, str] = {}
+        self.memory_context: dict[str, Any] = {"enabled": True, "memories": [], "prompt": ""}
+        # Rich parts, keyed by tool call id like ``tools``.
+        self.charts: dict[str, dict[str, Any]] = {}
+        self.proposals: dict[str, dict[str, Any]] = {}
+
+    def finalize(self, session_id: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
+        from api.memory_manager import finalize_turn, finalize_turn_async
+
+        self.finalized = True
+        finalize_fn = finalize_turn if self.req.finalize_synchronously else finalize_turn_async
+        user_msg = _lineage_user_message(self.req, self.lineage, user_msg)
+        assistant_msg = {**assistant_msg, **self.metadata(), "id": self.req.assistant_message_id}
+        assistant_msg["toolCalls"] = assistant_msg["tool_calls"]
+        finalize_fn(session_id, user_msg, assistant_msg)
+
+    def metadata(self) -> dict[str, Any]:
+        return {
+            "tool_calls": list(self.tools.values()),
+            "sources": sources_from({"sources": self.sources}),
+            "tool_result_memory": list(self.tool_memory.values()),
+            "memory_context": self.memory_context,
+            "thinking": [{"id": key, "text": text} for key, text in self.thinking.items()],
+            "narration": [{"id": key, "text": text} for key, text in self.narration.items()],
+            "charts": list(self.charts.values()),
+            "proposals": list(self.proposals.values()),
+        }
+
+    def _rich_part(self, identity: str, payload: dict[str, Any]) -> dict[str, Any]:
+        """The chart or proposal card a finished tool call adds to the answer, as ``{"chart": ...}`` or ``{"proposal": ...}``."""
+        name = str(payload.get("name") or "")
+        if payload.get("status") not in {"ok", "partial"}:
+            return {}
+        if name in chat_rich_parts.CHART_TOOLS:
+            if len(self.charts) >= chat_rich_parts.MAX_CHARTS_PER_MESSAGE and identity not in self.charts:
+                return {}
+            try:
+                meta = json.loads(payload["result"]).get("_meta")
+            except (ValueError, AttributeError, TypeError):
+                return {}
+            event_id = meta.get("provenance_event_id") if isinstance(meta, dict) else None
+            chart = chat_rich_parts.stashed_chart(event_id) if isinstance(event_id, str) else None
+            if chart is None:
+                return {}
+            self.charts[identity] = {"id": identity, **chart}
+            return {"chart": self.charts[identity]}
+        if name.startswith("propose_"):
+            proposal = chat_rich_parts.build_proposal_part(name, payload["result"])
+            if proposal is None:
+                return {}
+            self.proposals[identity] = {"id": identity, **proposal}
+            return {"proposal": self.proposals[identity]}
+        return {}
+
+    def observe(self, frame: str) -> str:
+        event_type = frame.split("\n", 1)[0].removeprefix("event: ")
+        if event_type in {"tool_call", "tool_result", "tool_progress"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            identity = str(payload.get("id") or payload.get("name") or "")
+            rich: dict[str, Any] = {}
+            if event_type == "tool_result" and "result" in payload:
+                self.tool_memory[identity] = compact_tool_result(
+                    {**self.tools.get(identity, {}), **payload}, observed_at=datetime.now(UTC).isoformat()
+                )
+                rich = self._rich_part(identity, payload)
+            if "result" in payload:
+                # The memory above and the trajectory use the whole result. The client and the saved message get a preview.
+                payload = _public_tool_payload(payload)
+                frame = _sse(event_type, {**payload, **rich})
+            self.tools[identity] = {**self.tools.get(identity, {}), **payload}
+            self.sources.extend(sources_from(payload))
+            self._save_partial()
+        elif event_type in {"policy_failure", "blocked", "timeout"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            if "result" in payload:
+                frame = _sse(event_type, _public_tool_payload(payload))
+        elif event_type in {"thinking", "narration"} and "\ndata: " in frame:
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            store = self.thinking if event_type == "thinking" else self.narration
+            store[str(payload.get("id") or len(store))] = str(payload.get("text") or "")
+            self._save_partial()
+        if frame.startswith(_DELTA_FRAME_PREFIX):
+            self._text.append(str(json.loads(frame[len(_DELTA_FRAME_PREFIX) :]).get("text") or ""))
+            self._save_partial()
+        elif frame.startswith(_RESET_FRAME_PREFIX):
+            # A retried model call: the client now shows this text, so that is what a failed or stopped turn keeps.
+            self._text = [str(json.loads(frame[len(_RESET_FRAME_PREFIX) :]).get("text") or "")]
+        elif frame.startswith(_ERROR_FRAME_PREFIX):
+            self.errored = True
+        elif frame.startswith(_DONE_FRAME_PREFIX):
+            self.settle()
+            payload = json.loads(frame.split("\ndata: ", 1)[1])
+            payload.update(
+                **self.metadata(),
+                user_message_id=self.req.user_message_id,
+                assistant_message_id=self.req.assistant_message_id,
+            )
+            # The client already has each chart from its tool_result frame; the snapshots are the largest part of a message.
+            payload.pop("charts", None)
+            if self.session_id and self.req.client_turn_id:
+                from api.memory_db import update_assistant_message
+
+                trace = {
+                    key: payload[key]
+                    for key in (
+                        "decision_quality_chat",
+                        "scout_skeptic_sizer_gate",
+                        "opportunity_candidate_preflight",
+                    )
+                    if key in payload
+                }
+                if trace:
+                    update_assistant_message(self.session_id, self.req.client_turn_id, {"trace_snapshot": trace})
+            frame = _sse("done", payload)
+        return frame
+
+    def settle(self, *, failed: bool = False) -> None:
+        """End a turn that never finalized, keeping the text the client already has."""
+        if self.finalized:
+            return
+        self.finalized = True
+        if not self.session_id or not self.req.client_turn_id:
+            return
+        from api.memory_manager import fail_turn, fail_turn_async
+
+        fail_fn = fail_turn if self.req.finalize_synchronously else fail_turn_async
+        fail_fn(
+            self.session_id,
+            self.req.client_turn_id,
+            status="failed" if failed or self.errored else "stopped",
+            content="".join(self._text),
+            metadata=self.metadata(),
+        )
+
+    def _save_partial(self) -> None:
+        now = time.monotonic()
+        if self.finalized or not self.session_id or not self.req.client_turn_id:
+            return
+        if now - self._last_partial_save < TURN_PARTIAL_SAVE_INTERVAL_S:
+            return
+        self._last_partial_save = now
+        from api.memory_manager import save_partial_turn, save_partial_turn_async
+
+        save_fn = save_partial_turn if self.req.finalize_synchronously else save_partial_turn_async
+        save_fn(self.session_id, self.req.client_turn_id, "".join(self._text), metadata=self.metadata())
 
 
 def _agent_turn_meta(req: AgentChatRequest) -> dict[str, Any]:
     return {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
+
+
+def _turn_lineage(req: AgentChatRequest, session: dict[str, Any]) -> TurnLineage:
+    """Where the turn attaches in the session's message tree."""
+    return resolve_turn_lineage(
+        session.get("server_messages") or [],
+        user_message_id=req.user_message_id,
+        client_turn_id=req.client_turn_id,
+        parent_message_id=req.parent_message_id,
+        edit_of_message_id=req.edit_of_message_id,
+        regenerate_of_message_id=req.regenerate_of_message_id,
+    )
+
+
+def _lineage_user_message(req: AgentChatRequest, lineage: TurnLineage, user_msg: dict[str, Any]) -> dict[str, Any]:
+    """The turn's user message with the id and parent its place in the tree dictates.
+
+    A regenerated answer replies to the stored user message, so it takes that message's id.
+    """
+    if lineage.reused_user is not None:
+        return {**user_msg, "id": lineage.reused_user["id"]}
+    user_msg = {**user_msg, "id": req.user_message_id}
+    if lineage.explicit:
+        user_msg["parent_id"] = lineage.parent_id
+    if attachments := turn_attachments(req):
+        user_msg.setdefault("attachments", [a.descriptor() for a in attachments])
+    return user_msg
 
 
 def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str, Any] | None = None) -> None:
@@ -877,15 +1114,29 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         return
     from api.memory_manager import begin_turn, begin_turn_async
 
-    if session is not None and any(
-        isinstance(msg, dict) and str(msg.get("client_turn_id")) == req.client_turn_id
-        for msg in session.get("server_messages") or []
-    ):
-        return
+    lineage = _turn_lineage(req, session) if session is not None else TurnLineage()
+    if lineage.reused_user is not None:
+        req.user_message_id = lineage.reused_user["id"]
+    if session is not None:
+        existing = [
+            m
+            for m in session.get("server_messages") or []
+            if isinstance(m, dict) and str(m.get("client_turn_id")) == req.client_turn_id
+        ]
+        if existing:
+            for message in existing:
+                if message.get("id") and message.get("role") == "user":
+                    req.user_message_id = message["id"]
+                elif message.get("id") and message.get("role") == "assistant":
+                    req.assistant_message_id = message["id"]
+            return
 
     meta = _agent_turn_meta(req)
-    user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
+    user_msg = _lineage_user_message(
+        req, lineage, {"role": "user", "content": req.message, "timestamp": time.time(), **meta}
+    )
     assistant_msg = {
+        "id": req.assistant_message_id,
         "role": "assistant",
         "content": "",
         "timestamp": time.time(),
@@ -896,24 +1147,6 @@ def _agent_turn_begin(req: AgentChatRequest, session_id: str, session: dict[str,
         begin_turn(session_id, user_msg, assistant_msg)
     else:
         begin_turn_async(session_id, user_msg, assistant_msg)
-
-
-def _agent_turn_persist_delta(req: AgentChatRequest, session_id: str, content: str) -> None:
-    """Batch incremental assistant content to the session transcript."""
-    if not req.client_turn_id or not content:
-        return
-    key = (session_id, req.client_turn_id)
-    now = time.monotonic()
-    if now - _turn_delta_flush_at.get(key, 0.0) < 2.0:
-        return
-    _turn_delta_flush_at[key] = now
-    from api.memory_manager import update_assistant_message_async
-
-    update_assistant_message_async(
-        session_id,
-        req.client_turn_id,
-        {"content": content, "is_streaming": True},
-    )
 
 
 def _agent_turn_finalize(
@@ -954,9 +1187,10 @@ def _enqueue_agent_chat_turn(
     from api import memory_db
     from api.async_job_runner import enqueue_registered_job
 
+    turn_attachments(req)  # reject unknown files before the turn is stored or queued
     session = memory_db.get_or_create_session(req.session_id)
     session_id = str(session["session_id"])
-    _agent_turn_begin(req, session_id)
+    _agent_turn_begin(req, session_id, session)
     job_req = AgentChatJobRequest.model_validate(
         {
             **req.model_dump(exclude={"session_id"}),
@@ -988,6 +1222,8 @@ def _enqueue_agent_chat_turn(
         events = list_job_events(job_id, after_seq=0)
     payload = _agent_async_payload(get_job(job_id) or current_row, events=events)
     payload["disposition"] = disposition
+    for key in ("user_message_id", "assistant_message_id"):
+        payload[key] = (current_row.get("payload_json") or {}).get(key) or getattr(req, key)
     return payload, disposition
 
 
@@ -1262,7 +1498,46 @@ def _portfolio_summary_fallback(portfolio_result: str) -> str:
     return " ".join(lines)
 
 
-def _select_tool_names(user_text: str) -> list[str]:
+def _routing_tickers(
+    user_text: str,
+    screen_context: ScreenContextModel | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
+) -> list[str]:
+    tickers = extract_tickers(user_text)
+    if tickers:
+        return tickers
+    if is_contextual_followup(user_text, recent_conversation):
+        for message in reversed(previous_turn(recent_conversation)):
+            metadata = message.get("routing_context") or {}
+            if isinstance(metadata, dict):
+                tickers.extend(str(ticker) for ticker in metadata.get("tickers", []) if isinstance(ticker, str))
+            tickers.extend(extract_tickers(str(message.get("content") or "")))
+            for call in message.get("toolCalls") or []:
+                if not isinstance(call, dict):
+                    continue
+                args = call.get("args") or call.get("arguments") or {}
+                if isinstance(args, dict) and isinstance(args.get("ticker"), str):
+                    tickers.append(args["ticker"].upper())
+        if tickers:
+            tickers = list(dict.fromkeys(tickers))
+            ordinal = re.search(
+                r"\b(first|second|third|last)\s+(?:one|stock|company|idea|name)\b", user_text, re.IGNORECASE
+            )
+            if ordinal:
+                index = {"first": 0, "second": 1, "third": 2, "last": -1}[ordinal[1].lower()]
+                if index < len(tickers):
+                    return [tickers[index]]
+            return tickers
+    ticker = _extract_candidate_ticker(user_text, screen_context)
+    return [ticker] if ticker else []
+
+
+def _select_tool_names(
+    user_text: str,
+    *,
+    screen_context: ScreenContextModel | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
+) -> list[str]:
     text = (user_text or "").lower()
     selected: list[str] = []
 
@@ -1270,6 +1545,21 @@ def _select_tool_names(user_text: str) -> list[str]:
         for name in names:
             if name in _tool_names() and name not in selected:
                 selected.append(name)
+
+    if is_contextual_followup(user_text, recent_conversation):
+        prior_user, prior_assistant = previous_turn(recent_conversation)
+        metadata = prior_assistant.get("routing_context") or {}
+        prior_tools = metadata.get("tool_names") if isinstance(metadata, dict) else None
+        add(
+            *(
+                prior_tools
+                if isinstance(prior_tools, list)
+                else _select_tool_names(str(prior_user.get("content") or ""))
+            )
+        )
+        for call in prior_assistant.get("toolCalls") or []:
+            if isinstance(call, dict):
+                add(str(call.get("name") or ""))
 
     portfolio_terms = r"(?:my|portfolio|holding|holdings|position|positions)"
     portfolio_risk_rx = rf"\b{portfolio_terms}\b.{{0,80}}\brisks?\b|\brisks?\b.{{0,80}}\b{portfolio_terms}\b"
@@ -1323,7 +1613,9 @@ def _select_tool_names(user_text: str) -> list[str]:
         add("get_industry_monitor")
     if "management quality" in text or "management team" in text or "owner mindset" in text:
         add("get_portfolio", "get_dossier", "search_knowledge_base")
-    if re.search(r"\b(thesis|catalyst|kill condition|dossier|conviction)\b", text):
+    if re.search(r"\b(thesis|catalyst|kill condition|dossier|conviction)\b", text) or _looks_like_pasted_thesis(
+        user_text
+    ):
         add(
             "get_portfolio",
             "get_dossier",
@@ -1369,7 +1661,9 @@ def _select_tool_names(user_text: str) -> list[str]:
         add("get_dcf_historical", "run_dcf_valuation")
     if "chart" in text or "technical analysis" in text:
         add("run_chart", "run_ratio_chart", "get_price_volume_signals")
-    if "screener" in text or "screen" in text:
+    if re.search(r"\bscreener\b|\b(?:stock|equity|quality|short|long|investment)\s+screen\b", text) or (
+        _OPPORTUNITY_DISCOVERY_INTENT_RX.search(text) and re.search(r"\bscreen\b", text)
+    ):
         add("run_quality_screen", "run_short_screen", "run_long_screen", "run_fundamental_momentum")
     if "portfolio analyzer" in text or "portfolio optimizer" in text:
         add("run_portfolio_analyzer")
@@ -1380,14 +1674,7 @@ def _select_tool_names(user_text: str) -> list[str]:
     if "workspace" in text:
         add("get_workspace")
 
-    stop = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO", "WHAT", "THIS", "THAT"}
-    ticker_candidates = [m for m in _TICKER_RX.findall(user_text or "") if m not in stop and len(m) >= 2]
-    if not ticker_candidates:
-        for alias, ticker in sorted(_COMPANY_TICKER_ALIASES.items(), key=lambda item: -len(item[0])):
-            if re.search(rf"\b{re.escape(alias)}\b", text):
-                ticker_candidates = [ticker]
-                break
-    if ticker_candidates:
+    if _routing_tickers(user_text, screen_context, recent_conversation):
         add(
             "search_alternative_data_catalog",
             "fetch_alternative_data",
@@ -1471,34 +1758,27 @@ _DOSSIER_PRESSURE_TEST_PATTERNS: list[re.Pattern[str]] = [
     re.compile(r"\bpoke\s+holes\s+in\s+(?:this\s+)?(?:position|thesis)\b", re.IGNORECASE),
 ]
 
-_TICKER_RX = re.compile(r"\b([A-Z]{1,5})\b")
-_TICKER_STOP_WORDS = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO", "WHAT", "THIS", "THAT"}
-_COMPANY_TICKER_ALIASES = {
-    "meta": "META",
-    "facebook": "META",
-    "uber": "UBER",
-    "nvidia": "NVDA",
-    "tesla": "TSLA",
-    "apple": "AAPL",
-    "amazon": "AMZN",
-    "google": "GOOGL",
-    "alphabet": "GOOGL",
-    "microsoft": "MSFT",
-    "netflix": "NFLX",
-}
 _DECISION_QUALITY_CHAT_INTENT_RX = re.compile(
-    r"\b("
-    r"thesis|investment thesis|idea|pitch|pressure[- ]?test|what do you think|"
-    r"poke holes|devil'?s advocate|conviction|mispricing|invalidation|kill condition|"
-    r"should i (?:buy|add|short|sell)|long|short"
-    r")\b",
+    r"\b(?:pressure[- ]?test(?:ing)?|poke\s+holes|devil'?s\s+advocate|what\s+do\s+you\s+think|"
+    r"should\s+i\s+(?:buy|add|short|sell)|(?:as\s+a|go|going)\s+(?:long|short)|"
+    r"(?:review|evaluate|assess|critique|challenge)\s+(?:(?:my|this|that|the|our|an?)\s+)?"
+    r"(?:[\w$.-]+\s+){0,2}(?:investment\s+)?(?:thesis|idea|pitch)|"
+    r"(?:what\s+would\s+invalidate|kill\s+conditions?|invalidation\s+(?:check|conditions?))|"
+    r"is\s+(?:it|this|that)\s+(?:a\s+)?(?:buy|short|long)|worth\s+(?:buying|researching))\b",
     flags=re.IGNORECASE,
 )
 _OPPORTUNITY_DISCOVERY_INTENT_RX = re.compile(
-    r"\b("
-    r"scan|scout|find|discover|look\s+for|interesting|opportunities?|opportunity|"
-    r"what\s+(?:should|could)\s+i|names?\s+to|ideas?\s+(?:in|for|on)|"
-    r"anything\s+(?:look|worth)|rank|triage|screen|watchlist"
+    r"\b(?:"
+    r"(?:find|discover|scout|look\s+for|rank|triage|screen|scan)\s+"
+    r"(?:(?!(?:report|minutes|definition|document|article|news|filing|transcript|risks?|prices?|quotes?)\b)[\w-]+\s+){0,4}"
+    r"(?:stocks?(?!\s+(?:prices?|quotes?|splits?|news)\b)|equities|companies|"
+    r"investment\s+ideas?|trade\s+ideas?|opportunit(?:y|ies)|watchlist|names\s+to\s+(?:buy|short|research))|"
+    r"(?:scan|scout|screen)\s+(?!(?:(?:this|that|the|my)\s+)?(?:document|report|page|screen)\b)"
+    r"[^?.!\n]{1,60}?\s+for\s+(?:anything\s+interesting|investment\s+ideas?|opportunit(?:y|ies))|"
+    r"(?:investment|trading|stock)\s+opportunit(?:y|ies)|"
+    r"ideas?\s+(?:in|for|on)|"
+    r"what\s+(?:should|could)\s+i\s+(?:buy|short|invest\s+in)|"
+    r"anything\s+worth\s+(?:buying|shorting|researching)"
     r")\b",
     flags=re.IGNORECASE,
 )
@@ -1516,17 +1796,7 @@ def _env_flag(name: str, *, default: bool) -> bool:
 
 
 def _extract_candidate_ticker(user_text: str, screen_context: ScreenContextModel | None = None) -> str | None:
-    screen_ticker = (screen_context.ticker if screen_context else None) or ""
-    if screen_ticker.strip():
-        return screen_ticker.strip().upper()
-    candidates = [m for m in _TICKER_RX.findall(user_text or "") if m not in _TICKER_STOP_WORDS and len(m) >= 2]
-    if candidates:
-        return str(candidates[0]).upper()
-    lowered = (user_text or "").lower()
-    for alias, ticker in sorted(_COMPANY_TICKER_ALIASES.items(), key=lambda item: -len(item[0])):
-        if re.search(rf"\b{re.escape(alias)}\b", lowered):
-            return ticker
-    return None
+    return extract_candidate_ticker(user_text, screen_context.model_dump(mode="json") if screen_context else None)
 
 
 def _looks_like_pasted_thesis(user_text: str) -> bool:
@@ -1537,6 +1807,8 @@ def _looks_like_pasted_thesis(user_text: str) -> bool:
 def _should_run_decision_quality_chat(
     user_text: str,
     screen_context: ScreenContextModel | None = None,
+    *,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not _env_flag("AGENT_DECISION_QUALITY_CHAT_ENABLED", default=True):
         return False
@@ -1544,7 +1816,7 @@ def _should_run_decision_quality_chat(
     if not text or not _DECISION_QUALITY_CHAT_INTENT_RX.search(text):
         return False
     return bool(
-        _extract_candidate_ticker(text, screen_context)
+        _routing_tickers(text, screen_context, recent_conversation)
         or _looks_like_pasted_thesis(text)
         or _should_use_retrieval(text)
     )
@@ -1553,13 +1825,15 @@ def _should_run_decision_quality_chat(
 def _should_run_opportunity_candidate_preflight(
     user_text: str,
     screen_context: ScreenContextModel | None = None,
+    *,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> bool:
     if not _env_flag("AGENT_OPPORTUNITY_CANDIDATE_PREFLIGHT_ENABLED", default=True):
         return False
     text = (user_text or "").strip()
     if not text:
         return False
-    has_ticker = bool(_extract_candidate_ticker(text, screen_context))
+    has_ticker = bool(_routing_tickers(text, screen_context, recent_conversation))
     if _OPPORTUNITY_DISCOVERY_INTENT_RX.search(text):
         return True
     if _looks_like_pasted_thesis(text):
@@ -1567,8 +1841,6 @@ def _should_run_opportunity_candidate_preflight(
     if _DECISION_QUALITY_CHAT_INTENT_RX.search(text) and (
         has_ticker or _looks_like_pasted_thesis(text) or _should_use_retrieval(text)
     ):
-        return True
-    if has_ticker and re.search(r"\b(idea|thesis|pitch|stock|name|company)\b", text, re.IGNORECASE):
         return True
     return False
 
@@ -1579,8 +1851,10 @@ def _decision_quality_chat_tool_calls(
     *,
     route_decision: RouteDecision | None = None,
     opportunity_candidate_metadata: dict[str, Any] | None = None,
+    recent_conversation: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
     screen_payload = screen_context.model_dump(mode="json") if screen_context else None
+    tickers = _routing_tickers(user_text, screen_context, recent_conversation)
     pack = resolve_context_pack(
         user_text=user_text,
         intent_class=route_decision.intent_class if route_decision else None,
@@ -1593,6 +1867,7 @@ def _decision_quality_chat_tool_calls(
         user_text=user_text,
         screen_context=screen_payload,
         allowed_tool_names=_tool_names(),
+        ticker=tickers[0] if tickers else None,
     )
 
 
@@ -1625,7 +1900,7 @@ def _build_decision_quality_chat_context(
     route_decision: RouteDecision | None = None,
     opportunity_candidate_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    history = raw_conversation[-8:]
+    history, _ = strip_inline_files(raw_conversation)  # bounded by the memory manager; minus attached files' bytes
     tool_data_quality = aggregate_tool_data_quality(tool_results)
     screen_payload = screen_context.model_dump(mode="json") if screen_context else None
     data_quality = {
@@ -1682,6 +1957,7 @@ def _run_decision_quality_structured_pass(
     provider: str,
     api_key: str,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     parsed, citations, response, diagnostics = call_llm_json(
         prompt=_build_decision_quality_structured_prompt(context_bundle),
@@ -1694,6 +1970,7 @@ def _run_decision_quality_structured_pass(
         reasoning_effort=reasoning_effort,
         json_schema=decision_quality_schema(),
         json_schema_name="decision_quality_chat",
+        prompt_cache_key=_session_prompt_cache_key(session_id),
     )
     raw_decision_quality = (
         parsed.get("decision_quality") if isinstance(parsed, dict) and "decision_quality" in parsed else parsed
@@ -1738,7 +2015,7 @@ def _build_decision_quality_chat_synthesis_prompt(
         "If tool_data_quality or data_quality shows stale, blocked, missing, or unconfirmed price sources, "
         "surface those as missing inputs or blockers instead of burying them in prose.\n\n"
         f"User request:\n{user_text.strip()}\n\n"
-        f"Context bundle:\n{_json_for_prompt(context_bundle)}\n\n"
+        f"Context bundle:\n{_json_for_prompt({k: v for k, v in context_bundle.items() if k != 'recent_conversation'})}\n\n"
         f"DecisionQuality:\n{_json_for_prompt(dq_payload)}\n\n"
         f"Gate:\n{_json_for_prompt(gate_payload)}\n\n"
         f"Parse errors, if any:\n{_json_for_prompt(dq_result.get('parse_errors') or [])}"
@@ -1795,6 +2072,7 @@ def _run_opportunity_candidate_structured_pass(
     provider: str,
     api_key: str,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, Any]:
     parsed, citations, response, diagnostics = call_llm_json(
         prompt=_build_opportunity_candidate_structured_prompt(context_bundle),
@@ -1807,6 +2085,7 @@ def _run_opportunity_candidate_structured_pass(
         reasoning_effort=reasoning_effort,
         json_schema=opportunity_candidate_schema(),
         json_schema_name="opportunity_candidate_chat",
+        prompt_cache_key=_session_prompt_cache_key(session_id),
     )
     raw_candidate = (
         parsed.get("opportunity_candidate")
@@ -1864,11 +2143,52 @@ def _build_opportunity_candidate_synthesis_prompt(
         "The gate result is binding for the final triage stance: if final_action is watch, research, avoid, "
         "or do_nothing, the answer must not sound like a confident buy/add/short recommendation.\n\n"
         f"User request:\n{user_text.strip()}\n\n"
-        f"Context bundle:\n{_json_for_prompt(context_bundle)}\n\n"
+        f"Context bundle:\n{_json_for_prompt({k: v for k, v in context_bundle.items() if k != 'recent_conversation'})}\n\n"
         f"OpportunityCandidate:\n{_json_for_prompt(candidate_payload)}\n\n"
         f"Gate:\n{_json_for_prompt(gate_payload)}\n\n"
         f"Parse errors, if any:\n{_json_for_prompt(oc_result.get('parse_errors') or [])}"
     )
+
+
+def _decision_quality_chat_verdict(
+    *,
+    oc_result: dict[str, Any] | None = None,
+    dq_result: dict[str, Any] | None = None,
+    review_pending: bool = False,
+) -> str:
+    """Expose a compact, gated assessment before waiting for another model call."""
+    if dq_result is not None:
+        assessment = dq_result.get("decision_quality")
+        gate = dq_result.get("gate")
+        if not isinstance(assessment, DecisionQuality) or not isinstance(gate, DecisionQualityGate):
+            return "Initial verdict: research. The assessment could not be validated.\n\n"
+        missing = assessment.actionability.missing_inputs + assessment.price_action_read.data_needed
+    else:
+        result = oc_result or {}
+        assessment = result.get("opportunity_candidate")
+        gate = result.get("gate")
+        if not isinstance(assessment, OpportunityCandidate) or not isinstance(gate, OpportunityCandidateGate):
+            return "Initial verdict: research. The assessment could not be validated.\n\n"
+        context_pack = result.get("context_pack") or {}
+        missing = assessment.missing_inputs + list(context_pack.get("missing_inputs") or [])
+
+    if gate.status == "invalid":
+        return "Initial verdict: research. The assessment could not be validated.\n\n"
+    action = gate.final_action.replace("_", " ")
+    if isinstance(assessment, OpportunityCandidate) and gate.final_action == "graduate_to_decision_quality":
+        action = (
+            "worth a full pressure-test; trading decision pending" if review_pending else "needs a full pressure-test"
+        )
+    lines = [f"Initial verdict: {action}."]
+    # Gate reasons are authoritative; raw summaries can still advocate the action
+    # that was downgraded. Do not expose those summaries in the early card.
+    reasons = [reason.message for reason in gate.reasons if reason.severity in {"blocker", "warning"}]
+    if reasons:
+        lines.append(" ".join(reasons[:2]))
+    missing = list(dict.fromkeys(str(item).strip() for item in missing if str(item).strip()))
+    if missing:
+        lines.append("Missing inputs: " + "; ".join(missing[:3]) + ".")
+    return "\n".join(lines) + "\n\n"
 
 
 def _opportunity_candidate_done_meta(oc_result: dict[str, Any] | None) -> dict[str, Any]:
@@ -1969,12 +2289,11 @@ def _detect_workflow(
             return wf_name, ticker
         return None, None
 
-    screen_ticker = (screen_context.ticker if screen_context else None) or ""
     on_position_dossier = bool(screen_context and screen_context.page_name == "Position Dossier")
     if on_position_dossier:
         for pattern in _DOSSIER_PRESSURE_TEST_PATTERNS:
             if pattern.search(text):
-                ticker = screen_ticker.strip().upper() or _extract_candidate_ticker(text, screen_context)
+                ticker = _extract_candidate_ticker(text, screen_context)
                 if ticker:
                     return "position_dossier_pressure_test", ticker
 
@@ -1984,11 +2303,7 @@ def _detect_workflow(
             ticker = None
             wf_def = AVAILABLE_WORKFLOWS[wf_name]
             if wf_def["requires_ticker"]:
-                # Try to extract a ticker from the message
-                # Filter out common English words that match ticker pattern
-                stop = {"AND", "THE", "FOR", "MY", "ALL", "HOW", "CAN", "ARE", "HAS", "DO"}
-                candidates = [m for m in _TICKER_RX.findall(text) if m not in stop and len(m) >= 2]
-                ticker = candidates[0] if candidates else screen_ticker.strip().upper() or None
+                ticker = _extract_candidate_ticker(text, screen_context)
             return wf_name, ticker
     return None, None
 
@@ -2005,10 +2320,16 @@ def _resolve_chat_route(
 ) -> tuple[RouteDecision, dict[str, Any]]:
     regex_baseline = build_regex_route_decision(
         user_text=user_text,
-        select_tool_names=_select_tool_names,
+        select_tool_names=lambda text: _select_tool_names(
+            text, screen_context=screen_context, recent_conversation=recent_conversation
+        ),
         detect_workflow=_detect_workflow,
-        should_run_hidden_dq=_should_run_decision_quality_chat,
-        should_run_opportunity_preflight=_should_run_opportunity_candidate_preflight,
+        should_run_hidden_dq=lambda text, screen: _should_run_decision_quality_chat(
+            text, screen, recent_conversation=recent_conversation
+        ),
+        should_run_opportunity_preflight=lambda text, screen: _should_run_opportunity_candidate_preflight(
+            text, screen, recent_conversation=recent_conversation
+        ),
         screen_context=screen_context,
     )
     context = build_route_context(
@@ -2025,7 +2346,7 @@ def _resolve_chat_route(
     except ConfigurationError:
         system_prompt = None
     provider, api_key = llm_credentials if llm_credentials else (None, None)
-    return resolve_agent_route(
+    decision, metadata = resolve_agent_route(
         context=context,
         regex_baseline=regex_baseline,
         provider=provider,
@@ -2034,12 +2355,18 @@ def _resolve_chat_route(
         reasoning_effort=reasoning_effort,
         defer_shadow=defer_shadow,
     )
+    metadata["candidate_tickers"] = _routing_tickers(user_text, screen_context, recent_conversation)
+    return decision, metadata
 
 
-def _recent_conversation_for_routing(session: dict[str, Any]) -> list[dict[str, Any]]:
+def _recent_conversation_for_routing(
+    session: dict[str, Any], req: AgentChatRequest | None = None
+) -> list[dict[str, Any]]:
     server_messages = session.get("server_messages") or []
     if not isinstance(server_messages, list):
         return []
+    if req is not None:
+        server_messages = _turn_lineage(req, session).history(server_messages)
     return [item for item in server_messages[-6:] if isinstance(item, dict)]
 
 
@@ -2306,6 +2633,74 @@ def _tool_result_status(result_str: str) -> str:
     return "error" if _tool_error_message(result_str) else "ok"
 
 
+TOOL_PREVIEW_CHARS = 4_000
+MAX_TOOL_SOURCES = 20
+
+
+def _capped_arguments(arguments: Any) -> dict[str, Any]:
+    """The arguments a client may see: small ones as sent, longer ones cut to ``TOOL_PREVIEW_CHARS`` of JSON text."""
+    text = json.dumps(arguments, default=str)
+    if len(text) <= TOOL_PREVIEW_CHARS:
+        return {"arguments": arguments}
+    return {"arguments": text[:TOOL_PREVIEW_CHARS], "arguments_truncated": True}
+
+
+def _tool_as_of(parsed: Any, meta: dict[str, Any]) -> str:
+    """When the data a tool returned is from: a date as-is, else a UTC timestamp.
+
+    The data's own ``as_of`` wins over the time it was fetched, and a tool that reports neither is as of now.
+    Cache metadata carries naive local timestamps, so those are read as server-local time.
+    """
+    data = parsed if isinstance(parsed, dict) else {}
+    for source, key in ((data, "as_of"), (data, "price_as_of"), (meta, "fetched_at")):
+        value = source.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", value):
+            return value
+        try:
+            return datetime.fromisoformat(value).astimezone(UTC).isoformat()
+        except ValueError:
+            continue
+    return datetime.now(UTC).isoformat()
+
+
+def _public_tool_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """The copy of a tool event that the client receives and the message saves.
+
+    The generator emits the whole arguments and result, as the trajectory and the tool memory need them. The
+    transcript guard swaps this copy in on the way out: arguments and result capped, plus the as-of time and
+    sources that the activity list shows.
+    """
+    public = {key: value for key, value in payload.items() if key not in {"arguments", "result"}}
+    if "arguments" in payload:
+        public.update(_capped_arguments(payload["arguments"]))
+    if "result" not in payload:
+        return public
+    result = payload["result"]
+    result_str = result if isinstance(result, str) else json.dumps(result, default=str)
+    try:
+        parsed = json.loads(result_str)
+    except ValueError:
+        parsed = None
+    meta = parsed.get("_meta") if isinstance(parsed, dict) else None
+    public.update(
+        result_preview=result_str[:TOOL_PREVIEW_CHARS],
+        result_bytes=len(result_str.encode("utf-8")),
+        as_of=_tool_as_of(parsed, meta if isinstance(meta, dict) else {}),
+    )
+    if len(result_str) > TOOL_PREVIEW_CHARS:
+        public["result_truncated"] = True
+    sources = [
+        {key: source[key] for key in ("url", "title") if isinstance(source.get(key), str)}
+        for source in sources_from(parsed)[:MAX_TOOL_SOURCES]
+    ]
+    if sources:
+        public["sources"] = sources
+    return public
+
+
 def _blocked_tool_result(name: str, exc: Exception, *, status: str = "blocked") -> str:
     payload = blocked_tool_payload(name, exc, status=status)
     return json.dumps(payload, sort_keys=True, default=str)
@@ -2355,6 +2750,56 @@ def _is_retryable_error(exc: Exception) -> bool:
         return True
     lowered = str(exc).lower()
     return "overloaded" in lowered or "rate_limit" in lowered
+
+
+def _rewind_streamed_text(text_parts: list[str], keep_parts: int, leading_text: str = "") -> Generator[str, None, None]:
+    """Drop the text a failed model attempt streamed, and tell the client to show only what came before it.
+
+    ``keep_parts`` is how many parts ``text_parts`` held when the attempt started, and ``leading_text`` is what the
+    client shows ahead of that buffer. A ``reset`` frame carries the text to show, not an offset, so the client
+    can't miscount characters. Nothing is sent if the attempt streamed no text.
+    """
+    streamed = any(text_parts[keep_parts:])
+    del text_parts[keep_parts:]
+    if streamed:
+        yield _sse("reset", {"text": leading_text + "".join(text_parts)})
+
+
+def _retry_model_call(
+    exc: Exception,
+    attempt: int,
+    text_parts: list[str] | None = None,
+    keep_parts: int = 0,
+    leading_text: str = "",
+) -> Generator[str, None, bool]:
+    """Back off and report True when a failed model call should be tried again, else False so the caller raises.
+
+    A call that streams text passes its buffer, so the retry doesn't append to the failed attempt's text.
+    """
+    if attempt >= MAX_API_RETRIES - 1 or not _is_retryable_error(exc):
+        return False
+    if text_parts is not None:
+        yield from _rewind_streamed_text(text_parts, keep_parts, leading_text)
+    time.sleep(RETRY_BASE_DELAY * (2**attempt))
+    return True
+
+
+def _stream_with_text_prefix(stream: Generator[str, None, Any], prefix: str) -> Generator[str, None, Any]:
+    """Add a round separator to its first text delta, leaving silent rounds untouched."""
+    try:
+        while True:
+            try:
+                frame = next(stream)
+            except StopIteration as done:
+                return done.value
+            if prefix and frame.startswith(_DELTA_FRAME_PREFIX):
+                payload = json.loads(frame[len(_DELTA_FRAME_PREFIX) :])
+                if payload.get("text"):
+                    frame = _sse("delta", {**payload, "text": prefix + payload["text"]})
+                    prefix = ""
+            yield frame
+    finally:
+        stream.close()
 
 
 def _serialize_content_blocks(blocks: list[object]) -> list[dict]:
@@ -2566,6 +3011,42 @@ def _tool_definitions_for_provider(provider: str) -> list[dict]:
     return list(_tool_definition_by_name_for_provider(provider).values())
 
 
+def _chat_tool_definitions(provider: str, selected_names: list[str]) -> list[dict]:
+    """Freeze the catalog within a provider's current egress-policy envelope.
+
+    Routing remains a hint for workflows/follow-ups, rather than changing the
+    provider prefix. Execution still authorizes every actual tool call.
+    """
+    if provider not in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}:
+        return _tool_definitions_from_names(provider, selected_names)
+    from api.agent_governance import _model_gateway_decision
+
+    model = resolve_model(MODEL_MID, provider)
+    allowed: dict[tuple[str, str], bool] = {}
+    tools = []
+    for tool in sorted(_tool_definitions_for_provider(provider), key=lambda tool: tool["name"]):
+        exposure = get_tool_exposure(tool["name"])
+        envelope = (exposure.data_sensitivity, exposure.provider_egress)
+        if envelope not in allowed:
+            decision = _model_gateway_decision(
+                provider=provider,
+                model=model,
+                sensitivity="public_market",
+                stream_kwargs={"tools": [tool]},
+            )
+            allowed[envelope] = decision.decision != "blocked"
+        if allowed[envelope]:
+            tools.append(tool)
+    return tools
+
+
+def _session_prompt_cache_key(session_id: str | None) -> str | None:
+    if not session_id:
+        return None
+    # Bound the key length and avoid exposing raw session identifiers.
+    return "agent:" + hashlib.sha256(session_id.encode()).hexdigest()[:56]
+
+
 def _anthropic_system_blocks(instructions: str) -> list[dict]:
     """Cache only the known static prefix, ahead of all per-request context."""
     stable = _build_agent_base_instructions()
@@ -2618,6 +3099,7 @@ def _model_stream_kwargs(
     force_tool_use: bool = False,
     disable_tool_use: bool = False,
     reasoning_effort: str | None = None,
+    session_id: str | None = None,
 ) -> dict[str, object]:
     if provider == PROVIDER_ANTHROPIC:
         resolved_model = resolve_model(MODEL_MID, PROVIDER_ANTHROPIC)
@@ -2634,6 +3116,7 @@ def _model_stream_kwargs(
             model=resolved_model,
             max_tokens=max_tokens,
             reasoning_effort=reasoning_effort,
+            summarize=True,
         )
         if tool_defs:
             kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
@@ -2660,6 +3143,7 @@ def _model_stream_kwargs(
             model=resolved_model,
             max_tokens=max_tokens,
             reasoning_effort=reasoning_effort,
+            summarize=True,
         )
         config = _dict_value(kwargs.get("config"))
         if tool_defs:
@@ -2699,10 +3183,15 @@ def _model_stream_kwargs(
         model=resolved_model,
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
+        summarize=True,
     )
+    if cache_key := _session_prompt_cache_key(session_id):
+        kwargs["prompt_cache_key"] = cache_key
     if tool_defs:
-        kwargs["tools"] = tool_defs
-    if force_tool_use and tool_defs:
+        kwargs["tools"] = sorted(tool_defs, key=lambda tool: tool["name"])
+    if disable_tool_use and tool_defs:
+        kwargs["tool_choice"] = "none"
+    elif force_tool_use and tool_defs:
         kwargs["tool_choice"] = "required"
     return kwargs
 
@@ -2736,6 +3225,8 @@ def _openai_conversation_from_context(conversation: list[dict[str, object]]) -> 
         content = msg.get("content", "")
         if isinstance(content, str):
             out.append({"role": role, "content": [{"type": _openai_text_type(role), "text": content}]})
+        elif isinstance(content, list):
+            out.append({"role": role, "content": openai_content(content, role)})
         else:
             out.append({"role": role, "content": content})
     return out
@@ -2749,7 +3240,7 @@ def _gemini_conversation_from_context(conversation: list[dict[str, object]]) -> 
         if isinstance(content, str):
             out.append(_gemini_text_content(role, content))
         elif isinstance(content, list):
-            out.append({"role": _gemini_role(role), "parts": content})
+            out.append({"role": _gemini_role(role), "parts": gemini_parts(content)})
         else:
             out.append(_gemini_text_content(role, str(content)))
     return out
@@ -2791,6 +3282,19 @@ def _stream_llm_response(
         if turn_timings is not None and turn_started is not None and turn_timings.get("first_token_ms") is None:
             turn_timings["first_token_ms"] = _elapsed_ms(turn_started)
 
+    def record_usage(message: object | None) -> None:
+        usage = _usage_dict(message)
+        if model_timing is not None:
+            model_timing.update(usage)
+        if provider in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}:
+            logger.info(
+                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d provider=%s",
+                stream_kwargs.get("model"),
+                usage.get("cache_read_input_tokens", 0),
+                usage.get("cache_creation_input_tokens", 0),
+                provider,
+            )
+
     def emit_final_text_if_missing(final_message: object | None):
         if text_parts is None or any(part.strip() for part in text_parts):
             return
@@ -2801,7 +3305,14 @@ def _stream_llm_response(
         text_parts.append(final_text)
         yield _sse("delta", {"text": final_text})
 
+    # Ids are stable across a retried call, so the client replaces a failed attempt's summary rather than adding to it.
+    thinking_scope = f"{(model_timing or {}).get('purpose', 'model')}:{(model_timing or {}).get('round_index', 0)}"
+
+    def thinking_frame(index: object, summary: str) -> str:
+        return _sse("thinking", {"id": f"thinking:{thinking_scope}:{index}", "text": summary})
+
     if provider == PROVIDER_ANTHROPIC:
+        thinking_blocks: dict[int, list[str]] = {}
         with client.messages.stream(**stream_kwargs) as stream:
             for event in stream:
                 if event.type == "content_block_delta" and event.delta.type == "text_delta":
@@ -2818,28 +3329,37 @@ def _stream_llm_response(
                             "id": event.content_block.id,
                         },
                     )
+                elif event.type == "content_block_start" and event.content_block.type == "thinking":
+                    thinking_blocks[event.index] = []
+                elif event.type == "content_block_delta" and event.delta.type == "thinking_delta":
+                    thinking_blocks.setdefault(event.index, []).append(event.delta.thinking)
+                elif event.type == "content_block_stop" and getattr(event, "index", None) in thinking_blocks:
+                    if summary := "".join(thinking_blocks.pop(event.index)).strip():
+                        yield thinking_frame(event.index, summary)
             final_message = stream.get_final_message()
-            usage = _usage_dict(final_message)
-            cache_usage = {key: usage.get(key, 0) for key in ("cache_read_input_tokens", "cache_creation_input_tokens")}
-            if model_timing is not None:
-                model_timing.update(usage)
-                model_timing.update(cache_usage)
-            logger.info(
-                "agent_chat_prompt_cache model=%s cache_read_input_tokens=%d cache_creation_input_tokens=%d",
-                stream_kwargs.get("model"),
-                cache_usage["cache_read_input_tokens"],
-                cache_usage["cache_creation_input_tokens"],
-            )
+            record_usage(final_message)
             yield from emit_final_text_if_missing(final_message)
             return final_message
 
     if provider == PROVIDER_GEMINI:
         gemini_emitted_call_ids: set[str] = set()
         aggregate_parts: list[dict] = []
+        gemini_thoughts: list[str] = []
+        gemini_thinking_blocks = 0
         last_chunk: object | None = None
         for chunk in client.models.generate_content_stream(**stream_kwargs):
             last_chunk = chunk
             for part in _serialize_gemini_response_parts(chunk):
+                if part.get("thought") is True:
+                    # Thought summaries are for the client. They stay out of the history sent back to the model.
+                    if isinstance(part.get("text"), str):
+                        gemini_thoughts.append(part["text"])
+                    continue
+                if gemini_thoughts:
+                    if summary := "".join(gemini_thoughts).strip():
+                        yield thinking_frame(gemini_thinking_blocks, summary)
+                        gemini_thinking_blocks += 1
+                    gemini_thoughts.clear()
                 aggregate_parts.append(part)
                 function_call = part.get("function_call") or part.get("functionCall")
                 if isinstance(function_call, dict):
@@ -2857,15 +3377,16 @@ def _stream_llm_response(
                         gemini_emitted_call_ids.add(call_id)
                         yield _sse("tool_call", {"name": name, "id": call_id})
                     continue
-                if part.get("thought") is True:
-                    continue
                 delta = part.get("text")
                 if isinstance(delta, str) and delta:
                     record_first_token()
                     if text_parts is not None:
                         text_parts.append(delta)
                     yield _sse("delta", {"text": delta})
+        if summary := "".join(gemini_thoughts).strip():
+            yield thinking_frame(gemini_thinking_blocks, summary)
         final_response = _gemini_aggregate_response(aggregate_parts, last_chunk)
+        record_usage(final_response)
         yield from emit_final_text_if_missing(final_response)
         return final_response
 
@@ -2886,14 +3407,21 @@ def _stream_llm_response(
                 if payload.get("text"):
                     record_first_token()
             yield chunk
+        record_usage(final_message)
         yield from emit_final_text_if_missing(final_message)
         return final_message
 
     emitted_call_ids: set[str] = set()
+    openai_thinking_blocks = 0
     with client.responses.stream(**stream_kwargs) as stream:
         for event in stream:
             event_type = _obj_value(event, "type")
-            if event_type == "response.output_text.delta":
+            if event_type == "response.reasoning_summary_text.done":
+                reasoning_summary = _obj_value(event, "text")
+                if isinstance(reasoning_summary, str) and reasoning_summary.strip():
+                    yield thinking_frame(openai_thinking_blocks, reasoning_summary.strip())
+                    openai_thinking_blocks += 1
+            elif event_type == "response.output_text.delta":
                 delta = _obj_value(event, "delta", "")
                 if isinstance(delta, str) and delta:
                     record_first_token()
@@ -2911,11 +3439,13 @@ def _stream_llm_response(
         get_final = getattr(stream, "get_final_response", None)
         if callable(get_final):
             final_response = get_final()
+            record_usage(final_response)
             yield from emit_final_text_if_missing(final_response)
             return final_response
         get_final = getattr(stream, "get_final_message", None)
         if callable(get_final):
             final_message = get_final()
+            record_usage(final_message)
             yield from emit_final_text_if_missing(final_message)
             return final_message
         return None
@@ -2947,6 +3477,11 @@ def _usage_dict(message: object) -> dict:
             # Anthropic's input_tokens excludes cache reads AND writes. Preserve
             # total input accounting for budgets, provenance and the chat UI.
             out["uncached_input_tokens"] = input_tokens
+    details = _obj_value(usage, "input_tokens_details") or _obj_value(usage, "prompt_tokens_details")
+    cached_tokens = _obj_value(details, "cached_tokens")
+    if isinstance(input_tokens, int) and isinstance(cached_tokens, int):
+        out["cache_read_input_tokens"] = cached_tokens
+        out["uncached_input_tokens"] = input_tokens - cached_tokens
     if isinstance(output_tokens, int):
         out["output_tokens"] = output_tokens
     return out
@@ -3107,7 +3642,8 @@ def _start_model_call_provenance(
                 "instructions": stream_kwargs.get("instructions")
                 or stream_kwargs.get("system")
                 or config.get("system_instruction"),
-                "conversation": conversation,
+                # Attached files are recorded by their descriptors on the message, not as base64 here.
+                "conversation": strip_inline_files(conversation)[0],
             },
             summary={
                 "provider": provider,
@@ -3166,6 +3702,11 @@ def _record_model_timing(
 ) -> None:
     model_timing["duration_ms"] = _elapsed_ms(started)
     model_timing["status"] = status
+    total = model_timing.get("input_tokens")
+    cached = model_timing.get("cache_read_input_tokens")
+    model_timing["cached_input_percent"] = (
+        round(100 * cached / total, 3) if isinstance(total, int) and total > 0 and isinstance(cached, int) else None
+    )
     emit_performance("chat_model", provider=provider, model=str(model), **model_timing)
     models = timings.setdefault("models", [])
     if isinstance(models, list):
@@ -3323,6 +3864,7 @@ def _submit_agent_response_feedback(req: AgentResponseFeedbackRequest, actor: Ac
             "reviewed_at": stored.get("reviewed_at"),
             "failure_tags": stored.get("failure_tags") or [],
             "notes": stored.get("notes"),
+            "corrected_response": stored.get("corrected_response"),
             "training_eligible": stored.get("training_eligible"),
             "human_reviewed": True,
             "signal_source": stored.get("signal_source"),
@@ -3370,6 +3912,17 @@ def list_agent_response_feedback(
         )
         rows = list_feedback_for_trajectory(str(trajectory["trajectory_id"]))
         return {"feedback": rows, "trajectory_id": trajectory["trajectory_id"]}
+
+    if session_id:
+        # Hydrate the whole transcript in one indexed query, including long chats.
+        # Ratings belong to the reviewer, rather than whoever last rated a turn.
+        return {
+            "feedback": list_feedback(
+                session_id=session_id,
+                reviewer_actor_id=str(actor.actor_id or "unknown"),
+                limit=None,
+            )
+        }
 
     return {"feedback": list_feedback(limit=limit)}
 
@@ -3464,6 +4017,22 @@ def get_agent_chat_async_events(
     return payload
 
 
+def _job_streamed_text(job_id: str) -> str:
+    """Join the delta text a durable chat job has published so far, as its client shows it."""
+    parts: list[str] = []
+    after_seq = 0
+    while True:
+        events = list_job_events(job_id, after_seq=after_seq, limit=1000)
+        for event in events:
+            if event["event_type"] == "delta":
+                parts.append(str(event["payload"].get("text") or ""))
+            elif event["event_type"] == "reset":
+                parts[:] = [str(event["payload"].get("text") or "")]
+        if len(events) < 1000:
+            return "".join(parts)
+        after_seq = int(events[-1]["seq"])
+
+
 @router.post("/agent/chat/async/{job_id}/cancel")
 def cancel_agent_chat_async(job_id: str):
     from api.async_job_runner import poll_registered_job
@@ -3481,7 +4050,7 @@ def cancel_agent_chat_async(job_id: str):
         if isinstance(client_turn_id, str) and client_turn_id:
             from api.memory_manager import fail_turn_async
 
-            fail_turn_async(session_id, client_turn_id, status="cancelled")
+            fail_turn_async(session_id, client_turn_id, status="stopped", content=_job_streamed_text(job_id) or None)
     append_job_event(job_id, "status", {"status": "cancelled", "session_id": session_id})
     append_job_event(job_id, "cancelled", {"status": "cancelled", "session_id": session_id})
     append_job_event(job_id, "error", {"message": "Cancelled.", "session_id": session_id})
@@ -3508,6 +4077,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     assembles optimal context from a rolling summary, verbatim window,
     and retrieval hits.
     """
+    turn_attachments(req)  # reject unknown files before anything streams
     domain_classification = analyze_agent_domain(req.message, screen_context=req.screen_context)
     if domain_classification.decision != "allow":
         return StreamingResponse(
@@ -3535,6 +4105,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     workflow_ticker = route_decision.workflow_ticker
     # The session is read once per turn; routing and the turn itself share this copy.
     turn_session: dict[str, Any] | None = None
+    recent_conversation: list[dict[str, Any]] = []
     router_shadow: dict[str, Any] | None = None
     if workflow_name and req.allow_workflow_handoff:
         provider_label = "deferred"
@@ -3553,7 +4124,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
 
             llm_credentials = _read_llm_api_key()
             turn_session = memory_db.get_or_create_session(req.session_id)
-            recent_conversation = _recent_conversation_for_routing(turn_session)
+            recent_conversation = _recent_conversation_for_routing(turn_session, req)
             route_decision, route_meta = _resolve_chat_route(
                 user_text=req.message,
                 screen_context=req.screen_context,
@@ -3590,6 +4161,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 tool_defs = _tool_definitions_from_names(provider, active_tool_names)
     force_refresh = _wants_fresh_data(req.message)
     enable_retrieval = _should_use_retrieval(req.message)
+    contextual_followup = is_contextual_followup(req.message, recent_conversation)
     logger.info(
         "agent_chat provider=%s casual=%s workflow=%s ticker=%s tools=%d refresh=%s retrieval=%s session=%s "
         "route_source=%s route_intent=%s route_confidence=%.2f",
@@ -3606,7 +4178,22 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
         route_decision.confidence,
     )
 
-    def generate():  # noqa: C901
+    def generate():
+        guard = _TurnTranscriptGuard(req)
+        turn = generate_turn(guard)
+        try:
+            for frame in turn:
+                yield guard.observe(frame)
+        except Exception:
+            guard.settle(failed=True)
+            raise
+        finally:
+            # Also runs on GeneratorExit, when Starlette drops a disconnected client's stream.
+            guard.settle()
+            turn.close()
+
+    # Untyped, as generate() was, so mypy keeps skipping this long body.
+    def generate_turn(guard):  # noqa: C901
         nonlocal tool_defs
         timings = _new_agent_timings()
         yield _sse_ping()
@@ -3616,19 +4203,36 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             return
 
         from api import memory_db
-        from api.memory_manager import (
-            build_conversation_context,
-            finalize_turn,
-            finalize_turn_async,
-            messages_before_turn,
-        )
+        from api.memory_manager import build_conversation_context, messages_before_turn
 
-        finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
+        def finalize_turn_fn(sid: str, user_msg: dict[str, Any], assistant_msg: dict[str, Any]) -> None:
+            # Existing message JSON retains selected/discovered tools even when the model
+            # answers without calling one. No extra session read or schema is needed.
+            tickers = extract_tickers(str(assistant_msg.get("content") or ""))
+            tickers.extend(_routing_tickers(req.message, req.screen_context, recent_conversation))
+            assistant_msg["routing_context"] = {
+                "tickers": list(dict.fromkeys(tickers)),
+                "tool_names": list(active_tool_names),
+            }
+            guard.finalize(sid, user_msg, assistant_msg)
+
         session = turn_session if turn_session is not None else memory_db.get_or_create_session(req.session_id)
-        prior_message_count = messages_before_turn(session, req.client_turn_id)
+        guard.session_id = str(session["session_id"])
+        lineage = _turn_lineage(req, session)
+        guard.lineage = lineage
+        turn_history = lineage.history(session["server_messages"])
+        prior_message_count = messages_before_turn(session, req.client_turn_id, lineage)
+
+        from api.memory_context import select_memory_context, set_memory_enabled
+
+        if req.memory_enabled is not None:
+            set_memory_enabled(guard.session_id, req.memory_enabled)
+            session["memory_enabled"] = int(req.memory_enabled)
+        guard.memory_context = {"enabled": bool(session.get("memory_enabled", True)), "memories": [], "prompt": ""}
 
         agent_turn_event_id: str | None = None
         if casual and not workflow_name:
+            yield _sse("memory_context", {"session_id": guard.session_id, **guard.memory_context})
             session_id = str(session["session_id"])
             _agent_turn_begin(req, session_id, session)
             agent_turn_event_id = _start_agent_turn_provenance(
@@ -3653,6 +4257,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
+                session_messages=turn_history,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
@@ -3665,11 +4270,18 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 raw_payload={"path": "casual"},
             )
             yield from _done_then_followup(
-                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                _sse(
+                    "done",
+                    _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started),
+                ),
                 followup,
             )
             return
 
+        guard.memory_context = select_memory_context(
+            session, req.message, ticker=req.screen_context.ticker if req.screen_context else None, history=turn_history
+        )
+        yield _sse("memory_context", {"session_id": guard.session_id, **guard.memory_context})
         provider, api_key = llm_credentials or _read_llm_api_key()
         reasoning_effort = _chat_reasoning_effort(provider, req.response_preferences)
         instructions = _with_domain_guardrail_instruction(
@@ -3679,8 +4291,17 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             ),
             domain_classification,
         )
+        if guard.memory_context["prompt"]:
+            instructions += "\n\n---\n\n" + guard.memory_context["prompt"]
         client = _get_provider_client(provider, api_key)
         budget = AgentBudgetState()
+        usage_totals: Counter[str] = Counter()
+
+        def record_model_usage(usage: dict[str, int]) -> None:
+            # Count each reported call once, including calls that exhaust the turn budget.
+            usage_totals.update(usage)
+            budget.record_model_usage(usage)
+
         session_id = str(session["session_id"])
         _agent_turn_begin(req, session_id, session)
         raw_conversation, session_id = build_conversation_context(
@@ -3689,7 +4310,14 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             enable_retrieval=enable_retrieval,
             client_turn_id=req.client_turn_id,
             session=session,
+            lineage=lineage,
+            attachments=turn_attachments(req, lineage.reused_user),
         )
+        has_recent_tool_facts = bool(
+            raw_conversation and TOOL_MEMORY_HEADER in str(raw_conversation[0].get("content", ""))
+        )
+        if has_recent_tool_facts:
+            instructions += "\n\n" + TOOL_MEMORY_GUIDANCE
         agent_turn_event_id = _start_agent_turn_provenance(
             session_id=session_id,
             message=req.message,
@@ -3723,7 +4351,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )["owned_model_rollout"],
         )
 
-        if not workflow_name and _is_simple_portfolio_summary(req.message):
+        if not workflow_name and not contextual_followup and _is_simple_portfolio_summary(req.message):
             call_info = {
                 "name": "get_portfolio",
                 "args": _execution_args("get_portfolio", {}, force_refresh=force_refresh, user_text=req.message),
@@ -3739,7 +4367,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             yield _sse(
                 "tool_progress",
-                {"name": call_info["name"], "id": call_info["call_ids"][0], "status": "running"},
+                {
+                    "name": call_info["name"],
+                    "id": call_info["call_ids"][0],
+                    "status": "running",
+                    **_capped_arguments(call_info["args"]),
+                },
             )
             _attach_tool_provenance_context(
                 [call_info],
@@ -3786,6 +4419,9 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 tool_payload["elapsed_ms"] = meta.get("duration_ms")
             if err_msg:
                 tool_payload["message"] = err_msg
+            tool_payload.update(arguments=call_info.get("args", {}), result=portfolio_result)
+            tool_payload.setdefault("elapsed_ms", round(portfolio_elapsed_ms, 1))
+            tool_payload["cache"] = cache_status
             yield _sse("tool_result", tool_payload)
             if result_status == "blocked":
                 yield _sse("policy_failure", tool_payload)
@@ -3818,6 +4454,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     )
                     stream_kwargs = _model_stream_kwargs(
                         provider=provider,
+                        session_id=session_id,
                         instructions=instructions,
                         conversation=synthesis_conversation,
                         max_tokens=PORTFOLIO_SUMMARY_MAX_TOKENS,
@@ -3869,7 +4506,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         final_message=final_message,
                         output_text="".join(synthesis_chunks),
                     )
-                    budget.record_model_usage(_usage_dict(final_message))
+                    record_model_usage(_usage_dict(final_message))
                     yield _sse("budget_update", budget.to_meta())
                     break
                 except ModelGatewayDenied as exc:
@@ -3900,8 +4537,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         status="failed",
                         error=str(retry_exc) or retry_exc.__class__.__name__,
                     )
-                    if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                        time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                    if (yield from _retry_model_call(retry_exc, attempt, synthesis_chunks)):
                         continue
                     raise
 
@@ -3919,17 +4555,18 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 agent_turn_event_id,
                 status="succeeded",
                 output_value=synthesis_text,
-                usage=_usage_dict(final_message),
+                usage=dict(usage_totals),
             )
             followup = _turn_followup(
                 messages_before_turn=prior_message_count,
+                session_messages=turn_history,
                 req=req,
                 session_id=session_id,
                 turn_started=turn_started,
                 timings=timings,
                 final_disposition="succeeded",
                 messages=[user_msg, assistant_msg],
-                usage=_usage_dict(final_message),
+                usage=dict(usage_totals),
                 provider=provider,
                 model=locals().get("stream_kwargs", {}).get("model")
                 if isinstance(locals().get("stream_kwargs"), dict)
@@ -3946,7 +4583,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     "done",
                     _done_payload(
                         {
-                            "usage": _usage_dict(final_message),
+                            "usage": dict(usage_totals),
                             "session_id": session_id,
                             "tool_calls": [tool_payload],
                             "tools_used": [call_info["name"]],
@@ -3966,12 +4603,15 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 req.message,
                 req.screen_context,
                 route_decision=route_decision,
+                recent_conversation=recent_conversation,
             )
             tool_payloads: list[dict[str, Any]] = []
             dq_tool_results: list[dict[str, Any]] = []
             oc_result: dict[str, Any] | None = None
             dq_result: dict[str, Any] | None = None
             final_message: object | None = None
+            verdict_chunks: list[str] = []
+            synthesis_chunks: list[str] = []
             try:
                 if dq_tool_calls:
                     yield _phase_sse(
@@ -3994,7 +4634,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             budgeted_calls.append(call_info)
                             yield _sse(
                                 "tool_progress",
-                                {"name": call_info["name"], "id": call_id, "status": "running"},
+                                {
+                                    "name": call_info["name"],
+                                    "id": call_id,
+                                    "status": "running",
+                                    **_capped_arguments(call_info.get("args") or {}),
+                                },
                             )
                         except AgentBudgetExceeded as exc:
                             result_str = _blocked_tool_result(call_info["name"], exc)
@@ -4049,13 +4694,21 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             cache_status,
                             result_status,
                         )
-                        payload = {"name": call_info["name"], "id": call_id, "status": result_status}
+                        payload = {
+                            "name": call_info["name"],
+                            "id": call_id,
+                            "status": result_status,
+                            "arguments": call_info.get("args", {}),
+                            "result": result_str,
+                        }
                         if meta.get("policy_decision_id"):
                             payload["policy_decision_id"] = meta.get("policy_decision_id")
                         if meta.get("duration_ms") is not None:
                             payload["elapsed_ms"] = meta.get("duration_ms")
                         if err_msg:
                             payload["message"] = err_msg
+                        payload.setdefault("elapsed_ms", round(elapsed_ms, 1))
+                        payload["cache"] = cache_status
                         yield _sse("tool_result", payload)
                         if result_status == "blocked":
                             yield _sse("policy_failure", payload)
@@ -4106,9 +4759,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             oc_result = _run_opportunity_candidate_structured_pass(
                                 context_bundle=context_bundle,
                                 provider=provider,
+                                session_id=session_id,
                                 api_key=api_key,
                                 reasoning_effort=reasoning_effort,
                             )
+                            model_timing.update(oc_result.get("usage") or {})
                             _record_model_timing(
                                 timings,
                                 model_timing,
@@ -4117,7 +4772,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            budget.record_model_usage(oc_result.get("usage") or {})
+                            record_model_usage(oc_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
                             if router_shadow is not None:
                                 router_shadow["opportunity_candidate_metadata"] = (
@@ -4139,8 +4794,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (yield from _retry_model_call(retry_exc, attempt)):
                                 continue
                             raise
 
@@ -4151,6 +4805,15 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         and oc_result["gate"].should_graduate
                     )
                 )
+
+                if oc_result is not None:
+                    verdict = _decision_quality_chat_verdict(
+                        oc_result=oc_result,
+                        review_pending=should_run_full_dq,
+                    )
+                    verdict_chunks.append(verdict)
+                    timings["first_token_ms"] = _elapsed_ms(turn_started)
+                    yield _sse("delta", {"text": verdict})
 
                 if should_run_full_dq:
                     for attempt in range(MAX_API_RETRIES):
@@ -4178,9 +4841,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             dq_result = _run_decision_quality_structured_pass(
                                 context_bundle=context_bundle,
                                 provider=provider,
+                                session_id=session_id,
                                 api_key=api_key,
                                 reasoning_effort=reasoning_effort,
                             )
+                            model_timing.update(dq_result.get("usage") or {})
                             _record_model_timing(
                                 timings,
                                 model_timing,
@@ -4189,7 +4854,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            budget.record_model_usage(dq_result.get("usage") or {})
+                            record_model_usage(dq_result.get("usage") or {})
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except Exception as retry_exc:
@@ -4201,12 +4866,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 provider=provider,
                                 model=resolve_model(MODEL_MID, provider),
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (yield from _retry_model_call(retry_exc, attempt)):
                                 continue
                             raise
 
-                synthesis_chunks: list[str] = []
+                if not verdict_chunks:
+                    verdict = _decision_quality_chat_verdict(dq_result=dq_result)
+                    verdict_chunks.append(verdict)
+                    timings["first_token_ms"] = _elapsed_ms(turn_started)
+                    yield _sse("delta", {"text": verdict})
+
                 if should_run_full_dq:
                     for attempt in range(MAX_API_RETRIES):
                         model_timing = {
@@ -4231,7 +4900,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 + "\n\n---\n\n"
                                 + _load_required_prompt_file("decision_quality_chat_synthesis.md")
                             )
-                            synthesis_conversation = _user_prompt_for_provider(
+                            synthesis_conversation = conversation + _user_prompt_for_provider(
                                 provider,
                                 _build_decision_quality_chat_synthesis_prompt(
                                     user_text=req.message,
@@ -4241,6 +4910,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             )
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=synthesis_instructions,
                                 conversation=synthesis_conversation,
                                 max_tokens=DECISION_QUALITY_CHAT_SYNTHESIS_MAX_TOKENS,
@@ -4292,7 +4962,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 final_message=final_message,
                                 output_text="".join(synthesis_chunks),
                             )
-                            budget.record_model_usage(_usage_dict(final_message))
+                            record_model_usage(_usage_dict(final_message))
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
@@ -4323,8 +4993,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 status="failed",
                                 error=str(retry_exc) or retry_exc.__class__.__name__,
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (
+                                yield from _retry_model_call(
+                                    retry_exc, attempt, synthesis_chunks, leading_text="".join(verdict_chunks)
+                                )
+                            ):
                                 continue
                             raise
                 else:
@@ -4351,7 +5024,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 + "\n\n---\n\n"
                                 + _load_required_prompt_file("opportunity_candidate_synthesis.md")
                             )
-                            synthesis_conversation = _user_prompt_for_provider(
+                            synthesis_conversation = conversation + _user_prompt_for_provider(
                                 provider,
                                 _build_opportunity_candidate_synthesis_prompt(
                                     user_text=req.message,
@@ -4361,6 +5034,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             )
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=synthesis_instructions,
                                 conversation=synthesis_conversation,
                                 max_tokens=DECISION_QUALITY_CHAT_SYNTHESIS_MAX_TOKENS,
@@ -4412,7 +5086,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 final_message=final_message,
                                 output_text="".join(synthesis_chunks),
                             )
-                            budget.record_model_usage(_usage_dict(final_message))
+                            record_model_usage(_usage_dict(final_message))
                             yield _sse("budget_update", budget.to_meta())
                             break
                         except ModelGatewayDenied as exc:
@@ -4443,8 +5117,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 status="failed",
                                 error=str(retry_exc) or retry_exc.__class__.__name__,
                             )
-                            if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                                time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                            if (
+                                yield from _retry_model_call(
+                                    retry_exc, attempt, synthesis_chunks, leading_text="".join(verdict_chunks)
+                                )
+                            ):
                                 continue
                             raise
 
@@ -4462,7 +5139,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         synthesis_text = _opportunity_candidate_fallback(oc_result or {})
                     yield _sse("delta", {"text": synthesis_text})
 
-                usage = _usage_dict(final_message)
+                synthesis_text = "".join(verdict_chunks) + synthesis_text
+                usage = dict(usage_totals)
                 done_payload_data: dict[str, Any] = {
                     "usage": usage,
                     "session_id": session_id,
@@ -4502,6 +5180,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=turn_history,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4554,7 +5233,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 _finish_agent_turn_provenance(
                     agent_turn_event_id,
                     status="failed",
-                    usage={},
+                    usage=dict(usage_totals),
                     error=str(exc) or exc.__class__.__name__,
                 )
                 followup = _turn_followup(
@@ -4565,9 +5244,13 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     final_disposition="failed",
                     messages=[
                         {"role": "user", "content": req.message, "timestamp": time.time()},
-                        {"role": "assistant", "content": _format_stream_error(exc), "timestamp": time.time()},
+                        {
+                            "role": "assistant",
+                            "content": "".join(verdict_chunks + synthesis_chunks) or _format_stream_error(exc),
+                            "timestamp": time.time(),
+                        },
                     ],
-                    usage={},
+                    usage=dict(usage_totals),
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
@@ -4582,7 +5265,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         "done",
                         _done_payload(
                             {
-                                "usage": {},
+                                "usage": dict(usage_totals),
                                 "session_id": session_id,
                                 "tool_calls": tool_payloads,
                                 "tools_used": [call["name"] for call in tool_payloads],
@@ -4609,14 +5292,22 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             try:
                 wf_def = AVAILABLE_WORKFLOWS.get(workflow_name, {})
                 if wf_def.get("requires_ticker") and not workflow_ticker:
-                    yield _sse(
-                        "delta",
-                        {
-                            "text": f"I need a ticker to run the **{wf_def.get('label', workflow_name)}** workflow. Which position would you like me to review?"
-                        },
+                    reply = (
+                        f"I need a ticker to run the **{wf_def.get('label', workflow_name)}** workflow. "
+                        "Which position would you like me to review?"
                     )
-                    _finish_agent_turn_provenance(agent_turn_event_id, status="succeeded", usage={})
-                    yield _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started))
+                    yield _sse("delta", {"text": reply})
+                    turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
+                    finalize_turn_fn(
+                        session_id,
+                        {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta},
+                        {"role": "assistant", "content": reply, "timestamp": time.time(), **turn_meta},
+                    )
+                    _finish_agent_turn_provenance(agent_turn_event_id, status="succeeded", usage=dict(usage_totals))
+                    yield _sse(
+                        "done",
+                        _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                    )
                     return
 
                 yield _phase_sse(
@@ -4643,7 +5334,16 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         }
                     )
                     yield _sse("tool_call", {"name": section["tool"], "id": section["tool"]})
-                    yield _sse("tool_result", {"name": section["tool"], "id": section["tool"], "status": "ok"})
+                    yield _sse(
+                        "tool_result",
+                        {
+                            "name": section["tool"],
+                            "id": section["tool"],
+                            "status": "ok",
+                            "result": section.get("data", section.get("result")),
+                            "arguments": section.get("args", {}),
+                        },
+                    )
 
                 synthesis_chunks: list[str] = []
                 for attempt in range(MAX_API_RETRIES):
@@ -4666,6 +5366,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         synthesis_conversation = _user_prompt_for_provider(provider, synthesis_prompt)
                         stream_kwargs = _model_stream_kwargs(
                             provider=provider,
+                            session_id=session_id,
                             instructions=instructions,
                             conversation=synthesis_conversation,
                             max_tokens=LLM_MAX_TOKENS,
@@ -4716,7 +5417,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             final_message=final_message,
                             output_text="".join(synthesis_chunks),
                         )
-                        budget.record_model_usage(_usage_dict(final_message))
+                        record_model_usage(_usage_dict(final_message))
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
@@ -4747,8 +5448,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             status="failed",
                             error=str(retry_exc) or retry_exc.__class__.__name__,
                         )
-                        if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                            time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                        if (yield from _retry_model_call(retry_exc, attempt, synthesis_chunks)):
                             continue
                         raise
 
@@ -4764,7 +5464,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 except Exception:
                     logger.debug("Failed to persist workflow run %s", run_id, exc_info=True)
 
-                usage = _usage_dict(final_message)
+                usage = dict(usage_totals)
                 # Finalize turn before last yield
                 turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
                 user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
@@ -4785,6 +5485,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=turn_history,
                     req=req,
                     session_id=session_id,
                     turn_started=turn_started,
@@ -4833,7 +5534,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 _finish_agent_turn_provenance(
                     agent_turn_event_id,
                     status="failed",
-                    usage={},
+                    usage=dict(usage_totals),
                     error=str(exc) or exc.__class__.__name__,
                 )
                 followup = _turn_followup(
@@ -4846,7 +5547,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         {"role": "user", "content": req.message, "timestamp": time.time()},
                         {"role": "assistant", "content": f"Workflow failed: {exc}", "timestamp": time.time()},
                     ],
-                    usage={},
+                    usage=dict(usage_totals),
                     provider=provider,
                     route_decision=route_decision,
                     route_meta=route_meta,
@@ -4860,21 +5561,31 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 yield _sse("error", {"message": f"Workflow failed: {exc}"})
                 yield from _done_then_followup(
-                    _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                    _sse(
+                        "done",
+                        _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                    ),
                     followup,
                 )
                 return
 
         # --- Normal tool-calling path ---
+        tool_defs = _chat_tool_definitions(provider, active_tool_names)
         has_rich_screen_data = req.screen_context is not None and (
             req.screen_context.metrics or req.screen_context.summary
         )
-        force_tool_use = bool(tool_defs) and _is_data_seeking(req.message) and not has_rich_screen_data
+        force_tool_use = (
+            bool(tool_defs)
+            and _is_data_seeking(req.message)
+            and not has_rich_screen_data
+            and (force_refresh or (not contextual_followup and not has_recent_tool_facts))
+        )
         tool_result_cache: dict[str, str] = {}
         continuation_round = 0
         output_continuation_rounds = 0
         text_only_continuation = False
-        text_parts: list[str] = []
+        round_prefix = ""
+        completed_round_texts: list[str] = []
         normal_tool_payloads: list[dict[str, Any]] = []
         scan_state = ModelEgressScanState()
 
@@ -4883,12 +5594,20 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 begin_chat_round(continuation_round)
                 final_synthesis_round = continuation_round >= MAX_TOOL_CONTINUATION_ROUNDS
                 round_text_only = final_synthesis_round or text_only_continuation
-                round_tool_defs = tool_defs if provider == PROVIDER_ANTHROPIC or not round_text_only else []
+                round_tool_defs = (
+                    tool_defs if provider in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI} or not round_text_only else []
+                )
                 round_force_tool_use = False if round_text_only else force_tool_use
+                leading_text = "".join(completed_round_texts)
+                # Output-token continuations can resume mid-sentence. Tool and pause rounds start a paragraph.
+                if not text_only_continuation:
+                    round_prefix = "\n\n" if leading_text else ""
                 text_only_continuation = False
+                text_parts: list[str] = []
 
                 stream_kwargs = _model_stream_kwargs(
                     provider=provider,
+                    session_id=session_id,
                     instructions=instructions,
                     conversation=conversation,
                     max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -4941,14 +5660,17 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             attempt=attempt,
                             round_index=continuation_round,
                         )
-                        final_message = yield from _stream_llm_response(
-                            client,
-                            provider,
-                            stream_kwargs,
-                            text_parts,
-                            model_timing=model_timing,
-                            turn_timings=timings,
-                            turn_started=turn_started,
+                        final_message = yield from _stream_with_text_prefix(
+                            _stream_llm_response(
+                                client,
+                                provider,
+                                stream_kwargs,
+                                text_parts,
+                                model_timing=model_timing,
+                                turn_timings=timings,
+                                turn_started=turn_started,
+                            ),
+                            round_prefix,
                         )
                         _record_model_timing(
                             timings,
@@ -4964,7 +5686,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                             final_message=final_message,
                             output_text="".join(text_parts),
                         )
-                        budget.record_model_usage(_usage_dict(final_message))
+                        record_model_usage(_usage_dict(final_message))
                         yield _sse("budget_update", budget.to_meta())
                         break
                     except ModelGatewayDenied as exc:
@@ -4991,8 +5713,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 api_key=baseline_api_key,
                                 raw_conversation=raw_conversation,
                             )
+                            tool_defs = _chat_tool_definitions(provider, active_tool_names)
+                            round_tool_defs = tool_defs
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=instructions,
                                 conversation=conversation,
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -5026,6 +5751,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                         ):
                             from api.owned_model_rollout import map_exception_to_fallback_reason
 
+                            # The baseline provider answers from scratch, not after the failed attempt's text.
+                            yield from _rewind_streamed_text(text_parts, 0, leading_text)
                             rollout_decision, provider, api_key, client, conversation = _owned_model_apply_fallback(
                                 rollout_decision=rollout_decision,
                                 rollout_telemetry=rollout_telemetry,
@@ -5034,8 +5761,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 api_key=baseline_api_key,
                                 raw_conversation=raw_conversation,
                             )
+                            tool_defs = _chat_tool_definitions(provider, active_tool_names)
+                            round_tool_defs = tool_defs
                             stream_kwargs = _model_stream_kwargs(
                                 provider=provider,
+                                session_id=session_id,
                                 instructions=instructions,
                                 conversation=conversation,
                                 max_tokens=LLM_CHAT_MAX_TOKENS,
@@ -5045,8 +5775,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 reasoning_effort=reasoning_effort,
                             )
                             continue
-                        if attempt < MAX_API_RETRIES - 1 and _is_retryable_error(retry_exc):
-                            time.sleep(RETRY_BASE_DELAY * (2**attempt))
+                        if (yield from _retry_model_call(retry_exc, attempt, text_parts, leading_text=leading_text)):
                             continue
                         raise
 
@@ -5062,8 +5791,20 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 else:
                     assistant_content = _serialize_output_items(final_message)
                     deferred_calls = _extract_openai_tool_calls(assistant_content)
+                guard.sources.extend(sources_from(assistant_content))
                 if final_synthesis_round:
                     deferred_calls = []
+
+                if any(text_parts):
+                    if deferred_calls:
+                        # Text ahead of a tool call is narration ("Let me pull your book"). The client moves it
+                        # from the answer to the activity list, so the answer is what it was before this round.
+                        if narration_text := "".join(text_parts).strip():
+                            yield _sse("narration", {"id": f"narration:{continuation_round}", "text": narration_text})
+                        yield _sse("reset", {"text": leading_text})
+                    else:
+                        completed_round_texts.append(round_prefix + "".join(text_parts))
+                    round_prefix = ""
 
                 if not deferred_calls and _hit_output_token_limit(provider, final_message):
                     if output_continuation_rounds >= MAX_OUTPUT_CONTINUATION_ROUNDS:
@@ -5136,7 +5877,12 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 for call_id in call_info.get("call_ids", []):
                                     yield _sse(
                                         "tool_progress",
-                                        {"name": call_info["name"], "id": call_id, "status": "running"},
+                                        {
+                                            "name": call_info["name"],
+                                            "id": call_id,
+                                            "status": "running",
+                                            **_capped_arguments(call_info["args"]),
+                                        },
                                     )
                             except AgentBudgetExceeded as exc:
                                 result_str = _blocked_tool_result(call_info["name"], exc)
@@ -5201,7 +5947,11 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 "status": result_status,
                             }
                         )
-                        if call_info["name"] == "search_agent_capabilities" and not err_msg:
+                        if (
+                            call_info["name"] == "search_agent_capabilities"
+                            and not err_msg
+                            and provider not in {PROVIDER_ANTHROPIC, PROVIDER_OPENAI}
+                        ):
                             discovered = [
                                 tool_name
                                 for tool_name in _capability_names_from_search_result(result_str)
@@ -5217,6 +5967,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 "name": call_info["name"],
                                 "id": call_id,
                                 "status": result_status,
+                                "arguments": call_info.get("args", {}),
+                                "result": result_str,
                             }
                             if meta.get("policy_decision_id"):
                                 payload["policy_decision_id"] = meta.get("policy_decision_id")
@@ -5224,6 +5976,8 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                                 payload["elapsed_ms"] = meta.get("duration_ms")
                             if err_msg:
                                 payload["message"] = err_msg
+                            payload.setdefault("elapsed_ms", round(elapsed_ms, 1))
+                            payload["cache"] = cache_status
                             yield _sse("tool_result", payload)
                             normal_tool_payloads.append(dict(payload))
                             if result_status == "blocked":
@@ -5285,9 +6039,9 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     continuation_round += 1
                     continue
 
-                usage = _usage_dict(final_message)
+                usage = dict(usage_totals)
                 # Finalize turn before last yield
-                full_text = "".join(text_parts)
+                full_text = "".join(completed_round_texts)
                 if not full_text.strip():
                     logger.warning("Agent chat model returned empty text; using deterministic empty-response fallback")
                     full_text = EMPTY_AGENT_RESPONSE_TEXT
@@ -5308,7 +6062,6 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     },
                     max_tokens=LLM_CHAT_MAX_TOKENS,
                 )
-                _agent_turn_persist_delta(req, session_id, full_text)
                 turn_meta = {"client_turn_id": req.client_turn_id} if req.client_turn_id else {}
                 user_msg = {"role": "user", "content": req.message, "timestamp": time.time(), **turn_meta}
                 assistant_msg = {"role": "assistant", "content": full_text, "timestamp": time.time(), **turn_meta}
@@ -5322,6 +6075,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                 )
                 followup = _turn_followup(
                     messages_before_turn=prior_message_count,
+                    session_messages=turn_history,
                     shadow=shadow,
                     req=req,
                     session_id=session_id,
@@ -5375,7 +6129,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             _finish_agent_turn_provenance(
                 agent_turn_event_id,
                 status="failed",
-                usage={},
+                usage=dict(usage_totals),
                 error=str(exc) or exc.__class__.__name__,
             )
             followup = _turn_followup(
@@ -5388,7 +6142,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     {"role": "user", "content": req.message, "timestamp": time.time()},
                     {"role": "assistant", "content": _format_stream_error(exc), "timestamp": time.time()},
                 ],
-                usage={},
+                usage=dict(usage_totals),
                 provider=provider,
                 route_decision=route_decision,
                 route_meta=route_meta,
@@ -5399,11 +6153,14 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
             )
             yield _sse("error", {"message": _format_stream_error(exc)})
             yield from _done_then_followup(
-                _sse("done", _done_payload({"usage": {}, "session_id": session_id}, timings, turn_started)),
+                _sse(
+                    "done",
+                    _done_payload({"usage": dict(usage_totals), "session_id": session_id}, timings, turn_started),
+                ),
                 followup,
             )
 
-    return StreamingResponse(
+    return _ClosingStreamingResponse(
         generate(),
         media_type="text/event-stream",
         headers=_sse_headers(),

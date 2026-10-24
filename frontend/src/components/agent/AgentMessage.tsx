@@ -1,11 +1,18 @@
 import Markdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
-import { memo } from "react"
-import type { ToolCall, EgressRecord, AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
-import { Loader2, CheckCircle2, AlertCircle, Ban, Clock, GitPullRequest, RotateCw, ShieldAlert } from "lucide-react"
+import { memo, useRef, useState, type ReactNode } from "react"
+import type { EgressRecord, AgentMessage as AgentMessageType } from "@/hooks/useAgentChat"
+import { Pencil, RefreshCw, ShieldAlert } from "lucide-react"
 import { DecisionStateBadge, EffectScopeBadge } from "@/components/shared/DecisionStateBadge"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
+import { AgentActivity } from "./AgentActivity"
+import { AttachmentChips } from "./AgentAttachmentChips"
+import { AgentChart } from "./AgentChart"
 import { AgentFeedbackControls } from "./AgentFeedbackControls"
+import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./AgentMessageActions"
+import { AgentProposalCard } from "./AgentProposalCard"
+import { AgentSources } from "./AgentSources"
+import { toolEffectScope } from "./agentToolDisplay"
 
 const MARKDOWN_COMPONENTS: Components = {
   table({ children, ...props }) {
@@ -31,89 +38,25 @@ const MARKDOWN_COMPONENTS: Components = {
       </td>
     )
   },
-  pre({ children, ...props }) {
-    return (
-      <pre {...props} className="my-3 max-w-full overflow-x-auto rounded-lg border border-app bg-card-muted p-3 text-xs leading-5">
-        {children}
-      </pre>
-    )
+  pre({ children }) {
+    return <CodeBlock>{children}</CodeBlock>
   },
 }
 
-// ---------------------------------------------------------------------------
-// Friendly tool labels
-// ---------------------------------------------------------------------------
-
-const TOOL_LABELS: Record<string, string> = {
-  get_thesis: "Thesis",
-  get_thesis_evaluations: "Thesis Evaluations",
-  get_liquidity: "Liquidity",
-  get_market_breadth: "Market Breadth",
-  get_vix_term_structure: "VIX Term Structure",
-  get_positioning: "Positioning",
-  get_economic_growth: "Economic Growth",
-  get_labor_market: "Labor Market",
-  get_sector_metrics: "Sector Metrics",
-  get_portfolio: "Portfolio",
-  get_yield_curve: "Yield Curve",
-  get_sentiment: "Sentiment",
-  get_central_banks: "Central Banks",
-  get_industry_monitor: "Industry Monitor",
-  get_signal_aggregator: "Signal Aggregator",
-  query_ontology: "Ontology Query",
-  search_web: "Web Search",
-  search_knowledge_base: "Knowledge Base",
-  get_dossier: "Position Dossier",
-  get_catalysts: "Catalysts",
-  propose_thesis_status_change: "Thesis Status Proposal",
-  propose_action_item: "Action Item Proposal",
-  propose_catalyst: "Catalyst Proposal",
-  propose_catalyst_status_change: "Catalyst Status Proposal",
-  propose_kill_condition: "Kill Condition Proposal",
-  propose_kill_condition_status_change: "Kill Condition Status Proposal",
-  propose_watch_trigger: "Watch Trigger Proposal",
-  propose_portfolio_positions_update: "Portfolio Update Proposal",
-  propose_hedge_positions_update: "Hedge Update Proposal",
-  propose_thesis_content_update: "Thesis Content Proposal",
-}
-
-const PROPOSAL_TOOL_PREFIXES = ["propose_", "create_", "update_", "complete_", "dismiss_", "cancel_", "fire_"]
-
-function toolEffectScope(name: string): "read_only" | "internal_state" {
-  return PROPOSAL_TOOL_PREFIXES.some(prefix => name.startsWith(prefix)) ? "internal_state" : "read_only"
-}
-
-function toolStateLabel(status: ToolCall["status"]): string {
-  switch (status) {
-    case "pending":
-      return "Pending"
-    case "running":
-      return "Running"
-    case "ok":
-      return "Complete"
-    case "blocked":
-      return "Blocked"
-    case "timeout":
-      return "Timed out"
-    case "retrying":
-      return "Retrying"
-    case "partial":
-      return "Partial"
-    case "cancelled":
-      return "Cancelled"
-    case "error":
-    default:
-      return "Failed"
-  }
-}
-
-function humanizeToolName(name: string): string {
-  return name
-    .replace(/^propose_/, "")
-    .split("_")
-    .filter(Boolean)
-    .map(part => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ")
+function CodeBlock({ children }: { children?: ReactNode }) {
+  const block = useRef<HTMLPreElement>(null)
+  return (
+    <div className="group/code relative my-3 max-w-full">
+      <CopyButton
+        label="Copy code"
+        getText={() => (block.current?.textContent ?? "").replace(/\n$/, "")}
+        className="absolute right-1.5 top-1.5 bg-card opacity-0 focus-visible:opacity-100 group-hover/code:opacity-100 [@media(hover:none)]:opacity-100"
+      />
+      <pre ref={block} className="max-w-full overflow-x-auto rounded-lg border border-app bg-card-muted p-3 text-xs leading-5">
+        {children}
+      </pre>
+    </div>
+  )
 }
 
 const ARTIFACT_JSON_KEYS = [
@@ -162,43 +105,6 @@ function stripArtifactBlocks(value: string): string {
   }
 
   return stripTrailingArtifactJson(withoutClosedBlocks)
-}
-
-function ToolCallChip({ tc }: { tc: ToolCall }) {
-  const label = TOOL_LABELS[tc.name] ?? humanizeToolName(tc.name)
-  const scope = toolEffectScope(tc.name)
-  const isBusy = tc.status === "pending" || tc.status === "running" || tc.status === "retrying"
-  const isFailure = tc.status === "error" || tc.status === "blocked" || tc.status === "timeout" || tc.status === "cancelled"
-  const titleParts = [tc.message || `${label}: ${toolStateLabel(tc.status)}`]
-  if (tc.policyDecisionId) titleParts.push(`Policy decision: ${tc.policyDecisionId}`)
-  const Icon = isBusy
-    ? Loader2
-    : tc.status === "ok"
-      ? CheckCircle2
-      : tc.status === "retrying"
-        ? RotateCw
-        : tc.status === "blocked"
-          ? Ban
-          : tc.status === "timeout"
-            ? Clock
-            : AlertCircle
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs mr-1.5 mb-1.5 ${
-        isFailure
-          ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300"
-          : scope === "internal_state"
-            ? "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-200"
-            : "bg-muted-surface border-app text-muted"
-      }`}
-      title={titleParts.join("\n")}
-    >
-      {scope === "internal_state" && <GitPullRequest size={10} aria-hidden="true" />}
-      <Icon size={10} className={isBusy ? "animate-spin text-blue-500" : ""} aria-hidden="true" />
-      {label}
-      <span className="opacity-75">· {toolStateLabel(tc.status)}</span>
-    </span>
-  )
 }
 
 interface EgressRecordGroup {
@@ -267,17 +173,63 @@ export const AgentMessage = memo(function AgentMessage({
   message,
   sessionId,
   onOpenTrace,
+  versionIndex,
+  versionCount,
+  canRegenerate,
+  actionsDisabled,
+  onRegenerate,
+  onEdit,
+  onSwitchBranch,
 }: {
   message: AgentMessageType
   sessionId?: string | null
   onOpenTrace?: (message: AgentMessageType) => void
+  /** Which version of the message this is, when it has alternatives. */
+  versionIndex?: number
+  versionCount?: number
+  /** True for the latest answer of the branch, the only one that can be regenerated. */
+  canRegenerate?: boolean
+  /** True while a turn is running: versions and edits wait for it. */
+  actionsDisabled?: boolean
+  onRegenerate?: (messageId: string) => void
+  onEdit?: (messageId: string, content: string) => void
+  onSwitchBranch?: (messageId: string, direction: -1 | 1) => void
 }) {
+  const [editing, setEditing] = useState(false)
+  const version = versionIndex !== undefined && versionCount ? { index: versionIndex, count: versionCount } : undefined
+  const switchVersion = onSwitchBranch ? (direction: -1 | 1) => onSwitchBranch(message.id, direction) : undefined
+
   if (message.role === "user") {
     return (
-      <div className="mb-4 flex justify-end">
-        <div className="max-w-[min(86%,42rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-4 py-2.5 text-sm leading-6 text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
-          {message.content}
-        </div>
+      <div className="group mb-4 flex flex-col items-end">
+        {/* An edited message is sent with the same files, so they stay in view while editing. */}
+        {message.attachments?.length ? (
+          <AttachmentChips attachments={message.attachments} className="mb-1.5 max-w-[min(86%,42rem)] justify-end" />
+        ) : null}
+        {editing ? (
+          <EditMessageForm
+            initialValue={message.content}
+            onCancel={() => setEditing(false)}
+            onSubmit={content => {
+              setEditing(false)
+              onEdit?.(message.id, content)
+            }}
+          />
+        ) : (
+          <div className="max-w-[min(86%,42rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-4 py-2.5 text-sm leading-6 text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
+            {message.content}
+          </div>
+        )}
+        {!editing && (
+          <MessageActionRow align="end" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>
+            <CopyButton label="Copy message" getText={() => message.content} />
+            {onEdit && (
+              <ActionButton label="Edit message" onClick={() => setEditing(true)} disabled={actionsDisabled}>
+                <Pencil size={13} aria-hidden="true" />
+              </ActionButton>
+            )}
+          </MessageActionRow>
+        )}
       </div>
     )
   }
@@ -291,28 +243,15 @@ export const AgentMessage = memo(function AgentMessage({
 
   // Assistant message
   return (
-    <div className="mb-4 flex justify-start">
+    <div className="group mb-4 flex flex-col items-start">
       <div className="max-w-[min(92%,48rem)] rounded-2xl rounded-bl-md border border-app bg-card px-4 py-3 text-sm leading-6 text-app shadow-sm">
-        <div className="mb-2 flex flex-wrap items-center gap-2">
-          <DecisionStateBadge state={messageDecisionState} />
-          <EffectScopeBadge scope={messageScope} />
-          {!message.isStreaming && onOpenTrace && (
-            <TraceTriggerButton
-              compact
-              label="Trace Stan response"
-              className="ml-auto"
-              onClick={() => onOpenTrace(message)}
-            />
-          )}
-        </div>
-        {/* Tool call indicators */}
-        {message.toolCalls && message.toolCalls.length > 0 && (
-          <div className="flex flex-wrap mb-2">
-            {message.toolCalls.map(tc => (
-              <ToolCallChip key={tc.id} tc={tc} />
-            ))}
+        {messageDecisionState === "proposal" && (
+          <div className="mb-2 flex flex-wrap items-center gap-2">
+            <DecisionStateBadge state={messageDecisionState} />
+            <EffectScopeBadge scope={messageScope} />
           </div>
         )}
+        <AgentActivity message={message} />
         {egressGroups.length > 0 && (
           <div className="flex flex-wrap mb-2">
             {egressGroups.map(group => (
@@ -322,12 +261,7 @@ export const AgentMessage = memo(function AgentMessage({
         )}
 
         {/* Markdown content */}
-        {displayContent && message.isStreaming && (
-          <div className="whitespace-pre-wrap">
-            {displayContent}
-          </div>
-        )}
-        {displayContent && !message.isStreaming && (
+        {displayContent && (
           <div className="prose prose-sm max-w-none break-words dark:prose-invert prose-p:my-1.5 prose-p:leading-6 prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-code:break-words">
             <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{displayContent}</Markdown>
           </div>
@@ -337,15 +271,34 @@ export const AgentMessage = memo(function AgentMessage({
           <span className="text-xs text-muted">{message.statusText}</span>
         )}
 
+        {message.charts?.map(chart => (
+          <AgentChart key={chart.id} chart={chart} />
+        ))}
+        {message.proposals?.map(proposal => (
+          <AgentProposalCard key={proposal.id} proposal={proposal} />
+        ))}
+
         {/* Streaming cursor */}
         {message.isStreaming && (
           <span className="inline-block w-1.5 h-4 bg-blue-500 animate-pulse ml-0.5 align-middle rounded-sm" />
         )}
 
-        {!message.isStreaming && (
-          <AgentFeedbackControls message={message} sessionId={sessionId ?? null} />
-        )}
+        <AgentSources sources={message.sources} />
       </div>
+      {!message.isStreaming && (
+        <MessageActionRow align="start" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>
+          {displayContent && <CopyButton label="Copy response" getText={() => displayContent} />}
+          {onOpenTrace && (
+            <TraceTriggerButton compact label="Trace Stan response" className="h-6 w-6" onClick={() => onOpenTrace(message)} />
+          )}
+          <AgentFeedbackControls message={message} sessionId={sessionId ?? null} />
+          {canRegenerate && onRegenerate && (
+            <ActionButton label="Regenerate response" onClick={() => onRegenerate(message.id)} disabled={actionsDisabled}>
+              <RefreshCw size={13} aria-hidden="true" />
+            </ActionButton>
+          )}
+        </MessageActionRow>
+      )}
     </div>
   )
 })

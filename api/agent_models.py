@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
+from uuid import uuid4
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, PrivateAttr, model_validator
 
 ChatText = Annotated[str, Field(min_length=1, max_length=64 * 1024)]
 ScreenShortText = Annotated[str, Field(max_length=512)]
 ScreenValueText = Annotated[str, Field(max_length=4096)]
 ToolNameText = Annotated[str, Field(max_length=128)]
+MAX_ATTACHMENTS_PER_MESSAGE = 5
 
 
 class ChatMessage(BaseModel):
@@ -48,11 +50,31 @@ class AgentChatRequest(BaseModel):
 
     session_id: ScreenShortText | None = None
     client_turn_id: ScreenShortText | None = None
+    user_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
+    assistant_message_id: ScreenShortText = Field(default_factory=lambda: str(uuid4()))
+    parent_message_id: ScreenShortText | None = None
+    # Edit and resend: the user message being replaced. The new message becomes its sibling.
+    edit_of_message_id: ScreenShortText | None = None
+    # Regenerate: the assistant message being answered again. The new answer becomes its sibling.
+    regenerate_of_message_id: ScreenShortText | None = None
     message: ChatText
+    # Files uploaded through POST /agent/attachments. Only ids travel here; the server owns the bytes.
+    attachment_ids: list[ScreenShortText] = Field(default_factory=list, max_length=MAX_ATTACHMENTS_PER_MESSAGE)
     screen_context: ScreenContextModel | None = None
     response_preferences: AgentResponsePreferences | None = None
+    memory_enabled: bool | None = None
     finalize_synchronously: bool = False
     allow_workflow_handoff: bool = True
+    # The stored attachments ``attachment_ids`` name, read once per turn (see ``turn_attachments``).
+    _attachments: list[Any] | None = PrivateAttr(default=None)
+
+    @model_validator(mode="after")
+    def _one_branch_action(self) -> AgentChatRequest:
+        if self.edit_of_message_id and self.regenerate_of_message_id:
+            raise ValueError("A turn can edit a message or regenerate an answer, not both")
+        if (self.edit_of_message_id or self.regenerate_of_message_id) and not self.client_turn_id:
+            raise ValueError("Editing a message or regenerating an answer needs a client_turn_id")
+        return self
 
     @model_validator(mode="before")
     @classmethod

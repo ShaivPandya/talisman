@@ -101,16 +101,26 @@ def sweep_async_jobs(_payload: dict[str, Any] | None = None) -> dict[str, Any]:
         analyzer_input_snapshots_deleted = cleanup_analyzer_input_snapshots()
     except Exception:
         logger.warning("async_job_sweep analyzer input snapshot cleanup failed", exc_info=True)
+    orphaned_attachments_deleted = 0
+    try:
+        from api.chat_attachments import sweep_orphaned_attachments
+
+        orphaned_attachments_deleted = sweep_orphaned_attachments()
+    except Exception:
+        logger.warning("async_job_sweep orphaned chat attachment cleanup failed", exc_info=True)
     logger.info(
-        "async_job_sweep stale_failed=%d deleted=%d analyzer_input_snapshots_deleted=%d",
+        "async_job_sweep stale_failed=%d deleted=%d analyzer_input_snapshots_deleted=%d "
+        "orphaned_attachments_deleted=%d",
         stale_failed,
         deleted,
         analyzer_input_snapshots_deleted,
+        orphaned_attachments_deleted,
     )
     return {
         "stale_failed": stale_failed,
         "deleted": deleted,
         "analyzer_input_snapshots_deleted": analyzer_input_snapshots_deleted,
+        "orphaned_attachments_deleted": orphaned_attachments_deleted,
     }
 
 

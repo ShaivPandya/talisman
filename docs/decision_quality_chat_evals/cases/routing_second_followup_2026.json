@@ -1,0 +1,57 @@
+{
+  "id": "routing_second_followup_2026",
+  "status": "review",
+  "as_of_date": "2026-10-22",
+  "user_message": "What about the second one?",
+  "screen_context": {
+    "page_name": "Position Dossier",
+    "route": "/dossier/NVDA",
+    "ticker": "NVDA"
+  },
+  "mock_tools": {},
+  "routing_expectations": {
+    "intent_class": "general_research",
+    "run_hidden_dq": false,
+    "run_opportunity_preflight": false,
+    "candidate_tickers": [
+      "MSFT"
+    ],
+    "required_tool_names": [
+      "get_financials",
+      "run_chart",
+      "fetch_alternative_data"
+    ],
+    "forbidden_tool_names": []
+  },
+  "expected_tool_names": [],
+  "required_points": [],
+  "corpus_tags": [
+    "routing_tool_use"
+  ],
+  "failure_type": "wrong_routing",
+  "tool_pack": "regex_baseline",
+  "required_dq_dimensions": [],
+  "recent_conversation": [
+    {
+      "role": "user",
+      "content": "Compare NVDA and MSFT valuations."
+    },
+    {
+      "role": "assistant",
+      "content": "1. NVDA has the higher multiple. 2. MSFT has steadier cash flows.",
+      "routing_context": {
+        "tickers": [
+          "NVDA",
+          "MSFT"
+        ],
+        "tool_names": [
+          "get_financials",
+          "get_position_valuation",
+          "run_chart",
+          "fetch_alternative_data",
+          "search_agent_capabilities"
+        ]
+      }
+    }
+  ]
+}

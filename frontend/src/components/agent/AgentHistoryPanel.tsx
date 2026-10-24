@@ -1,12 +1,21 @@
-import { Check, History, Loader2, Pencil, Trash2, X } from "lucide-react"
-import { useRef, useState, type KeyboardEvent } from "react"
+import { Check, Download, History, Loader2, Pencil, Pin, PinOff, Search, Trash2, X } from "lucide-react"
+import { useEffect, useRef, useState, type KeyboardEvent } from "react"
 import type { SessionSummary } from "@/hooks/useAgentChat"
 
 interface AgentHistoryPanelProps {
   history: SessionSummary[]
   loading: boolean
+  search: string
+  onSearch: (search: string) => void
+  loadingMore: boolean
+  hasMore: boolean
+  onLoadMore: () => void
+  error: string | null
+  onRetry: () => void
   onLoadSession: (sessionId: string) => void | Promise<void>
-  onDeleteSession: (sessionId: string) => void | Promise<void>
+  onDeleteSession: (session: SessionSummary) => void
+  onPinSession: (session: SessionSummary) => Promise<void>
+  onExportSession: (session: SessionSummary) => Promise<void>
   onRenameSession: (sessionId: string, title: string) => Promise<void>
 }
 
@@ -56,7 +65,7 @@ function sessionSecondaryText(session: SessionSummary): string {
 function groupedSessions(history: SessionSummary[]) {
   const groups: { label: string; sessions: SessionSummary[] }[] = []
   for (const session of history) {
-    const label = groupLabel(session.ended_at ?? session.started_at)
+    const label = session.pinned_at ? "Pinned" : groupLabel(session.ended_at ?? session.started_at)
     let group = groups.find(item => item.label === label)
     if (!group) {
       group = { label, sessions: [] }
@@ -70,7 +79,9 @@ function groupedSessions(history: SessionSummary[]) {
 interface HistorySessionRowProps {
   session: SessionSummary
   onLoadSession: (sessionId: string) => void | Promise<void>
-  onDeleteSession: (sessionId: string) => void | Promise<void>
+  onDeleteSession: (session: SessionSummary) => void
+  onPinSession: (session: SessionSummary) => Promise<void>
+  onExportSession: (session: SessionSummary) => Promise<void>
   onRenameSession: (sessionId: string, title: string) => Promise<void>
 }
 
@@ -78,6 +89,8 @@ function HistorySessionRow({
   session,
   onLoadSession,
   onDeleteSession,
+  onPinSession,
+  onExportSession,
   onRenameSession,
 }: HistorySessionRowProps) {
   const title = displayTitle(session)
@@ -85,8 +98,22 @@ function HistorySessionRow({
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(title)
   const [saving, setSaving] = useState(false)
+  const [acting, setActing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  async function runAction(action: () => void | Promise<void>) {
+    if (acting) return
+    setActing(true)
+    setError(null)
+    try {
+      await action()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not update this conversation.")
+    } finally {
+      setActing(false)
+    }
+  }
 
   function startEditing() {
     setDraftTitle(title)
@@ -145,9 +172,9 @@ function HistorySessionRow({
       <div className="flex items-start gap-3">
         <button
           type="button"
-          onClick={() => onLoadSession(session.session_id)}
+          onClick={() => void runAction(() => onLoadSession(session.session_id))}
           className="min-w-0 flex-1 text-left"
-          disabled={editing}
+          disabled={editing || acting}
         >
           {editing ? (
             <span className="block h-8" aria-hidden="true" />
@@ -168,11 +195,32 @@ function HistorySessionRow({
           )}
         </button>
         <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={() => void runAction(() => onPinSession(session))}
+            disabled={acting}
+            className="theme-icon-button h-8 w-8"
+            aria-label={`${session.pinned_at ? "Unpin" : "Pin"} ${title}`}
+            aria-pressed={Boolean(session.pinned_at)}
+            title={session.pinned_at ? "Unpin" : "Pin"}
+          >
+            {session.pinned_at ? <PinOff size={13} aria-hidden="true" /> : <Pin size={13} aria-hidden="true" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => void runAction(() => onExportSession(session))}
+            disabled={acting}
+            className="theme-icon-button h-8 w-8"
+            aria-label={`Export ${title} to Markdown`}
+            title="Export to Markdown"
+          >
+            <Download size={13} aria-hidden="true" />
+          </button>
           {!editing && (
             <button
               type="button"
               onClick={startEditing}
-              className="theme-icon-button h-8 w-8 opacity-80 transition-opacity sm:opacity-0 sm:group-hover:opacity-100"
+              className="theme-icon-button h-8 w-8"
               aria-label={`Rename ${title}`}
               title="Rename"
             >
@@ -181,10 +229,11 @@ function HistorySessionRow({
           )}
           <button
             type="button"
-            onClick={() => onDeleteSession(session.session_id)}
-            className="theme-icon-button h-8 w-8 opacity-80 transition-opacity hover:text-negative sm:opacity-0 sm:group-hover:opacity-100"
+            onClick={() => onDeleteSession(session)}
+            disabled={running || acting}
+            className="theme-icon-button h-8 w-8 hover:text-negative disabled:opacity-35"
             aria-label={`Delete ${title}`}
-            title="Delete"
+            title={running ? "Stop the conversation before deleting it" : "Delete"}
           >
             <Trash2 size={13} aria-hidden="true" />
           </button>
@@ -247,51 +296,103 @@ function HistorySessionRow({
 export function AgentHistoryPanel({
   history,
   loading,
+  search,
+  onSearch,
+  loadingMore,
+  hasMore,
+  onLoadMore,
+  error,
+  onRetry,
   onLoadSession,
   onDeleteSession,
+  onPinSession,
+  onExportSession,
   onRenameSession,
 }: AgentHistoryPanelProps) {
   const groups = groupedSessions(history)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel || !hasMore || loading || loadingMore || error) return
+    const observer = new IntersectionObserver(entries => {
+      if (entries.some(entry => entry.isIntersecting)) onLoadMore()
+    }, { root: scrollRef.current, rootMargin: "160px" })
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMore, loading, loadingMore, error, onLoadMore])
 
   return (
-    <div className="flex-1 overflow-y-auto bg-app px-4 py-4">
-      <div className="mx-auto w-full max-w-[48rem]">
-        {loading ? (
-          <div className="flex h-44 flex-col items-center justify-center gap-3 text-sm text-muted">
-            <Loader2 size={20} className="animate-spin" aria-hidden="true" />
-            <span>Loading history...</span>
-          </div>
-        ) : history.length === 0 ? (
-          <div className="flex h-44 flex-col items-center justify-center rounded-xl border border-app bg-card-muted text-center">
-            <History size={24} className="mb-2 text-muted" aria-hidden="true" />
-            <p className="text-sm font-medium text-app">No saved conversations</p>
-            <p className="mt-1 text-xs text-muted">New sessions appear here after they are summarized.</p>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {groups.map(group => (
-              <section key={group.label} aria-labelledby={`agent-history-${group.label.replace(/\s+/g, "-").toLowerCase()}`}>
-                <h3
-                  id={`agent-history-${group.label.replace(/\s+/g, "-").toLowerCase()}`}
-                  className="mb-2 px-1 text-xs font-semibold uppercase text-subtle"
-                >
-                  {group.label}
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {group.sessions.map(session => (
-                    <HistorySessionRow
-                      key={session.session_id}
-                      session={session}
-                      onLoadSession={onLoadSession}
-                      onDeleteSession={onDeleteSession}
-                      onRenameSession={onRenameSession}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
-        )}
+    <div className="flex min-h-0 flex-1 flex-col bg-app">
+      <div className="border-b border-app px-4 py-3">
+        <label className="flex items-center gap-2 rounded-lg border border-app bg-card px-3 py-2">
+          <Search size={15} className="shrink-0 text-muted" aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={event => onSearch(event.target.value)}
+            maxLength={200}
+            placeholder="Search conversations"
+            aria-label="Search conversations"
+            className="min-w-0 flex-1 bg-transparent text-sm text-app outline-none"
+          />
+        </label>
+      </div>
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 py-4" aria-label="Conversation history results" aria-busy={loading || loadingMore}>
+        <div className="mx-auto w-full max-w-[48rem]">
+          {error && (
+            <div role="alert" className="mb-3 rounded-lg border border-app bg-card p-3 text-sm text-negative">
+              <p>{error}</p>
+              <button type="button" onClick={onRetry} className="mt-2 text-link">Retry history</button>
+            </div>
+          )}
+          {loading ? (
+            <div className="flex h-44 flex-col items-center justify-center gap-3 text-sm text-muted">
+              <Loader2 size={20} className="animate-spin" aria-hidden="true" />
+              <span>Loading history...</span>
+            </div>
+          ) : history.length === 0 && !error ? (
+            <div className="flex h-44 flex-col items-center justify-center rounded-xl border border-app bg-card-muted text-center">
+              <History size={24} className="mb-2 text-muted" aria-hidden="true" />
+              <p className="text-sm font-medium text-app">{search.trim() ? "No matching conversations" : "No saved conversations"}</p>
+              <p className="mt-1 text-xs text-muted">{search.trim() ? "Try another title or phrase from a message." : "Conversations appear here after your first message."}</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {groups.map(group => (
+                <section key={group.label} aria-labelledby={`agent-history-${group.label.replace(/\s+/g, "-").toLowerCase()}`}>
+                  <h3
+                    id={`agent-history-${group.label.replace(/\s+/g, "-").toLowerCase()}`}
+                    className="mb-2 px-1 text-xs font-semibold uppercase text-subtle"
+                  >
+                    {group.label}
+                  </h3>
+                  <div className="grid grid-cols-1 gap-2">
+                    {group.sessions.map(session => (
+                      <HistorySessionRow
+                        key={session.session_id}
+                        session={session}
+                        onLoadSession={onLoadSession}
+                        onDeleteSession={onDeleteSession}
+                        onPinSession={onPinSession}
+                        onExportSession={onExportSession}
+                        onRenameSession={onRenameSession}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          )}
+          {hasMore && !loading && (
+            <div ref={sentinelRef} className="mt-4 flex justify-center">
+              <button type="button" onClick={onLoadMore} disabled={loadingMore} className="theme-button-secondary">
+                {loadingMore ? "Loading more conversations..." : "Load more conversations"}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

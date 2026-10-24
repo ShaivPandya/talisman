@@ -8,6 +8,7 @@ Run from project root:
 import hmac
 import logging
 import os
+import threading
 import time
 from contextlib import asynccontextmanager
 
@@ -71,6 +72,7 @@ _RELEASE_META_SAFE = {
 # Core routers (must succeed)
 from api.routers import (
     agent,
+    chat_attachments,
     company_research,
     document_generation,
     management_quality,
@@ -159,12 +161,18 @@ def _warm_request_imports() -> None:
 
 @asynccontextmanager
 async def _lifespan(_app):
+    from api.agent_job_recovery import start_recovery_loop
+
+    recovery_stop = threading.Event()
+    recovery = start_recovery_loop(recovery_stop)
     try:
         await run_in_threadpool(_warm_request_imports)
         yield
     finally:
         from api.postgres import close_pools
 
+        recovery_stop.set()
+        await run_in_threadpool(recovery.join, 6.0)
         close_pools()
 
 
@@ -479,6 +487,7 @@ app.include_router(document_generation.router, prefix=_API_PREFIX, dependencies=
 app.include_router(company_research.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["portfolio"])
 app.include_router(memory.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(agent.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
+app.include_router(chat_attachments.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(settings.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["settings"])
 
 # Investing OS routers

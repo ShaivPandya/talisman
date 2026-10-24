@@ -13,10 +13,12 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
+from api.agent_job_recovery import claimed_turn, lease_seconds, recover_expired_turns
 from api.audit import emit_audit_event
 from api.exceptions import AsyncJobDispatchError
 from api.job_queue import (
     ACTIVE_STATUSES,
+    AGENT_LEASE_PREFIX,
     claim_job,
     complete_job,
     create_or_reuse_job,
@@ -181,6 +183,17 @@ def _active_reference_time(row: dict[str, Any]) -> datetime | None:
 
 def _sync_stale_active_job(row: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
     status = str(row.get("status") or "")
+    if row.get("job_type") == "agent_chat_turn":
+        reference = _as_aware_utc(row.get("updated_at"))
+        checked = _as_aware_utc(now) or datetime.now(UTC)
+        if (
+            status == "running"
+            and str(row.get("claimed_by") or "").startswith(AGENT_LEASE_PREFIX)
+            and reference is not None
+            and checked - reference >= timedelta(seconds=lease_seconds())
+        ) or (status == "failed" and (row.get("progress_json") or {}).get("phase") == "turn_recovery"):
+            recover_expired_turns(job_id=str(row["job_id"]), now=checked)
+            return get_job(str(row["job_id"])) or row
     if status not in ACTIVE_STATUSES:
         return row
 
@@ -204,6 +217,8 @@ def _sync_stale_active_job(row: dict[str, Any], *, now: datetime | None = None) 
 
     error = f"Async job exceeded timeout before completion (timeout={spec.timeout_s}s, grace={stale_grace_s}s)."
     fail_job(job_id, error, result_ttl_seconds=spec.failed_ttl_s)
+    if job_type == "agent_chat_turn":
+        recover_expired_turns(job_id=job_id)
     refreshed = get_job(job_id)
     _emit_job_audit(
         "async_job.stale_failed",
@@ -344,6 +359,11 @@ def execute_claimed(row: dict[str, Any]) -> dict[str, Any] | None:
     """Execute the row returned by a claim without claiming it a second time."""
     if row.get("status") != "running" or not row.get("claimed_by"):
         raise ValueError("Async job must be claimed before execution")
+    with claimed_turn(row) as owned:
+        return _execute_claimed(row) if owned else None
+
+
+def _execute_claimed(row: dict[str, Any]) -> dict[str, Any] | None:
     job_id = str(row["job_id"])
 
     job_type = str(row.get("job_type") or "")
@@ -395,12 +415,12 @@ def execute_claimed(row: dict[str, Any]) -> dict[str, Any] | None:
             update_job_progress(job_id, {"phase": "done", "done": final_count, "total": final_count})
         complete_job(job_id, result, result_ttl_seconds=completed_ttl_s)
         completed_row = get_job(job_id) or row
-        if str(completed_row.get("status") or "") == "cancelled":
+        if str(completed_row.get("status") or "") in {"cancelled", "failed"}:
             _emit_job_audit(
-                "async_job.cancelled",
+                f"async_job.{completed_row['status']}",
                 row=completed_row,
-                status="cancelled",
-                after_summary={"status": "cancelled"},
+                status=str(completed_row["status"]),
+                after_summary={"status": completed_row["status"]},
             )
             return None
         _emit_job_audit(

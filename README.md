@@ -170,7 +170,7 @@ starts with `/api`:
 - Auth: `/api/auth/login`, `/api/auth/logout`, `/api/auth/me`
 - Portfolio: `/portfolio`, `/portfolio-positions`, `/hedge-positions`, `/portfolio-analyzer`, `/portfolio-sizer`, `/hedging-tool`
 - Research documents: `/thesis/*`, `/overview/*`, `/management-quality/*`, `/document-generation/*`, `/dossier/{ticker}`, `/portfolio-news`
-- Agent and retrieval: `/agent/chat`, `/agent/chat/async`, `/agent/workflows`, `/memory/sessions`, `/ontology/*`
+- Agent and retrieval: `/agent/chat`, `/agent/chat/async`, `/agent/attachments` (chat file uploads), `/agent/workflows`, `/memory/sessions`, `/ontology/*`
 - Investing OS state: `/workspace`, `/actions`, `/approvals`, `/triggers`, `/catalysts`, `/kill-conditions`, `/recommendations`, `/workflow-runs`
 - Markets: `/momentum`, `/chart`, `/quality-screen`, `/short-screen`, `/long-screen`, `/fundamental-momentum`, `/financials`, `/dcf/*`
 - Macro and cross-asset: `/economic-growth`, `/labor-market`, `/housing`, `/liquidity`, `/country-dashboard`, `/central-banks`, `/positioning/*`, `/sentiment/*`, `/signal-aggregator`, `/industry-monitor`

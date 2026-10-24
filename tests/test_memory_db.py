@@ -39,7 +39,9 @@ def test_append_messages_updates_transcript_for_v2_sessions(temp_memory_db):
 
     assert total == 2
     assert loaded is not None
-    assert loaded["transcript"] == messages
+    assert [
+        {key: msg[key] for key in original} for msg, original in zip(loaded["transcript"], messages, strict=True)
+    ] == messages
     assert loaded["message_count"] == 2
 
 
@@ -96,7 +98,7 @@ def test_fail_turn_marks_assistant_cancelled(temp_memory_db):
     assert memory_db.fail_turn(sid, turn_id, status="cancelled", content="partial") is True
     loaded = memory_db.get_session(sid)
     assert loaded is not None
-    assert loaded["transcript"][1]["status"] == "cancelled"
+    assert loaded["transcript"][1]["status"] == "stopped"
     assert loaded["transcript"][1].get("is_streaming") is False
 
 
@@ -115,32 +117,35 @@ def test_append_messages_dedupes_client_turn_id(temp_memory_db):
     assert first_total == 2
     assert second_total == 2
     assert loaded is not None
-    assert loaded["transcript"] == messages
+    assert [
+        {key: msg[key] for key in original} for msg, original in zip(loaded["transcript"], messages, strict=True)
+    ] == messages
 
 
-def test_get_session_falls_back_to_server_messages_for_existing_v2_sessions(temp_memory_db):
-    session = memory_db.get_or_create_session(None)
-    sid = session["session_id"]
+def test_get_session_migrates_server_only_legacy_transcript(temp_memory_db):
+    import sqlite3
+
     server_messages = [
         {"role": "user", "content": "portfolio?", "timestamp": 1.0},
         {"role": "assistant", "content": "Use direction-adjusted P&L.", "timestamp": 2.0},
     ]
-
-    with memory_db._get_conn() as conn:
+    with sqlite3.connect(memory_db._DB_PATH) as conn:
         conn.execute(
-            """
-            UPDATE conversation_sessions
-            SET transcript = '[]', server_messages = ?, message_count = ?
-            WHERE session_id = ?
-            """,
-            (json.dumps(server_messages), len(server_messages), sid),
+            "CREATE TABLE conversation_sessions (session_id TEXT PRIMARY KEY, started_at TEXT NOT NULL, "
+            "ended_at TEXT, message_count INTEGER, transcript TEXT, server_messages TEXT, "
+            "key_tickers TEXT, key_topics TEXT, summary TEXT)"
         )
-        conn.commit()
-
-    loaded = memory_db.get_session(sid)
-
+        conn.execute(
+            "INSERT INTO conversation_sessions (session_id, started_at, message_count, transcript, server_messages) "
+            "VALUES ('legacy', 'old', 2, '[]', ?)",
+            (json.dumps(server_messages),),
+        )
+    loaded = memory_db.get_session("legacy")
     assert loaded is not None
-    assert loaded["transcript"] == server_messages
+    assert [
+        {key: msg[key] for key in original} for msg, original in zip(loaded["transcript"], server_messages, strict=True)
+    ] == server_messages
+    assert all(msg["id"] for msg in loaded["transcript"])
 
 
 def test_deterministic_title_strips_workflow_command(temp_memory_db):
@@ -202,6 +207,7 @@ def test_finalize_turn_sets_title_and_schedules_refinement(temp_memory_db, monke
 def test_patch_session_title_updates_metadata(temp_memory_db, auth_client):
     session = memory_db.get_or_create_session(None)
     sid = session["session_id"]
+    memory_db.append_messages(sid, [{"role": "user", "content": "A saved conversation"}])
 
     resp = auth_client.patch(f"/api/memory/sessions/{sid}", json={"title": "  Renamed   chat  "})
 

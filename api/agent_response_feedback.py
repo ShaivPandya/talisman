@@ -417,19 +417,28 @@ def list_review_queue(*, limit: int = 50) -> list[dict[str, Any]]:
 
 def list_feedback(
     *,
-    limit: int = 100,
+    limit: int | None = 100,
     training_eligible_only: bool = False,
     trajectory_id: str | None = None,
+    session_id: str | None = None,
+    reviewer_actor_id: str | None = None,
 ) -> list[dict[str, Any]]:
     clauses: list[str] = ["tombstoned_at IS NULL"]
     params: list[Any] = []
-    if trajectory_id:
-        clauses.append("trajectory_id = %s" if use_postgres_state() else "trajectory_id = ?")
-        params.append(trajectory_id)
+    placeholder = "%s" if use_postgres_state() else "?"
+    for column, value in (
+        ("trajectory_id", trajectory_id),
+        ("session_id", session_id),
+        ("reviewer_actor_id", reviewer_actor_id),
+    ):
+        if value is not None:
+            clauses.append(f"{column} = {placeholder}")
+            params.append(value)
     if training_eligible_only:
         clauses.append("training_eligible = TRUE" if use_postgres_state() else "training_eligible = 1")
-    placeholder = "%s" if use_postgres_state() else "?"
-    params.append(limit)
+    limit_clause = f"LIMIT {placeholder}" if limit is not None else ""
+    if limit is not None:
+        params.append(limit)
     if use_postgres_state():
 
         def _read() -> list[dict[str, Any]]:
@@ -439,7 +448,7 @@ def list_feedback(
                     SELECT * FROM agent_response_feedback
                     WHERE {" AND ".join(clauses)}
                     ORDER BY reviewed_at DESC
-                    LIMIT {placeholder}
+                    {limit_clause}
                     """,
                     tuple(params),
                 )
@@ -452,7 +461,7 @@ def list_feedback(
             SELECT * FROM agent_response_feedback
             WHERE {" AND ".join(clauses)}
             ORDER BY reviewed_at DESC
-            LIMIT {placeholder}
+            {limit_clause}
             """,
             tuple(params),
         ).fetchall()

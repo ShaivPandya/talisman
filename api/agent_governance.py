@@ -126,19 +126,26 @@ class AgentBudgetState:
     tool_calls: int = 0
     high_cost_tool_calls: int = 0
     estimated_input_tokens: int = 0
+    # Attached files are re-sent every round but billed (and cached) as one document, so charge them once.
+    attached_tokens_charged: int = 0
     actual_input_tokens: int = 0
     actual_output_tokens: int = 0
     estimated_cost_usd: float = 0.0
 
-    def check_model_call(self, *, estimated_input_tokens: int, estimated_cost_usd: float = 0.0) -> None:
+    def check_model_call(
+        self, *, estimated_input_tokens: int, estimated_cost_usd: float = 0.0, attached_tokens: int = 0
+    ) -> None:
+        """Charge one model call. ``attached_tokens`` are part of ``estimated_input_tokens`` and count once per turn."""
+        charge = estimated_input_tokens - min(attached_tokens, self.attached_tokens_charged)
         if self.model_calls + 1 > self.max_model_calls:
             raise AgentBudgetExceeded(f"Model call budget exceeded ({self.max_model_calls})")
-        if self.estimated_input_tokens + estimated_input_tokens > self.max_input_tokens:
+        if self.estimated_input_tokens + charge > self.max_input_tokens:
             raise AgentBudgetExceeded(f"Input token budget exceeded ({self.max_input_tokens})")
         if self.estimated_cost_usd + estimated_cost_usd > self.max_cost_usd:
             raise AgentBudgetExceeded(f"Cost budget exceeded (${self.max_cost_usd:.2f})")
         self.model_calls += 1
-        self.estimated_input_tokens += estimated_input_tokens
+        self.estimated_input_tokens += charge
+        self.attached_tokens_charged = max(self.attached_tokens_charged, attached_tokens)
         self.estimated_cost_usd += estimated_cost_usd
 
     def record_model_usage(self, usage: Mapping[str, Any] | None) -> None:
@@ -262,6 +269,67 @@ def estimate_tokens(value: Any) -> int:
     return max(1, (len(_stable_json(value)) + 3) // 4)
 
 
+_INLINE_PAYLOAD_MIN_CHARS = 1024
+
+
+def _inline_payload(parent: Mapping[str, Any], key: Any, value: Any) -> tuple[str, int] | None:
+    """The media type and decoded size when ``parent[key]`` is an inline base64 file (Anthropic, OpenAI or Gemini)."""
+    if not isinstance(value, str) or len(value) < _INLINE_PAYLOAD_MIN_CHARS:
+        return None
+    if key == "data" and (parent.get("type") == "base64" or "mime_type" in parent):
+        return str(parent.get("media_type") or parent.get("mime_type") or ""), len(value) * 3 // 4
+    if key in {"file_data", "image_url"} and value.startswith("data:") and ";base64," in value[:128]:
+        return value[5 : value.index(";")], len(value) * 3 // 4
+    return None
+
+
+# Providers read at most about 100 pages of a PDF, so a large scan cannot cost more than this.
+_PDF_TOKEN_CEILING = 120_000
+
+
+def _file_tokens(media_type: str, size: int) -> int:
+    """A rough input-token cost for an attached file: a PDF's pages, or one image's tiles."""
+    if media_type == "application/pdf":
+        return min(max(1, size // 40), _PDF_TOKEN_CEILING)
+    if media_type.startswith("image/"):
+        return 1600
+    return max(1, size // 4)
+
+
+def strip_inline_files(value: Any) -> tuple[Any, int]:
+    """``value`` with inline base64 files swapped for short placeholders, and the tokens they are estimated to cost.
+
+    Only containers are copied, and only when something changed, so a conversation without files comes back as is.
+    """
+    tokens = 0
+
+    def walk(item: Any) -> Any:
+        nonlocal tokens
+        if isinstance(item, Mapping):
+            out: dict[Any, Any] = {}
+            changed = False
+            for key, child in item.items():
+                payload = _inline_payload(item, key, child)
+                if payload is not None:
+                    media_type, size = payload
+                    tokens += _file_tokens(media_type, size)
+                    out[key] = f"[{media_type or 'file'} payload, {size} bytes]"
+                    changed = True
+                    continue
+                new_child = walk(child)
+                changed = changed or new_child is not child
+                out[key] = new_child
+            return out if changed else item
+        if isinstance(item, (list, tuple)):
+            new_items = [walk(child) for child in item]
+            if all(new is old for new, old in zip(new_items, item, strict=True)):
+                return item
+            return type(item)(new_items)
+        return item
+
+    return walk(value), tokens
+
+
 def _is_sensitive_key(key: Any) -> bool:
     lowered = str(key or "").lower()
     if lowered in {
@@ -297,7 +365,9 @@ def redact_secrets(value: Any, *, _path: str = "$") -> tuple[Any, list[dict[str,
             out: dict[str, Any] = {}
             for key, child in item.items():
                 child_path = f"{path}.{key}" if path else str(key)
-                if _is_sensitive_key(key):
+                if _inline_payload(item, key, child) is not None:
+                    out[str(key)] = child  # an attached file's bytes: the patterns below are for text
+                elif _is_sensitive_key(key):
                     if child not in (None, ""):
                         findings.append({"type": "sensitive_key", "path": child_path, "count": 1})
                     out[str(key)] = "[REDACTED:sensitive_key]"
@@ -507,8 +577,11 @@ def _model_gateway_decision(
             local_only_required=True,
         )
     for rule in policy.get("denied_rules") or []:
-        if isinstance(rule, Mapping) and _rule_matches(
-            rule, provider=provider_l, model=model, sensitivity=resolved_sensitivity
+        # A broad, stable tool catalog must not hide a denied payload/tool class
+        # behind another tool's higher sensitivity in the aggregate label.
+        if isinstance(rule, Mapping) and any(
+            _rule_matches(rule, provider=provider_l, model=model, sensitivity=item)
+            for item in {sensitivity, *tool_sensitivities}
         ):
             return ModelGatewayDecision(
                 decision="blocked",
@@ -581,16 +654,21 @@ def prepare_model_egress(
     )
     raw_config = sanitized_kwargs.get("config")
     config = raw_config if isinstance(raw_config, Mapping) else {}
+    # Attached files are inline base64: classify and size the conversation without their bytes.
+    conversation, attached_tokens = strip_inline_files(
+        sanitized_kwargs.get("input") or sanitized_kwargs.get("messages") or sanitized_kwargs.get("contents")
+    )
     payload_sensitivity = classify_model_payload(
         {
             "instructions": sanitized_kwargs.get("instructions")
             or sanitized_kwargs.get("system")
             or config.get("system_instruction"),
-            "conversation": sanitized_kwargs.get("input")
-            or sanitized_kwargs.get("messages")
-            or sanitized_kwargs.get("contents"),
+            "conversation": conversation,
         }
     )
+    if attached_tokens:
+        # Nothing reads a file's contents here, so treat an attachment as private material.
+        payload_sensitivity = _max_sensitivity([payload_sensitivity, "research_private"])
     model = sanitized_kwargs.get("model")
     gateway_decision = _model_gateway_decision(
         provider=provider,
@@ -604,14 +682,12 @@ def prepare_model_egress(
         or config.get("max_output_tokens")
         or 0
     )
-    estimated_input_tokens = estimate_tokens(
+    estimated_input_tokens = attached_tokens + estimate_tokens(
         {
             "instructions": sanitized_kwargs.get("instructions")
             or sanitized_kwargs.get("system")
             or config.get("system_instruction"),
-            "conversation": sanitized_kwargs.get("input")
-            or sanitized_kwargs.get("messages")
-            or sanitized_kwargs.get("contents"),
+            "conversation": conversation,
             "tools": sanitized_kwargs.get("tools") or config.get("tools"),
         }
     )
@@ -655,7 +731,11 @@ def prepare_model_egress(
         raise ModelGatewayDenied(f"Model egress blocked: {gateway_decision.reason}", manifest=manifest)
 
     if budget is not None:
-        budget.check_model_call(estimated_input_tokens=estimated_input_tokens, estimated_cost_usd=estimated_cost_usd)
+        budget.check_model_call(
+            estimated_input_tokens=estimated_input_tokens,
+            estimated_cost_usd=estimated_cost_usd,
+            attached_tokens=attached_tokens,
+        )
 
     _record_audit(
         "agent.provider_egress",

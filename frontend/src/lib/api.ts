@@ -2,6 +2,7 @@ import axios from "axios"
 
 import { getAuthMode, hasAuthenticatedSession } from "@/lib/authMode"
 import { csrfHeaders, setCsrfToken } from "@/lib/csrfToken"
+import type { AgentAttachment } from "@/lib/chatAttachments"
 import type { DecisionState, DecisionStateFields, EffectScope } from "@/lib/decisionState"
 import type { ManagementQualityAssessment, ParsedManagementQuality } from "@/lib/managementQualityTypes"
 import type { ParsedOverview } from "@/lib/overviewTypes"
@@ -1131,6 +1132,7 @@ export interface AgentResponseFeedbackRecord {
   reviewed_at?: string
   failure_tags?: AgentFeedbackFailureTag[]
   notes?: string | null
+  corrected_response?: string | null
   training_eligible?: boolean
   human_reviewed?: boolean
   signal_source?: string
@@ -1236,6 +1238,14 @@ export interface IbkrFlexImportSummary {
 export interface IbkrFlexImportResponse extends StagedMutationResponse {
   staged_proposals?: StagedMutationResponse[]
   import_summary?: IbkrFlexImportSummary
+}
+
+export const uploadAgentAttachment = (file: File, signal?: AbortSignal) => {
+  const formData = new FormData()
+  formData.append("file", file)
+  return client
+    .post("/agent/attachments", formData, { timeout: 120_000, signal })
+    .then(r => r.data as AgentAttachment)
 }
 
 export const importIbkrFlexPortfolioPositions = (file: File, reason?: string) => {

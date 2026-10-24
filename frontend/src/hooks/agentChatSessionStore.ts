@@ -9,6 +9,7 @@ const SNAPSHOTS_STORAGE_KEY = "agent-chat-sessions:v1"
 
 export interface SessionSnapshot {
   messages: AgentMessage[]
+  activeLeafId?: string | null
   sessionTitle: string | null
   sessionTitleSource: string | null
   error: string | null
@@ -51,6 +52,12 @@ export function writeSessionSnapshot(sessionId: string, snapshot: SessionSnapsho
 
 export function readSessionSnapshot(sessionId: string): SessionSnapshot | null {
   return readSessionSnapshots()[sessionId] ?? null
+}
+
+export function removeSessionSnapshot(sessionId: string) {
+  const all = readSessionSnapshots()
+  delete all[sessionId]
+  writeJsonRecord(SNAPSHOTS_STORAGE_KEY, all)
 }
 
 export function readActiveJobs(): Record<string, ActiveAgentJob> {

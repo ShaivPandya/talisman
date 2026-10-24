@@ -1,0 +1,46 @@
+{
+  "id": "routing_portfolio_followup_2026",
+  "status": "review",
+  "as_of_date": "2026-10-22",
+  "user_message": "Summarize the portfolio risks you just listed.",
+  "screen_context": null,
+  "mock_tools": {},
+  "routing_expectations": {
+    "intent_class": "portfolio_query",
+    "run_hidden_dq": false,
+    "run_opportunity_preflight": false,
+    "candidate_tickers": [],
+    "required_tool_names": [
+      "get_portfolio_risk",
+      "query_ontology"
+    ],
+    "forbidden_tool_names": []
+  },
+  "expected_tool_names": [],
+  "required_points": [],
+  "corpus_tags": [
+    "routing_tool_use"
+  ],
+  "failure_type": "wrong_routing",
+  "tool_pack": "regex_baseline",
+  "required_dq_dimensions": [],
+  "recent_conversation": [
+    {
+      "role": "user",
+      "content": "What are my portfolio risks?"
+    },
+    {
+      "role": "assistant",
+      "content": "The portfolio risks are concentrated sector exposure and liquidity.",
+      "routing_context": {
+        "tickers": [],
+        "tool_names": [
+          "get_portfolio",
+          "get_portfolio_risk",
+          "query_ontology",
+          "search_agent_capabilities"
+        ]
+      }
+    }
+  ]
+}

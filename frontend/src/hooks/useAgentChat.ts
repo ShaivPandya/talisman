@@ -1,20 +1,36 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponsePreferences } from "@/lib/api"
+import { normalizeAttachments, type AgentAttachment } from "@/lib/chatAttachments"
 import {
   assistantTurnInProgress,
+  leafBelow,
+  parentIdOf,
+  resolveBranch,
+  settleInterruptedMessages,
   type ActiveAgentJob,
   type AgentMessage,
+  type AgentNote,
   type AgentSendOptions,
   type EgressRecord,
   type QueuedAgentMessage,
   type ToolCall,
 } from "./agentChatShared"
 import {
+  normalizeChart,
+  normalizeCharts,
+  normalizeProposal,
+  normalizeProposals,
+  normalizeSuggestions,
+  upsertById,
+} from "./agentChatRichParts"
+import {
   CURRENT_SESSION_STORAGE_KEY as STORAGE_KEY,
   readActiveJobs,
   readMessageQueue,
   readSessionSnapshot,
+  removeSessionSnapshot,
   writeActiveJob,
   writeMessageQueue,
   writeSessionSnapshot,
@@ -22,11 +38,15 @@ import {
 } from "./agentChatSessionStore"
 import { extractAgentTraceSnapshot } from "@/lib/decisionTrace"
 import { csrfHeaders } from "@/lib/csrfToken"
+import { agentFeedbackQueryOptions } from "./agentFeedbackQuery"
 
 export type {
   ActiveAgentJob,
+  AgentChartPart,
   AgentMessage,
   AgentMessageDelivery,
+  AgentNote,
+  AgentProposalPart,
   AgentSendOptions,
   EgressRecord,
   QueuedAgentMessage,
@@ -49,10 +69,14 @@ export interface SessionSummary {
   title_source: string | null
   title_updated_at: string | null
   has_active_job?: boolean
+  pinned_at?: string | null
 }
 
 interface AgentChatState {
+  /** Every message of the conversation, including regenerated answers and edited versions. */
   messages: AgentMessage[]
+  /** The newest message of the branch being shown; the newest branch when unset. */
+  activeLeafId?: string | null
   isStreaming: boolean
   error: string | null
   sessionId: string | null
@@ -62,12 +86,20 @@ interface AgentChatState {
   queuedMessages: QueuedAgentMessage[]
 }
 
+type BranchAction =
+  | { kind: "edit"; messageId: string; parentId: string | null }
+  | { kind: "regenerate"; answerId: string; question: AgentMessage }
+
 interface AgentJobEvent {
   seq: number
   event_type:
+    | "memory_context"
     | "status"
     | "delta"
+    | "reset"
     | "phase"
+    | "thinking"
+    | "narration"
     | "tool_call"
     | "tool_result"
     | "tool_progress"
@@ -98,6 +130,12 @@ interface AgentStreamEvent {
   payload: Record<string, unknown>
 }
 
+export interface AgentJobCompletion {
+  jobId: string
+  sessionId: string
+  title: string | null
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -105,7 +143,7 @@ interface AgentStreamEvent {
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "/api").replace(/\/+$/, "")
 const EMPTY_AGENT_RESPONSE_TEXT = "I couldn't generate a response for that request. Please try again."
 const TRANSIENT_JOB_EVENTS: ReadonlySet<AgentJobEvent["event_type"]> = new Set([
-  "delta", "status", "phase", "budget_update",
+  "delta", "reset", "status", "phase", "budget_update",
 ])
 
 function mutatingHeaders(method: string, url: string): Record<string, string> {
@@ -204,8 +242,49 @@ function normalizeToolCalls(value: unknown): ToolCall[] {
       message: typeof rec.message === "string" ? rec.message : undefined,
       policyDecisionId: typeof rec.policy_decision_id === "string" ? rec.policy_decision_id : undefined,
       elapsedMs: typeof rec.elapsed_ms === "number" ? rec.elapsed_ms : undefined,
+      result: rec.result,
+      // Later events (a block, a timeout) may not repeat these, and merging must not blank them.
+      ...("arguments" in rec ? { arguments: rec.arguments } : {}),
+      ...(rec.arguments_truncated === true ? { argumentsTruncated: true } : {}),
+      ...(typeof rec.result_preview === "string" ? { resultPreview: rec.result_preview } : {}),
+      ...(typeof rec.result_bytes === "number" ? { resultBytes: rec.result_bytes } : {}),
+      ...(rec.result_truncated === true ? { resultTruncated: true } : {}),
+      ...(typeof rec.as_of === "string" ? { asOf: rec.as_of } : {}),
+      ...(typeof rec.cache === "string" ? { cache: rec.cache } : {}),
     }]
   })
+}
+
+function normalizeNotes(value: unknown): AgentNote[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item, index): AgentNote[] => {
+    if (!item || typeof item !== "object") return []
+    const rec = item as Record<string, unknown>
+    if (typeof rec.text !== "string" || !rec.text) return []
+    return [{ id: typeof rec.id === "string" ? rec.id : String(index), text: rec.text }]
+  })
+}
+
+/** Replaces the note with the same id, so a retried model call's summary doesn't appear twice. */
+function upsertNote(existing: AgentNote[] | undefined, note: AgentNote): AgentNote[] {
+  const notes = existing ?? []
+  return notes.some(item => item.id === note.id)
+    ? notes.map(item => (item.id === note.id ? note : item))
+    : [...notes, note]
+}
+
+function mergeSources(
+  existing: Record<string, unknown>[] | undefined,
+  incoming: unknown,
+): Record<string, unknown>[] | undefined {
+  if (!Array.isArray(incoming) || !incoming.length) return existing
+  const byUrl = new Map<string, Record<string, unknown>>()
+  for (const source of [...(existing ?? []), ...incoming]) {
+    if (!source || typeof source !== "object") continue
+    const url = (source as Record<string, unknown>).url
+    if (typeof url === "string") byUrl.set(url, { ...byUrl.get(url), ...(source as Record<string, unknown>) })
+  }
+  return [...byUrl.values()]
 }
 
 function mergeToolCalls(existing: ToolCall[] | undefined, incoming: ToolCall[]): ToolCall[] {
@@ -250,11 +329,21 @@ function buildAgentRequestBody(
   content: string,
   screenContext?: ScreenContext | null,
   responsePreferences?: AgentResponsePreferences | null,
+  messageIds?: { user: string; assistant: string; parent?: string; editOf?: string; regenerateOf?: string },
+  attachments?: AgentAttachment[],
 ): Record<string, unknown> {
   return {
     session_id: sessionId,
     client_turn_id: clientTurnId,
     message: content,
+    ...(attachments?.length && { attachment_ids: attachments.map(attachment => attachment.id) }),
+    ...(messageIds && {
+      user_message_id: messageIds.user,
+      assistant_message_id: messageIds.assistant,
+      parent_message_id: messageIds.parent,
+      edit_of_message_id: messageIds.editOf,
+      regenerate_of_message_id: messageIds.regenerateOf,
+    }),
     ...(screenContext && {
       screen_context: {
         page_name: screenContext.pageName,
@@ -331,6 +420,7 @@ function loadState(): AgentChatState {
         sessionTitle?: string | null
         sessionTitleSource?: string | null
         activeJob?: ActiveAgentJob | null
+        activeLeafId?: string | null
       }
       if (Array.isArray(parsed.messages)) {
         const activeJob = parsed.activeJob ?? null
@@ -340,11 +430,12 @@ function loadState(): AgentChatState {
           restoredJob = { ...restoredJob, sessionId }
         }
         return {
-          messages: parsed.messages.map(m => ({
-            ...m,
-            isStreaming: restoredJob?.assistantId === m.id,
-            statusText: restoredJob?.assistantId === m.id ? (m.statusText || "Reconnecting...") : m.statusText,
-          })),
+          messages: settleInterruptedMessages(parsed.messages, restoredJob?.assistantId).map(m =>
+            restoredJob?.assistantId === m.id
+              ? { ...m, isStreaming: true, statusText: m.statusText || "Reconnecting..." }
+              : m,
+          ),
+          activeLeafId: parsed.activeLeafId,
           isStreaming: Boolean(restoredJob),
           error: null,
           sessionId,
@@ -394,6 +485,23 @@ export async function fetchSessionHistory(limit = 20): Promise<SessionSummary[]>
   }
 }
 
+/** The questions suggested under an answer. They are written after the answer is done, so this is empty at first. */
+async function fetchMessageSuggestions(sessionId: string, messageId: string): Promise<string[]> {
+  try {
+    const resp = await fetch(
+      `${BASE_URL}/memory/sessions/${encodeURIComponent(sessionId)}/messages/${encodeURIComponent(messageId)}/suggestions`,
+      { credentials: "include" },
+    )
+    if (!resp.ok) return []
+    return normalizeSuggestions(((await resp.json()) as { suggestions?: unknown }).suggestions)
+  } catch {
+    return []
+  }
+}
+
+// How long after "done" to look for suggestions: the follow-up job usually has them within a few seconds.
+const SUGGESTION_POLL_DELAYS_MS = [1500, 2500, 4000, 6000]
+
 export async function fetchSession(sessionId: string): Promise<{
   transcript: AgentMessage[]
   title: string | null
@@ -417,8 +525,22 @@ export async function fetchSession(sessionId: string): Promise<{
         : typeof m.client_turn_id === "string"
           ? m.client_turn_id
           : undefined,
+      parentId: typeof m.parent_id === "string" ? m.parent_id : null,
+      messageStatus: m.status as AgentMessage["messageStatus"],
+      contentParts: Array.isArray(m.content_parts) ? m.content_parts as Record<string, unknown>[] : [],
+      sources: Array.isArray(m.sources) ? m.sources as Record<string, unknown>[] : [],
+      attachments: normalizeAttachments(m.attachments),
+      traceSnapshot: m.trace_snapshot && typeof m.trace_snapshot === "object"
+        ? extractAgentTraceSnapshot(m.trace_snapshot as Record<string, unknown>)
+        : m.traceSnapshot as AgentMessage["traceSnapshot"],
       toolCalls: normalizeToolCalls(m.toolCalls ?? m.tool_calls),
-      isStreaming: Boolean(m.is_streaming ?? m.isStreaming),
+      narration: normalizeNotes(m.narration),
+      thinking: normalizeNotes(m.thinking),
+      memoryContext: (m.memory_context ?? m.memoryContext) as AgentMessage["memoryContext"],
+      charts: normalizeCharts(m.charts),
+      proposals: normalizeProposals(m.proposals),
+      suggestions: normalizeSuggestions(m.suggestions),
+      isStreaming: Boolean(m.is_streaming ?? m.isStreaming ?? m.status === "streaming"),
       statusText: typeof m.status_text === "string"
         ? m.status_text
         : typeof m.statusText === "string"
@@ -596,8 +718,13 @@ function statusTextForPhase(data: Record<string, unknown>): string | undefined {
 // Hook
 // ---------------------------------------------------------------------------
 
-export function useAgentChat() {
+export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion) => void) {
   const [state, setState] = useState<AgentChatState>(loadState)
+  const queryClient = useQueryClient()
+  useQuery(agentFeedbackQueryOptions(state.sessionId))
+  const completionHandlerRef = useRef(onDurableComplete)
+  completionHandlerRef.current = onDurableComplete
+  const completedJobsRef = useRef(new Set<string>())
   const liveAbortRef = useRef<AbortController | null>(null)
   const inFlightBySessionRef = useRef<Record<string, boolean>>({})
   const activeJobRef = useRef<ActiveAgentJob | null>(state.activeJob)
@@ -609,11 +736,26 @@ export function useAgentChat() {
   const stateRef = useRef(state)
   stateRef.current = state
 
+  const notifyDurableCompletion = useCallback((jobId: string, sessionId: string, response: AgentJobResponse) => {
+    const events = response.events ?? []
+    if (response.status === "error" || response.status === "cancelled"
+      || events.some(event => ["error", "cancelled", "blocked", "timeout"].includes(event.event_type))) return
+    if (response.status !== "done" && !events.some(event => event.event_type === "done")) return
+    if (completedJobsRef.current.has(jobId)) return
+    completedJobsRef.current.add(jobId)
+    const snapshot = stateRef.current.sessionId === sessionId
+      ? stateRef.current
+      : sessionSnapshotsRef.current[sessionId]
+    completionHandlerRef.current?.({ jobId, sessionId, title: snapshot?.sessionTitle ?? null })
+  }, [])
+
   const persistActiveSessionSnapshot = useCallback((snapshot: AgentChatState) => {
     if (!snapshot.sessionId) return
     if (persistedSessionsRef.current[snapshot.sessionId] === snapshot) return
     writeSessionSnapshot(snapshot.sessionId, {
-      messages: snapshot.messages,
+      // Charts are the bulk of a message and the server keeps them; loading a session fetches it from there.
+      messages: snapshot.messages.map(m => (m.charts?.length ? { ...m, charts: undefined } : m)),
+      activeLeafId: snapshot.activeLeafId,
       sessionTitle: snapshot.sessionTitle,
       sessionTitleSource: snapshot.sessionTitleSource,
       error: snapshot.error,
@@ -632,6 +774,7 @@ export function useAgentChat() {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({
         messages,
+        activeLeafId: snapshot.activeLeafId,
         sessionId: snapshot.sessionId,
         sessionTitle: snapshot.sessionTitle,
         sessionTitleSource: snapshot.sessionTitleSource,
@@ -673,6 +816,34 @@ export function useAgentChat() {
     if (options?.persist !== false) persistActiveSessionSnapshot(next)
   }, [persistActiveSessionSnapshot, persistCurrentState])
 
+  const suggestionTimersRef = useRef(new Set<number>())
+  useEffect(() => {
+    const timers = suggestionTimersRef.current
+    return () => {
+      timers.forEach(timer => window.clearTimeout(timer))
+      timers.clear()
+    }
+  }, [])
+
+  /** Looks for the follow-up questions of a finished answer a few times, and shows them once they exist. */
+  const watchSuggestions = useCallback((sessionId: string, messageId: string) => {
+    const attempt = (index: number) => {
+      const timer = window.setTimeout(async () => {
+        suggestionTimersRef.current.delete(timer)
+        const suggestions = await fetchMessageSuggestions(sessionId, messageId)
+        if (suggestions.length) {
+          patchSessionState(sessionId, prev => ({
+            messages: prev.messages.map(m => (m.id === messageId ? { ...m, suggestions } : m)),
+          }))
+        } else if (index + 1 < SUGGESTION_POLL_DELAYS_MS.length) {
+          attempt(index + 1)
+        }
+      }, SUGGESTION_POLL_DELAYS_MS[index])
+      suggestionTimersRef.current.add(timer)
+    }
+    attempt(0)
+  }, [patchSessionState])
+
   // Save completed turns immediately. Streaming checkpoints use the latest
   // state on a fixed interval so a continuous stream cannot postpone the save.
   useEffect(() => {
@@ -707,6 +878,9 @@ export function useAgentChat() {
       for (const event of events) {
         const data = event.payload ?? {}
         switch (event.event_type) {
+          case "memory_context":
+            next = { ...next, messages: next.messages.map(m => m.id === assistantId ? { ...m, memoryContext: data as unknown as AgentMessage["memoryContext"] } : m) }
+            break
           case "status": {
             const rawStatus = typeof data.status === "string" ? data.status : "running"
             const label = statusTextForEventStatus(rawStatus)
@@ -728,6 +902,15 @@ export function useAgentChat() {
               ),
             }
             break
+          case "reset":
+            // A retried model call: keep only the text from before the failed attempt.
+            next = {
+              ...next,
+              messages: next.messages.map(m =>
+                m.id === assistantId ? { ...m, content: typeof data.text === "string" ? data.text : "" } : m,
+              ),
+            }
+            break
           case "phase": {
             const label = statusTextForPhase(data)
             if (!label) break
@@ -736,6 +919,22 @@ export function useAgentChat() {
               messages: next.messages.map(m =>
                 m.id === assistantId ? { ...m, statusText: label } : m,
               ),
+            }
+            break
+          }
+          case "thinking":
+          case "narration": {
+            const text = typeof data.text === "string" ? data.text : ""
+            if (!text) break
+            const note = { id: typeof data.id === "string" ? data.id : `${event.event_type}:${event.seq}`, text }
+            next = {
+              ...next,
+              messages: next.messages.map(m => {
+                if (m.id !== assistantId) return m
+                return event.event_type === "thinking"
+                  ? { ...m, thinking: upsertNote(m.thinking, note) }
+                  : { ...m, narration: upsertNote(m.narration, note) }
+              }),
             }
             break
           }
@@ -789,7 +988,14 @@ export function useAgentChat() {
               ...next,
               messages: next.messages.map(m =>
                 m.id === assistantId
-                  ? { ...m, statusText: undefined, toolCalls: mergeToolCalls(m.toolCalls, normalizeToolCalls([data])) }
+                  ? {
+                      ...m,
+                      statusText: undefined,
+                      toolCalls: mergeToolCalls(m.toolCalls, normalizeToolCalls([data])),
+                      sources: mergeSources(m.sources, data.sources),
+                      charts: upsertById(m.charts, normalizeChart(data.chart)),
+                      proposals: upsertById(m.proposals, normalizeProposal(data.proposal)),
+                    }
                   : m,
               ),
             }
@@ -843,6 +1049,12 @@ export function useAgentChat() {
                       ...m,
                       toolCalls: mergeToolCalls(m.toolCalls, toolCallsFromDonePayload(data)),
                       traceSnapshot: extractAgentTraceSnapshot(data),
+                      memoryContext: data.memory_context as AgentMessage["memoryContext"] ?? m.memoryContext,
+                      sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
+                      narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
+                      thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
+                      proposals: Array.isArray(data.proposals) && data.proposals.length ? normalizeProposals(data.proposals) : m.proposals,
+                      messageStatus: "complete",
                       isStreaming: false,
                       statusText: undefined,
                     }
@@ -914,9 +1126,12 @@ export function useAgentChat() {
 
     if (shouldDrain) {
       const drainSessionId = doneSessionId ?? targetSessionId ?? stateRef.current.sessionId
-      if (drainSessionId) void drainQueueRef.current?.(drainSessionId)
+      if (drainSessionId) {
+        void drainQueueRef.current?.(drainSessionId)
+        watchSuggestions(drainSessionId, assistantId)
+      }
     }
-  }, [persistActiveSessionSnapshot, persistCurrentState])
+  }, [persistActiveSessionSnapshot, persistCurrentState, watchSuggestions])
 
   const finishJobState = useCallback((
     assistantId: string,
@@ -949,6 +1164,7 @@ export function useAgentChat() {
         const response = await fetchAgentJobEvents(job.jobId, afterSeq, controller.signal)
         const events = response.events ?? []
         const eventSessionId = response.session_id ?? sessionId
+        notifyDurableCompletion(job.jobId, eventSessionId, response)
         afterSeq = response.next_seq ?? nextSeqFrom(events, afterSeq)
         const nextJob = { ...job, afterSeq, sessionId: eventSessionId }
         // Commit the cursor and its transcript together. A cursor saved ahead
@@ -992,7 +1208,7 @@ export function useAgentChat() {
         jobPollControllersRef.current.delete(sessionId)
       }
     }
-  }, [applyJobEvents, finishJobState, patchSessionState])
+  }, [applyJobEvents, finishJobState, patchSessionState, notifyDurableCompletion])
 
   useEffect(() => {
     const checkpoint = () => {
@@ -1046,6 +1262,7 @@ export function useAgentChat() {
 
     const resolvedSessionId = started.session_id ?? stateRef.current.sessionId
     if (!resolvedSessionId) return
+    notifyDurableCompletion(started.job_id, resolvedSessionId, started)
 
     if (events.some(event => event.event_type === "done" || event.event_type === "error")) {
       delete inFlightBySessionRef.current[resolvedSessionId]
@@ -1073,11 +1290,16 @@ export function useAgentChat() {
       return next
     })
     await pollJob(activeJob, pollController)
-  }, [applyJobEvents, finishJobState, pollJob, persistCurrentState])
+  }, [applyJobEvents, finishJobState, pollJob, persistCurrentState, notifyDurableCompletion])
 
   useEffect(() => {
     const activeJob = initialActiveJobRef.current
-    if (!activeJob?.sessionId) return
+    if (!activeJob?.sessionId) {
+      // Messages queued behind a turn the last page load never finished.
+      const sessionId = stateRef.current.sessionId
+      if (sessionId && stateRef.current.queuedMessages.length) void drainQueueRef.current?.(sessionId)
+      return
+    }
     if (inFlightBySessionRef.current[activeJob.sessionId]) return
     const controller = new AbortController()
     jobPollControllersRef.current.set(activeJob.sessionId, controller)
@@ -1101,17 +1323,30 @@ export function useAgentChat() {
     screenContext?: ScreenContext | null,
     responsePreferences?: AgentResponsePreferences | null,
     options?: AgentSendOptions,
+    branchAction?: BranchAction,
   ) => {
     const targetSessionId = stateRef.current.sessionId
+    // Stream events can name a new session before React renders that state update.
+    let resolvedSessionId = targetSessionId
     inFlightBySessionRef.current[targetSessionId ?? "pending"] = true
+    // A new turn continues the branch being shown. Regenerating adds an answer to the same question,
+    // and editing adds a question beside the original. Both get a turn id of their own, so the new
+    // answer has its own trajectory and feedback.
+    const shown = resolveBranch(stateRef.current.messages, stateRef.current.activeLeafId).messages
     const clientTurnId = crypto.randomUUID()
-    const userMsg: AgentMessage = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content,
-      timestamp: Date.now(),
-      clientTurnId,
-    }
+    // A regenerated answer replies to the stored question, so the server supplies that question's files.
+    const attachments = branchAction?.kind === "regenerate" ? undefined : options?.attachments
+    const userMsg: AgentMessage = branchAction?.kind === "regenerate"
+      ? branchAction.question
+      : {
+          id: crypto.randomUUID(),
+          role: "user",
+          content,
+          timestamp: Date.now(),
+          clientTurnId,
+          ...(attachments?.length && { attachments }),
+          parentId: branchAction?.kind === "edit" ? branchAction.parentId : (shown[shown.length - 1]?.id ?? null),
+        }
 
     const assistantMsg: AgentMessage = {
       id: crypto.randomUUID(),
@@ -1119,6 +1354,7 @@ export function useAgentChat() {
       content: "",
       timestamp: Date.now(),
       clientTurnId,
+      parentId: userMsg.id,
       toolCalls: [],
       isStreaming: true,
       statusText: "Starting...",
@@ -1127,11 +1363,21 @@ export function useAgentChat() {
     const assistantId = assistantMsg.id
     const controller = new AbortController()
     liveAbortRef.current = controller
+    // The first turn of a new chat is flagged "pending" until the stream names its session, so
+    // clear that flag too. Without it, the chat stays busy and the next message only queues.
+    const releaseSession = () => {
+      const sessionId = resolvedSessionId ?? stateRef.current.sessionId
+      if (sessionId) delete inFlightBySessionRef.current[sessionId]
+      if (!targetSessionId) delete inFlightBySessionRef.current["pending"]
+    }
 
     setState(prev => {
       const next = {
         ...prev,
-        messages: [...prev.messages, userMsg, assistantMsg],
+        messages: branchAction?.kind === "regenerate"
+          ? [...prev.messages, assistantMsg]
+          : [...prev.messages, userMsg, assistantMsg],
+        activeLeafId: assistantMsg.id,
         isStreaming: true,
         error: null,
         sessionTitle: prev.sessionTitle ?? deriveSessionTitleFromText(content),
@@ -1148,7 +1394,16 @@ export function useAgentChat() {
       content,
       screenContext,
       responsePreferences,
+      {
+        user: userMsg.id,
+        assistant: assistantMsg.id,
+        ...(branchAction === undefined && userMsg.parentId ? { parent: userMsg.parentId } : {}),
+        ...(branchAction?.kind === "edit" ? { editOf: branchAction.messageId } : {}),
+        ...(branchAction?.kind === "regenerate" ? { regenerateOf: branchAction.answerId } : {}),
+      },
+      attachments,
     )
+    if (options?.memoryEnabled !== undefined) body.memory_enabled = options.memoryEnabled
     let sawAssistantDelta = false
 
     const handleAbort = () => {
@@ -1161,7 +1416,7 @@ export function useAgentChat() {
         ),
       }))
       activeJobRef.current = null
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
+      releaseSession()
     }
 
     const handleError = (message: string, assistantFallbackContent?: string) => {
@@ -1182,7 +1437,7 @@ export function useAgentChat() {
         ),
       }))
       activeJobRef.current = null
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
+      releaseSession()
     }
 
     try {
@@ -1198,6 +1453,7 @@ export function useAgentChat() {
           sawAssistantDelta = true
         }
         const sessionId = typeof event.payload.session_id === "string" ? event.payload.session_id : null
+        if (sessionId) resolvedSessionId = sessionId
         applyJobEvents(assistantId, [{
           seq: ++directSeq,
           event_type: event.event_type as AgentJobEvent["event_type"],
@@ -1224,8 +1480,8 @@ export function useAgentChat() {
           m.id === assistantId ? { ...m, isStreaming: false, statusText: undefined } : m,
         ),
       }))
-      if (targetSessionId) delete inFlightBySessionRef.current[targetSessionId]
-      void drainQueueRef.current?.(targetSessionId ?? "")
+      releaseSession()
+      void drainQueueRef.current?.(resolvedSessionId ?? stateRef.current.sessionId ?? "")
     } catch (err) {
       if ((err as Error).name === "AbortError") {
         handleAbort()
@@ -1318,6 +1574,50 @@ export function useAgentChat() {
     await executeSendMessage(content, screenContext, responsePreferences, options)
   }, [executeSendMessage, sessionIsBusy])
 
+  // Regenerate and edit act on the branch being shown, and wait for a turn in progress to end.
+  const regenerate = useCallback(async (
+    answerId: string,
+    screenContext?: ScreenContext | null,
+    responsePreferences?: AgentResponsePreferences | null,
+  ) => {
+    const shown = resolveBranch(stateRef.current.messages, stateRef.current.activeLeafId).messages
+    const answer = shown[shown.length - 1]
+    const question = shown[shown.length - 2]
+    if (answer?.id !== answerId || answer.role !== "assistant" || question?.role !== "user") return
+    if (sessionIsBusy(stateRef.current.sessionId)) return
+    await executeSendMessage(question.content, screenContext, responsePreferences, undefined, {
+      kind: "regenerate",
+      answerId,
+      question,
+    })
+  }, [executeSendMessage, sessionIsBusy])
+
+  const editAndResend = useCallback(async (
+    messageId: string,
+    content: string,
+    screenContext?: ScreenContext | null,
+    responsePreferences?: AgentResponsePreferences | null,
+  ) => {
+    const { messages } = stateRef.current
+    const original = messages.find(message => message.id === messageId)
+    const edited = content.trim()
+    if (original?.role !== "user" || !edited || sessionIsBusy(stateRef.current.sessionId)) return
+    await executeSendMessage(edited, screenContext, responsePreferences, { attachments: original.attachments }, {
+      kind: "edit",
+      messageId,
+      parentId: parentIdOf(messages, messageId),
+    })
+  }, [executeSendMessage, sessionIsBusy])
+
+  const switchBranch = useCallback((messageId: string, direction: -1 | 1) => {
+    if (sessionIsBusy(stateRef.current.sessionId)) return
+    const { messages, activeLeafId } = stateRef.current
+    const version = resolveBranch(messages, activeLeafId).versions.get(messageId)
+    const targetId = direction < 0 ? version?.previousId : version?.nextId
+    if (!targetId) return
+    setState(prev => ({ ...prev, activeLeafId: leafBelow(prev.messages, targetId) }))
+  }, [sessionIsBusy])
+
   const removeQueuedMessage = useCallback((id: string) => {
     setState(prev => {
       const queuedMessages = prev.queuedMessages.filter(entry => entry.id !== id)
@@ -1330,7 +1630,7 @@ export function useAgentChat() {
     const entry = stateRef.current.queuedMessages.find(item => item.id === id)
     if (!entry) return null
     removeQueuedMessage(id)
-    return entry.content
+    return { content: entry.content, attachments: entry.options?.attachments ?? [] }
   }, [removeQueuedMessage])
 
   const clearQueuedMessages = useCallback(() => {
@@ -1403,6 +1703,20 @@ export function useAgentChat() {
     })
   }, [state.sessionId])
 
+  const forgetSession = useCallback((targetSessionId: string) => {
+    delete sessionSnapshotsRef.current[targetSessionId]
+    removeSessionSnapshot(targetSessionId)
+    writeMessageQueue(targetSessionId, [])
+    writeActiveJob(targetSessionId, null)
+    if (stateRef.current.sessionId !== targetSessionId) return
+    liveAbortRef.current?.abort()
+    activeJobRef.current = null
+    setState({
+      messages: [], isStreaming: false, error: null, sessionId: null,
+      sessionTitle: null, sessionTitleSource: null, activeJob: null, queuedMessages: [],
+    })
+  }, [])
+
   // ------ loadSession ------
   const loadSession = useCallback(async (sessionId: string) => {
     const previousSessionId = stateRef.current.sessionId
@@ -1413,6 +1727,9 @@ export function useAgentChat() {
     }
 
     const cached = readSessionSnapshot(sessionId)
+    // Start alongside the transcript, without letting optional feedback delay it.
+    // The active query below reuses this request when the session becomes visible.
+    void queryClient.fetchQuery(agentFeedbackQueryOptions(sessionId)).catch(() => {})
     const data = await fetchSession(sessionId)
     const transcript = data?.transcript ?? cached?.messages ?? []
     const queuedMessages = readMessageQueue(sessionId)
@@ -1436,7 +1753,9 @@ export function useAgentChat() {
     }
 
     const nextState: AgentChatState = {
-      messages: transcript,
+      messages: settleInterruptedMessages(transcript, activeJob?.assistantId),
+      // The branch last shown on this device, while it still exists; otherwise the newest.
+      activeLeafId: transcript.some(message => message.id === cached?.activeLeafId) ? cached?.activeLeafId : undefined,
       isStreaming: Boolean(activeJob),
       error: cached?.error ?? null,
       sessionId,
@@ -1453,8 +1772,12 @@ export function useAgentChat() {
       jobPollControllersRef.current.set(sessionId, controller)
       activeJobRef.current = activeJob
       void pollJob(activeJob, controller)
+    } else if (!activeJob && queuedMessages.length) {
+      // Messages queued behind a turn that was interrupted: nothing else will drain them.
+      stateRef.current = nextState
+      void drainQueueRef.current?.(sessionId)
     }
-  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob])
+  }, [persistActiveSessionSnapshot, persistCurrentState, pollJob, queryClient])
 
   const applySessionTitle = useCallback((sessionId: string, title: string | null, source?: string | null) => {
     setState(prev => {
@@ -1467,13 +1790,19 @@ export function useAgentChat() {
     })
   }, [])
 
+  const branch = useMemo(
+    () => resolveBranch(state.messages, state.activeLeafId),
+    [state.messages, state.activeLeafId],
+  )
+
   const isComposerBusy =
     state.isStreaming
     || Boolean(state.activeJob)
     || assistantTurnInProgress(state.messages)
 
   return {
-    messages: state.messages,
+    messages: branch.messages,
+    messageVersions: branch.versions,
     isStreaming: state.isStreaming,
     isComposerBusy,
     error: state.error,
@@ -1482,8 +1811,12 @@ export function useAgentChat() {
     sessionTitleSource: state.sessionTitleSource,
     queuedMessages: state.queuedMessages,
     sendMessage,
+    regenerate,
+    editAndResend,
+    switchBranch,
     stopStreaming,
     clearChat,
+    forgetSession,
     loadSession,
     applySessionTitle,
     removeQueuedMessage,

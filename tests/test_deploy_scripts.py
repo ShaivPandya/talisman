@@ -342,6 +342,25 @@ WORKER_SECRETS=(DATABASE_URL=fake:latest)
     return flags, dict(pairs)
 
 
+@pytest.mark.parametrize("script_name", ["deploy-api.sh", "deploy-agent-worker.sh"])
+@pytest.mark.parametrize("enabled", [None, "true", "false"])
+def test_intent_router_deploy_defaults_off_with_explicit_opt_in(tmp_path, monkeypatch, script_name, enabled):
+    for key in (
+        "AGENT_INTENT_ROUTER_ENABLED",
+        "AGENT_INTENT_ROUTER_SHADOW_MODE",
+        "AGENT_INTENT_ROUTER_TRAINING_CAPTURE_ENABLED",
+        "AGENT_INTENT_ROUTER_SUPERVISED_ENABLED",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    overrides = {"AGENT_INTENT_ROUTER_ENABLED": enabled} if enabled is not None else {}
+    _, env = _render_pool_deploy(tmp_path, script_name, overrides=overrides)
+
+    assert env["AGENT_INTENT_ROUTER_ENABLED"] == (enabled or "false")
+    assert env["AGENT_INTENT_ROUTER_SHADOW_MODE"] == "true"
+    assert env["AGENT_INTENT_ROUTER_TRAINING_CAPTURE_ENABLED"] == "false"
+    assert env["AGENT_INTENT_ROUTER_SUPERVISED_ENABLED"] == "false"
+
+
 @pytest.mark.parametrize(
     "script_name,minimum,maximum",
     [

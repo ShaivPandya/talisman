@@ -61,10 +61,9 @@ def test_build_agent_instructions_degrades_without_agent_prompt(tmp_path):
     # agent_system.md does NOT exist
 
     with patch("api.routers.agent.PROMPTS_DIR", tmp_path):
-        with patch("api.routers.agent._build_memory_context", return_value=""):
-            result = _build_agent_instructions()
-            assert "Core system prompt content" in result
-            # Should not crash, just use core prompt alone
+        result = _build_agent_instructions()
+        assert "Core system prompt content" in result
+        # Should not crash, just use core prompt alone
 
     _prompt_cache.clear()
 

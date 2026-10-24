@@ -133,8 +133,29 @@ Set `AGENT_WORKER_INSTANCES`, `ANALYZER_WORKER_INSTANCES`, and
 capacity.
 
 The warm workers preload their job path and poll every `0.25` seconds by
-default. A busy single-instance pool queues jobs until its current compute
-finishes. Raise `*_WORKER_INSTANCES` only after recalculating the database budget.
+default. Agent workers execute up to `AGENT_WORKER_CONCURRENCY=2` chat turns
+per instance, capped at `POSTGRES_POOL_MAX_SIZE`. Analyzer and ontology workers
+remain serial. Chat concurrency shares the existing pool; it adds no connections
+or worker instances. Follow-up jobs retain their separate serial loop.
+Raise `*_WORKER_INSTANCES` only after recalculating the database budget.
+
+Durable chat claims heartbeat every 10 seconds on a separate thread, including
+while a model or tool blocks. The API and agent worker independently check every
+5 seconds for running claims with no heartbeat for 45 seconds. They fail abandoned
+jobs and repair their transcripts, preserving saved partial text. Explicit retries
+can create a new job with the same turn id; recovery does not automatically replay
+tool calls. Terminal jobs reject late completion and expired workers cannot change
+the transcript or publish further events. Transcript repair remains pending until
+it succeeds, so recovery itself can safely restart.
+
+`AGENT_JOB_HEARTBEAT_SECONDS`, `AGENT_JOB_LEASE_SECONDS`, and
+`AGENT_JOB_RECOVERY_INTERVAL_SECONDS` may shorten those intervals. Values are
+capped at 10/45/5 seconds, with heartbeat at most one third of the lease. Use the
+same settings for the API and workers; default values require no API override.
+Workers draining an older release retain the legacy timeout until they finish;
+new claims carry an `agent-lease:` prefix in the existing `claimed_by` column.
+No database migration is required. Recovery within a minute assumes a functioning
+database and a live API or worker process. See the [local verification runbook](../../docs/agent-worker-recovery.md).
 If Cloud Monitoring shows p95 memory approaching roughly 80% of a configured
 worker limit, raise the affected `*_WORKER_MEMORY` setting before the next deploy.
 

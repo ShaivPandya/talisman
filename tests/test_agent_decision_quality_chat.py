@@ -4,6 +4,8 @@ import json
 from types import SimpleNamespace
 from typing import Any
 
+import pytest
+
 import api.routers.agent as agent_router
 from decision_quality.candidate_gates import apply_opportunity_candidate_gates
 from decision_quality.gates import apply_decision_quality_gates
@@ -234,6 +236,7 @@ def test_serious_thesis_prompt_triggers_hidden_pass_and_metadata(auth_client, mo
     done = [payload for event, payload in parsed if event == "done"][-1]
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["decision_quality_chat"]["ran"] is True
+    assert done["usage"] == {"input_tokens": 12, "output_tokens": 24}
     assert done["decision_quality_chat"]["final_action"] == "buy"
     assert done["opportunity_candidate_preflight"]["ran"] is True
     assert done["opportunity_candidate_preflight"]["should_graduate"] is True
@@ -300,7 +303,7 @@ def test_gate_downgrade_is_visible_to_synthesis_prompt(auth_client, monkeypatch)
     parsed = _parse_sse(resp.text)
     done = [payload for event, payload in parsed if event == "done"][-1]
     synthesis_prompt = "".join(
-        block["text"] for block in fake.messages.kwargs_history[0]["messages"][0]["content"] if block["type"] == "text"
+        block["text"] for block in fake.messages.kwargs_history[0]["messages"][-1]["content"] if block["type"] == "text"
     )
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["decision_quality_chat"]["gate_status"] == "downgraded"
@@ -344,6 +347,7 @@ def test_discovery_prompt_runs_candidate_preflight_without_decision_quality(auth
     final_text = "".join(payload["text"] for event, payload in parsed if event == "delta")
     assert done["opportunity_candidate_preflight"]["ran"] is True
     assert done["opportunity_candidate_preflight"]["final_action"] == "research"
+    assert done["usage"] == {"input_tokens": 11, "output_tokens": 22}
     assert "decision_quality_chat" not in done
     assert "buy" not in final_text.lower()
     assert "short" not in final_text.lower()
@@ -446,3 +450,188 @@ def test_stale_tool_quality_downgrades_gate_and_surfaces_done_meta(auth_client, 
     assert dq_meta["tool_quality"]["blocker_count"] >= 1
     assert dq_meta["final_action"] == "watch"
     assert dq_meta["gate_status"] in {"downgraded", "blocked"}
+
+
+@pytest.fixture
+def verdict_chat(auth_client, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setattr(agent_router, "_build_agent_instructions", lambda screen_context=None: "agent instructions")
+    monkeypatch.setattr(agent_router, "_run_opportunity_candidate_structured_pass", lambda **kwargs: _oc_result())
+    monkeypatch.setattr(
+        agent_router, "_run_decision_quality_structured_pass", lambda **kwargs: _dq_result("missing_inputs")
+    )
+    monkeypatch.setattr(
+        agent_router,
+        "execute_tool",
+        lambda name, args, **kwargs: json.dumps({"name": name, "args": args}),
+    )
+
+    def chat(message="Here is my Meta thesis? What do you think?"):
+        response = auth_client.post(
+            "/api/agent/chat",
+            json={"message": message, "finalize_synchronously": True},
+        )
+        assert response.status_code == 200
+        return _parse_sse(response.text)
+
+    return chat
+
+
+@pytest.mark.parametrize("discovery", [False, True])
+def test_verdict_precedes_next_model_call_and_is_saved(verdict_chat, monkeypatch, discovery):
+    monkeypatch.setattr(
+        agent_router, "_run_opportunity_candidate_structured_pass", lambda **kwargs: _oc_result(graduate=not discovery)
+    )
+    saved = []
+    monkeypatch.setattr("api.memory_manager.finalize_turn", lambda sid, user, assistant: saved.append(assistant))
+    _install_fake_anthropic(monkeypatch, "Research until price action and sizing are confirmed.")
+
+    events = verdict_chat(
+        "Scan semiconductors for anything interesting right now?"
+        if discovery
+        else "Here is my Meta thesis? What do you think?"
+    )
+
+    first_delta_index = next(i for i, (event, payload) in enumerate(events) if event == "delta" and payload["text"])
+    first_text = events[first_delta_index][1]["text"]
+    next_purpose = "opportunity_candidate_chat_synthesis" if discovery else "decision_quality_chat_structured"
+    next_phase_index = next(
+        i
+        for i, (event, payload) in enumerate(events)
+        if event == "phase" and payload.get("model_purpose") == next_purpose
+    )
+    assert first_delta_index < next_phase_index
+    assert first_text.startswith("Initial verdict:")
+    assert ("trading decision pending" in first_text) is not discovery
+    done = next(payload for event, payload in events if event == "done")
+    assert done["timings"]["first_token_ms"] <= events[next_phase_index][1]["elapsed_ms"]
+    assert saved[-1]["content"] == "".join(payload["text"] for event, payload in events if event == "delta")
+
+
+@pytest.mark.parametrize("action", ["watch", "research", "avoid", "do_nothing"])
+def test_verdict_uses_gated_action_and_omits_raw_bullish_summary(action):
+    result = _oc_result()
+    result["opportunity_candidate"].summary = "Buy now at full size."
+    result["opportunity_candidate"].missing_inputs = ["current chart"]
+    result["gate"] = result["gate"].model_copy(
+        update={"final_action": action, "status": "downgraded", "should_graduate": False}
+    )
+    result["context_pack"] = {"missing_inputs": ["current chart", "verified catalyst"]}
+
+    text = agent_router._decision_quality_chat_verdict(oc_result=result)
+
+    assert text.startswith(f"Initial verdict: {action.replace('_', ' ')}.")
+    assert "current chart; verified catalyst" in text
+    assert "Buy now" not in text
+    assert "graduate_to_decision_quality" not in text
+
+
+@pytest.mark.parametrize("kind", ["candidate", "decision"])
+def test_invalid_verdict_does_not_expose_parse_errors(kind):
+    result = {"parse_errors": ['invalid JSON: {"recommended_action": "buy"}']}
+    kwargs = {"oc_result" if kind == "candidate" else "dq_result": result}
+
+    text = agent_router._decision_quality_chat_verdict(**kwargs)
+
+    assert text.startswith("Initial verdict: research.")
+    assert "JSON" not in text
+    assert "buy" not in text
+
+
+@pytest.mark.parametrize("discovery", [False, True])
+def test_empty_synthesis_still_uses_fallback_after_verdict(verdict_chat, monkeypatch, discovery):
+    monkeypatch.setattr(
+        agent_router, "_run_opportunity_candidate_structured_pass", lambda **kwargs: _oc_result(graduate=not discovery)
+    )
+    _install_fake_anthropic(monkeypatch, "")
+
+    events = verdict_chat(
+        "Scan semiconductors for anything interesting right now?"
+        if discovery
+        else "Here is my Meta thesis? What do you think?"
+    )
+
+    deltas = [payload["text"] for event, payload in events if event == "delta" and payload["text"]]
+    assert len(deltas) == 2
+    assert deltas[0].startswith("Initial verdict:")
+    assert deltas[1].startswith("Bottom line:")
+    assert not [payload for event, payload in events if event == "error"]
+
+
+def test_decision_only_path_emits_gated_verdict_before_synthesis(verdict_chat, monkeypatch):
+    monkeypatch.setattr(agent_router, "_should_run_opportunity_candidate_preflight", lambda *args, **kwargs: False)
+    _install_fake_anthropic(monkeypatch, "Watch until the missing inputs arrive.")
+
+    events = verdict_chat()
+
+    first_delta_index = next(i for i, (event, payload) in enumerate(events) if event == "delta" and payload["text"])
+    writing_index = next(
+        i for i, (event, payload) in enumerate(events) if event == "phase" and payload["phase"] == "model_writing"
+    )
+    assert first_delta_index < writing_index
+    assert events[first_delta_index][1]["text"].startswith("Initial verdict: watch.")
+
+
+def test_synthesis_failure_keeps_visible_verdict_in_failed_trajectory(verdict_chat, monkeypatch):
+    fake = _install_fake_anthropic(monkeypatch, "")
+
+    def fail_stream(**kwargs):
+        raise ValueError("synthesis unavailable")
+
+    fake.messages.stream = fail_stream
+    followups = []
+    original = agent_router._turn_followup
+
+    def capture_followup(**kwargs):
+        followups.append(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(agent_router, "_turn_followup", capture_followup)
+
+    events = verdict_chat()
+
+    assert any(event == "error" for event, payload in events)
+    visible = "".join(payload["text"] for event, payload in events if event == "delta")
+    assert visible.startswith("Initial verdict:")
+    assert followups[-1]["final_disposition"] == "failed"
+    assert followups[-1]["messages"][-1]["content"] == visible
+
+
+@pytest.mark.parametrize("provider", ["anthropic", "openai", "gemini", "talisman"])
+@pytest.mark.parametrize("discovery", [False, True])
+def test_synthesis_retains_native_history_without_json_history(verdict_chat, monkeypatch, provider, discovery):
+    history = [{"role": "user" if i % 2 == 0 else "assistant", "content": f"Original context {i}"} for i in range(12)]
+    request = (
+        "Scan semiconductors for anything interesting right now?"
+        if discovery
+        else "Here is my Meta thesis? What do you think?"
+    )
+    history.append({"role": "user", "content": request})
+    monkeypatch.setattr("api.memory_manager.build_conversation_context", lambda sid, *args, **kwargs: (history, sid))
+    monkeypatch.setattr(
+        agent_router, "_run_opportunity_candidate_structured_pass", lambda **kwargs: _oc_result(graduate=not discovery)
+    )
+    monkeypatch.setattr(agent_router, "_read_llm_api_key", lambda: (provider, "test-key"))
+    monkeypatch.setattr(agent_router, "_get_provider_client", lambda *args: object())
+    captured = []
+
+    def stream(client, selected_provider, kwargs, chunks, **timing):
+        captured.append(kwargs.get("messages") or kwargs.get("input") or kwargs.get("contents"))
+        chunks.append("Research until confirmation.")
+        yield agent_router._sse("delta", {"text": chunks[-1]})
+        return None
+
+    monkeypatch.setattr(agent_router, "_stream_llm_response", stream)
+
+    events = verdict_chat(request)
+
+    assert not [payload for event, payload in events if event == "error"]
+    messages = captured[0]
+    expected = agent_router._conversation_for_provider(provider, history)
+    # Anthropic adds cache markers to copies of the native message content.
+    assert [message["role"] for message in messages[:-1]] == [message["role"] for message in expected]
+    assert len(messages) == len(history) + 1
+    assert all(f"Original context {i}" in json.dumps(messages[i]) for i in range(12))
+    assert "recent_conversation" not in json.dumps(messages[-1])
+    assert '"final_action"' in json.dumps(messages[-1]).replace('\\"', '"')
+    assert history[0] == {"role": "user", "content": "Original context 0"}

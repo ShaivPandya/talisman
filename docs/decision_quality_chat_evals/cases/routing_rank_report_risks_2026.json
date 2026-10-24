@@ -1,0 +1,35 @@
+{
+  "id": "routing_rank_report_risks_2026",
+  "status": "review",
+  "as_of_date": "2026-10-22",
+  "user_message": "Rank the risks in that macro report.",
+  "screen_context": null,
+  "mock_tools": {},
+  "routing_expectations": {
+    "intent_class": "general_research",
+    "run_hidden_dq": false,
+    "run_opportunity_preflight": false,
+    "candidate_tickers": [],
+    "required_tool_names": [
+      "get_signal_aggregator"
+    ],
+    "forbidden_tool_names": [
+      "search_alternative_data_catalog",
+      "fetch_alternative_data",
+      "get_dossier",
+      "get_thesis",
+      "get_financials",
+      "get_position_valuation",
+      "get_dcf_historical",
+      "run_chart"
+    ]
+  },
+  "expected_tool_names": [],
+  "required_points": [],
+  "corpus_tags": [
+    "routing_tool_use"
+  ],
+  "failure_type": "wrong_routing",
+  "tool_pack": "regex_baseline",
+  "required_dq_dimensions": []
+}

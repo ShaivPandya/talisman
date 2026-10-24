@@ -1,5 +1,5 @@
 import * as RadixDialog from "@radix-ui/react-dialog"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { cn } from "@/lib/utils"
 import {
@@ -9,13 +9,19 @@ import {
   type AgentResponsePreferences,
   type AgentWorkflow,
 } from "@/lib/api"
-import { deleteSession, fetchSessionHistory, renameSessionTitle, useAgentChat, type AgentMessage, type SessionSummary } from "@/hooks/useAgentChat"
+import { renameSessionTitle, useAgentChat, type AgentJobCompletion, type AgentMessage } from "@/hooks/useAgentChat"
+import { AGENT_HISTORY_QUERY_KEY, useAgentHistory } from "@/hooks/useAgentHistory"
+import { exportHistorySession } from "@/hooks/agentSessionHistory"
 import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { StanOpenDetail } from "@/lib/stanLauncher"
+import type { AgentAttachment } from "@/lib/chatAttachments"
 import { AgentChatComposer, type AgentChatComposerHandle, type AgentChatDraft } from "./AgentChatComposer"
 import { AgentChatQueuePanel } from "./AgentChatQueuePanel"
 import { AgentChatHeader } from "./AgentChatHeader"
+import { AgentCompletionToast } from "./AgentCompletionToast"
 import { AgentContextPane } from "./AgentContextPane"
+import { useAgentMemory } from "@/hooks/agentMemory"
+import { AgentMemoryPanel } from "./AgentMemoryPanel"
 import { AgentHistoryPanel } from "./AgentHistoryPanel"
 import { AgentMessageStream } from "./AgentMessageStream"
 import { AgentPreferencesPanel } from "./AgentPreferencesPanel"
@@ -46,6 +52,8 @@ interface AgentChatProps {
   screenContext?: ScreenContext
   pendingCommand?: StanOpenDetail | null
   onPendingCommandConsumed?: () => void
+  desktopViewMode?: AgentViewMode
+  onViewModeChange?: (mode: AgentViewMode) => void
 }
 
 interface WorkflowInvalidationTarget {
@@ -100,9 +108,19 @@ export function AgentChat({
   screenContext,
   pendingCommand,
   onPendingCommandConsumed,
+  desktopViewMode = "compact",
+  onViewModeChange,
 }: AgentChatProps) {
+  const [completions, setCompletions] = useState<AgentJobCompletion[]>([])
+  const handleDurableComplete = useCallback((completion: AgentJobCompletion) => {
+    setCompletions(current => [...current, completion])
+  }, [])
+  const dismissCompletion = useCallback((jobId: string) => {
+    setCompletions(current => current.filter(completion => completion.jobId !== jobId))
+  }, [])
   const {
     messages,
+    messageVersions,
     isStreaming,
     isComposerBusy,
     error,
@@ -110,34 +128,45 @@ export function AgentChat({
     sessionTitle,
     queuedMessages,
     sendMessage,
+    regenerate,
+    editAndResend,
+    switchBranch,
     stopStreaming,
     clearChat,
+    forgetSession,
     loadSession,
     applySessionTitle,
     removeQueuedMessage,
     editQueuedMessage,
     clearQueuedMessages,
     sendQueuedMessageNow,
-  } = useAgentChat()
+  } = useAgentChat(handleDurableComplete)
   const { openDecisionTrace } = useDecisionTrace()
   const queryClient = useQueryClient()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
-  const [viewModeOverride, setViewModeOverride] = useState<AgentViewMode | null>(null)
-  const viewMode: AgentViewMode = isDesktop ? viewModeOverride ?? "console" : "compact"
+  const viewMode: AgentViewMode = isDesktop ? desktopViewMode : "compact"
+  const docked = isDesktop && viewMode === "compact"
   const [activePanel, setActivePanel] = useState<AgentPanel>("chat")
-  const [history, setHistory] = useState<SessionSummary[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
+  const lastMemoryContext = messages[messages.length - 1]?.memoryContext
+  const memory = useAgentMemory(sessionId, open && activePanel === "memory", lastMemoryContext)
+  const history = useAgentHistory(open && activePanel === "history", forgetSession)
   const [workflowTicker, setWorkflowTicker] = useState("")
   const [showCompactWorkflows, setShowCompactWorkflows] = useState(false)
   const [cachedPreferences] = useState<AgentResponsePreferences>(loadResponsePreferences)
   const [draftPreferences, setDraftPreferences] = useState<AgentResponsePreferences>(cachedPreferences)
   const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null)
+  const [includeScreenContext, setIncludeScreenContext] = useState(true)
+  const [thinkingOverride, setThinkingOverride] = useState<boolean | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const messagesScrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const composerRef = useRef<AgentChatComposerHandle>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const draftRef = useRef<AgentChatDraft>({ value: "", selection: null })
-  const wasOpenRef = useRef(open)
+  const followingLatestRef = useRef(true)
+  const lastScrollTopRef = useRef(0)
+  const scrollViewRef = useRef<{ container: HTMLDivElement | null; firstMessageId?: string }>({ container: null })
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false)
   const wasStreamingRef = useRef(isStreaming)
   const pendingWorkflowInvalidationRef = useRef<WorkflowInvalidationTarget | null>(null)
   const lastConsumedCommandRef = useRef<string | null>(null)
@@ -145,6 +174,11 @@ export function AgentChat({
   const loadComposerDraft = useCallback(() => draftRef.current, [])
   const saveComposerDraft = useCallback((draft: AgentChatDraft) => {
     draftRef.current = draft
+  }, [])
+  const attachmentsDraftRef = useRef<AgentAttachment[]>([])
+  const loadComposerAttachments = useCallback(() => attachmentsDraftRef.current, [])
+  const saveComposerAttachments = useCallback((attachments: AgentAttachment[]) => {
+    attachmentsDraftRef.current = attachments
   }, [])
 
   const workflowsQuery = useQuery({
@@ -183,6 +217,15 @@ export function AgentChat({
     ? normalizePreferences(preferencesQuery.data)
     : cachedPreferences, [preferencesQuery.data, cachedPreferences])
 
+  const sendTurn = useCallback((content: string, options?: Parameters<typeof sendMessage>[3]) => {
+    void sendMessage(content, includeScreenContext ? screenContext : null, {
+      ...activePreferences,
+      thinking_enabled: thinkingOverride ?? activePreferences.thinking_enabled,
+    }, { ...options, ...(!sessionId && { memoryEnabled: memory.draftEnabled }) })
+    setIncludeScreenContext(true)
+    setThinkingOverride(null)
+  }, [sendMessage, includeScreenContext, screenContext, activePreferences, thinkingOverride, sessionId, memory.draftEnabled])
+
   const handleOpenTrace = useCallback((message: AgentMessage) => {
     openDecisionTrace({ kind: "agent_message", record: {}, sessionId, message })
   }, [openDecisionTrace, sessionId])
@@ -191,10 +234,28 @@ export function AgentChat({
     const container = messagesScrollRef.current
     if (container) {
       container.scrollTo({ top: container.scrollHeight, behavior })
+      lastScrollTopRef.current = container.scrollTop
       return
     }
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" })
   }, [])
+
+  const handleMessagesScroll = useCallback((event: UIEvent<HTMLDivElement>) => {
+    const container = event.currentTarget
+    // A delayed scroll event can arrive after new text changes the height.
+    // Only a changed reading position should change whether we follow.
+    if (container.scrollTop === lastScrollTopRef.current) return
+    lastScrollTopRef.current = container.scrollTop
+    const nearBottom = container.scrollHeight - container.clientHeight - container.scrollTop <= 80
+    followingLatestRef.current = nearBottom
+    setShowJumpToLatest(!nearBottom)
+  }, [])
+
+  const handleJumpToLatest = useCallback(() => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
+    scrollMessagesToBottom("auto")
+  }, [scrollMessagesToBottom])
 
   const focusComposerTextarea = useCallback(() => {
     const textarea = textareaRef.current
@@ -209,15 +270,24 @@ export function AgentChat({
   }, [])
 
   useEffect(() => {
-    const wasOpen = wasOpenRef.current
-    wasOpenRef.current = open
+    if (!open || activePanel !== "chat") {
+      scrollViewRef.current = { container: null }
+      return
+    }
 
-    if (!open || activePanel !== "chat") return
-
-    const behavior: ScrollBehavior = isStreaming || !wasOpen ? "auto" : "smooth"
+    const container = messagesScrollRef.current
+    const firstMessageId = messages[0]?.id
+    // A newly opened view or a different conversation starts at the latest turn.
+    if (scrollViewRef.current.container !== container || scrollViewRef.current.firstMessageId !== firstMessageId) {
+      followingLatestRef.current = true
+    }
+    scrollViewRef.current = { container, firstMessageId }
     // Coalesce token commits into one layout read and scroll per frame.
     const animationFrame = window.requestAnimationFrame(() => {
-      scrollMessagesToBottom(behavior)
+      // Check again here: the user may scroll after this frame was scheduled.
+      if (!followingLatestRef.current) return
+      setShowJumpToLatest(false)
+      scrollMessagesToBottom("auto")
     })
     return () => window.cancelAnimationFrame(animationFrame)
   }, [messages, isStreaming, activePanel, open, scrollMessagesToBottom])
@@ -232,7 +302,8 @@ export function AgentChat({
 
   useEffect(() => {
     if (open && activePanel === "chat") {
-      window.setTimeout(focusComposerTextarea, 160)
+      const focused = document.activeElement
+      if (!focused || focused === document.body || panelRef.current?.contains(focused)) focusComposerTextarea()
     }
   }, [open, activePanel, focusComposerTextarea])
 
@@ -258,19 +329,19 @@ export function AgentChat({
     if (lastConsumedCommandRef.current === command) return
     lastConsumedCommandRef.current = command
     pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(command)
-    window.setTimeout(() => setActivePanel("chat"), 0)
-    sendMessage(command, screenContext, activePreferences, {
-      durable: pendingCommand.durable ?? true,
-      mode: isStreaming ? "enqueue" : undefined,
-    })
+    window.setTimeout(() => {
+      setActivePanel("chat")
+      sendTurn(command, {
+        durable: pendingCommand.durable ?? true,
+        mode: isStreaming ? "enqueue" : undefined,
+      })
+    }, 0)
     onPendingCommandConsumed?.()
   }, [
     open,
     pendingCommand,
     isStreaming,
-    screenContext,
-    activePreferences,
-    sendMessage,
+    sendTurn,
     onPendingCommandConsumed,
   ])
 
@@ -279,32 +350,48 @@ export function AgentChat({
     setPreferenceSaveError(null)
   }
 
-  const handleSend = useCallback((content: string) => {
-    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(content)
+  const handleSend = useCallback((content: string, attachments?: AgentAttachment[]) => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
+    const workflow = workflowTargetFromCommand(content)
+    pendingWorkflowInvalidationRef.current = workflow
     setActivePanel("chat")
-    void sendMessage(
-      content,
-      screenContext,
-      activePreferences,
-      isComposerBusy ? { mode: "enqueue" } : undefined,
-    )
-  }, [screenContext, activePreferences, isComposerBusy, sendMessage])
+    sendTurn(content, {
+      durable: Boolean(workflow),
+      mode: isComposerBusy ? "enqueue" : undefined,
+      ...(attachments?.length && { attachments }),
+    })
+  }, [isComposerBusy, sendTurn])
+
+  const handleRegenerate = useCallback((messageId: string) => {
+    pendingWorkflowInvalidationRef.current = null
+    void regenerate(messageId, screenContext, activePreferences)
+  }, [screenContext, activePreferences, regenerate])
+
+  const handleEditMessage = useCallback((messageId: string, content: string) => {
+    pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(content)
+    void editAndResend(messageId, content, screenContext, activePreferences)
+  }, [screenContext, activePreferences, editAndResend])
 
   const handleQuickPrompt = useCallback((prompt: string) => {
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
     pendingWorkflowInvalidationRef.current = null
     setActivePanel("chat")
-    sendMessage(prompt, screenContext, activePreferences, isStreaming ? { mode: "enqueue" } : undefined)
-  }, [screenContext, activePreferences, isStreaming, sendMessage])
+    sendTurn(prompt, isStreaming ? { mode: "enqueue" } : undefined)
+  }, [isStreaming, sendTurn])
 
   function handleWorkflow(workflow: AgentWorkflow) {
     const ticker = workflowTicker.trim().toUpperCase()
     if (workflow.requiresTicker && !ticker) return
+    followingLatestRef.current = true
+    setShowJumpToLatest(false)
     const command = workflow.requiresTicker
       ? `/workflow:${workflow.name}:${ticker}`
       : `/workflow:${workflow.name}`
     pendingWorkflowInvalidationRef.current = { workflowName: workflow.name, ticker: ticker || null }
     setActivePanel("chat")
-    sendMessage(command, screenContext, activePreferences, {
+    sendTurn(command, {
       durable: true,
       mode: isStreaming ? "enqueue" : undefined,
     })
@@ -312,12 +399,8 @@ export function AgentChat({
     setShowCompactWorkflows(false)
   }
 
-  async function handleShowHistory() {
+  function handleShowHistory() {
     setActivePanel("history")
-    setHistoryLoading(true)
-    const sessions = await fetchSessionHistory(30)
-    setHistory(sessions)
-    setHistoryLoading(false)
   }
 
   function handleShowPreferences() {
@@ -336,41 +419,20 @@ export function AgentChat({
     setActivePanel("chat")
   }
 
-  async function handleDeleteSession(sessionId: string) {
-    const ok = await deleteSession(sessionId)
-    if (ok) {
-      setHistory(prev => prev.filter(session => session.session_id !== sessionId))
-    }
-  }
-
   async function handleRenameSession(targetSessionId: string, title: string) {
-    const previous = history.find(session => session.session_id === targetSessionId)
+    const previous = history.history.find(session => session.session_id === targetSessionId)
     const previousActiveTitle = sessionId === targetSessionId ? sessionTitle : null
-    const now = new Date().toISOString()
-
-    setHistory(prev => prev.map(session =>
-      session.session_id === targetSessionId
-        ? { ...session, title, title_source: "manual", title_updated_at: now }
-        : session,
-    ))
     if (sessionId === targetSessionId) {
       applySessionTitle(targetSessionId, title, "manual")
     }
 
     try {
       const updated = await renameSessionTitle(targetSessionId, title)
-      setHistory(prev => prev.map(session =>
-        session.session_id === targetSessionId ? { ...session, ...updated } : session,
-      ))
+      void queryClient.invalidateQueries({ queryKey: AGENT_HISTORY_QUERY_KEY })
       if (sessionId === targetSessionId) {
         applySessionTitle(targetSessionId, updated.title ?? title, updated.title_source ?? "manual")
       }
     } catch (err) {
-      if (previous) {
-        setHistory(prev => prev.map(session =>
-          session.session_id === targetSessionId ? previous : session,
-        ))
-      }
       if (sessionId === targetSessionId) {
         applySessionTitle(targetSessionId, previousActiveTitle, previous?.title_source ?? null)
       }
@@ -379,6 +441,7 @@ export function AgentChat({
   }
 
   function handleClearChat() {
+    memory.resetDraft()
     clearChat()
     setActivePanel("chat")
   }
@@ -400,21 +463,54 @@ export function AgentChat({
     />
   ) : null
 
+  const historyNotices = (
+    <>
+      {history.pendingDeletions.map(session => (
+        <div key={session.session_id} role="status" className="flex items-center justify-between gap-3 border-b border-app bg-card px-4 py-3 text-xs text-app">
+          <span className="min-w-0">Deleting <span className="font-semibold">{session.title || "conversation"}</span> in 10 seconds.</span>
+          <button type="button" onClick={() => history.undoDelete(session.session_id)} className="shrink-0 font-semibold text-link" aria-label={`Undo delete ${session.title || "conversation"}`}>Undo</button>
+        </div>
+      ))}
+      {history.deleteError && (
+        <div role="alert" className="flex items-center justify-between gap-3 border-b border-app bg-card px-4 py-3 text-xs text-negative">
+          <span>{history.deleteError}</span>
+          <button type="button" onClick={history.dismissDeleteError} className="text-link">Dismiss</button>
+        </div>
+      )}
+    </>
+  )
+
   return (
-    <RadixDialog.Root open={open} onOpenChange={handleOpenChange}>
+    <RadixDialog.Root open={open} onOpenChange={handleOpenChange} modal={!docked}>
+      <AgentCompletionToast completions={completions} onDismiss={dismissCompletion} />
       <RadixDialog.Portal>
-        <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[hsl(var(--background-overlay))]/45 backdrop-blur-[2px]" />
+        {!docked && <RadixDialog.Overlay className="fixed inset-0 z-40 bg-[hsl(var(--background-overlay))]/45 backdrop-blur-[2px]" />}
         <RadixDialog.Content
+          ref={panelRef}
+          aria-modal={!docked}
+          onInteractOutside={event => { if (docked) event.preventDefault() }}
+          onEscapeKeyDown={event => {
+            if (docked && event.target instanceof Node && !panelRef.current?.contains(event.target)) {
+              event.preventDefault()
+              return
+            }
+            if (isComposerBusy) {
+              event.preventDefault()
+              stopStreaming()
+            } else if (composerRef.current?.dismissSuggestions()) {
+              event.preventDefault()
+            }
+          }}
           className={cn(
             "fixed z-50 flex flex-col overflow-hidden bg-app focus:outline-none",
             viewMode === "console"
               ? "bottom-[max(1rem,var(--safe-bottom))] left-[max(1rem,var(--safe-left))] right-[max(1rem,var(--safe-right))] top-[max(1rem,var(--safe-top))] rounded-[1.25rem] border border-app shadow-[var(--shadow-floating)]"
-              : "right-0 top-0 h-[100dvh] w-full border-l border-app shadow-[var(--shadow-floating)] sm:w-[32rem]",
+              : "right-0 top-0 h-[100dvh] w-full border-l border-app shadow-[var(--shadow-floating)] sm:w-[32rem] lg:w-[28rem] xl:w-[32rem]",
           )}
           onOpenAutoFocus={event => {
             event.preventDefault()
             if (activePanel === "chat") {
-              window.setTimeout(focusComposerTextarea, 120)
+              focusComposerTextarea()
             }
           }}
         >
@@ -434,22 +530,36 @@ export function AgentChat({
               if (!sessionId) return Promise.resolve()
               return handleRenameSession(sessionId, title)
             }}
+            backDisabled={activePanel === "memory" && memory.saving}
             onBack={() => setActivePanel("chat")}
+            onShowMemory={() => setActivePanel("memory")}
             onShowHistory={handleShowHistory}
             onShowPreferences={handleShowPreferences}
-            onToggleViewMode={() => setViewModeOverride(viewMode === "console" ? "compact" : "console")}
+            onToggleViewMode={() => onViewModeChange?.(viewMode === "console" ? "compact" : "console")}
             onClearChat={handleClearChat}
             onClose={onClose}
           />
+          {historyNotices}
 
           <div className="flex min-h-0 flex-1">
             <section className="flex min-w-0 flex-1 flex-col">
-              {activePanel === "history" ? (
+              {activePanel === "memory" ? (
+                <AgentMemoryPanel memory={memory} lastContext={lastMemoryContext} />
+              ) : activePanel === "history" ? (
                 <AgentHistoryPanel
-                  history={history}
-                  loading={historyLoading}
+                  history={history.history}
+                  loading={history.loading}
+                  search={history.search}
+                  onSearch={history.setSearch}
+                  loadingMore={history.loadingMore}
+                  hasMore={history.hasMore}
+                  onLoadMore={history.loadMore}
+                  error={history.error}
+                  onRetry={history.retry}
                   onLoadSession={handleLoadSession}
-                  onDeleteSession={handleDeleteSession}
+                  onDeleteSession={history.scheduleDelete}
+                  onPinSession={history.togglePin}
+                  onExportSession={exportHistorySession}
                   onRenameSession={handleRenameSession}
                 />
               ) : activePanel === "preferences" ? (
@@ -469,7 +579,17 @@ export function AgentChat({
                     isStreaming={isStreaming}
                     error={error}
                     onPrompt={handleQuickPrompt}
+                    onRetry={handleSend}
+                    retryDisabled={isComposerBusy}
                     onOpenTrace={handleOpenTrace}
+                    onScroll={handleMessagesScroll}
+                    showJumpToLatest={showJumpToLatest}
+                    onJumpToLatest={handleJumpToLatest}
+                    messageVersions={messageVersions}
+                    actionsDisabled={isComposerBusy}
+                    onRegenerate={handleRegenerate}
+                    onEdit={handleEditMessage}
+                    onSwitchBranch={switchBranch}
                     scrollContainerRef={messagesScrollRef}
                     messagesEndRef={messagesEndRef}
                   />
@@ -477,8 +597,8 @@ export function AgentChat({
                     queuedMessages={queuedMessages}
                     onSendNow={id => { void sendQueuedMessageNow(id) }}
                     onEdit={id => {
-                      const text = editQueuedMessage(id)
-                      if (text != null) composerRef.current?.setInput(text)
+                      const queued = editQueuedMessage(id)
+                      if (queued) composerRef.current?.setInput(queued.content, queued.attachments)
                     }}
                     onRemove={removeQueuedMessage}
                     onClear={clearQueuedMessages}
@@ -488,6 +608,8 @@ export function AgentChat({
                     loadDraft={loadComposerDraft}
                     onDraftChange={saveComposerDraft}
                     onSend={handleSend}
+                    loadAttachments={loadComposerAttachments}
+                    onAttachmentsChange={saveComposerAttachments}
                     onStop={stopStreaming}
                     isBusy={isComposerBusy}
                     queuedCount={queuedMessages.length}
@@ -495,6 +617,14 @@ export function AgentChat({
                     compactWorkflowSlot={compactWorkflowSlot}
                     workflowsOpen={showCompactWorkflows}
                     onToggleWorkflows={() => setShowCompactWorkflows(value => !value)}
+                    workflows={workflows}
+                    workflowsLoading={workflowsQuery.isLoading}
+                    workflowsError={workflowsQuery.isError}
+                    screenContext={screenContext}
+                    includeScreenContext={includeScreenContext}
+                    onToggleScreenContext={() => setIncludeScreenContext(value => !value)}
+                    thinkingEnabled={thinkingOverride ?? activePreferences.thinking_enabled}
+                    onToggleThinking={() => setThinkingOverride(value => !(value ?? activePreferences.thinking_enabled))}
                   />
                 </>
               )}
@@ -503,6 +633,7 @@ export function AgentChat({
             {activePanel === "chat" && viewMode === "console" && (
               <AgentContextPane
                 screenContext={screenContext}
+                contextIncluded={includeScreenContext}
                 workflows={workflows}
                 workflowsLoading={workflowsQuery.isLoading}
                 workflowsError={workflowsQuery.isError}
@@ -517,6 +648,11 @@ export function AgentChat({
           </div>
         </RadixDialog.Content>
       </RadixDialog.Portal>
+      {!open && (history.pendingDeletions.length > 0 || history.deleteError) && (
+        <div className="fixed bottom-4 right-4 z-[60] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-app shadow-[var(--shadow-floating)]">
+          {historyNotices}
+        </div>
+      )}
     </RadixDialog.Root>
   )
 }

@@ -8,7 +8,7 @@ import pytest
 
 import api.agent_chat_worker as agent_chat_worker
 import api.routers.agent as agent_router
-from api import agent_turn_followup, memory_db
+from api import agent_turn_followup, memory_db, memory_manager
 from api.agent_models import AgentChatJobRequest, AgentChatRequest
 from api.agent_turn_followup import AgentTurnFollowupRequest, run_agent_turn_followup
 from api.owned_model_rollout import RolloutDecision, RolloutTelemetry
@@ -44,7 +44,7 @@ def test_followup_runs_summary_then_shadow_then_trajectory(monkeypatch):
     calls: list[str] = []
     stored: list[dict] = []
 
-    def summarize(session_id, *, messages_before_turn):
+    def summarize(session_id, *, messages_before_turn, client_turn_id=None):
         calls.append(f"summary:{session_id}:{messages_before_turn}")
         return True
 
@@ -163,7 +163,8 @@ class _FakeStreamManager:
 
 @pytest.fixture
 def chat_turn(temp_memory_db, monkeypatch):
-    """A seeded session past the summary threshold, with every LLM call outside the stream recorded."""
+    """A session beyond the token window, with every LLM call outside the stream recorded."""
+    monkeypatch.setattr(memory_manager, "VERBATIM_TOKEN_BUDGET", 100)
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-followup-test")
     fake_client = SimpleNamespace(messages=SimpleNamespace(stream=lambda **kwargs: _FakeStreamManager()))
     monkeypatch.setattr("anthropic.Anthropic", lambda *args, **kwargs: fake_client)
