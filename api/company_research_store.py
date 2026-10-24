@@ -17,7 +17,7 @@ from paths import PROJECT_ROOT
 
 SQLITE_PATH: Path = PROJECT_ROOT / "tmp" / "company_research" / "runs.sqlite3"
 MAX_COST_USD = 25.0
-MAX_DURATION_S = 55 * 60
+MAX_DURATION_S = 80 * 60
 FINISH_RESERVE_USD = 7.0
 FINISH_RESERVE_S = 15 * 60
 LEASE_S = 180
@@ -194,6 +194,11 @@ def claim_run(run_id: str, owner: str) -> bool:
     return claimed
 
 
+def allowance_seconds(state: dict[str, Any]) -> int:
+    """A run's own time limit, so runs created under an older allowance keep reporting theirs."""
+    return round(float(state["deadline"] - state["created_at"]))
+
+
 def check_run(run_id: str, owner: str, *, gathering: bool = False) -> dict[str, Any]:
     def change(state: dict[str, Any]) -> None:
         remaining = state["deadline"] - time.time()
@@ -201,7 +206,8 @@ def check_run(run_id: str, owner: str, *, gathering: bool = False) -> dict[str, 
             raise ResearchLimitReached(
                 "Source gathering reached its time allowance; completed evidence is retained."
                 if gathering
-                else "The 55-minute research limit was reached; completed evidence is retained."
+                else f"The {allowance_seconds(state) // 60}-minute research limit was reached; "
+                "completed evidence is retained."
             )
         if state["status"] != "running":
             raise ResearchLeaseLost("Research run is no longer active.")
@@ -275,7 +281,7 @@ def budget_summary(state: dict[str, Any]) -> dict[str, Any]:
         "run_id": state["run_id"],
         "elapsed_seconds": max(0, int(min(now, state.get("finished_at", now)) - state["created_at"])),
         "remaining_seconds": max(0, int(state["deadline"] - now)),
-        "max_seconds": MAX_DURATION_S,
+        "max_seconds": allowance_seconds(state),
         "charged_usd": round(state["charged_usd"], 4),
         "reserved_usd": round(reserved_usd(state), 4),
         "max_cost_usd": state["max_cost_usd"],

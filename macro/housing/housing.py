@@ -1,3 +1,4 @@
+import math
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -9,6 +10,8 @@ load_env()
 from utils.retry import fred_get_series
 
 SERIES_CONFIG = {
+    "case_shiller": ("CSUSHPISA", "Case-Shiller National HPI", "index, Jan 2000=100", None),
+    "fhfa_hpi": ("USSTHPI", "FHFA National HPI", "index, 1980 Q1=100", None),
     "housing_starts": ("HOUST", "Housing Starts", "thousands", None),
     "housing_permits": ("PERMIT", "Building Permits", "thousands", None),
     "nahb_index": ("NAHBHMI", "NAHB Housing Market Index", "index", None),
@@ -27,29 +30,51 @@ def get_data() -> dict:
         "latest": {},
         "timestamp": datetime.now().isoformat(),
     }
+    case_shiller_permitted = os.getenv("ALTERNATIVE_DATA_CASE_SHILLER_PERMISSION_CONFIRMED", "").lower() == "true"
 
     # Series download concurrently; the shared FRED limiter in fred_get_series bounds the request rate.
     with ThreadPoolExecutor(max_workers=len(SERIES_CONFIG)) as pool:
         fetched = {
             key: pool.submit(fred_get_series, fred, fred_id, observation_start=start)
             for key, (fred_id, _label, _unit, _transform) in SERIES_CONFIG.items()
+            if key != "case_shiller" or case_shiller_permitted
         }
 
-    for key, (_fred_id, label, unit, _transform) in SERIES_CONFIG.items():
+    for key, (fred_id, label, unit, _transform) in SERIES_CONFIG.items():
+        citation = (
+            {"source_url": "https://fred.stlouisfed.org/series/" + fred_id}
+            if key in {"case_shiller", "fhfa_hpi"}
+            else {}
+        )
+        if key == "case_shiller" and not case_shiller_permitted:
+            result["series"][key] = {
+                "dates": [],
+                "values": [],
+                "label": label,
+                "unit": unit,
+                **citation,
+                "status": "license_required",
+                "note": "Written Case-Shiller reuse permission is required before fetching this copyrighted index.",
+            }
+            result["latest"][key] = {"value": None, "date": None, "change": None}
+            continue
         try:
-            s = fetched[key].result().dropna()
+            s = fetched[key].result()
+            if key not in {"case_shiller", "fhfa_hpi"}:
+                s = s.dropna()
         except Exception as exc:
             result["series"][key] = {"dates": [], "values": [], "label": label, "unit": unit, "error": str(exc)}
             continue
 
         dates = [d.strftime("%Y-%m-%d") for d in s.index]
-        values = [round(float(v), 3) for v in s.values]
+        values = [round(float(v), 3) if math.isfinite(float(v)) else None for v in s.values]
 
         result["series"][key] = {
             "dates": dates,
             "values": values,
             "label": label,
             "unit": unit,
+            **citation,
         }
 
         if dates:
@@ -57,7 +82,7 @@ def get_data() -> dict:
             result["latest"][key] = {
                 "value": values[-1],
                 "date": dates[-1],
-                "change": round(values[-1] - prev, 3) if prev is not None else None,
+                "change": round(values[-1] - prev, 3) if prev is not None and values[-1] is not None else None,
             }
 
     return result

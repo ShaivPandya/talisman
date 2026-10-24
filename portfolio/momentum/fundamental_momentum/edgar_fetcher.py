@@ -12,6 +12,7 @@ Network latency does not hold the admission lock or add a fixed sleep.
 from __future__ import annotations
 
 import logging
+import re
 import threading
 from datetime import date
 from typing import Dict, List, Optional, Tuple  # noqa: UP035
@@ -317,6 +318,34 @@ def fetch_submissions_by_ticker(ticker: str) -> dict | None:
     if not cik_str:
         return None
     return _fetch_edgar_submissions(cik_str)
+
+
+def fetch_primary_document(cik: str, accession: str, document: str, *, max_bytes: int = 3_000_000) -> bytes:
+    """Read one submissions-listed primary document using the shared SEC budget.
+
+    Ownership filings sometimes name an XSL presentation path. Its final XML
+    filename is the original document in the same accession directory.
+    """
+    if not re.fullmatch(r"\d{1,10}", cik) or not re.fullmatch(r"\d{10}-\d{2}-\d{6}", accession):
+        raise ValueError("Invalid SEC filing identity.")
+    filename = document.rsplit("/", 1)[-1]
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,200}", filename):
+        raise ValueError("Invalid SEC primary document.")
+    url = f"https://www.sec.gov/Archives/edgar/data/{int(cik)}/{accession.replace('-', '')}/{filename}"
+    with requests_get(url, headers=SEC_HEADERS, timeout=(10, 30), stream=True, allow_redirects=False) as response:
+        if response.status_code != 200:
+            raise ValueError(f"SEC primary document unavailable (HTTP {response.status_code}).")
+        length = response.headers.get("Content-Length", "")
+        if length.isdigit() and int(length) > max_bytes:
+            raise ValueError("SEC primary document exceeds the bounded download limit.")
+        chunks = []
+        size = 0
+        for chunk in response.iter_content(65536):
+            size += len(chunk)
+            if size > max_bytes:
+                raise ValueError("SEC primary document exceeds the bounded download limit.")
+            chunks.append(chunk)
+        return b"".join(chunks)
 
 
 def build_filing_url(

@@ -1247,9 +1247,15 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
     return json(route, { alerts: [], count: 0 })
   }
 
+  if (method === "GET" && path === "/api/economic-growth/backdrop") {
+    return json(route, { readings: [], as_of: null, fetched_at: "2026-10-24T12:00:00Z", note: "Publisher forecasts are separate from market returns." })
+  }
   const signature = `${method} ${path}${url.search}`
   if (method === "GET" && /^\/api\/names\/[^/]+\/documents$/.test(path)) {
     return json(route, { ticker: path.split("/")[3], documents: [], count: 0 })
+  }
+  if (method === "GET" && path === "/api/source-files") {
+    return json(route, { files: [], count: 0 })
   }
   state.unknownRequests.push(signature)
   return json(route, { detail: `Unmocked API request in smoke test: ${signature}` }, 599)

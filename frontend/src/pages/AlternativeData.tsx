@@ -7,7 +7,8 @@ import { SurfaceCard } from "@/components/shared/SurfaceCard"
 import { TimeSeriesChart } from "@/components/shared/TimeSeriesChart"
 import {
   confirmAlternativeDataSite, fetchAlternativeDataCatalog, removeAlternativeDataSite, runAlternativeDataQuery, suggestAlternativeDataSites,
-  type AlternativeCitation, type AlternativeResult, type AlternativeSite, type AlternativeSource,
+  confirmAlternativeDataMapping, removeAlternativeDataMapping,
+  type AlternativeCitation, type AlternativeResult, type AlternativeSite, type AlternativeSource, type AlternativeMapping,
 } from "@/lib/api"
 
 const inputClass = "theme-input min-h-10 w-full rounded-lg border border-app bg-card px-3 py-2 text-sm"
@@ -87,11 +88,11 @@ function initialParameters(source: AlternativeSource, encoded?: string | null): 
   return values
 }
 
-function SourceQuery({ source, ticker, sites, encoded }: { source: AlternativeSource; ticker: string; sites: AlternativeSite[]; encoded?: string | null }) {
+function SourceQuery({ source, ticker, sites, mappings, encoded }: { source: AlternativeSource; ticker: string; sites: AlternativeSite[]; mappings: AlternativeMapping[]; encoded?: string | null }) {
   const [values, setValues] = useState(() => initialParameters(source, encoded))
   const query = useMutation({ mutationFn: runAlternativeDataQuery })
   const state = source.operations?.[values.operation] ?? source.availability
-  const blocked = !["ready", "bulk_only", "unavailable"].includes(state.status)
+  const blocked = source.access === "unavailable" || !["ready", "bulk_only", "unavailable"].includes(state.status)
   const hasGeography = "bbox" in source.parameter_schema.properties
   const needsSite = hasGeography && (Boolean(ticker) || values.operation === "indices") && !values.site_id
   function submit(event: FormEvent) {
@@ -110,6 +111,11 @@ function SourceQuery({ source, ticker, sites, encoded }: { source: AlternativeSo
       <div><p className="theme-eyebrow">{source.group_label}</p><h2 className="mt-1 text-xl font-semibold">{source.name}</h2><p className="mt-2 text-sm text-muted">{source.question}</p></div>
       <p className="text-sm text-muted">{source.coverage}</p><p className="text-xs text-subtle">Updates: {source.cadence}</p>
       <form onSubmit={submit} className="space-y-4"><div className="grid gap-4 sm:grid-cols-2">{Object.entries(source.parameter_schema.properties).map(([key, field]) => {
+        if (source.reviewed_field && key === source.reviewed_field) return null
+        if (key === "mapping_id") return <label key={key} className="block text-sm">Reviewed {source.reviewed_field}
+          <select aria-label="Reviewed company mapping" className={`${inputClass} mt-1`} value={values.mapping_id ?? ""} onChange={e => setValues(previous => ({ ...previous, mapping_id: e.target.value }))}>
+            <option value="">Select a reviewed mapping</option>{mappings.filter(m => m.source_id === source.source_id).map(m => <option key={m.mapping_id} value={m.mapping_id}>{m.value}</option>)}
+          </select></label>
         if ((key === "bbox" && ticker) || (key === "site_id" && !ticker && !sites.length)) return null
         const label = key.replace(/_/g, " ")
         const change = (value: string) => setValues(previous => ({ ...previous, [key]: value }))
@@ -129,10 +135,37 @@ function SourceQuery({ source, ticker, sites, encoded }: { source: AlternativeSo
         <button className={buttonClass} type="submit" disabled={blocked || needsSite || query.isPending}>{query.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Database className="h-4 w-4" />}{query.isPending ? "Fetching source…" : "Fetch data"}</button>
         {query.error ? <p role="alert" className="text-sm text-negative">{String(query.error)}</p> : null}
       </form>
+      {source.reviewed_field ? <CompanyMappingReview source={source} ticker={ticker} mappings={mappings.filter(m => m.source_id === source.source_id)} /> : null}
       <CitationLinks citations={[{ title: "Official source", url: source.url }, { title: "License and access", url: source.license_url }]} />
     </SurfaceCard>
     {query.data ? <AlternativeDataResultView result={query.data} /> : null}
   </div>
+}
+
+function CompanyMappingReview({ source, ticker, mappings }: { source: AlternativeSource; ticker: string; mappings: AlternativeMapping[] }) {
+  const client = useQueryClient()
+  const [value, setValue] = useState("")
+  const [citation, setCitation] = useState("")
+  const confirm = useMutation({
+    mutationFn: confirmAlternativeDataMapping,
+    onSuccess: () => { setValue(""); setCitation(""); void client.invalidateQueries({ queryKey: ["alternative-data-catalog"] }) },
+  })
+  const remove = useMutation({ mutationFn: removeAlternativeDataMapping, onSuccess: () => { void client.invalidateQueries({ queryKey: ["alternative-data-catalog"] }) } })
+  if (!ticker) return <p className="text-sm text-muted">Enter a company ticker to review an exact {source.reviewed_field} mapping. Company names and article titles are never guessed from tickers. Federal Register agency searches can run without a company.</p>
+  return <section className="space-y-3 border-t border-app pt-4" aria-label="Review company mapping">
+    <p className="text-sm text-muted">Confirm the exact {source.reviewed_field} used by this source and cite evidence connecting it to {ticker}.</p>
+    {mappings.map(mapping => <div key={mapping.mapping_id} className="space-y-2 rounded-lg border border-app p-3">
+      <div className="flex items-center justify-between gap-3"><span className="text-sm">{mapping.value} · reviewed</span>
+        <button type="button" className="text-xs underline" disabled={remove.isPending} onClick={() => remove.mutate(mapping.mapping_id)}>Remove mapping</button></div>
+      <CitationLinks citations={mapping.citations} />
+    </div>)}
+    <form className="grid gap-3 sm:grid-cols-2" onSubmit={event => { event.preventDefault(); confirm.mutate({ ticker, source_id: source.source_id, value, citations: [{ title: "Reviewed company relationship", url: citation }] }) }}>
+      <label className="text-sm">Exact {source.reviewed_field}<input aria-label="Exact reviewed name or title" className={`${inputClass} mt-1`} required maxLength={160} value={value} onChange={e => setValue(e.target.value)} /></label>
+      <label className="text-sm">Evidence URL<input aria-label="Mapping evidence URL" type="url" className={`${inputClass} mt-1`} required value={citation} onChange={e => setCitation(e.target.value)} /></label>
+      <button type="submit" className={buttonClass} disabled={confirm.isPending}>Confirm company mapping</button>
+    </form>
+    {confirm.isError || remove.isError ? <p role="alert" className="text-sm text-negative">{String(confirm.error ?? remove.error)}</p> : null}
+  </section>
 }
 
 function CompanySites({ ticker, sites, proposals }: { ticker: string; sites: AlternativeSite[]; proposals: AlternativeSite[] }) {
@@ -195,7 +228,7 @@ export function AlternativeData() {
           <span className="block text-sm font-semibold">{source.name}</span><span className="mt-1 block text-xs leading-relaxed text-muted">{source.question}</span><span className="mt-3 block text-xs text-subtle">{source.availability.status.replace(/_/g, " ")}{source.latest_result?.as_of ? ` · ${source.latest_result.as_of.slice(0, 10)}` : ""}</span>
         </button>)}</div></section> : null
     })}{catalog.data && !filtered.length ? <p className="text-sm text-muted">No matching sources. Try another question or availability filter.</p> : null}</div>
-      <div className="min-w-0 space-y-5">{selected ? <SourceQuery key={`${selected.source_id}:${ticker}`} source={selected} ticker={ticker} sites={catalog.data?.sites ?? []} encoded={searchParams.get("parameters")} />
+      <div className="min-w-0 space-y-5">{selected ? <SourceQuery key={`${selected.source_id}:${ticker}`} source={selected} ticker={ticker} sites={catalog.data?.sites ?? []} mappings={catalog.data?.reviewed_mappings ?? []} encoded={searchParams.get("parameters")} />
         : <SurfaceCard className="p-8"><Database className="mb-4 h-7 w-7 text-accent" /><h2 className="section-title">Choose the question, then the source</h2><p className="mt-3 max-w-xl text-sm leading-relaxed text-muted">Browse a series, inspect a physical site, or follow a trade flow. Source availability and freshness travel with the evidence into chat, research, and analyzer briefs.</p>{ticker ? <Link className="mt-4 inline-block text-sm text-accent underline" to={`/dossier/${encodeURIComponent(ticker)}`}>Open company dossier</Link> : null}</SurfaceCard>}
         {ticker ? <CompanySites key={ticker} ticker={ticker} sites={catalog.data?.sites ?? []} proposals={catalog.data?.site_proposals ?? []} /> : null}
       </div>

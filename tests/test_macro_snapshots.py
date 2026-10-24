@@ -159,6 +159,7 @@ def test_refresh_macro_snapshots_records_independent_failures(monkeypatch):
     )
     monkeypatch.setattr(housing, "load_housing_payload", lambda: (_ for _ in ()).throw(RuntimeError("FRED down")))
     monkeypatch.setattr(economic_growth, "load_economic_growth_payload", lambda: {"timestamp": "2026-05-01T00:00:00"})
+    monkeypatch.setattr(economic_growth, "load_economic_backdrop_payload", lambda: {"as_of": "2026-05-01"})
     monkeypatch.setattr(
         ms,
         "write_snapshot_success",
@@ -176,9 +177,13 @@ def test_refresh_macro_snapshots_records_independent_failures(monkeypatch):
 
     result = ms.refresh_macro_snapshots()
 
-    assert [row["status"] for row in result["snapshots"]] == ["ok", "error", "ok"]
+    assert [row["status"] for row in result["snapshots"]] == ["ok", "error", "ok", "ok"]
     assert result["snapshots"][1]["source_registry"]["source_id"] == "housing"
-    assert {key for key, _payload in writes} == {ms.SNAPSHOT_LABOR_MARKET, ms.SNAPSHOT_ECONOMIC_GROWTH}
+    assert {key for key, _payload in writes} == {
+        ms.SNAPSHOT_LABOR_MARKET,
+        ms.SNAPSHOT_ECONOMIC_GROWTH,
+        ms.SNAPSHOT_ECONOMIC_BACKDROP,
+    }
     assert failures == [(ms.SNAPSHOT_HOUSING, "FRED down")]
 
 
@@ -191,6 +196,7 @@ def test_scheduled_refresh_invalidates_successes_and_failures(monkeypatch):
         set_cached(daily_cache, key, {"old": True})
     monkeypatch.setattr(labor_market, "load_labor_market_payload", lambda: {"value": 1})
     monkeypatch.setattr(economic_growth, "load_economic_growth_payload", lambda: {"value": 2})
+    monkeypatch.setattr(economic_growth, "load_economic_backdrop_payload", lambda: {"as_of": "2026-05-01"})
     monkeypatch.setattr(housing, "load_housing_payload", lambda: (_ for _ in ()).throw(RuntimeError("offline")))
     monkeypatch.setattr(ms, "write_snapshot_success", lambda key, payload, **kwargs: _record(key, payload))
     monkeypatch.setattr(ms, "write_snapshot_failure", lambda key, error, **kwargs: _record(key, {}, status="error"))
@@ -315,7 +321,7 @@ def test_refresh_macro_snapshots_runs_loaders_concurrently_in_spec_order(monkeyp
     from api import macro_snapshots as ms
     from api.routers import economic_growth, housing, labor_market
 
-    in_flight = threading.Barrier(3, timeout=5)
+    in_flight = threading.Barrier(4, timeout=5)
 
     def loader(payload):
         def load():
@@ -327,11 +333,17 @@ def test_refresh_macro_snapshots_runs_loaders_concurrently_in_spec_order(monkeyp
     monkeypatch.setattr(labor_market, "load_labor_market_payload", loader({"timestamp": "2026-05-01"}))
     monkeypatch.setattr(housing, "load_housing_payload", loader({"timestamp": "2026-05-02"}))
     monkeypatch.setattr(economic_growth, "load_economic_growth_payload", loader({"timestamp": "2026-05-03"}))
+    monkeypatch.setattr(economic_growth, "load_economic_backdrop_payload", loader({"as_of": "2026-05-04"}))
     monkeypatch.setattr(
         ms, "write_snapshot_success", lambda snapshot_key, payload, **_kwargs: _record(snapshot_key, payload)
     )
 
     result = ms.refresh_macro_snapshots()
 
-    assert [row["module"] for row in result["snapshots"]] == ["labor_market", "housing", "economic_growth"]
-    assert [row["status"] for row in result["snapshots"]] == ["ok", "ok", "ok"]
+    assert [row["module"] for row in result["snapshots"]] == [
+        "labor_market",
+        "housing",
+        "economic_growth",
+        "economic_backdrop",
+    ]
+    assert [row["status"] for row in result["snapshots"]] == ["ok", "ok", "ok", "ok"]

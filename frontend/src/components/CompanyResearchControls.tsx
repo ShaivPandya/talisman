@@ -225,7 +225,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
         <button type="button" onClick={() => setEditing(true)} className={`${BUTTON} theme-button-secondary`}>
           <Settings2 size={16} aria-hidden="true" /> Edit Research Prompts
         </button>
-        <p className="text-xs text-subtle">Researches and saves overview and management quality. Each new run allows up to 55 minutes and $25 total.</p>
+        <p className="text-xs text-subtle">Researches and saves overview and management quality. Each new run allows up to 80 minutes and $25 total.</p>
       </div>
       {query.error && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-red-600" role="alert">
@@ -236,7 +236,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
       {mutation.error && <p role="alert" className="text-sm text-red-600">{mutation.error.message}</p>}
       {budgets.map(budget => (
         <p key={budget.run_id} className="text-xs text-subtle" aria-label="Research allowance">
-          {Math.floor(budget.elapsed_seconds / 60)} / 55 minutes · ${budget.charged_usd.toFixed(2)} budget used
+          {Math.floor(budget.elapsed_seconds / 60)} / {Math.round(budget.max_seconds / 60)} minutes · ${budget.charged_usd.toFixed(2)} budget used
           {budget.reserved_usd > 0 && ` + $${budget.reserved_usd.toFixed(2)} reserved`} / ${budget.max_cost_usd.toFixed(2)} total
           {budget.remaining_seconds > 0 ? ` · ${Math.ceil(budget.remaining_seconds / 60)} minutes remaining` : " · Time allowance exhausted"}
           {" · Cost includes a conservative margin; resume keeps the original allowance."}

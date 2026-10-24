@@ -37,6 +37,22 @@ def poll(job_id: str):
         raise HTTPException(404, "Unknown alternative-data job") from exc
 
 
+@router.post("/alternative-data/mappings/confirm")
+def confirm_mapping(req: service.MappingRequest, actor: ActorDep):
+    try:
+        return service.confirm_mapping(req, actor)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
+@router.delete("/alternative-data/mappings/{mapping_id}")
+def remove_mapping(mapping_id: str, actor: ActorDep):
+    try:
+        return service.remove_mapping(mapping_id, actor)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+
+
 @router.get("/alternative-data/sites")
 def sites(ticker: str):
     try:

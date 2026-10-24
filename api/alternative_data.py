@@ -92,6 +92,31 @@ class CompanyEvidenceRequest(BaseModel):
         return _ticker(value)
 
 
+class MappingRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    ticker: str
+    source_id: str
+    value: str = Field(min_length=1, max_length=160)
+    citations: list[dict[str, str]] = Field(min_length=1, max_length=10)
+
+    @field_validator("ticker")
+    @classmethod
+    def ticker_valid(cls, value: str) -> str:
+        return _ticker(value)
+
+    @field_validator("value")
+    @classmethod
+    def value_valid(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Supply the exact source name or article title.")
+        return value.strip()
+
+    @field_validator("citations")
+    @classmethod
+    def citations_valid(cls, value: list[dict[str, str]]) -> list[dict[str, str]]:
+        return [safe_citation(item) for item in value]
+
+
 def safe_citation(item: dict[str, Any]) -> dict[str, str]:
     url = str(item.get("url", ""))
     parsed = urlparse(url)
@@ -136,6 +161,8 @@ def availability(spec: dict[str, Any], parameters: dict[str, Any] | None = None)
         return {"status": "license_required", "message": spec["notes"], "missing_credentials": missing}
     if access == "reference_only":
         return {"status": "reference_only", "message": spec["notes"], "missing_credentials": []}
+    if access == "unavailable":
+        return {"status": "unavailable", "message": spec["notes"], "missing_credentials": missing}
     if missing:
         return {
             "status": "setup_required",
@@ -196,6 +223,7 @@ def search_catalog(
         result["ticker"] = _ticker(ticker)
         result["sites"] = list_sites(ticker)
         result["site_proposals"] = list_site_proposals(ticker)
+        result["reviewed_mappings"] = list_mappings(ticker)
         if suggest_sites:
             result["site_proposals"] = suggest_company_sites(ticker, actor=actor)
     return result
@@ -245,6 +273,36 @@ def normalize_parameters(req: FetchRequest) -> dict[str, Any]:
     for key in schema["required"]:
         if not p.get(key):
             raise ValueError(f"{key} is required for this source.")
+    reviewed_field = spec.get("reviewed_field")
+    # Agency-only Federal Register searches are contextual, never a company link.
+    needs_mapping = reviewed_field and not (
+        req.source_id == "alternative_federal_register"
+        and p.get("agency")
+        and not p.get("company")
+        and not p.get("mapping_id")
+        and not req.ticker
+    )
+    if needs_mapping:
+        assert isinstance(reviewed_field, str)
+        mapping = get_mapping(str(p.get("mapping_id") or ""))
+        if not mapping or mapping["source_id"] != req.source_id or (req.ticker and mapping["ticker"] != req.ticker):
+            raise ValueError(
+                "This source requires an exact human-reviewed company mapping_id; a proposed name is insufficient."
+            )
+        if p.get(reviewed_field) and p[reviewed_field] != mapping["value"]:
+            raise ValueError("The query must match the exact reviewed name/title.")
+        p[reviewed_field] = mapping["value"]
+    if req.source_id in {"alternative_sec_form4", "alternative_sec_filings"}:
+        if req.ticker:
+            from portfolio.momentum.fundamental_momentum.edgar_fetcher import get_cik_for_ticker
+
+            cik = get_cik_for_ticker(req.ticker)
+            if not cik or (p.get("cik") and p["cik"].zfill(10) != cik):
+                raise ValueError("The ticker must resolve to the requested SEC CIK.")
+            p["cik"] = cik
+        if not p.get("cik"):
+            raise ValueError("A resolved SEC CIK is required.")
+        p["cik"] = p["cik"].zfill(10)
     today = datetime.now(UTC).date()
     p.setdefault("end_date", today.isoformat())
     end = date.fromisoformat(p["end_date"])
@@ -354,7 +412,12 @@ def query_source(req: FetchRequest) -> dict[str, Any]:
     )
     event_id = event.get("event_id") if event else None
     try:
-        loader = getattr(adapters, spec["adapter"])
+        if spec["adapter"].startswith("public:"):
+            from api.public_dataset_adapters import ADAPTERS
+
+            loader = ADAPTERS[spec["adapter"].removeprefix("public:")]
+        else:
+            loader = getattr(adapters, spec["adapter"])
         raw = loader(adapters.SourceClient(spec), req.parameters)
         rows = raw["observations"][: req.parameters["limit"]]
         result = {
@@ -375,6 +438,10 @@ def query_source(req: FetchRequest) -> dict[str, Any]:
         }
         if req.source_id == "alternative_lca":
             result["relevance"] = "exact_employer_match"
+        elif spec.get("reviewed_field") and req.parameters.get("mapping_id"):
+            result["relevance"] = "reviewed_exact_name_match"
+        elif req.source_id in {"alternative_sec_form4", "alternative_sec_filings"}:
+            result["relevance"] = "resolved_sec_cik"
         result["freshness"] = freshness(result, spec)
         if result["freshness"]["stale"]:
             result["warnings"].append("The last observation is older than this source's freshness allowance.")
@@ -523,6 +590,115 @@ def list_sites(ticker: str) -> list[dict[str, Any]]:
         for row in rows
         if row["properties"].get("metadata", {}).get("ticker") == ticker and row["properties"].get("status") == "active"
     ]
+
+
+def list_mappings(ticker: str) -> list[dict[str, Any]]:
+    if not use_postgres_state():
+        return []
+    rows = OntologyObjectService().query_objects(
+        "SourceManifest", filters={"dataset": "alternative_data_mappings"}, limit=500
+    )
+    return [
+        row["properties"]["metadata"]
+        for row in rows
+        if row["properties"].get("status") == "active"
+        and row["properties"].get("metadata", {}).get("ticker") == _ticker(ticker)
+    ]
+
+
+def get_mapping(mapping_id: str) -> dict[str, Any] | None:
+    if not re.fullmatch(r"alt-mapping-[a-f0-9]{32}", mapping_id) or not use_postgres_state():
+        return None
+    row = OntologyObjectService().get_object(object_uid_for("SourceManifest", mapping_id))
+    if (
+        not row
+        or row["properties"].get("status") != "active"
+        or row["properties"].get("dataset") != "alternative_data_mappings"
+    ):
+        return None
+    return dict(row["properties"]["metadata"])
+
+
+def confirm_mapping(req: MappingRequest, actor: Actor) -> dict[str, Any]:
+    if actor.actor_type != "user":
+        raise ValueError("Only a person can confirm a company name or article mapping.")
+    require_allowed(
+        DefaultOntologyPolicy().check_action(
+            actor, "alternative_data.mapping.confirm", {"purpose": "research", "data_sensitivity": "research_private"}
+        )
+    )
+    spec = get_spec(req.source_id)
+    if not spec.get("reviewed_field"):
+        raise ValueError("This source does not use reviewed names.")
+    if not use_postgres_state():
+        raise ValueError("Reviewed company mappings require the Postgres state backend.")
+    if len(list_mappings(req.ticker)) >= 50:
+        raise ValueError("A company may have at most fifty reviewed source mappings.")
+    event = provenance.start_event(
+        event_type="source_mapping_confirmation",
+        event_name="confirm_alternative_data_mapping",
+        actor=actor,
+        input_value=req.model_dump(),
+        fail_closed=True,
+    )
+    assert event is not None
+    mapping = {
+        **req.model_dump(),
+        "mapping_id": "alt-mapping-" + uuid.uuid4().hex,
+        "confirmed_at": now_iso(),
+        "confirmed_by": actor.actor_id,
+    }
+    OntologyObjectService().write_object(
+        "SourceManifest",
+        mapping["mapping_id"],
+        {
+            "manifest_id": mapping["mapping_id"],
+            "name": req.value,
+            "source_kind": "reviewed_company_name",
+            "dataset": "alternative_data_mappings",
+            "sensitivity": "research_private",
+            "materialization_policy": "manual_review",
+            "metadata": mapping,
+        },
+        mapping["confirmed_at"],
+        actor=actor,
+        provenance=event["event_id"],
+    )
+    provenance.finish_event(event["event_id"], status="succeeded", fail_closed=True)
+    return mapping
+
+
+def remove_mapping(mapping_id: str, actor: Actor) -> dict[str, Any]:
+    if actor.actor_type != "user":
+        raise ValueError("Only a person can remove a reviewed mapping.")
+    require_allowed(
+        DefaultOntologyPolicy().check_action(
+            actor, "alternative_data.mapping.remove", {"purpose": "research", "data_sensitivity": "research_private"}
+        )
+    )
+    if not get_mapping(mapping_id):
+        raise ValueError("Unknown reviewed mapping.")
+    objects = OntologyObjectService()
+    row = objects.get_object(object_uid_for("SourceManifest", mapping_id))
+    assert row is not None
+    event = provenance.start_event(
+        event_type="source_mapping_confirmation",
+        event_name="remove_alternative_data_mapping",
+        actor=actor,
+        input_value={"mapping_id": mapping_id},
+        fail_closed=True,
+    )
+    assert event is not None
+    objects.write_object(
+        "SourceManifest",
+        mapping_id,
+        {**row["properties"], "status": "inactive"},
+        now_iso(),
+        actor=actor,
+        provenance=event["event_id"],
+    )
+    provenance.finish_event(event["event_id"], status="succeeded", fail_closed=True)
+    return {"mapping_id": mapping_id, "status": "inactive"}
 
 
 def get_site(site_id: str) -> dict[str, Any] | None:
@@ -728,12 +904,24 @@ def build_company_evidence(
                     {
                         "ticker": ticker,
                         "question": question,
-                        "context": context,
-                        "catalog": catalog["sources"],
-                        "confirmed_sites": catalog["sites"],
+                        "context": json.dumps(context, default=str)[:6000],
+                        "catalog": [
+                            {
+                                key: source[key]
+                                for key in ("source_id", "name", "question", "coverage", "parameter_schema")
+                            }
+                            for source in catalog["sources"]
+                        ],
+                        "confirmed_sites": [
+                            {key: site.get(key) for key in ("site_id", "name", "bbox")} for site in catalog["sites"]
+                        ],
+                        "reviewed_mappings": [
+                            {key: mapping[key] for key in ("mapping_id", "source_id", "ticker", "value")}
+                            for mapping in catalog.get("reviewed_mappings", [])
+                        ],
                     },
                     default=str,
-                )[:50000]
+                )
             ),
             model=MODEL_MID,
             max_tokens=1800,

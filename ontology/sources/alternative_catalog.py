@@ -9,6 +9,9 @@ GROUPS = {
     "physical": "Sites and physical conditions",
     "labor": "Hiring and skills",
     "trade": "Trade and supply chains",
+    "company": "Filings, contracts, and innovation",
+    "healthcare": "Clinical and drug evidence",
+    "resources": "Energy, agriculture, and weather",
 }
 
 
@@ -76,6 +79,8 @@ def _source(
 
 
 def catalog_specs() -> list[dict[str, Any]]:
+    from ontology.sources.public_dataset_catalog import public_dataset_specs
+
     area = {
         "site_id": _string("Confirmed company site ID"),
         "bbox": {
@@ -379,4 +384,4 @@ def catalog_specs() -> list[dict[str, Any]]:
             notes="Reference-only. Public charts do not grant API access or storage/redistribution rights.",
             authority_rank=2,
         ),
-    ]
+    ] + public_dataset_specs(_source, _string)

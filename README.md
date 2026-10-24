@@ -58,6 +58,10 @@ Common local settings:
 - `AUTH_PASSWORD_HASH` and `AUTH_DEFAULT_USERNAME` for password-mode UI login (opaque server sessions).
 - `LLM_PROVIDER`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and/or `GEMINI_API_KEY` for agent, thesis, overview, and report workflows.
 - `ESTAT_APP_ID`, `SODA_APP_TOKEN`, and `EIA_API_KEY` for modules that use those data sources.
+- `NOAA_CDO_TOKEN` (free NCEI token) for alternative-data station weather. The broader EIA energy adapter reuses `EIA_API_KEY`.
+- `ALTERNATIVE_DATA_CASE_SHILLER_PERMISSION_CONFIRMED=true` only after written reuse permission for the copyrighted Case-Shiller index. Without permission, its macro row stays unavailable.
+
+Bind optional alternative-data credentials through `ALTERNATIVE_DATA_SECRETS` in the existing deployment configuration; never use `VITE_*`. Name-matched datasets require a person-reviewed mapping on the Alternative Data page. See [the source catalog and setup guide](docs/alternative_data.md).
 
 Generate a bcrypt login hash with:
 
@@ -203,7 +207,7 @@ State backends:
 
 - Normal development, CI, and production runtime paths use `STATE_DB_BACKEND=postgres` and `DATABASE_URL`; a few isolated tests still exercise explicit SQLite compatibility paths.
 - Production additionally uses `STATE_STORAGE_BACKEND=gcs` and `GCS_STATE_BUCKET`.
-- Company research uses `OPENAI_API_KEY` and `COMPANY_RESEARCH_MODEL=gpt-6.1-sol` independently of regular LLM settings. One durable run shares a **55-minute / $25** allowance across overview, management research and all retries. Run state, worker leases and atomic spending reservations persist in `company_research_runs`; evidence and report checkpoints use local `tmp/company_research/` or GCS `live/company_research/`. Prompts persist in `app_settings` and are snapshotted per run. See [company research operations](docs/company_research.md) for coverage checks, recovery, pricing assumptions and the non-publishing evaluation command. The legacy timeout setting applies only to older queued jobs.
+- Company research uses `OPENAI_API_KEY` and `COMPANY_RESEARCH_MODEL=gpt-6.1-sol` independently of regular LLM settings. One durable run shares an **80-minute / $25** allowance across overview, management research and all retries. Run state, worker leases and atomic spending reservations persist in `company_research_runs`; evidence and report checkpoints use local `tmp/company_research/` or GCS `live/company_research/`. Prompts persist in `app_settings` and are snapshotted per run. See [company research operations](docs/company_research.md) for coverage checks, recovery, pricing assumptions and the non-publishing evaluation command. The legacy timeout setting applies only to older queued jobs.
 - Async work runs locally unless `ASYNC_JOB_BACKEND=cloud_run_jobs` or `CLOUD_RUN_JOBS_ENABLED=true` opts into dispatching the generic Cloud Run Job configured by `ASYNC_CLOUD_RUN_JOB=talisman-async-job`.
 
 ## Observability (optional Sentry)

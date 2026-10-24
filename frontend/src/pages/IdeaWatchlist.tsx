@@ -574,7 +574,7 @@ export function IdeaWatchlist() {
         ) : rows.length === 0 ? (
           <p className="rounded-lg border border-app bg-card-muted px-3 py-4 text-sm text-muted">No ideas.</p>
         ) : (
-          <div className="max-h-[19rem] overflow-auto rounded-lg border border-app bg-card">
+          <div className="max-h-[32rem] overflow-auto rounded-lg border border-app bg-card">
             <table className="w-full min-w-[1380px] border-collapse text-sm">
               <thead className="sticky top-0 z-10 bg-card-muted">
                 <tr>

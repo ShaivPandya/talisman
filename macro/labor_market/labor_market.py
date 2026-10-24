@@ -1,3 +1,4 @@
+import math
 import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
@@ -9,6 +10,8 @@ load_env()
 from utils.retry import fred_get_series
 
 SERIES_CONFIG = {
+    "payrolls": ("PAYEMS", "Nonfarm Payrolls", "thousands", None),
+    "unemployment": ("UNRATE", "Unemployment Rate", "%", None),
     "initial_claims": ("ICSA", "Initial Jobless Claims", "thousands", None),
     "continuing_claims": ("CCSA", "Continuing Claims", "thousands", None),
     "median_weeks_unemployed": ("UEMPMED", "Median Weeks Unemployed", "weeks", None),
@@ -40,9 +43,11 @@ def get_data() -> dict:
             for key, (fred_id, _label, _unit, _transform) in SERIES_CONFIG.items()
         }
 
-    for key, (_fred_id, label, unit, transform) in SERIES_CONFIG.items():
+    for key, (fred_id, label, unit, transform) in SERIES_CONFIG.items():
         try:
-            s = fetched[key].result().dropna()
+            s = fetched[key].result()
+            if key not in {"payrolls", "unemployment"}:
+                s = s.dropna()
         except Exception as exc:
             result["series"][key] = {"dates": [], "values": [], "label": label, "unit": unit, "error": str(exc)}
             continue
@@ -54,13 +59,18 @@ def get_data() -> dict:
             s = s / 1000.0
 
         dates = [d.strftime("%Y-%m-%d") for d in s.index]
-        values = [round(float(v), 3) for v in s.values]
+        values = [round(float(v), 3) if math.isfinite(float(v)) else None for v in s.values]
 
         result["series"][key] = {
             "dates": dates,
             "values": values,
             "label": label,
             "unit": unit,
+            **(
+                {"source_url": "https://fred.stlouisfed.org/series/" + fred_id}
+                if key in {"payrolls", "unemployment"}
+                else {}
+            ),
         }
 
         if dates:
@@ -68,7 +78,7 @@ def get_data() -> dict:
             result["latest"][key] = {
                 "value": values[-1],
                 "date": dates[-1],
-                "change": round(values[-1] - prev, 3) if prev is not None else None,
+                "change": round(values[-1] - prev, 3) if prev is not None and values[-1] is not None else None,
             }
 
     return result

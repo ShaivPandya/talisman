@@ -19,6 +19,7 @@ import { DataTable, type ColumnDef } from "@/components/shared/DataTable"
 import { SegmentedControl } from "@/components/shared/FormControls"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
 import { RefreshButton } from "@/components/shared/RefreshButton"
+import { EconomicBackdrop } from "@/components/shared/EconomicBackdrop"
 import { colorPositiveNegative, colorReturnVsBenchmark } from "@/lib/colors"
 
 type EquityView = "table" | "graph"
@@ -411,6 +412,8 @@ export function EconomicGrowth() {
           />
         </div>
       </div>
+
+      <EconomicBackdrop />
 
       {showPanel && (
         <div className="mb-6 rounded-xl border border-blue-200 bg-white overflow-hidden">

@@ -45,6 +45,17 @@ def delete_name_document(ticker: str, document_id: str, actor: Admin):
     return Response(status_code=204)
 
 
+@router.get("/source-files")
+def source_file_library():
+    return documents.library()
+
+
+@router.delete("/source-files/{sha256}", status_code=204)
+def delete_source_file(sha256: str, actor: Admin):
+    documents.delete_everywhere(sha256)
+    return Response(status_code=204)
+
+
 @router.get("/names/{ticker}/documents/{document_id}/content")
 def read_name_document(ticker: str, document_id: str):
     meta = documents.get_document(ticker, document_id)
