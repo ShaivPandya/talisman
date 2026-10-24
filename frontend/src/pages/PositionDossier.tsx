@@ -81,6 +81,7 @@ import { approvalDecisionState } from "@/lib/decisionState"
 import { ThesisUpload } from "@/components/ThesisUpload"
 import { OverviewUpload } from "@/components/OverviewUpload"
 import { CompanyResearchControls } from "@/components/CompanyResearchControls"
+import { NameDocumentsPanel } from "@/components/NameDocumentsPanel"
 import { ManagementQualityUpload } from "@/components/ManagementQualityUpload"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { useDecisionTrace } from "@/contexts/DecisionTraceContext"
@@ -637,6 +638,7 @@ export function PositionDossier() {
       )}
 
       {isEquity && <CompanyResearchControls ticker={data.ticker} />}
+      <NameDocumentsPanel key={data.ticker} ticker={data.ticker} />
 
       <WhatChangedPanel summary={data.what_changed} className="mb-4" from="dossier" maxItems={6} defaultExpanded={false} />
 

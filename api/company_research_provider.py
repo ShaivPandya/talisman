@@ -15,7 +15,7 @@ from pydantic import BaseModel
 from api import company_research as legacy
 from api import company_research_store as store
 from api.agent_governance import prepare_model_egress
-from api.company_research_evidence import EvidenceModel, source_urls, strict_schema
+from api.company_research_evidence import EvidenceModel, is_private_source_url, source_urls, strict_schema
 from llm_utils import extract_citations, extract_text, get_llm_client
 from ontology.policy import actor_from_dict
 
@@ -216,7 +216,14 @@ class ResearchProvider:
         known_urls: set[str] | None = None,
         attempts: int = 2,
         resolve_unobserved: bool = True,
+        private: bool = False,
     ) -> T:
+        if private:
+            if web:
+                raise ValueError("Private Talisman evidence cannot be sent to web-search requests.")
+            # The existing egress classifier recognizes portfolio/research material
+            # in instructions, even if a source itself contains no thesis keywords.
+            instructions += "\nThis request contains private Talisman portfolio/research knowledge base evidence."
         saved = self.load(step, model)
         if saved is not None:
             if validate:
@@ -350,6 +357,8 @@ class ResearchProvider:
             try:
                 result = model.model_validate_json(extract_text(response))
                 if web:
+                    if any(is_private_source_url(url) for url in source_urls(result)):
+                        raise ValueError("Public research cannot introduce private Talisman sources.")
                     if not usage["web_search_calls"]:
                         raise ValueError("Research completed without consulting public sources.")
                     observed = {url for _title, url in extract_citations(response)}

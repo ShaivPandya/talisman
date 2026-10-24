@@ -6,7 +6,7 @@ import time
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from pydantic import BaseModel, Field
 
 from api import company_research_store as store
@@ -30,6 +30,29 @@ from api.routers.overview import _normalize_ticker, _validate_ticker
 from ontology.policy import actor_to_dict
 
 router = APIRouter()
+
+
+@router.get("/company-research/{ticker}/runs/{run_id}/sources/{source_id}")
+def get_company_research_source(ticker: str, run_id: UUID, source_id: str, actor: ActorDep, response: Response):
+    from api import company_research as research
+    from api.company_research_evidence import is_private_source_url
+
+    ticker = _normalize_ticker(ticker)
+    url = f"/api/company-research/{ticker}/runs/{run_id}/sources/{source_id}"
+    if not is_private_source_url(url):
+        raise NotFoundError("Research source")
+    try:
+        state = store.get_run(str(run_id))
+    except KeyError as exc:
+        raise NotFoundError("Research source") from exc
+    if state["ticker"] != ticker or state["snapshot"]["actor"].get("actor_id") != actor.actor_id:
+        raise NotFoundError("Research source")
+    context = research._read_json(f"runs/{run_id}/talisman/context.json")
+    source = next((s for s in (context or {}).get("sources", []) if s["url"] == url), None)
+    if source is None:
+        raise NotFoundError("Research source")
+    response.headers["Cache-Control"] = "private, no-store"
+    return source
 
 
 class StartCompanyResearchRequest(BaseModel):
@@ -106,6 +129,8 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
             )
         state = store.resume_run(state["run_id"])
     else:
+        from api.name_documents import research_snapshot
+
         settings = research_settings()
         if settings["model"] != "gpt-6.1-sol":
             raise AppError("Budgeted research requires COMPANY_RESEARCH_MODEL=gpt-6.1-sol.", status_code=503)
@@ -120,6 +145,7 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
                     "actor": actor_to_dict(actor),
                     "requested_at": datetime.now(UTC).isoformat(),
                     "pricing_version": "gpt-6.1-sol-standard-2026-10-17",
+                    "private_documents": research_snapshot(ticker),
                 }
             )
         except store.ResearchLimitReached as exc:

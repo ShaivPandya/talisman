@@ -441,7 +441,7 @@ def classify_model_payload(payload: Mapping[str, Any]) -> str:
     raw = _stable_json(payload).lower()
     if any(term in raw for term in ("portfolio", "holding", "position", "p&l", "pnl", "thesis")):
         return "portfolio_private"
-    if any(term in raw for term in ("retrieval", "knowledge base", "memo")):
+    if any(term in raw for term in ("retrieval", "knowledge base", "memo", "private_upload")):
         return "research_private"
     return "public_market"
 

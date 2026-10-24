@@ -20,6 +20,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
+from api.agent_stream_liveness import stream_lease_active, stream_lease_metadata
 from api.conversation_messages import (
     CREATE_MESSAGES,
     CREATE_TURN_INDEX,
@@ -622,6 +623,9 @@ def begin_turn(session_id: str, user_message: dict[str, Any], assistant_placehol
         if turn_id and any(_turn_row(conn, session_id, turn_id, role) is not None for role in ("user", "assistant")):
             return int(session["message_count"] or 0)
         placeholder = {"is_streaming": True, **assistant_placeholder}
+        if "stream_lease_expires_at" in placeholder:
+            # The asynchronous begin may have waited on the DB before inserting the row.
+            placeholder.update(stream_lease_metadata())
         stored_user = _message_row(conn, session_id, user_message.get("id"), "user")
         new_messages = [_with_valid_parent(conn, session_id, user_message), placeholder]
         if stored_user is not None:
@@ -679,6 +683,27 @@ def update_assistant_message(
         _patch_row(conn, row, patch)
         conn.commit()
         return True
+
+
+def recover_interrupted_turn(
+    session_id: str, client_turn_id: str, *, expected_updated_at: str | None
+) -> dict[str, Any] | None:
+    """Recheck liveness under the row lock before repairing a session-read snapshot."""
+    with _get_conn() as conn:
+        row = _turn_row(conn, session_id, client_turn_id)
+        if row is None:
+            return None
+        message = record_message(row)
+        if (
+            row["status"] == "streaming"
+            and row["updated_at"] == expected_updated_at
+            and not stream_lease_active(message)
+        ):
+            _patch_row(conn, row, {"is_streaming": False, "status": "stopped"})
+            row = _turn_row(conn, session_id, client_turn_id)
+            message = record_message(row)
+        conn.commit()
+        return message
 
 
 def complete_turn_messages(

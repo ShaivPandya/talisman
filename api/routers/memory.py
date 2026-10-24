@@ -14,7 +14,8 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field, field_validator
 
-from api import memory_db, memory_manager
+from api import memory_db
+from api.agent_stream_liveness import stream_lease_active
 from api.conversation_messages import latest_leaf_id, message_path
 from llm_utils import MODEL_LOW, call_llm_text, has_llm_api_key
 
@@ -279,19 +280,23 @@ def get_session(session_id: str):
                 "client_turn_id": payload.get("client_turn_id") if isinstance(payload, dict) else None,
             }
         )
-    # A streaming answer with no job behind it was interrupted (stop, tab close, crash):
-    # return it as stopped and repair the row, so the chat reopens idle.
+    # Direct streams have no durable job. Their lease survives reads from other API
+    # processes and expires after a crash; generator cleanup handles normal disconnects.
     live_turn_ids = {job["client_turn_id"] for job in active_jobs if job["client_turn_id"]}
     for msg in session.get("transcript") or []:
         if not (isinstance(msg, dict) and msg.get("role") == "assistant" and msg.get("is_streaming")):
             continue
         client_turn_id = msg.get("client_turn_id")
-        if client_turn_id in live_turn_ids:
+        if client_turn_id in live_turn_ids or stream_lease_active(msg):
             continue
-        msg["is_streaming"] = False
-        msg["status"] = "stopped"
         if isinstance(client_turn_id, str) and client_turn_id:
-            memory_manager.fail_turn(session_id, client_turn_id, status="stopped")
+            current = memory_db.recover_interrupted_turn(
+                session_id, client_turn_id, expected_updated_at=msg.get("updated_at")
+            )
+            if current is not None:
+                msg.update(current)
+        else:
+            msg.update(is_streaming=False, status="stopped")
     return {**session, "active_jobs": active_jobs}
 
 

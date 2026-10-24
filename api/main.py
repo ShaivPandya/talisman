@@ -77,6 +77,7 @@ from api.routers import (
     document_generation,
     management_quality,
     memory,
+    name_documents,
     overview,
     portfolio,
     portfolio_edit,
@@ -488,6 +489,7 @@ app.include_router(company_research.router, prefix=_API_PREFIX, dependencies=_au
 app.include_router(memory.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(agent.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(chat_attachments.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
+app.include_router(name_documents.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["research"])
 app.include_router(settings.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["settings"])
 
 # Investing OS routers

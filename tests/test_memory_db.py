@@ -5,6 +5,7 @@ import json
 import pytest
 
 from api import memory_db, memory_manager
+from api.agent_stream_liveness import stream_lease_metadata
 
 
 @pytest.fixture
@@ -100,6 +101,41 @@ def test_fail_turn_marks_assistant_cancelled(temp_memory_db):
     assert loaded is not None
     assert loaded["transcript"][1]["status"] == "stopped"
     assert loaded["transcript"][1].get("is_streaming") is False
+
+
+@pytest.mark.parametrize("change", ["renew", "complete"])
+def test_session_recovery_preserves_writes_after_its_snapshot(temp_memory_db, change):
+    sid = memory_db.get_or_create_session(None)["session_id"]
+    turn_id = "snapshot-race"
+    user = {"role": "user", "content": "hi", "client_turn_id": turn_id}
+    memory_db.begin_turn(sid, user, {"role": "assistant", "content": "Partial", "client_turn_id": turn_id})
+    snapshot = memory_db.get_session(sid)["transcript"][-1]
+    if change == "renew":
+        memory_db.update_assistant_message(sid, turn_id, stream_lease_metadata(), only_streaming=True)
+    else:
+        memory_db.complete_turn_messages(sid, turn_id, user, {"role": "assistant", "content": "Full answer"})
+
+    current = memory_db.recover_interrupted_turn(sid, turn_id, expected_updated_at=snapshot["updated_at"])
+
+    assert current["status"] == ("streaming" if change == "renew" else "complete")
+    assert current["content"] == ("Partial" if change == "renew" else "Full answer")
+    assert memory_db.get_session(sid)["transcript"][-1] == current
+
+
+def test_session_recovery_checks_current_lease_even_with_a_matching_snapshot(temp_memory_db):
+    sid = memory_db.get_or_create_session(None)["session_id"]
+    turn_id = "live-lease"
+    memory_db.begin_turn(
+        sid,
+        {"role": "user", "content": "hi", "client_turn_id": turn_id},
+        {"role": "assistant", "content": "Partial", "client_turn_id": turn_id, **stream_lease_metadata()},
+    )
+    snapshot = memory_db.get_session(sid)["transcript"][-1]
+
+    current = memory_db.recover_interrupted_turn(sid, turn_id, expected_updated_at=snapshot["updated_at"])
+
+    assert current == snapshot
+    assert current["is_streaming"] is True
 
 
 def test_append_messages_dedupes_client_turn_id(temp_memory_db):

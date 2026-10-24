@@ -4,8 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import subprocess
+import sys
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
@@ -13,6 +17,7 @@ import pytest
 
 import api.agent_chat_worker as agent_chat_worker
 import api.routers.agent as agent_router
+from api import agent_stream_liveness as liveness
 from api import memory_db, memory_manager
 from api.agent_models import AgentChatRequest
 from ontology.policy import admin_actor
@@ -382,6 +387,146 @@ def _begin_streaming_turn(content: str = "") -> tuple[str, str]:
         {"role": "assistant", "content": content, "timestamp": 2.0, "client_turn_id": turn_id, "is_streaming": True},
     )
     return session_id, turn_id
+
+
+@pytest.mark.parametrize("partial_saved", [False, True])
+def test_reading_session_mid_direct_stream_preserves_full_answer(auth_client, monkeypatch, agent_env, partial_saved):
+    monkeypatch.setattr("api.job_queue.list_active_jobs", lambda: [])
+    monkeypatch.setattr(agent_router, "TURN_PARTIAL_SAVE_INTERVAL_S", 0 if partial_saved else float("inf"))
+    _install_fake_anthropic(
+        monkeypatch,
+        [([_event_text_delta("Hello "), _event_text_delta("world")], _final_message("Hello world"))],
+    )
+    session_id, turn_id = _new_turn()
+    gen = _stream_generator(
+        monkeypatch,
+        AgentChatRequest(
+            session_id=session_id, client_turn_id=turn_id, message=NORMAL_PROMPT, finalize_synchronously=True
+        ),
+    )
+    streamed: list[str] = []
+    try:
+        for frame in gen:
+            streamed.extend(payload["text"] for event, payload in _parse_sse(frame) if event == "delta")
+            if streamed:
+                break
+        assert _assistant(session_id, turn_id)["content"] == ("Hello " if partial_saved else "")
+
+        mid_stream = auth_client.get(f"/api/memory/sessions/{session_id}")
+        assert mid_stream.status_code == 200
+        for frame in gen:
+            streamed.extend(payload["text"] for event, payload in _parse_sse(frame) if event == "delta")
+    finally:
+        gen.close()
+
+    reloaded = auth_client.get(f"/api/memory/sessions/{session_id}")
+    assert reloaded.status_code == 200
+    saved = next(m for m in reloaded.json()["transcript"] if m["role"] == "assistant")
+    assert "".join(streamed) == "Hello world"
+    assert saved["content"] == "".join(streamed)
+    assert saved["status"] == "complete"
+    assert next(m for m in mid_stream.json()["transcript"] if m["role"] == "assistant")["is_streaming"] is True
+
+
+def test_direct_stream_lease_renews_while_provider_has_no_text(auth_client, monkeypatch, agent_env):
+    monkeypatch.setattr("api.job_queue.list_active_jobs", lambda: [])
+    monkeypatch.setattr(liveness, "STREAM_LEASE_SECONDS", 0.5)
+    monkeypatch.setattr(liveness, "STREAM_HEARTBEAT_SECONDS", 0.02)
+    waiting = threading.Event()
+    release = threading.Event()
+
+    def blocked_provider():
+        waiting.set()
+        assert release.wait(timeout=5)
+        yield _event_text_delta("Full answer")
+
+    _install_fake_anthropic(monkeypatch, [(blocked_provider(), _final_message("Full answer"))])
+    session_id, turn_id = _new_turn()
+    gen = _stream_generator(
+        monkeypatch,
+        AgentChatRequest(
+            session_id=session_id, client_turn_id=turn_id, message=NORMAL_PROMPT, finalize_synchronously=True
+        ),
+    )
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        response = executor.submit(list, gen)
+        try:
+            assert waiting.wait(timeout=3)
+            first_expiry = datetime.fromisoformat(_assistant(session_id, turn_id)["stream_lease_expires_at"])
+            # No SSE frames or partial text arrive during this provider wait.
+            while datetime.now(UTC) <= first_expiry:
+                time.sleep(0.01)
+            loaded = auth_client.get(f"/api/memory/sessions/{session_id}")
+            assert loaded.status_code == 200
+            assistant = next(m for m in loaded.json()["transcript"] if m["role"] == "assistant")
+            assert assistant["content"] == ""
+            assert assistant["is_streaming"] is True
+            assert datetime.fromisoformat(assistant["stream_lease_expires_at"]) > first_expiry
+        finally:
+            release.set()
+            response.result(timeout=5)
+    assert _assistant(session_id, turn_id)["content"] == "Full answer"
+    assert _assistant(session_id, turn_id)["status"] == "complete"
+
+
+def test_another_process_reads_a_live_direct_stream_without_stopping_it(temp_memory_db):
+    session_id, turn_id = _begin_streaming_turn("Partial answer")
+    memory_db.update_assistant_message(session_id, turn_id, liveness.stream_lease_metadata(), only_streaming=True)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import json, sys; from pathlib import Path; from api import memory_db; "
+            "from api.routers.memory import get_session; memory_db._DB_PATH = Path(sys.argv[1]); "
+            "print(json.dumps(get_session(sys.argv[2])))",
+            str(memory_db._DB_PATH),
+            session_id,
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=15,
+    )
+    session = json.loads(result.stdout)
+    assert session["active_jobs"] == []
+    assert session["transcript"][-1]["is_streaming"] is True
+    assert _assistant(session_id, turn_id)["is_streaming"] is True
+
+
+def test_get_session_recovers_an_expired_direct_stream_lease(auth_client, monkeypatch, temp_memory_db):
+    monkeypatch.setattr("api.job_queue.list_active_jobs", lambda: [])
+    session_id, turn_id = _begin_streaming_turn("Partial answer")
+    memory_db.update_assistant_message(
+        session_id, turn_id, {"stream_lease_expires_at": (datetime.now(UTC) - timedelta(seconds=1)).isoformat()}
+    )
+
+    resp = auth_client.get(f"/api/memory/sessions/{session_id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["transcript"][-1]["status"] == "stopped"
+    assert _assistant(session_id, turn_id)["status"] == "stopped"
+    assert _assistant(session_id, turn_id)["content"] == "Partial answer"
+
+
+@pytest.mark.parametrize("status", ["stopped", "failed"])
+def test_live_lease_and_late_writes_cannot_reopen_terminal_turn(auth_client, temp_memory_db, status):
+    session_id, turn_id = _begin_streaming_turn()
+    lease = liveness.DirectStreamLease(session_id, turn_id)
+    lease.renew()
+    memory_manager.fail_turn(session_id, turn_id, status=status, content="Saved partial")
+    lease.renew()
+    memory_manager.save_partial_turn(session_id, turn_id, "Late partial")
+    memory_manager.complete_turn(
+        session_id,
+        {"role": "user", "content": "hi", "client_turn_id": turn_id},
+        {"role": "assistant", "content": "Late answer", "client_turn_id": turn_id},
+    )
+
+    resp = auth_client.get(f"/api/memory/sessions/{session_id}")
+
+    assert resp.status_code == 200
+    assert resp.json()["transcript"][-1]["status"] == status
+    assert _assistant(session_id, turn_id)["content"] == "Saved partial"
 
 
 def test_get_session_heals_a_streaming_turn_with_no_active_job(auth_client, monkeypatch, temp_memory_db):

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
+import { NameDocumentsPanel } from "@/components/NameDocumentsPanel"
 
 import { EquityOverviewReadView, FinancialsSnapshot } from "@/components/overview/EquityOverviewReadView"
 import { ActionButton, TextInput } from "@/components/shared/FormControls"
@@ -189,6 +190,7 @@ function ExplorerDashboard({ ticker }: { ticker: string }) {
       </div>
 
       <PriceChart ticker={ticker} />
+      <NameDocumentsPanel key={ticker} ticker={ticker} />
 
       <SurfaceCard className="min-w-0 p-4 sm:p-5">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-app">Financials</h2>
