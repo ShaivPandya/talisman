@@ -2085,6 +2085,15 @@ type MacroFetchOptions = {
 export const fetchEconomicGrowth = (options?: MacroFetchOptions) =>
   client.get("/economic-growth", { params: options }).then(r => r.data)
 
+export interface EconomicReading {
+  key: string; label: string; value: number | null; unit: string; as_of: string | null
+  source_url: string; status: string; kind: string; note?: string; country?: string
+  vintage?: string; vintage_date?: string; vintage_date_kind?: string; forecast_period?: string; next_release_note?: string
+}
+export interface EconomicBackdropData { readings: EconomicReading[]; fetched_at: string; as_of: string | null; note: string }
+export const fetchEconomicBackdrop = (options?: MacroFetchOptions) =>
+  client.get("/economic-growth/backdrop", { params: options, timeout: 180_000 }).then(r => r.data as EconomicBackdropData)
+
 export const uploadEconomicGrowthCrbFile = (file: File) => {
   const formData = new FormData()
   formData.append("file", file)
@@ -3845,6 +3854,11 @@ export interface AlternativeSource {
   availability: AlternativeAvailability; operations?: Record<string, AlternativeAvailability>
   parameter_schema: { properties: Record<string, AlternativeParameter>; required: string[] }
   latest_result?: { as_of?: string | null; fetched_at?: string | null; stale: boolean } | null
+  reviewed_field?: string | null; access?: string
+}
+export interface AlternativeMapping {
+  mapping_id: string; ticker: string; source_id: string; value: string; citations: AlternativeCitation[]
+  confirmed_at: string; confirmed_by: string
 }
 export interface AlternativeResult {
   source_id: string; status: string; data_kind?: string
@@ -3859,6 +3873,7 @@ export interface CompanyAlternativeEvidence {
 }
 export interface AlternativeCatalog {
   sources: AlternativeSource[]; groups: Record<string, string>; sites?: AlternativeSite[]; site_proposals?: AlternativeSite[]
+  reviewed_mappings?: AlternativeMapping[]
 }
 interface AlternativeJob<T> { job_id: string; status: string; result?: T; error?: string }
 
@@ -3888,3 +3903,9 @@ export const confirmAlternativeDataSite = (site: Omit<AlternativeSite, "status" 
 
 export const removeAlternativeDataSite = (siteId: string) =>
   client.delete(`/alternative-data/sites/${encodeURIComponent(siteId)}`).then(r => r.data)
+
+export const confirmAlternativeDataMapping = (body: { ticker: string; source_id: string; value: string; citations: AlternativeCitation[] }) =>
+  client.post("/alternative-data/mappings/confirm", body).then(r => r.data as AlternativeMapping)
+
+export const removeAlternativeDataMapping = (mappingId: string) =>
+  client.delete(`/alternative-data/mappings/${encodeURIComponent(mappingId)}`).then(r => r.data)

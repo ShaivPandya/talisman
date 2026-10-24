@@ -10,6 +10,7 @@ from api.cache import ApiCache, daily_cache, delete_cached, get_or_set_cached
 from api.exceptions import DataFetchError
 from api.performance import ContextThreadPoolExecutor
 from api.snapshot_keys import (
+    SNAPSHOT_ECONOMIC_BACKDROP,
     SNAPSHOT_ECONOMIC_GROWTH,
     SNAPSHOT_HOUSING,
     SNAPSHOT_LABOR_MARKET,
@@ -143,7 +144,7 @@ def _refresh_macro_snapshot(name: str, snapshot_key: str, loader: Callable[[], d
 
 def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str, Any]:
     """Compute and persist daily macro snapshots independently and concurrently."""
-    from api.routers.economic_growth import load_economic_growth_payload
+    from api.routers.economic_growth import load_economic_backdrop_payload, load_economic_growth_payload
     from api.routers.housing import load_housing_payload
     from api.routers.labor_market import load_labor_market_payload
 
@@ -151,6 +152,7 @@ def refresh_macro_snapshots(_payload: dict[str, Any] | None = None) -> dict[str,
         ("labor_market", SNAPSHOT_LABOR_MARKET, load_labor_market_payload),
         ("housing", SNAPSHOT_HOUSING, load_housing_payload),
         ("economic_growth", SNAPSHOT_ECONOMIC_GROWTH, load_economic_growth_payload),
+        ("economic_backdrop", SNAPSHOT_ECONOMIC_BACKDROP, load_economic_backdrop_payload),
     )
 
     with ContextThreadPoolExecutor(max_workers=len(specs)) as pool:

@@ -12,7 +12,7 @@ from api.exceptions import ConfigurationError, DataFetchError, ValidationError
 from api.macro_snapshots import get_snapshot_backed_response
 from api.request_limits import read_upload_file_bytes
 from api.serializers import serialize_response
-from api.snapshot_keys import SNAPSHOT_ECONOMIC_GROWTH
+from api.snapshot_keys import SNAPSHOT_ECONOMIC_BACKDROP, SNAPSHOT_ECONOMIC_GROWTH
 from api.snapshot_store import delete_snapshot
 from api.state_storage import exists_text, read_bytes, read_text, write_bytes, write_text
 from llm_utils import MODEL_LOW, api_key_env, call_llm_text, has_llm_api_key
@@ -127,6 +127,24 @@ def get_economic_growth(force_refresh: bool = Query(False)):
                 force_refresh=force_refresh,
             )
         )
+    )
+
+
+def load_economic_backdrop_payload() -> dict:
+    from macro.economic_growth.backdrop import get_data
+
+    return serialize_response(get_data())
+
+
+@router.get("/economic-growth/backdrop")
+def get_economic_backdrop(force_refresh: bool = Query(False)):
+    return get_snapshot_backed_response(
+        snapshot_key=SNAPSHOT_ECONOMIC_BACKDROP,
+        cache=daily_cache,
+        cache_key="economic_backdrop",
+        source="economic_backdrop",
+        load_payload=load_economic_backdrop_payload,
+        force_refresh=force_refresh,
     )
 
 

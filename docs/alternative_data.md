@@ -19,6 +19,8 @@ missing credentials or written permission never prevent the application starting
 | AISHub aggregates | `AISHUB_USERNAME` (qualifying contributor account) |
 | OpenSky aggregates | `OPENSKY_CLIENT_ID`, `OPENSKY_CLIENT_SECRET`, and `ALTERNATIVE_DATA_OPENSKY_LICENSE_CONFIRMED=true` after written operational permission |
 | IMF PortWatch | `ALTERNATIVE_DATA_PORTWATCH_PERMISSION_CONFIRMED=true` after confirming applicable dataset reuse permission |
+| EIA petroleum inventories, natural-gas storage, electricity | Existing `EIA_API_KEY`; no additional key |
+| NOAA CDO station history | `NOAA_CDO_TOKEN` (free NCEI token) |
 
 Never put these credentials in `VITE_*` variables. Add existing Secret Manager
 bindings to the optional `ALTERNATIVE_DATA_SECRETS` array in ignored GCP
@@ -75,6 +77,94 @@ These existing canonical types require no new database tables or migrations.
 Source refresh failures retain the prior payload and its successful observation
 and retrieval timestamps. API keys, OAuth tokens, and raw restricted AIS data
 are excluded from results and provenance payloads.
+
+## Company and sector public datasets
+
+The catalog additionally registers SEC Form 4 transactions, query passages from
+recent SEC 10-K/10-Q/8-K filings, USAspending recipient awards, Federal Register
+documents, USPTO patent search availability, ClinicalTrials.gov API v2,
+openFDA drug events, Drugs@FDA approvals, Wikimedia article pageviews, EIA energy
+series, USDA WASDE crop production/ending stocks, Baker Hughes rig counts, and
+NOAA CDO station history. These use the same two tools and the three-source
+company-evidence limit. There are no additional navigation entries.
+
+On the Alternative Data page, enter a ticker and choose a name-matched source.
+A person must confirm the exact recipient, assignee, sponsor, applicant, drug,
+company name, or article title and cite its company relationship. Confirmation
+uses `POST /api/alternative-data/mappings/confirm`; removal uses
+`DELETE /api/alternative-data/mappings/{mapping_id}`. Reviewed mappings are
+existing `SourceManifest` objects with dataset `alternative_data_mappings`.
+Agents cannot confirm or remove them. A fetch must supply the active mapping ID;
+the server checks its source, ticker, and exact value before cache lookup or
+provider access. Model-proposed names and revoked mappings are rejected.
+Federal Register agency-only queries may run without a company mapping and
+remain agency context. A company search hit is retained only if the document
+text names the exact reviewed company; a mention does not establish subject matter.
+
+SEC queries resolve and verify issuer CIKs through `edgar_fetcher`, including its
+shared SEC request pacing. Form 4 reads at most ten primary documents (1 MB each)
+and reports acquisition/disposition and transaction codes without scoring them.
+Filing passage search reads at most three recent primary documents (3 MB each),
+returning up to six literal, cited passages per document. Oversized or blocked
+documents return an explicit failure, never an invented empty match.
+
+Awards are obligations rather than revenue; their start dates are not freshness
+dates. Trials do not establish efficacy, and adverse-event reports do not establish
+causality or incidence. Article attention, energy aggregates, crop projections,
+rig counts, and station weather are proxies. No company facility, store traffic,
+production, or revenue relationship is inferred.
+
+Access checked 2026-10-24: the legacy PatentsView APIs paused during USPTO's ODP
+migration. Until a bounded, documented exact-assignee replacement is verified,
+the catalog entry is unavailable and cannot fetch or store data. No bulk patent
+corpus or paid replacement is used. Baker Hughes downloads can return HTTP 403;
+these stay unavailable without an access bypass. Its FAQ permits attributed use
+of rig-count downloads subject to its terms. WASDE downloads are bounded current
+monthly workbooks, with marketing year, publisher units, and report release date.
+
+## Economic activity and published forecasts
+
+Economic Growth retains its cross-asset return panel and adds an independent,
+snapshot-backed `/api/economic-growth/backdrop` read. The existing
+`get_economic_growth` tool accepts `section="backdrop"`; its default remains
+market returns. The scheduled macro refresh includes the backdrop snapshot.
+Nothing in this read changes signal-aggregator weights or regime thresholds.
+
+FRED observations include PAYEMS, UNRATE, RSAFS, PCEC96, INDPRO, CSUSHPISA,
+USSTHPI, TOTALSL, and SLOOS DRTSCILM (net percentage of domestic banks tightening
+C&I standards for large and middle-market firms). Payrolls and unemployment
+also appear on Labor; the two house-price indexes appear on Housing. FRED marks
+CSUSHPISA **copyrighted, pre-approval required**. It is not fetched unless
+`ALTERNATIVE_DATA_CASE_SHILLER_PERMISSION_CONFIRMED=true` after written permission.
+No browser environment variable grants permission.
+
+GSCPI uses the NY Fed's official CSV and its latest vintage column. The NY Fed
+Staff Nowcast uses the publisher's landing-quarter metadata, quarter CSV, and
+release-schedule note. Cleveland inflation nowcasts use the publisher's dated
+JSON feed; blanks remain missing even where an earlier daily value exists.
+IMF WEO NGDP_RPCH and PCPIPCH reuse the existing DataMapper client for every
+country on the country dashboard, for the current and next year. The edition
+and metadata last-modified date come from IMF, with that date explicitly labeled
+as a metadata update rather than an invented release date. Next-release notes
+report the publisher cadence and disclose when no exact date is supplied.
+
+Each reading carries its unit, observation/as-of date, official source link,
+and availability. Forecast target periods, publisher vintages, and retrieval
+timestamps are separate fields. Missing values are never replaced with zero.
+
+Primary documentation: [SEC](https://www.sec.gov/search-filings/edgar-application-programming-interfaces),
+[USAspending](https://api.usaspending.gov/docs/intro-tutorial),
+[Federal Register](https://www.federalregister.gov/developers/documentation/api/v1),
+[ClinicalTrials.gov](https://clinicaltrials.gov/data-api/api),
+[openFDA](https://open.fda.gov/apis/), [Wikimedia](https://doc.wikimedia.org/generated-data-platform/aqs/analytics-api/reference/page-views.html),
+[EIA](https://www.eia.gov/opendata/documentation.php), [WASDE](https://www.usda.gov/oce/commodity/wasde),
+[Baker Hughes reuse](https://bakerhughesrigcount.gcs-web.com/rig-count-faqs/),
+[NOAA CDO](https://www.ncei.noaa.gov/cdo-web/webservices/v2),
+[NY Fed Staff Nowcast](https://www.newyorkfed.org/research/policy/nowcast),
+[Cleveland Fed](https://www.clevelandfed.org/indicators-and-data/inflation-nowcasting),
+[IMF DataMapper](https://www.imf.org/external/datamapper/api/help),
+[Case-Shiller access](https://fred.stlouisfed.org/series/CSUSHPISA),
+[USPTO migration notice](https://content.govdelivery.com/accounts/USPTO/bulletins/40e8c67).
 
 ## Imagery calculations
 

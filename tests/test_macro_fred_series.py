@@ -12,6 +12,7 @@ from macro.labor_market import labor_market
 @pytest.mark.parametrize("module", [housing, labor_market], ids=["housing", "labor_market"])
 def test_fred_series_download_concurrently_and_fail_independently(monkeypatch, module):
     monkeypatch.setenv("FRED_API_KEY", "x" * 32)
+    monkeypatch.setenv("ALTERNATIVE_DATA_CASE_SHILLER_PERMISSION_CONFIRMED", "true")
     keys = list(module.SERIES_CONFIG)
     failing_id = module.SERIES_CONFIG[keys[0]][0]
     in_flight = threading.Barrier(len(keys), timeout=5)

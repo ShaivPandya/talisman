@@ -7,6 +7,7 @@ from typing import Any
 
 from api.snapshot_keys import (
     DEFAULT_SNAPSHOT_MAX_AGE_SECONDS,
+    SNAPSHOT_ECONOMIC_BACKDROP,
     SNAPSHOT_ECONOMIC_GROWTH,
     SNAPSHOT_HOUSING,
     SNAPSHOT_LABOR_MARKET,
@@ -253,6 +254,17 @@ def _build_source_registry() -> dict[str, SourceRegistryEntry]:
             freshness_policy="max_age_days",
             freshness_max_age_days=45,
             raw_module="macro.economic_growth.economic_growth",
+            raw_function="get_data",
+        ),
+        _entry(
+            "economic_backdrop",
+            "FRED, NY Fed, Cleveland Fed, IMF",
+            "macro",
+            1,
+            DEFAULT_SNAPSHOT_MAX_AGE_SECONDS,
+            False,
+            snapshot_key=SNAPSHOT_ECONOMIC_BACKDROP,
+            raw_module="macro.economic_growth.backdrop",
             raw_function="get_data",
         ),
         _entry(

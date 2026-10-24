@@ -58,6 +58,10 @@ Common local settings:
 - `AUTH_PASSWORD_HASH` and `AUTH_DEFAULT_USERNAME` for password-mode UI login (opaque server sessions).
 - `LLM_PROVIDER`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, and/or `GEMINI_API_KEY` for agent, thesis, overview, and report workflows.
 - `ESTAT_APP_ID`, `SODA_APP_TOKEN`, and `EIA_API_KEY` for modules that use those data sources.
+- `NOAA_CDO_TOKEN` (free NCEI token) for alternative-data station weather. The broader EIA energy adapter reuses `EIA_API_KEY`.
+- `ALTERNATIVE_DATA_CASE_SHILLER_PERMISSION_CONFIRMED=true` only after written reuse permission for the copyrighted Case-Shiller index. Without permission, its macro row stays unavailable.
+
+Bind optional alternative-data credentials through `ALTERNATIVE_DATA_SECRETS` in the existing deployment configuration; never use `VITE_*`. Name-matched datasets require a person-reviewed mapping on the Alternative Data page. See [the source catalog and setup guide](docs/alternative_data.md).
 
 Generate a bcrypt login hash with:
 

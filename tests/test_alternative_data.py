@@ -32,9 +32,9 @@ def isolate(monkeypatch, tmp_path):
 
 def test_all_sources_registered_grouped_and_license_gated():
     catalog = service.search_catalog()
-    assert catalog["count"] == 17
+    assert catalog["count"] == 30
     rows = {r["source_id"]: r for r in catalog["sources"]}
-    assert set(catalog["groups"]) == {"demand", "physical", "labor", "trade"}
+    assert set(catalog["groups"]) == {"demand", "physical", "labor", "trade", "company", "healthcare", "resources"}
     assert rows["alternative_opensky"]["availability"]["status"] == "license_required"
     assert rows["alternative_firms"]["availability"]["status"] == "setup_required"
     assert rows["alternative_marinecadastre"]["availability"]["status"] == "bulk_only"
@@ -406,7 +406,7 @@ def test_catalog_and_fetch_are_authenticated_and_schema_checked(client, auth_cli
 
     assert TestClient(app).get("/api/alternative-data/catalog").status_code == 401
     response = auth_client.get("/api/alternative-data/catalog")
-    assert response.status_code == 200 and response.json()["count"] == 17
+    assert response.status_code == 200 and response.json()["count"] == 30
     response = auth_client.post("/api/alternative-data/fetch", json={"source_id": "unknown"})
     assert response.status_code == 422
     assert auth_client.get("/api/alternative-data/jobs/nonexistent").status_code == 404

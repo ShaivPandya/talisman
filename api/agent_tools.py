@@ -1857,6 +1857,10 @@ def _dispatch(
         return data, meta
 
     if name == "get_economic_growth":
+        if args.get("section") == "backdrop":
+            from api.routers.economic_growth import get_economic_backdrop
+
+            return serialize_value(get_economic_backdrop(force_refresh=False)), {"cache": "snapshot"}
         key = "economic_growth"
 
         def _load():

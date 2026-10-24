@@ -19,6 +19,8 @@ const TIMEFRAME_DAYS: Record<Timeframe, number | null> = {
 }
 
 const SERIES_ORDER = [
+  "payrolls",
+  "unemployment",
   "initial_claims",
   "continuing_claims",
   "median_weeks_unemployed",
@@ -192,7 +194,7 @@ export function LaborMarket() {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             {SERIES_ORDER.map(key => {
               const latest = (data.latest ?? {})[key] as { value: number | null; date: string; change: number | null } | undefined
-              const series = (data.series ?? {})[key] as { label: string; unit: string } | undefined
+              const series = (data.series ?? {})[key] as { label: string; unit: string; source_url?: string; status?: string; note?: string } | undefined
               if (!series) return null
               const unit = series.unit
               const val = latest?.value ?? null
@@ -228,7 +230,7 @@ export function LaborMarket() {
           {/* Charts grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {SERIES_ORDER.map(key => {
-              const series = (data.series ?? {})[key] as { label: string; unit: string } | undefined
+              const series = (data.series ?? {})[key] as { label: string; unit: string; source_url?: string; status?: string; note?: string } | undefined
               const points = filteredSeries[key] ?? []
               if (!series) return null
               const unit = series.unit
@@ -237,6 +239,7 @@ export function LaborMarket() {
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
                     {series.label}
                   </p>
+                  {series.source_url ? <p className="mb-3 text-xs text-muted">As of {data.latest?.[key]?.date ?? "Not reported"} · {series.unit} · <a href={series.source_url} target="_blank" rel="noreferrer" className="underline">Official source</a>{series.note ? ` · ${series.note}` : ""}</p> : null}
                   <TimeSeriesChart
                     data={points}
                     height={200}
