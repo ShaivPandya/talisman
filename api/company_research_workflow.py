@@ -33,6 +33,7 @@ from api.company_research_evidence import (
     WrittenSections,
     apply_decisions,
     merge_quarter_repair,
+    remove_unverified_report_links,
     render_tracker,
     source_urls,
     validate_plan,
@@ -595,6 +596,10 @@ class Workflow:
             def validate(w: WrittenSections, expected: list[str] = titles, records: list[Any] = relevant) -> None:
                 validate_sections(w, expected, {r.record_id for r in records}, source_urls(records))
 
+            def retain_verified_links(w: WrittenSections) -> None:
+                remove_unverified_report_links(w, source_urls(relevant))
+                validate(w)
+
             written = self.provider.request(
                 f"{kind}/sections/{index}",
                 WrittenSections,
@@ -616,6 +621,7 @@ class Workflow:
                 + "\nGaps:\n"
                 + _json(gaps),
                 validate=validate,
+                validation_fallback=retain_verified_links,
             )
             try:
                 self.audit(
@@ -640,6 +646,7 @@ class Workflow:
                     + "\nSource-scoped coverage notes (not evidence):\n"
                     + _json(gaps),
                     validate=validate,
+                    validation_fallback=retain_verified_links,
                 )
                 self.audit(
                     f"{kind}/sections-audit/{index}/repair",

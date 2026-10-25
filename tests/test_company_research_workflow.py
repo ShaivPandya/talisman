@@ -1700,3 +1700,100 @@ def test_finishing_window_preserves_source_cutoff_cost_and_checkpoints(monkeypat
     store.resume_run(run_id)
     assert store.claim_run(run_id, "replacement")
     assert store.begin_finishing(run_id, "replacement")["deadline"] == after["deadline"]
+
+
+@pytest.mark.parametrize(
+    "markdown",
+    [
+        "[unreviewed]( https://unreviewed.example/release )",
+        "[unreviewed](<https://unreviewed.example/release>)",
+        "[unreviewed][release]\n\n[release]: https://unreviewed.example/release",
+        "<https://unreviewed.example/release>",
+    ],
+)
+def test_section_source_checks_follow_rendered_markdown_links(markdown):
+    written = WrittenSections(sections=[Section(title="Business", markdown=markdown, evidence_ids=["fact"])])
+    with pytest.raises(ValueError, match="https://unreviewed.example/release"):
+        workflow.validate_sections(written, ["Business"], {"fact"}, {URL})
+
+
+def test_section_source_checks_accept_equivalent_document_urls():
+    original = "https://issuer.example/Results (final).pdf?doc=2"
+    written = WrittenSections(
+        sections=[
+            Section(
+                title="Business",
+                markdown="[report]( <https://issuer.example/Results%20%28final%29.pdf?doc=2&utm_source=email> )",
+                evidence_ids=["fact"],
+            )
+        ]
+    )
+    workflow.validate_sections(written, ["Business"], {"fact"}, {original})
+    with pytest.raises(ValueError, match="not researched"):
+        workflow.validate_sections(written, ["Business"], {"fact"}, {original.replace("doc=2", "doc=1")})
+
+
+def test_unverified_followup_links_can_be_removed_without_accepting_new_evidence():
+    written = WrittenSections(
+        sections=[
+            Section(
+                title="Business",
+                markdown=f"Supported claim [filing]({URL}). Follow-up reading: [unreviewed release](https://unreviewed.example/release).",
+                evidence_ids=["fact"],
+            )
+        ]
+    )
+    workflow.remove_unverified_report_links(written, {URL})
+    assert written.sections[0].markdown == f"Supported claim [filing]({URL}). Follow-up reading: unreviewed release."
+    assert written.sections[0].evidence_ids == ["fact"]
+    workflow.validate_sections(written, ["Business"], {"fact"}, {URL})
+    with pytest.raises(ValueError, match="missing evidence: fact"):
+        workflow.validate_sections(written, ["Business"], set(), {URL})
+    workflow.remove_unverified_report_links(written, set())
+    with pytest.raises(ValueError, match="must include source links"):
+        workflow.validate_sections(written, ["Business"], {"fact"}, set())
+
+
+def test_cleaning_unverified_links_does_not_bypass_factual_audit(monkeypatch):
+    audited = []
+
+    class UnsupportedProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is WrittenSections:
+                written = WrittenSections(
+                    sections=[
+                        Section(
+                            title="Business",
+                            markdown=f"Unsupported conclusion [filing]({URL}). See [unverified](https://unreviewed.example).",
+                            evidence_ids=["FY2021 Q1"],
+                        )
+                    ]
+                )
+                kwargs["validation_fallback"](written)
+                return written
+            if model is ReportReview:
+                audited.append(step)
+                return ReportReview(supported=False, issues=["The conclusion is unsupported."])
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", UnsupportedProvider)
+    with pytest.raises(ValueError, match="unsupported"):
+        workflow.Workflow(claimed(), "worker").write("management_quality", ["Business"], [commitment()], [])
+    assert audited == ["management_quality/sections-audit/0", "management_quality/sections-audit/0/repair"]
+
+
+def test_link_cleanup_does_not_turn_an_unverified_url_label_into_an_autolink():
+    written = WrittenSections(
+        sections=[
+            Section(
+                title="Business",
+                markdown=f"[known]({URL}) and [https://unreviewed.example](https://unreviewed.example)",
+                evidence_ids=["fact"],
+            )
+        ]
+    )
+    original = written.sections[0].markdown
+    workflow.remove_unverified_report_links(written, {URL})
+    assert written.sections[0].markdown == original
+    with pytest.raises(ValueError, match="not researched"):
+        workflow.validate_sections(written, ["Business"], {"fact"}, {URL})

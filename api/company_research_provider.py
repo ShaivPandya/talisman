@@ -9,7 +9,6 @@ import re
 import time
 from collections.abc import Callable
 from typing import Any, TypeVar
-from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from openai import APIConnectionError
 from pydantic import BaseModel, Field
@@ -17,7 +16,13 @@ from pydantic import BaseModel, Field
 from api import company_research as legacy
 from api import company_research_store as store
 from api.agent_governance import prepare_model_egress
-from api.company_research_evidence import EvidenceModel, is_private_source_url, source_urls, strict_schema
+from api.company_research_evidence import (
+    EvidenceModel,
+    canonical_source_url,
+    is_private_source_url,
+    source_urls,
+    strict_schema,
+)
 from llm_utils import extract_citations, extract_text, get_llm_client
 from ontology.policy import actor_from_dict
 
@@ -79,17 +84,7 @@ def _dict(value: Any) -> dict[str, Any]:
 
 
 def _canonical(url: str) -> str:
-    parsed = urlsplit(url)
-    query = [
-        (k, v)
-        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
-        if not k.lower().startswith("utm_") and k.lower() not in {"gclid", "fbclid"}
-    ]
-    # Browsers escape spaces and parentheses in document filenames. Preserve
-    # encoded path separators: /filing%2Fone and /filing/one can be different files.
-    path = quote(parsed.path, safe="/%:@!$&'*+,;=-._~")
-    path = re.sub(r"%[0-9a-fA-F]{2}", lambda match: match[0].upper(), path)
-    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path.rstrip("/"), urlencode(query), ""))
+    return canonical_source_url(url)
 
 
 def cost_envelope(input_bytes: int, max_output_tokens: int, max_tool_calls: int) -> float:

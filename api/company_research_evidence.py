@@ -6,8 +6,9 @@ import hashlib
 import re
 from datetime import date
 from typing import Any, Literal
-from urllib.parse import urlparse
+from urllib.parse import parse_qsl, quote, urlencode, urlparse, urlsplit, urlunsplit
 
+from markdown_it import MarkdownIt
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from api.name_documents import PRIVATE_URL
@@ -417,15 +418,69 @@ def validate_reconciliation(original: list[Commitment], checked: CheckedCommitme
                 raise ValueError("Concluded outcomes need dated evidence no earlier than the original promise.")
 
 
+def canonical_source_url(url: str) -> str:
+    parsed = urlsplit(url)
+    query = [
+        (k, v)
+        for k, v in parse_qsl(parsed.query, keep_blank_values=True)
+        if not k.lower().startswith("utm_") and k.lower() not in {"gclid", "fbclid"}
+    ]
+    # Escape document filenames without equating encoded path separators with literal slashes.
+    path = quote(parsed.path, safe="/%:@!$&'*+,;=-._~")
+    path = re.sub(r"%[0-9a-fA-F]{2}", lambda match: match[0].upper(), path)
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), path.rstrip("/"), urlencode(query), ""))
+
+
+def _report_links(markdown: str) -> list[str]:
+    return [
+        child.attrGet("href")
+        for block in MarkdownIt("commonmark").parse(markdown)
+        for child in block.children or []
+        if child.type == "link_open" and child.attrGet("href") and not child.attrGet("href").startswith("#")
+    ]
+
+
+def remove_unverified_report_links(written: WrittenSections, urls: set[str]) -> None:
+    """De-link unsupported inline suggestions; never add them to the evidence or change claims/IDs.
+
+    The complete section validator and factual audit must still pass afterwards.
+    More complex unsupported Markdown links remain unchanged and fail closed.
+    """
+    allowed = {canonical_source_url(url) for url in urls}
+    for section in written.sections:
+        unknown = {canonical_source_url(url) for url in _report_links(section.markdown)} - allowed
+
+        def replace(match: re.Match[str], unverified: set[str] = unknown) -> str:
+            target = match["url"].strip("<>")
+            # A URL-shaped label could become a GFM autolink after removing its wrapper.
+            if (
+                target.startswith("#")
+                or canonical_source_url(target) not in unverified
+                or re.search(r"https?://|www\.", match["label"])
+            ):
+                return match[0]
+            return match["label"]
+
+        section.markdown = re.sub(r"\[(?P<label>[^\]\n]+)\]\(\s*(?P<url>[^\s)]+)\s*\)", replace, section.markdown)
+
+
 def validate_sections(written: WrittenSections, expected: list[str], evidence_ids: set[str], urls: set[str]) -> None:
     if [section.title for section in written.sections] != expected:
         raise ValueError("Report sections do not match the requested structure.")
     for section in written.sections:
-        if not section.markdown.strip() or not set(section.evidence_ids).issubset(evidence_ids):
-            raise ValueError("Report references missing evidence.")
-        links = [link for link in re.findall(r"\]\(([^\s)]+)\)", section.markdown) if not link.startswith("#")]
-        if any(link not in urls for link in links):
-            raise ValueError("Report introduced a source that was not researched.")
+        missing_ids = set(section.evidence_ids) - evidence_ids
+        if not section.markdown.strip() or missing_ids:
+            raise ValueError("Report references missing evidence: " + ", ".join(sorted(missing_ids)))
+        links = _report_links(section.markdown)
+        allowed = {canonical_source_url(url) for url in urls}
+        unknown = [link for link in links if canonical_source_url(link) not in allowed]
+        if unknown:
+            raise ValueError(
+                "Report introduced a source that was not researched: "
+                + ", ".join(sorted(set(unknown)))
+                + ". Remove these hyperlinks; unverified follow-up reading cannot be cited. "
+                "Use only the supplied source URLs: " + ", ".join(sorted(urls))
+            )
         if section.evidence_ids and not links:
             raise ValueError("Evidence-backed report sections must include source links.")
 
