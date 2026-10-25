@@ -159,10 +159,7 @@ class ResearchContext:
         if saved is not None:
             self.sources, self.warnings = saved["sources"], saved["warnings"]
             return
-        try:
-            self.collect_uploads()
-        except Exception:
-            self.warnings.append("Uploaded source files were unavailable; other research sources remain available.")
+        self.prepare_uploads()
         catalog = read_catalog()
         seen: set[str] = set()
         try:
@@ -247,6 +244,23 @@ class ResearchContext:
             )
         store.check_run(self.run_id, self.owner)
         legacy._write_json(self.key, {"sources": self.sources, "warnings": self.warnings})
+
+    def prepare_uploads(self) -> None:
+        """Capture uploads before public planning, independently of its success."""
+        key = f"runs/{self.run_id}/talisman/uploads.json"
+        # Preserve full contexts from existing runs as well as the new early
+        # checkpoint; resume must not re-read mutable/deleted attachments.
+        saved = legacy._read_json(self.key) or legacy._read_json(key)
+        if saved is not None:
+            self.sources, self.warnings = saved["sources"], saved["warnings"]
+            return
+        store.check_run(self.run_id, self.owner, gathering=True)
+        try:
+            self.collect_uploads()
+        except Exception:
+            self.warnings.append("Uploaded source files were unavailable; other research sources remain available.")
+        store.check_run(self.run_id, self.owner)
+        legacy._write_json(key, {"sources": self.sources, "warnings": self.warnings})
 
     def validate_sources(self, value: Any) -> None:
         registered = {source["url"]: source for source in self.sources}

@@ -403,6 +403,48 @@ def test_research_uses_upload_only_fact_without_sending_it_to_public_web_search(
     assert client.responses.create.call_count == 3
 
 
+def test_upload_is_captured_before_failed_plan_and_reused_on_resume(monkeypatch, tmp_path):
+    from api import company_research as legacy
+    from api import company_research_context as context
+    from api import company_research_workflow as workflow
+    from tests.test_company_research_workflow import FakeProvider, create_run
+
+    document = docs.upload("EL", make_pdf(FACT), "JPM CDW.pdf")
+    monkeypatch.setattr(legacy, "LOCAL_REPORTS_DIR", tmp_path / "reports")
+    monkeypatch.setattr(workflow, "ResearchProvider", FakeProvider)
+    state = create_run()
+    run_id = state["run_id"]
+    company_research_store.mutate_run(
+        run_id, lambda s: s["snapshot"].update(private_documents=docs.research_snapshot("EL"))
+    )
+    key = f"runs/{run_id}/talisman/uploads.json"
+
+    def fail_plan(self):
+        saved = legacy._read_json(key)
+        assert saved["sources"] == self.talisman.sources
+        assert saved["sources"][0]["url"] == document["url"]
+        assert FACT in json.dumps(saved)
+        raise company_research_provider.ResearchValidationFailed("Planning failed")
+
+    monkeypatch.setattr(workflow.Workflow, "plan", fail_plan)
+    result = workflow.run_company_research_run(workflow.CompanyResearchRunRequest(run_id=run_id), job_id="test")
+    assert result["status"] == "incomplete"
+    saved = legacy._read_json(key)
+    assert "JPM CDW.pdf" in json.dumps(saved)
+
+    def no_reread(*args, **kwargs):
+        raise AssertionError("Resume must reuse captured excerpts")
+
+    monkeypatch.setattr(context, "research_passages", no_reread)
+    company_research_store.resume_run(run_id)
+    assert company_research_store.claim_run(run_id, "resume")
+    resumed = workflow.Workflow(run_id, "resume")
+    resumed.talisman.prepare_uploads()
+    resumed.talisman.collect("EL")
+    assert resumed.talisman.sources == saved["sources"]
+    assert resumed.talisman.warnings == saved["warnings"]
+
+
 def test_invented_private_passages_and_wrong_name_citations_fail(monkeypatch):
     doc = docs.upload("EL", FACT.encode(), "survey.txt")
     run_id = claimed()

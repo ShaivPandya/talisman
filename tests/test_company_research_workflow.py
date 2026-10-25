@@ -300,6 +300,194 @@ def mock_client(monkeypatch, values):
     return client
 
 
+def earnings_plan():
+    result = plan()
+    for quarter in result.quarters:
+        quarter.source = quarter.source.model_copy(
+            update={
+                "url": "https://investor.cdw.com/news/news-details/"
+                + quarter.label.replace(" ", "-")
+                + "/earnings/default.aspx",
+                "passage": f"Results for {quarter.label}, reported on {quarter.reported_on}.",
+            }
+        )
+    return result
+
+
+def check_sources_response(kwargs):
+    assert kwargs["text"]["format"]["name"] == "SourceChecks"
+    # Retried checks append validation feedback after the original source JSON.
+    passages, _ = json.JSONDecoder().raw_decode(kwargs["input"].split("Sources:\n")[1])
+    urls = sorted({p["url"] for p in passages})
+    assert len(urls) <= provider.SOURCE_CHECK_BATCH_SIZE
+    assert kwargs["max_tool_calls"] == 2 * len(urls)
+    checked = response(
+        {"checks": [{"url": url, "supported": True, "explanation": "Retrieved dated release."} for url in urls]}
+    )
+    checked["output"][-1]["action"]["sources"] = [{"url": url} for url in urls]
+    return checked
+
+
+@pytest.mark.parametrize("unobserved_count", [9, 20])
+def test_twenty_quarter_plan_checks_all_unobserved_urls_in_bounded_batches(monkeypatch, unobserved_count):
+    proposed = earnings_plan()
+    initial = response(proposed.model_dump(mode="json"))
+    initial["output"][-1]["action"]["sources"] = [
+        {"url": "https://investor.cdw.com/financials/quarterly-results"},
+        *[{"url": q.source.url} for q in proposed.quarters[unobserved_count:]],
+    ]
+    checked_urls = []
+
+    def respond(**kwargs):
+        if kwargs["text"]["format"]["name"] == "ResearchPlan":
+            assert kwargs["max_tool_calls"] == 6
+            return initial
+        checked = check_sources_response(kwargs)
+        checked_urls.extend(s["url"] for s in checked["output"][-1]["action"]["sources"])
+        return checked
+
+    client = mock_client(monkeypatch, respond)
+    instance = workflow.Workflow(claimed(), "worker")
+    accepted = instance.plan()
+    assert accepted == proposed
+    assert len(accepted.quarters) == 20
+    assert set(checked_urls) == {q.source.url for q in proposed.quarters[:unobserved_count]}
+    assert len(checked_urls) == unobserved_count
+    assert client.responses.create.call_count == 1 + (unobserved_count + 5) // 6
+    assert instance.provider.load("plan", ResearchPlan) == accepted
+    assert all(call["settled"] for call in store.get_run(instance.run_id)["calls"].values())
+
+
+def test_resume_old_plan_and_interrupted_checks_reuses_plan_and_successful_batches(monkeypatch):
+    proposed = earnings_plan()
+    initial = response(proposed.model_dump(mode="json"))
+    client = mock_client(monkeypatch, lambda **kwargs: check_sources_response(kwargs))
+    client.responses.retrieve.return_value = initial
+    run_id = claimed()
+    # An old run stopped at the former eight-URL ceiling after receiving a plan.
+    store.reserve_call(
+        run_id,
+        "worker",
+        "plan:0",
+        1,
+        gathering=True,
+        details={"response_id": initial["id"], "error": "Source URLs not observed: old eight-URL ceiling"},
+    )
+    store.settle_call(run_id, "worker", "plan:0", actual_usd=0.1, usage={}, status="completed")
+    deadline = store.get_run(run_id)["deadline"]
+    original = provider.ResearchProvider.request
+    check_calls = 0
+
+    def interrupted(self, step, *args, **kwargs):
+        nonlocal check_calls
+        if "/source-check/" in step:
+            check_calls += 1
+            if check_calls == 2:
+                raise store.ResearchLeaseLost("Worker stopped between source batches")
+        return original(self, step, *args, **kwargs)
+
+    monkeypatch.setattr(provider.ResearchProvider, "request", interrupted)
+    with pytest.raises(store.ResearchLeaseLost):
+        workflow.Workflow(run_id, "worker").plan()
+    assert client.responses.create.call_count == 1
+    assert not provider.ResearchProvider(run_id, "worker").load("plan", ResearchPlan)
+    first_charge = store.get_run(run_id)["charged_usd"]
+    monkeypatch.setattr(provider.ResearchProvider, "request", original)
+    assert workflow.Workflow(run_id, "worker").plan() == proposed
+    assert client.responses.create.call_count == 4
+    requests = [c.kwargs["input"] for c in client.responses.create.call_args_list]
+    assert len(set(requests)) == 4
+    state = store.get_run(run_id)
+    assert state["deadline"] == deadline
+    assert state["calls"]["plan:0"]["charged_usd"] == 0.1
+    assert state["charged_usd"] > first_charge
+
+
+@pytest.mark.parametrize("limit", ["time", "spending"])
+def test_source_batches_stop_at_original_run_limits(monkeypatch, limit):
+    proposed = earnings_plan()
+    run_id = claimed()
+
+    def respond(**kwargs):
+        if kwargs["text"]["format"]["name"] == "ResearchPlan":
+            return response(proposed.model_dump(mode="json"))
+        checked = check_sources_response(kwargs)
+        if limit == "time":
+            store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))
+        else:
+            store.mutate_run(run_id, lambda s: s.update(max_cost_usd=store.FINISH_RESERVE_USD + 1))
+        return checked
+
+    client = mock_client(monkeypatch, respond)
+    with pytest.raises(store.ResearchLimitReached):
+        workflow.Workflow(run_id, "worker").plan()
+    assert client.responses.create.call_count == 2
+    assert not provider.ResearchProvider(run_id, "worker").load("plan", ResearchPlan)
+    assert all(call["settled"] for call in store.get_run(run_id)["calls"].values())
+
+
+@pytest.mark.parametrize("failure", ["unobserved", "unsupported"])
+def test_failed_later_source_batch_never_accepts_plan(monkeypatch, failure):
+    proposed = earnings_plan()
+    first_batch = {q.source.url for q in proposed.quarters[: provider.SOURCE_CHECK_BATCH_SIZE]}
+
+    def respond(**kwargs):
+        if kwargs["text"]["format"]["name"] == "ResearchPlan":
+            return response(proposed.model_dump(mode="json"))
+        checked = check_sources_response(kwargs)
+        observed = checked["output"][-1]["action"]["sources"]
+        if {s["url"] for s in observed} != first_batch:
+            if failure == "unobserved":
+                observed.pop()
+            else:
+                text = checked["output"][0]["content"][0]
+                data = json.loads(text["text"])
+                data["checks"][-1].update(supported=False, explanation="This release does not support the date.")
+                text["text"] = json.dumps(data)
+        return checked
+
+    mock_client(monkeypatch, respond)
+    instance = provider.ResearchProvider(claimed(), "worker")
+    with pytest.raises(provider.ResearchValidationFailed, match="not observed|could not be independently supported"):
+        instance.request(
+            "plan",
+            ResearchPlan,
+            prompt="Plan 20 quarters",
+            instructions="Use primary sources",
+            web=True,
+            gathering=True,
+            tool_calls=6,
+            attempts=1,
+        )
+    assert instance.load("plan", ResearchPlan) is None
+    # The first batch is reusable even though no partial plan is accepted.
+    checkpoints = store.get_run(instance.run_id)["steps"]
+    assert any("/source-check/" in step and saved["completed"] for step, saved in checkpoints.items())
+
+
+def test_source_failure_status_is_concise_and_full_url_diagnostics_are_retained(monkeypatch):
+    urls = [q.source.url for q in earnings_plan().quarters]
+    checks = {"checks": [{"url": url, "supported": True, "explanation": "Claimed support"} for url in urls]}
+    mock_client(monkeypatch, [response(checks)])
+    instance = provider.ResearchProvider(claimed(), "worker")
+    with pytest.raises(provider.ResearchValidationFailed) as error:
+        instance.request(
+            "plan/source-check/example",
+            provider.SourceChecks,
+            prompt="Check",
+            instructions="Check",
+            web=True,
+            resolve_unobserved=False,
+            attempts=1,
+        )
+    status = workflow._error(error.value)
+    assert "20 cited URL(s)" in status
+    assert "https" not in status and len(status) < 600
+    detail = legacy._read_json(instance.artifact_key("plan/source-check/example", "validation-0"))["error"]
+    assert all(url in detail for url in urls)
+    assert len(detail) > 1200
+
+
 def test_provider_checkpoint_avoids_rebilling_completed_work(monkeypatch):
     client = mock_client(monkeypatch, [response({"supported": True, "issues": []})])
     run_id = claimed()

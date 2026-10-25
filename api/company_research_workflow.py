@@ -76,7 +76,10 @@ def _json(value: Any) -> str:
 
 def _error(exc: Exception) -> str:
     sanitized, _ = redact_secrets({"error": str(exc)})
-    return str(sanitized["error"])[:600] or "Research could not complete. Completed evidence is retained."
+    message = str(sanitized["error"]).split("\nSource details:\n", 1)[0]
+    if len(message) > 600:
+        message = message[:599] + "…"
+    return message or "Research could not complete. Completed evidence is retained."
 
 
 def evidence_bundle(evidence: Any) -> str:
@@ -164,7 +167,10 @@ class Workflow:
             prompt="Verify issuer identity and fiscal calendar. Identify exactly the last 20 REPORTED fiscal "
             "quarters (not calendar quarters or unreported periods), with labels exactly like FY2026 Q1, "
             "oldest first, with original report dates "
-            "and primary sources. If management is not requested, quarters may be empty. Divide ALL overview "
+            "and primary sources supporting those dates. Use exact source links from retrieved documents; "
+            "never construct earnings URLs from a naming pattern. Citations absent from the tool trace "
+            "will be opened and checked in separate bounded batches before the plan is accepted. "
+            "If management is not requested, quarters may be empty. Divide ALL overview "
             "requirements among 3 focused topics (maximum 5); each requested report section belongs to one "
             "topic, with distinct descriptive titles (disambiguate repeated Financials headings). Preserve "
             "every requested question in topic requirements. List management narrative section titles in "
@@ -778,6 +784,7 @@ def run_company_research_run(req: CompanyResearchRunRequest, *, job_id: str) -> 
     try:
         store.mutate_run(run_id, lambda s: s.update(job_id=job_id), owner=owner)
         workflow = Workflow(run_id, owner)
+        workflow.talisman.prepare_uploads()
         plan = workflow.plan()
         workflow.talisman.collect(plan.issuer)
         quarters, packets, errors = workflow.gather(plan)
