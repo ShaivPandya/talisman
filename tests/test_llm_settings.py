@@ -97,7 +97,7 @@ def test_get_llm_settings_returns_env_fallback(temp_llm_settings, auth_client, m
         "high": "anthropic",
     }
     assert payload["models"]["low"] == "claude-haiku-4-5"
-    assert payload["models_by_provider"]["openai"]["mid"] == "gpt-5.4"
+    assert payload["models_by_provider"]["openai"]["mid"] == "gpt-6-luna"
     assert payload["models_by_provider"]["gemini"]["mid"] == "gemini-4-argon"
     assert payload["models_by_provider"]["gemini"]["high"] == "gemini-4-argon"
     assert payload["models_by_provider"]["openai"]["high"] == "gpt-6.1-sol"

@@ -110,12 +110,12 @@ DEFAULT_REASONING_EFFORT_BY_PROVIDER_TIER = {
 
 ANTHROPIC_DEFAULT_MODELS = {
     MODEL_LOW: "claude-haiku-4-5",
-    MODEL_MID: "claude-sonnet-4-6",
+    MODEL_MID: "claude-sonnet-5-5",
     MODEL_HIGH: "claude-opus-5-5",
 }
 OPENAI_DEFAULT_MODELS = {
     MODEL_LOW: "gpt-5.4-mini",
-    MODEL_MID: "gpt-5.4",
+    MODEL_MID: "gpt-6-luna",
     MODEL_HIGH: "gpt-6.1-sol",
 }
 GEMINI_DEFAULT_MODELS = {
@@ -142,9 +142,11 @@ MODEL_OPUS = MODEL_HIGH
 
 _LEGACY_MODEL_TO_TIER = {
     "claude-haiku-4-5": MODEL_LOW,
+    "claude-sonnet-5-5": MODEL_MID,
     "claude-sonnet-4-6": MODEL_MID,
     "claude-opus-4-7": MODEL_HIGH,
     "gpt-5.4-mini": MODEL_LOW,
+    "gpt-6-luna": MODEL_MID,
     "gpt-5.4": MODEL_MID,
     "gpt-5.5": MODEL_HIGH,
     "gemini-3.1-flash-lite": MODEL_LOW,
@@ -1382,6 +1384,11 @@ def _is_claude_opus_5_5(model: str | None) -> bool:
     return normalized == "claude-opus-5-5" or normalized.startswith("claude-opus-5-5-")
 
 
+def _is_claude_sonnet_5_5(model: str | None) -> bool:
+    normalized = (model or "").strip().lower()
+    return normalized == "claude-sonnet-5-5" or normalized.startswith("claude-sonnet-5-5-")
+
+
 def _gemini_reasoning_efforts_for_model(model: str | None = None) -> tuple[str, ...]:
     normalized = (model or "").strip().lower()
     if "flash" in normalized:
@@ -1393,7 +1400,11 @@ def _anthropic_reasoning_efforts_for_model(model: str | None = None) -> tuple[st
     normalized = (model or "").strip().lower()
     efforts = [REASONING_NONE, REASONING_LOW, REASONING_MEDIUM, REASONING_HIGH]
     family_minor = _anthropic_claude_4_family_minor(normalized)
-    if _is_claude_opus_5_5(normalized) or (family_minor and family_minor[0] == "opus" and family_minor[1] >= 7):
+    if (
+        _is_claude_opus_5_5(normalized)
+        or _is_claude_sonnet_5_5(normalized)
+        or (family_minor and family_minor[0] == "opus" and family_minor[1] >= 7)
+    ):
         efforts.append(REASONING_XHIGH)
     if "claude-mythos-preview" in normalized or _anthropic_supports_adaptive_thinking(normalized):
         efforts.append(REASONING_MAX)
@@ -1409,7 +1420,11 @@ def _anthropic_claude_4_family_minor(model: str) -> tuple[str, int] | None:
 
 def _anthropic_supports_adaptive_thinking(model: str) -> bool:
     normalized = (model or "").strip().lower()
-    if "claude-mythos-preview" in normalized or _is_claude_opus_5_5(normalized):
+    if (
+        "claude-mythos-preview" in normalized
+        or _is_claude_opus_5_5(normalized)
+        or _is_claude_sonnet_5_5(normalized)
+    ):
         return True
     family_minor = _anthropic_claude_4_family_minor(normalized)
     if not family_minor:

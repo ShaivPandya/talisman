@@ -12,7 +12,7 @@ def test_provider_and_model_resolution_defaults(monkeypatch):
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     assert llm_utils.selected_provider() == "anthropic"
     assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "anthropic") == "claude-haiku-4-5"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "openai") == "gpt-5.4"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "openai") == "gpt-6-luna"
     assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "gemini") == "gemini-3.1-flash-lite"
     assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "gemini") == "gemini-4-argon"
     assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "gemini") == "gemini-4-argon"
@@ -654,7 +654,7 @@ def test_openai_none_reasoning_effort_request_shape(monkeypatch):
     )
 
     assert text == "fast"
-    assert fake_responses.kwargs["model"] == "gpt-5.4"
+    assert fake_responses.kwargs["model"] == "gpt-6-luna"
     assert fake_responses.kwargs["reasoning"] == {"effort": "none"}
 
 
@@ -716,7 +716,7 @@ def test_anthropic_adaptive_thinking_request_shape(monkeypatch):
     )
 
     assert text == "reasoned"
-    assert fake_messages.kwargs["model"] == "claude-sonnet-4-6"
+    assert fake_messages.kwargs["model"] == "claude-sonnet-5-5"
     assert fake_messages.kwargs["thinking"] == {"type": "adaptive", "display": "omitted"}
     assert fake_messages.kwargs["output_config"] == {"effort": "high"}
 
