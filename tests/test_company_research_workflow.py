@@ -864,7 +864,11 @@ def test_resume_recovers_all_pending_calls_before_new_work_and_preserves_account
         response_id = f"resp_pending_{index}"
         call_id = f"{step}:0"
         store.reserve_call(
-            run_id, "worker", call_id, 2, gathering=False,
+            run_id,
+            "worker",
+            call_id,
+            2,
+            gathering=False,
             details={"step": step, "response_id": response_id},
         )
         saved_response = response({"supported": True, "issues": []})
@@ -1554,3 +1558,77 @@ def test_evidence_validation_still_has_only_one_repair(monkeypatch):
             "unit", ReportReview, prompt="Research", instructions="Check", validate=invalid
         )
     assert client.responses.create.call_count == 2
+
+
+@pytest.mark.parametrize("missing", ["claim", "outcome"])
+def test_undated_outcome_fallback_preserves_promise_and_marks_result_unverified(missing):
+    original = commitment()
+    original.outcome = "Partially achieved"
+    original.outcome_sources = [source(date(2022, 4, 30))]
+    (original.claim_sources if missing == "claim" else original.outcome_sources)[0].published_on = None
+    checked = EvidenceDecisions.model_validate(
+        {
+            "decisions": [
+                {
+                    "record_id": original.record_id,
+                    "supported": True,
+                    "reason": "Source supports the promise",
+                    "corrections": [],
+                    "replacement_sources": None,
+                }
+            ]
+        }
+    )
+    with pytest.raises(ValueError, match="Concluded outcomes"):
+        apply_decisions([original], checked, management=True, as_of=AS_OF)
+    accepted, gaps = apply_decisions(
+        [original],
+        checked,
+        management=True,
+        as_of=AS_OF,
+        allow_unverified_outcomes=True,
+    )
+    retained = accepted[0]
+    assert retained.outcome == "Insufficient disclosure"
+    assert retained.claim == original.claim and retained.original_target == original.original_target
+    assert retained.claim_sources == original.claim_sources and retained.outcome_sources == original.outcome_sources
+    assert "publication dates are missing" in gaps[0]
+    assert original.outcome == "Partially achieved"
+    original.claim_sources[0].published_on = date(2022, 4, 30)
+    original.outcome_sources[0].published_on = date(2021, 4, 30)
+    with pytest.raises(ValueError, match="Concluded outcomes"):
+        apply_decisions([original], checked, management=True, as_of=AS_OF, allow_unverified_outcomes=True)
+
+
+def test_semantic_fallback_only_follows_completed_repair_and_is_checkpointed(monkeypatch):
+    client = mock_client(monkeypatch, [response({"supported": False, "issues": ["Missing date"]}, web=False)] * 2)
+    fallback = MagicMock()
+
+    def strict(value):
+        raise ValueError("Missing date")
+
+    instance = provider.ResearchProvider(claimed(), "worker")
+    kwargs = dict(prompt="Check", instructions="Check", validate=strict, validation_fallback=fallback)
+    instance.request("verification", ReportReview, **kwargs)
+    assert client.responses.create.call_count == 2
+    assert fallback.call_count == 1
+    instance.request("verification", ReportReview, **kwargs)
+    assert client.responses.create.call_count == 2 and fallback.call_count == 2
+
+
+def test_semantic_fallback_cannot_accept_unobserved_sources(monkeypatch):
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": URL + "/unseen"})])
+    mock_client(monkeypatch, [response(packet.model_dump(mode="json"))] * 2)
+    fallback = MagicMock()
+    with pytest.raises(provider.ResearchValidationFailed):
+        provider.ResearchProvider(claimed(), "worker").request(
+            "verification",
+            OverviewPacket,
+            prompt="Check",
+            instructions="Check",
+            web=True,
+            validate=lambda value: None,
+            validation_fallback=fallback,
+            resolve_unobserved=False,
+        )
+    fallback.assert_not_called()

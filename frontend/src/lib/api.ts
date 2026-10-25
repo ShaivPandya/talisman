@@ -1373,6 +1373,7 @@ export interface CompanyResearchReportStatus {
   job_id?: string
   run_id?: string
   resumable?: boolean
+  continuable?: boolean
   status: "idle" | "queued" | "running" | "done" | "error" | "cancelled" | "incomplete"
   error?: string | null
   report_available?: boolean
@@ -1418,9 +1419,9 @@ export const updateCompanyResearchSettings = (prompts: Pick<CompanyResearchSetti
 export const fetchCompanyResearchStatus = (ticker: string) =>
   client.get<CompanyResearchStatus>(`/company-research/${encodeURIComponent(ticker)}`).then(r => r.data)
 
-export const startCompanyResearch = (ticker: string, kinds: CompanyResearchKind[], resumeRunId?: string) =>
+export const startCompanyResearch = (ticker: string, kinds: CompanyResearchKind[], resumeRunId?: string, extendTime = false) =>
   client.post<{ ticker: string; reports: Partial<CompanyResearchStatus["reports"]> }>(
-    `/company-research/${encodeURIComponent(ticker)}`, { kinds, ...(resumeRunId ? { resume_run_id: resumeRunId } : {}) },
+    `/company-research/${encodeURIComponent(ticker)}`, { kinds, ...(resumeRunId ? { resume_run_id: resumeRunId, extend_time: extendTime } : {}) },
   ).then(r => r.data)
 
 export const fetchCompanyResearchReport = (ticker: string, kind: CompanyResearchKind, jobId?: string) =>

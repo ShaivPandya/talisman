@@ -195,6 +195,65 @@ def test_resume_keeps_original_snapshot_deadline_and_spend(auth_client, monkeypa
     assert not auth_client.get("/api/company-research/MU").json()["reports"]["overview"]["resumable"]
 
 
+def test_explicit_time_continuation_reuses_run_and_budget_without_duplicate_dispatch(auth_client, monkeypatch):
+    monkeypatch.setattr("api.async_job_runner._enqueue_local_job", lambda job_id: None)
+    started = auth_client.post("/api/company-research/MU", json={}).json()
+    run_id = started["reports"]["overview"]["run_id"]
+    original = run_store.get_run(run_id)
+    job_queue.complete_job(original["job_id"], {})
+    run_store.mutate_run(
+        run_id,
+        lambda s: s.update(
+            status="incomplete",
+            deadline=time.time() - 1,
+            charged_usd=7.5,
+            calls={"retained:0": {"reserved_usd": 2, "settled": False, "response_id": "resp_retained"}},
+            steps={"plan": {"completed": True, "artifact_key": "retained-plan"}},
+        ),
+    )
+    before = run_store.get_run(run_id)
+    status = auth_client.get("/api/company-research/MU").json()["reports"]["overview"]
+    assert status["continuable"] and not status["resumable"]
+    body = {"resume_run_id": run_id, "extend_time": True}
+    assert auth_client.post("/api/company-research/MU", json=body).status_code == 202
+    after = run_store.get_run(run_id)
+    for field in ("run_id", "created_at", "snapshot", "calls", "steps", "charged_usd", "max_cost_usd"):
+        assert after[field] == before[field]
+    assert after["deadline"] - after["window_started_at"] == 30 * 60
+    assert after["continuation_used"]
+    assert after["dispatch_generation"] == before.get("dispatch_generation", 0) + 1
+    assert run_store.budget_summary(after)["max_seconds"] == 30 * 60
+    assert run_store.budget_summary(after)["reserved_usd"] == 2
+    assert auth_client.post("/api/company-research/MU", json=body).status_code == 202
+    repeated = run_store.get_run(run_id)
+    assert repeated["deadline"] == after["deadline"] and repeated["job_id"] == after["job_id"]
+    run_store.mutate_run(run_id, lambda s: s.update(deadline=time.time() - 1, status="incomplete"))
+    assert auth_client.post("/api/company-research/MU", json=body).status_code == 409
+    assert not auth_client.get("/api/company-research/MU").json()["reports"]["overview"]["continuable"]
+
+
+@pytest.mark.parametrize("blocked", ["spent", "live_worker", "other_actor"])
+def test_time_continuation_cannot_reset_cost_or_take_over_another_worker_or_actor(auth_client, monkeypatch, blocked):
+    monkeypatch.setattr("api.async_job_runner._enqueue_local_job", lambda job_id: None)
+    started = auth_client.post("/api/company-research/MU", json={}).json()
+    run_id = started["reports"]["overview"]["run_id"]
+
+    def stop(state):
+        state.update(status="incomplete", deadline=time.time() - 1)
+        if blocked == "spent":
+            state["charged_usd"] = state["max_cost_usd"]
+        elif blocked == "live_worker":
+            state["lease_until"] = time.time() + 60
+        else:
+            state["snapshot"]["actor"]["actor_id"] = "another-user"
+
+    run_store.mutate_run(run_id, stop)
+    before = run_store.get_run(run_id)
+    result = auth_client.post("/api/company-research/MU", json={"resume_run_id": run_id, "extend_time": True})
+    assert result.status_code == (404 if blocked == "other_actor" else 409)
+    assert run_store.get_run(run_id) == before
+
+
 def test_citation_spans_become_clickable_without_losing_facts():
     text = "Revenue grew. [1] Debt declined. [2]"
     annotations = [

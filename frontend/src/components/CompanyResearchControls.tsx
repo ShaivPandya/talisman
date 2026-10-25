@@ -177,7 +177,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
     refetchInterval: state => KINDS.some(kind => isActive(state.state.data?.reports[kind])) ? 5000 : false,
   })
   const mutation = useMutation({
-    mutationFn: ({ target, kinds, resumeRunId }: { target: string; kinds: CompanyResearchKind[]; resumeRunId?: string }) => startCompanyResearch(target, kinds, resumeRunId),
+    mutationFn: ({ target, kinds, resumeRunId, extendTime }: { target: string; kinds: CompanyResearchKind[]; resumeRunId?: string; extendTime?: boolean }) => startCompanyResearch(target, kinds, resumeRunId, extendTime),
     onSuccess: (result, variables) => {
       qc.setQueryData<CompanyResearchStatus>(["company-research", variables.target], current => ({
         ticker: variables.target,
@@ -247,7 +247,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
             {Math.floor(budget.elapsed_seconds / 60)} / {Math.round(budget.max_seconds / 60)} minutes · ${budget.charged_usd.toFixed(2)} budget used
             {budget.reserved_usd > 0 && ` + $${budget.reserved_usd.toFixed(2)} reserved`} / ${budget.max_cost_usd.toFixed(2)} total
             {` · ${allowanceStatus}`}
-            {" · Cost includes a conservative margin; resume keeps the original allowance."}
+            {" · Cost includes a conservative margin; resume keeps the original spending ceiling."}
           </p>
         )
       })}
@@ -263,13 +263,14 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
               <span className={failed ? "text-red-600" : report.status === "done" ? "text-green-600 dark:text-green-400" : "text-muted"}>
                 {statusText(report)}
               </span>
-              {failed && (!report.run_id || report.resumable) && (
+              {failed && (!report.run_id || report.resumable || report.continuable) && (
                 <button type="button" className={`${BUTTON} theme-button-secondary`}
-                  disabled={mutation.isPending || running} onClick={() => mutation.mutate({ target: normalizedTicker, kinds: [kind], resumeRunId: report.run_id })}>
-                  {report.run_id ? "Resume" : "Retry"} {LABELS[kind].toLowerCase()}
+                  disabled={mutation.isPending || running} onClick={() => mutation.mutate({ target: normalizedTicker, kinds: [kind], resumeRunId: report.run_id, extendTime: report.continuable })}>
+                  {report.continuable ? "Continue" : report.run_id ? "Resume" : "Retry"} {LABELS[kind].toLowerCase()}{report.continuable ? " (30 min)" : ""}
                 </button>
               )}
             </div>
+            {report.continuable && <p className="text-xs text-subtle">One additional 30-minute window reuses saved work and the remaining original budget. The total spending ceiling does not increase.</p>}
             {report.progress && (
               <p className="text-xs text-subtle">
                 {report.progress.quarters_total != null && `${report.progress.quarters_completed ?? 0} / ${report.progress.quarters_total} quarters researched. `}

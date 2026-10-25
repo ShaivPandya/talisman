@@ -376,6 +376,7 @@ class ResearchProvider:
         tool_calls: int = 12,
         repair_tool_calls: int | None = None,
         validate: Callable[[T], None] | None = None,
+        validation_fallback: Callable[[T], None] | None = None,
         merge_repair: Callable[[T, T], T] | None = None,
         known_urls: set[str] | None = None,
         attempts: int = 2,
@@ -396,7 +397,12 @@ class ResearchProvider:
         if saved is not None:
             raw_data = saved.model_dump(mode="json")
             if validate:
-                validate(saved)
+                try:
+                    validate(saved)
+                except ValueError:
+                    if validation_fallback is None:
+                        raise
+                    validation_fallback(saved)
             if replay_private_evidence:
                 store.check_run(self.run_id, self.owner)
                 key = store.get_run(self.run_id)["steps"][step]["artifact_key"]
@@ -588,7 +594,15 @@ class ResearchProvider:
                             step, result, cited if verify_sources else missing, gathering=active_gathering
                         )
                 if validate:
-                    validate(result)
+                    try:
+                        validate(result)
+                    except ValueError:
+                        # A bounded semantic fallback may retain explicitly
+                        # uncertain evidence after the one completed repair.
+                        # Tool/source validation above must still pass first.
+                        if validation_fallback is None or validated_attempts < attempts:
+                            raise
+                        validation_fallback(result)
             except ValueError as exc:
                 # Keep complete diagnostics outside the bounded status/repair
                 # text, so a long URL list is not the only record of the failure.

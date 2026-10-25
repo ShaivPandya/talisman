@@ -199,7 +199,12 @@ class EvidenceDecisions(EvidenceModel):
 
 
 def apply_decisions(
-    original: list[Any], checked: EvidenceDecisions, *, management: bool, as_of: date
+    original: list[Any],
+    checked: EvidenceDecisions,
+    *,
+    management: bool,
+    as_of: date,
+    allow_unverified_outcomes: bool = False,
 ) -> tuple[list[Any], list[str]]:
     """Apply only explicit corrections; never regenerate or silently drop the original ledger."""
     validate_sources(checked, as_of=as_of)
@@ -226,7 +231,23 @@ def apply_decisions(
         if decision.replacement_sources is not None:
             changes["outcome_sources" if management else "sources"] = decision.replacement_sources
         value = {**old.model_dump(), **changes}
-        accepted.append(Commitment.model_validate(value) if management else Fact.model_validate(value))
+        record = Commitment.model_validate(value) if management else Fact.model_validate(value)
+        if (
+            management
+            and allow_unverified_outcomes
+            and record.outcome not in {"Not yet measurable", "Insufficient disclosure"}
+        ):
+            if not any(s.published_on for s in record.claim_sources) or not any(
+                s.published_on for s in record.outcome_sources
+            ):
+                limitation = "Outcome chronology is unverified because source publication dates are missing."
+                record.outcome = "Insufficient disclosure"
+                record.variance = limitation
+                record.fix_result = limitation
+                record.independent_verification = limitation
+                record.explanation = limitation + " " + record.explanation
+                rejected.append(f"{record.record_id}: {limitation} Original commitment and sources retained.")
+        accepted.append(record)
     if management:
         validate_reconciliation(
             original,

@@ -58,6 +58,7 @@ def get_company_research_source(ticker: str, run_id: UUID, source_id: str, actor
 class StartCompanyResearchRequest(BaseModel):
     kinds: list[ResearchKind] = Field(default_factory=lambda: list(RESEARCH_KINDS), min_length=1, max_length=2)
     resume_run_id: UUID | None = None
+    extend_time: bool = False
 
 
 def _report_status(state, kind, actor_id=None):
@@ -86,6 +87,14 @@ def _report_status(state, kind, actor_id=None):
         "progress": report,
         "budget": store.budget_summary(state),
         "resumable": resumable,
+        "continuable": (
+            status == "incomplete"
+            and expired
+            and not state.get("continuation_used")
+            and state.get("lease_until", 0) <= time.time()
+            and state["charged_usd"] < state["max_cost_usd"]
+            and actor_id == state["snapshot"]["actor"].get("actor_id")
+        ),
     }
 
 
@@ -116,6 +125,8 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
     _validate_ticker(ticker)
     require_research_key()
     actor_id = actor_to_dict(actor).get("actor_id")
+    if body.extend_time and not body.resume_run_id:
+        raise ConflictError("A time continuation must identify the existing research run.")
     if body.resume_run_id:
         try:
             state = store.get_run(str(body.resume_run_id))
@@ -125,11 +136,10 @@ def start_company_research(ticker: str, body: StartCompanyResearchRequest, actor
             raise NotFoundError("Research run")
         if state["status"] == "done":
             return {"ticker": ticker, "reports": {k: _report_status(state, k, actor_id) for k in state["reports"]}}
-        if state["deadline"] <= time.time() or state["charged_usd"] >= state["max_cost_usd"]:
-            raise ConflictError(
-                "This run has exhausted its original allowance. Start a new run explicitly to research again."
-            )
-        state = store.resume_run(state["run_id"])
+        try:
+            state = store.resume_run(state["run_id"], extend_time=body.extend_time)
+        except store.ResearchLimitReached as exc:
+            raise ConflictError(str(exc)) from exc
     else:
         from api.name_documents import research_snapshot
 

@@ -507,10 +507,16 @@ class Workflow:
                 for record in batch:
                     self.talisman.validate_sources(record)
 
-            def validate(checked: EvidenceDecisions, original: list[Any] = batch) -> None:
+            def validate(checked: EvidenceDecisions, *, allow_unverified_outcomes: bool = False) -> None:
                 if private:
                     self.talisman.validate_sources(checked)
-                apply_decisions(original, checked, management=isinstance(original[0], Commitment), as_of=self.as_of)
+                apply_decisions(
+                    batch,
+                    checked,
+                    management=isinstance(batch[0], Commitment),
+                    as_of=self.as_of,
+                    allow_unverified_outcomes=allow_unverified_outcomes,
+                )
 
             return self.provider.request(
                 f"{kind}/verification-decisions/{hashlib.sha256(_json(batch).encode()).hexdigest()[:20]}",
@@ -534,6 +540,9 @@ class Workflow:
                 "check dates, targets, outcomes, and calculations. Return one decision for EVERY original record ID. "
                 "Keep supported originals intact: output only required field corrections, not a copy of the ledger. "
                 "For management, original promises and targets are immutable; reject unsupported originals. "
+                "A concluded outcome needs dated original-promise and later evidence. If publication dates "
+                "remain unavailable, preserve the original promise and sources but correct the outcome to "
+                "Insufficient disclosure and explain the chronology limitation. Never invent missing dates. "
                 "For overview, only claim corrections are allowed. replacement_sources replaces outcome sources "
                 "for management and fact sources for overview; use null to keep existing sources. Do not merge "
                 "away distinct quarterly promises or invent evidence. "
@@ -546,13 +555,18 @@ class Workflow:
                 + _json(batch),
                 known_urls=source_urls(batch),
                 validate=validate,
+                validation_fallback=lambda checked: validate(checked, allow_unverified_outcomes=True),
             )
 
         accepted: list[Any] = []
         rejected: list[str] = []
         for batch, checked in zip(batches, _in_order(check, batches), strict=True):
             records, exclusions = apply_decisions(
-                batch, checked, management=isinstance(batch[0], Commitment), as_of=self.as_of
+                batch,
+                checked,
+                management=isinstance(batch[0], Commitment),
+                as_of=self.as_of,
+                allow_unverified_outcomes=True,
             )
             accepted.extend(records)
             rejected.extend(exclusions)

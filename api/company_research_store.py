@@ -18,6 +18,7 @@ from paths import PROJECT_ROOT
 SQLITE_PATH: Path = PROJECT_ROOT / "tmp" / "company_research" / "runs.sqlite3"
 MAX_COST_USD = 25.0
 MAX_DURATION_S = 80 * 60
+CONTINUATION_DURATION_S = 30 * 60
 FINISH_RESERVE_USD = 7.0
 FINISH_RESERVE_S = 15 * 60
 LEASE_S = 180
@@ -196,7 +197,7 @@ def claim_run(run_id: str, owner: str) -> bool:
 
 def allowance_seconds(state: dict[str, Any]) -> int:
     """A run's own time limit, so runs created under an older allowance keep reporting theirs."""
-    return round(float(state["deadline"] - state["created_at"]))
+    return round(float(state.get("window_seconds", state["deadline"] - state["created_at"])))
 
 
 def check_run(run_id: str, owner: str, *, gathering: bool = False) -> dict[str, Any]:
@@ -279,7 +280,9 @@ def budget_summary(state: dict[str, Any]) -> dict[str, Any]:
     now = time.time()
     return {
         "run_id": state["run_id"],
-        "elapsed_seconds": max(0, int(min(now, state.get("finished_at", now)) - state["created_at"])),
+        "elapsed_seconds": max(
+            0, int(min(now, state.get("finished_at", now)) - state.get("window_started_at", state["created_at"]))
+        ),
         "remaining_seconds": max(0, int(state["deadline"] - now)),
         "max_seconds": allowance_seconds(state),
         "charged_usd": round(state["charged_usd"], 4),
@@ -290,11 +293,27 @@ def budget_summary(state: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def resume_run(run_id: str) -> dict[str, Any]:
+def resume_run(run_id: str, *, extend_time: bool = False) -> dict[str, Any]:
     def change(state: dict[str, Any]) -> None:
         now = time.time()
-        if state["deadline"] <= now or state["charged_usd"] >= state["max_cost_usd"]:
+        if state["status"] == "done":
+            return
+        if state["charged_usd"] >= state["max_cost_usd"]:
             raise ResearchLimitReached("The original research allowance is exhausted.")
+        if state["deadline"] <= now:
+            if not extend_time or state.get("continuation_used"):
+                raise ResearchLimitReached("The research time allowance is exhausted.")
+            if state.get("lease_until", 0) > now:
+                raise ResearchLimitReached("The previous worker is still stopping. Retry after it finishes.")
+            # An explicit continuation adds time only. Snapshot, checkpoints,
+            # calls, incurred costs and outstanding liability remain unchanged.
+            state.update(
+                status="incomplete",
+                continuation_used=True,
+                window_started_at=now,
+                window_seconds=CONTINUATION_DURATION_S,
+                deadline=now + CONTINUATION_DURATION_S,
+            )
         if state["status"] in {"queued", "done"} or state.get("lease_until", 0) > now:
             return
         state.update(
