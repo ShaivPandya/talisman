@@ -25,6 +25,7 @@ logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 POLL_SECONDS = 2
 STATUS_READ_RETRIES = 3
+TRANSPORT_RECOVERY_ATTEMPTS = 2
 SEARCH_CONTEXT_TOKENS = 128_000
 # Leave two tool turns per URL within the source check's 12-turn allowance.
 # This is a batch size, never a limit on the evidence unit's total citations.
@@ -338,6 +339,7 @@ class ResearchProvider:
         effort: str = "high",
         output_tokens: int = 64_000,
         tool_calls: int = 12,
+        repair_tool_calls: int | None = None,
         validate: Callable[[T], None] | None = None,
         merge_repair: Callable[[T, T], T] | None = None,
         known_urls: set[str] | None = None,
@@ -366,17 +368,21 @@ class ResearchProvider:
             call = initial_calls.get(f"{step}:{index}", {})
             return bool(call.get("response_id") and (not call.get("settled") or call.get("inflight_unknown")))
 
-        for attempt in sorted(range(attempts), key=lambda index: not pending(index)):
+        validated_attempts = 0
+        for attempt in sorted(range(attempts + TRANSPORT_RECOVERY_ATTEMPTS), key=lambda index: not pending(index)):
             state = store.check_run(self.run_id, self.owner)
             call_id = f"{step}:{attempt}"
             existing = state["calls"].get(call_id)
+            if validated_attempts >= attempts and not pending(attempt):
+                break
             if (
                 existing
                 and existing.get("settled")
                 and existing.get("status") != "completed"
                 and not (existing.get("inflight_unknown") and existing.get("response_id"))
             ):
-                failure = existing.get("error", "Previous attempt did not produce validated evidence.")
+                if not repair_input:
+                    failure = existing.get("error", "Previous attempt did not produce validated evidence.")
                 if existing.get("status") == "incomplete":
                     raise ResearchTruncated(f"Research unit {step} reached its output allowance.")
                 continue
@@ -392,6 +398,10 @@ class ResearchProvider:
                     + repair_input
                 )
             schema = strict_schema(model)
+            active_tool_calls = repair_tool_calls if repair_input and repair_tool_calls is not None else tool_calls
+            # Correcting an already gathered packet is finishing/verification work.
+            # Only fresh discovery is subject to the earlier gathering cutoff.
+            active_gathering = gathering and not repair_input
             size = len((request_prompt + instructions).encode()) + len(json.dumps(schema).encode()) + 1024
             if size > (96_000 if web else 200_000):
                 raise ResearchTruncated(f"Research unit {step} needs a smaller evidence packet.")
@@ -417,7 +427,7 @@ class ResearchProvider:
                 kwargs.update(
                     tools=[{"type": "web_search", "search_context_size": "high"}],
                     tool_choice="required",
-                    max_tool_calls=tool_calls,
+                    max_tool_calls=active_tool_calls,
                     include=["web_search_call.action.sources"],
                 )
             if existing and existing.get("response_id"):
@@ -428,7 +438,7 @@ class ResearchProvider:
                     store.settle_call(self.run_id, self.owner, call_id, actual_usd=None, usage={}, status="unknown")
                     failure = "Previous provider submission could not be recovered."
                     continue
-                store.check_run(self.run_id, self.owner, gathering=gathering)
+                store.check_run(self.run_id, self.owner, gathering=active_gathering)
                 kwargs, _ = prepare_model_egress(
                     provider="openai",
                     purpose=f"company_research.{step}",
@@ -437,18 +447,18 @@ class ResearchProvider:
                     workflow_run_id=self.run_id,
                 )
                 while True:
-                    store.check_run(self.run_id, self.owner, gathering=gathering)
+                    store.check_run(self.run_id, self.owner, gathering=active_gathering)
                     try:
                         store.reserve_call(
                             self.run_id,
                             self.owner,
                             call_id,
-                            cost_envelope(size, output_tokens, tool_calls if web else 0),
-                            gathering=gathering,
+                            cost_envelope(size, output_tokens, active_tool_calls if web else 0),
+                            gathering=active_gathering,
                             details={
                                 "step": step,
                                 "output_limit": output_tokens,
-                                "tool_limit": tool_calls if web else 0,
+                                "tool_limit": active_tool_calls if web else 0,
                             },
                         )
                         break
@@ -468,7 +478,7 @@ class ResearchProvider:
                         usage={},
                         status="request_error",
                     )
-                    if code in {429, 500, 502, 503, 504} and attempt + 1 < attempts:
+                    if code in {429, 500, 502, 503, 504} and attempt + 1 < attempts + TRANSPORT_RECOVERY_ATTEMPTS:
                         time.sleep(2**attempt)
                         continue
                     raise
@@ -477,7 +487,7 @@ class ResearchProvider:
                     store.settle_call(self.run_id, self.owner, call_id, actual_usd=None, usage={}, status="unknown")
                     raise RuntimeError("Research provider returned no response identifier.")
                 self.update_call(call_id, response_id=response_id)
-            response = self._wait(response, call_id, gathering=gathering)
+            response = self._wait(response, call_id, gathering=active_gathering)
             raw = _dict(response)
             legacy._write_json(self.artifact_key(step, f"attempt-{attempt}"), raw)
             usage, cost = response_usage(response)
@@ -493,6 +503,7 @@ class ResearchProvider:
                     continue
                 raise RuntimeError(f"Research unit did not complete ({reason}).")
             draft = ""
+            validated_attempts += 1
             try:
                 result = model.model_validate_json(extract_text(response))
                 if repair_input and merge_repair:
@@ -528,7 +539,7 @@ class ResearchProvider:
                         if not resolve_unobserved:
                             raise ValueError(_unobserved_sources(missing))
                         result = self.resolve_sources(
-                            step, result, cited if verify_sources else missing, gathering=gathering
+                            step, result, cited if verify_sources else missing, gathering=active_gathering
                         )
                 if validate:
                     validate(result)

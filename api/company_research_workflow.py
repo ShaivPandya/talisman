@@ -197,6 +197,7 @@ class Workflow:
                 web=True,
                 gathering=True,
                 tool_calls=8,
+                repair_tool_calls=4,
                 effort="medium",
                 instructions=self.context,
                 prompt="Investigate every assigned quarter. Identify specific material operational commitments "
@@ -248,6 +249,7 @@ class Workflow:
             web=True,
             gathering=True,
             tool_calls=12,
+            repair_tool_calls=4,
             effort="high",
             instructions=self.context,
             prompt="Investigate this topic on the public web and keep the detail a deep-research report would "

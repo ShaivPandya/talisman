@@ -1417,3 +1417,54 @@ def test_single_quarter_repair_retains_other_records():
     validate_quarters(merged, [original.quarters[0].quarter], as_of=AS_OF)
     assert len(merged.quarters[0].records) == 2
     assert merged.quarters[0].records[-1].outcome == "Insufficient disclosure"
+
+
+@pytest.mark.parametrize("finishing_reserve", [False, True])
+def test_cancelled_transport_attempt_does_not_consume_the_evidence_repair(monkeypatch, finishing_reserve):
+    run_id = claimed()
+    store.reserve_call(run_id, "worker", "unit:0", 1, gathering=True, details={"response_id": "cancelled"})
+    store.settle_call(run_id, "worker", "unit:0", actual_usd=0, usage={}, status="cancelled")
+    # Recover the pending response first, then encounter the older cancellation.
+    store.reserve_call(run_id, "worker", "unit:1", 1, gathering=True, details={"response_id": "retained"})
+    if finishing_reserve:
+        store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))
+    client = mock_client(monkeypatch, [response({"supported": True, "issues": []})])
+    client.responses.retrieve.return_value = response({"supported": False, "issues": ["Correct this citation"]})
+
+    def validate(result):
+        if not result.supported:
+            raise ValueError("Correct this citation")
+
+    result = provider.ResearchProvider(run_id, "worker").request(
+        "unit",
+        ReportReview,
+        web=True,
+        gathering=True,
+        tool_calls=12,
+        repair_tool_calls=4,
+        prompt="Research",
+        instructions="Check evidence",
+        validate=validate,
+    )
+    assert result.supported
+    client.responses.create.assert_called_once()
+    request = client.responses.create.call_args.kwargs
+    assert request["max_tool_calls"] == 4
+    assert "Correct this citation" in request["input"]
+    assert "Retained evidence" in request["input"]
+    calls = store.get_run(run_id)["calls"]
+    assert len(calls) == 3
+    assert calls["unit:2"]["tool_limit"] == 4
+
+
+def test_evidence_validation_still_has_only_one_repair(monkeypatch):
+    client = mock_client(monkeypatch, [response({"supported": False, "issues": []})] * 4)
+
+    def invalid(result):
+        raise ValueError("Unsupported evidence")
+
+    with pytest.raises(provider.ResearchValidationFailed):
+        provider.ResearchProvider(claimed(), "worker").request(
+            "unit", ReportReview, prompt="Research", instructions="Check", validate=invalid
+        )
+    assert client.responses.create.call_count == 2
