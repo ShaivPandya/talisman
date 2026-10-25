@@ -4,7 +4,7 @@ import { useNavigate, useParams } from "react-router-dom"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FileUp, Loader2, Play, Save, Trash2 } from "lucide-react"
 
-import { EquityOverviewReadView } from "@/components/overview/EquityOverviewReadView"
+import { EditableEquityOverview } from "@/components/overview/EditableEquityOverview"
 import { ActionPill, EvaluationPanel } from "@/components/idea/EvaluationPanel"
 import { ManagementQualityPreview } from "@/components/idea/ManagementQualityPreview"
 import { CompanyResearchControls } from "@/components/CompanyResearchControls"
@@ -649,15 +649,12 @@ export function IdeaDetail() {
                     {detail.documents.overview_error}
                   </p>
                 )}
-                {detail?.documents?.overview_content ? (
-                  <EquityOverviewReadView
-                    content={detail.documents.overview_content}
-                    parsed={detail.documents.overview_parsed ?? null}
-                    ticker={selectedIdea.ticker}
-                  />
-                ) : (
-                  <p className="rounded-lg border border-app bg-card-muted px-3 py-4 text-sm text-muted">No overview stored.</p>
-                )}
+                <EditableEquityOverview
+                  key={selectedIdea.ticker}
+                  content={detail?.documents?.overview_content ?? null}
+                  parsed={detail?.documents?.overview_parsed ?? null}
+                  ticker={selectedIdea.ticker}
+                />
                 <RecordEvolutionTimeline
                   entries={detail?.record_timeline}
                   className="mt-6 border-t-0 pt-0"

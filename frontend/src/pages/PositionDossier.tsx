@@ -14,7 +14,6 @@ import {
   updateThesisStatus,
   fetchThesisStatus,
   saveThesisContent,
-  saveOverviewContent,
   saveManagementQualityContent,
   completeAction,
   cancelTrigger,
@@ -61,7 +60,7 @@ import { WhatChangedPanel, type WhatChangedSummary } from "@/components/shared/W
 import { EvidenceLedgerPanel } from "@/components/shared/EvidenceLedgerPanel"
 import { PostMortemReviewDialog } from "@/components/shared/PostMortemReviewDialog"
 import { WatchTriggerEditDialog, type EditableWatchTrigger } from "@/components/shared/WatchTriggerEditDialog"
-import { EquityOverviewReadView } from "@/components/overview/EquityOverviewReadView"
+import { EditableEquityOverview } from "@/components/overview/EditableEquityOverview"
 import { PositionValuationTab } from "@/components/valuation/PositionValuationTab"
 import { PositionScenarioSimulatorTab } from "@/components/scenario/PositionScenarioSimulatorTab"
 import type {
@@ -671,7 +670,7 @@ export function PositionDossier() {
 
       {/* Tab content */}
       <div className="theme-surface rounded-xl p-4">
-        {activeTab === "Overview" && <OverviewTab content={data.overview_content} parsed={data.overview_parsed} ticker={data.ticker} />}
+        {activeTab === "Overview" && <EditableEquityOverview key={data.ticker} content={data.overview_content} parsed={data.overview_parsed} ticker={data.ticker} editLabel="Edit" />}
         {activeTab === "Management Quality" && (
           <ManagementQualityTab
             content={data.management_quality?.content ?? null}
@@ -1180,80 +1179,6 @@ function ThesisStatusDialog({ ticker, currentStatus, onProposed }: {
 }
 
 /* ---------- Sub-tab components ---------- */
-
-/* ---------- OverviewTab ---------- */
-
-function OverviewTab({ content, parsed, ticker }: { content: string | null; parsed: ParsedOverview | null; ticker: string }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState("")
-  const qc = useQueryClient()
-  const saveMutation = useMutation({
-    mutationFn: () => saveOverviewContent(ticker, draft),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["dossier", ticker] })
-      setEditing(false)
-    },
-  })
-
-  const startEdit = () => {
-    setDraft(content ?? "")
-    setEditing(true)
-  }
-
-  if (!content) {
-    return (
-      <div>
-        <p className="text-sm text-muted mb-3">No overview on file for this position.</p>
-        <button type="button" onClick={startEdit} className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors">
-          Write Overview
-        </button>
-        {editing && (
-          <div className="mt-3">
-            <textarea
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              className="w-full min-h-[300px] rounded-lg border border-app bg-transparent p-3 text-sm text-app font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-              placeholder={"# TICKER Overview\n## Financials\n## Sensitivity to Extrinsic Factors\n## Industry"}
-            />
-            {saveMutation.isError && <p className="text-xs text-red-600 mt-1">{String(saveMutation.error)}</p>}
-            <div className="flex gap-2 mt-2">
-              <ActionButton onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} loadingText="Saving...">Save Overview</ActionButton>
-              <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors">Cancel</button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  if (editing) {
-    return (
-      <div>
-        <textarea
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          className="w-full min-h-[400px] rounded-lg border border-app bg-transparent p-3 text-sm text-app font-mono focus:outline-none focus:ring-1 focus:ring-blue-500"
-        />
-        {saveMutation.isError && <p className="text-xs text-red-600 mt-1">{String(saveMutation.error)}</p>}
-        <div className="flex gap-2 mt-2">
-          <ActionButton onClick={() => saveMutation.mutate()} loading={saveMutation.isPending} loadingText="Saving...">Save Overview</ActionButton>
-          <button type="button" onClick={() => setEditing(false)} className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors">Cancel</button>
-        </div>
-      </div>
-    )
-  }
-
-  return (
-    <div>
-      <div className="mb-4 flex justify-end">
-        <button type="button" onClick={startEdit} className="rounded-lg border border-app px-3 py-1.5 text-sm font-medium text-muted hover:text-app transition-colors">
-          Edit
-        </button>
-      </div>
-      <EquityOverviewReadView content={content} parsed={parsed} ticker={ticker} />
-    </div>
-  )
-}
 
 function ManagementRatingBadge({ value }: { value?: string | null }) {
   const rating = cleanDossierDisplayText(value) || "Insufficient evidence"
