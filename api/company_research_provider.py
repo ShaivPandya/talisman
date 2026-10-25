@@ -341,6 +341,27 @@ class ResearchProvider:
             raise
         return response
 
+    def recover_pending(self) -> None:
+        """Settle already submitted work before resumed tasks compete for slots."""
+        for call_id, call in store.get_run(self.run_id)["calls"].items():
+            response_id = call.get("response_id")
+            if not response_id or (call.get("settled") and not call.get("inflight_unknown")):
+                continue
+            # Recovery reads existing work; it never launches new discovery and
+            # can use the finishing window. The original deadline still applies.
+            response = self._wait(self._retrieve(response_id), call_id)
+            step, attempt = call_id.rsplit(":", 1)
+            legacy._write_json(self.artifact_key(step, f"attempt-{attempt}"), _dict(response))
+            usage, cost = response_usage(response)
+            store.settle_call(
+                self.run_id,
+                self.owner,
+                call_id,
+                actual_usd=cost,
+                usage=usage,
+                status=str(legacy._value(response, "status")),
+            )
+
     def request(
         self,
         step: str,
@@ -392,7 +413,9 @@ class ResearchProvider:
             return bool(call.get("response_id") and (not call.get("settled") or call.get("inflight_unknown")))
 
         validated_attempts = 0
-        for attempt in sorted(range(attempts + TRANSPORT_RECOVERY_ATTEMPTS), key=lambda index: not pending(index)):
+        # A partial repair depends on the earlier draft and its observed sources.
+        # Reconstruct that context in order, even when the repair was left pending.
+        for attempt in range(attempts + TRANSPORT_RECOVERY_ATTEMPTS):
             state = store.check_run(self.run_id, self.owner)
             call_id = f"{step}:{attempt}"
             existing = state["calls"].get(call_id)

@@ -856,6 +856,41 @@ def test_unknown_provider_outcome_keeps_concurrency_slot_until_terminal_recovery
     store.reserve_call(run_id, "worker", "four", 2, gathering=False, details={})
 
 
+def test_resume_recovers_all_pending_calls_before_new_work_and_preserves_accounting(monkeypatch):
+    run_id = claimed()
+    steps = ["overview/business/source-check/a", "quarters/FY2021_Q1", "overview/other"]
+    responses = {}
+    for index, step in enumerate(steps):
+        response_id = f"resp_pending_{index}"
+        call_id = f"{step}:0"
+        store.reserve_call(
+            run_id, "worker", call_id, 2, gathering=False,
+            details={"step": step, "response_id": response_id},
+        )
+        saved_response = response({"supported": True, "issues": []})
+        saved_response["id"] = response_id
+        responses[response_id] = saved_response
+    # A previously unknown outcome keeps its conservative charged liability.
+    store.settle_call(run_id, "worker", f"{steps[-1]}:0", actual_usd=None, usage={}, status="unknown")
+    store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))
+    client = mock_client(monkeypatch, [])
+    client.responses.retrieve.side_effect = lambda response_id, **_: responses[response_id]
+    instance = provider.ResearchProvider(run_id, "worker")
+    instance.recover_pending()
+    state = store.get_run(run_id)
+    assert store.reserved_usd(state) == 0
+    assert state["calls"][f"{steps[-1]}:0"]["charged_usd"] == 2
+    assert all(call["settled"] and not call["inflight_unknown"] for call in state["calls"].values())
+    for step in steps:
+        assert legacy._read_json(instance.artifact_key(step, "attempt-0"))["status"] == "completed"
+    client.responses.create.assert_not_called()
+    client.responses.cancel.assert_not_called()
+    assert client.responses.retrieve.call_count == 3
+    instance.recover_pending()
+    assert client.responses.retrieve.call_count == 3
+    store.reserve_call(run_id, "worker", "finishing:0", 1, gathering=False, details={})
+
+
 def test_compact_verification_preserves_full_ledger_and_original_promises():
     original = commitment()
     checked = EvidenceDecisions.model_validate(
@@ -897,6 +932,9 @@ class FakeProvider:
 
     def __init__(self, run_id, owner):
         self.run_id, self.owner = run_id, owner
+
+    def recover_pending(self):
+        pass
 
     def request(self, step, model, **kwargs):
         self.calls.append(step)
@@ -1418,7 +1456,8 @@ def quarter_repair_packets():
     return original, QuarterPacket(quarters=[correction])
 
 
-def test_resume_applies_saved_partial_repair_without_repeating_quarter_research(monkeypatch):
+@pytest.mark.parametrize("pending_repair", [False, True])
+def test_resume_applies_saved_partial_repair_without_repeating_quarter_research(monkeypatch, pending_repair):
     original, repair = quarter_repair_packets()
     labels = [q.quarter for q in original.quarters]
     step = "quarters/" + "/".join(label.replace(" ", "_") for label in labels)
@@ -1426,12 +1465,12 @@ def test_resume_applies_saved_partial_repair_without_repeating_quarter_research(
     for index in (0, 1):
         call_id = f"{step}:{index}"
         store.reserve_call(run_id, "worker", call_id, 1, gathering=True, details={"response_id": f"resp_{index}"})
-        store.settle_call(run_id, "worker", call_id, actual_usd=0, usage={}, status="completed")
+        if index == 0 or not pending_repair:
+            store.settle_call(run_id, "worker", call_id, actual_usd=0, usage={}, status="completed")
     client = mock_client(monkeypatch, [])
-    client.responses.retrieve.side_effect = [
-        response(original.model_dump(mode="json")),
-        response(repair.model_dump(mode="json")),
-    ]
+    client.responses.retrieve.side_effect = lambda response_id, **_: response(
+        (original if response_id == "resp_0" else repair).model_dump(mode="json")
+    )
     result = workflow.Workflow(run_id, "worker").gather_quarters(plan(), labels)
     assert [q.quarter for q in result.quarters] == labels
     assert sum(len(q.records) for q in result.quarters) == 5
@@ -1471,7 +1510,7 @@ def test_cancelled_transport_attempt_does_not_consume_the_evidence_repair(monkey
     run_id = claimed()
     store.reserve_call(run_id, "worker", "unit:0", 1, gathering=True, details={"response_id": "cancelled"})
     store.settle_call(run_id, "worker", "unit:0", actual_usd=0, usage={}, status="cancelled")
-    # Recover the pending response first, then encounter the older cancellation.
+    # The older cancellation must not consume the pending evidence's repair.
     store.reserve_call(run_id, "worker", "unit:1", 1, gathering=True, details={"response_id": "retained"})
     if finishing_reserve:
         store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))

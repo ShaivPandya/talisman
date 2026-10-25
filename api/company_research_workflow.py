@@ -805,6 +805,7 @@ def run_company_research_run(req: CompanyResearchRunRequest, *, job_id: str) -> 
     try:
         store.mutate_run(run_id, lambda s: s.update(job_id=job_id), owner=owner)
         workflow = Workflow(run_id, owner)
+        workflow.provider.recover_pending()
         workflow.talisman.prepare_uploads()
         plan = workflow.plan()
         workflow.talisman.collect(plan.issuer)
