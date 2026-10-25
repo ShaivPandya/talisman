@@ -15,8 +15,15 @@ source "${_here}/config.sh"
 # Optional vendor bindings are shared by the API and durable workers.
 for _alternative_binding in "${ALTERNATIVE_DATA_SECRETS[@]:-}"; do
   [[ -n "${_alternative_binding}" ]] || continue
-  API_SECRETS+=("${_alternative_binding}")
-  WORKER_SECRETS+=("${_alternative_binding}")
+  # Managed setup and manual config may contain the same binding. Preserve a
+  # pre-existing mapping for each environment variable rather than duplicating it.
+  _alternative_name="${_alternative_binding%%=*}"
+  if [[ " ${API_SECRETS[*]} " != *" ${_alternative_name}="* ]]; then
+    API_SECRETS+=("${_alternative_binding}")
+  fi
+  if [[ " ${WORKER_SECRETS[*]} " != *" ${_alternative_name}="* ]]; then
+    WORKER_SECRETS+=("${_alternative_binding}")
+  fi
 done
 
 # Default IMAGE_TAG to the current short git SHA when the caller didn't set one.
