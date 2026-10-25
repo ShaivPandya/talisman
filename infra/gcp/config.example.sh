@@ -105,6 +105,7 @@ export WORKER_SECRETS=(
 
 # Optional alternative-data credentials, bound to both API and workers only
 # when supplied. Example: ("FIRMS_MAP_KEY=FIRMS_MAP_KEY:latest").
+# setup-data-source-secrets.sh --apply appends managed bindings to config.sh.
 export ALTERNATIVE_DATA_SECRETS=()
 
 # Optional governed inference service secrets (private GPU Cloud Run).

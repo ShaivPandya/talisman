@@ -33,6 +33,35 @@ export ALTERNATIVE_DATA_SECRETS=(
 )
 ```
 
+To import already-issued credentials, put only the fields you have in an ignored
+local `.env.data-sources` file (restrict it with `chmod 600`). Preview, then apply:
+
+```bash
+PYTHON=.venv/bin/python ./infra/gcp/setup-data-source-secrets.sh --env-file .env.data-sources
+PYTHON=.venv/bin/python ./infra/gcp/setup-data-source-secrets.sh --env-file .env.data-sources --apply
+```
+
+This stores values through stdin, preserves existing enabled secrets, skips
+empty/placeholder values and incomplete OAuth pairs, grants secret access to
+`API_SA` and `WORKER_SA`, and appends references to a managed block in ignored
+`config.sh`. No values are printed or written to deploy configuration. A failed
+GCP inventory stops setup; reruns are safe after partial completion. Explicit
+environment values take precedence over the input file.
+
+The command stages credentials; update the API, generic async job, and agent,
+analyzer, and ontology worker pools to load the reported bindings. Use
+`gcloud run ... update --update-secrets` to keep their current images/settings,
+or the existing component deploy scripts for a normal release. Verify the
+authenticated catalog and a bounded provider fetch before deleting the local
+handoff file. OpenSky still requires written permission; credential import
+never sets license-confirmation flags.
+
+Credential registration: [NASA FIRMS MAP_KEY](https://firms.modaps.eosdis.nasa.gov/api/map_key/),
+[Census API key](https://api.census.gov/data/key_signup.html),
+[NOAA NCEI token](https://www.ncei.noaa.gov/cdo-web/token), and
+[Copernicus Sentinel Hub OAuth client](https://documentation.dataspace.copernicus.eu/APIs/SentinelHub/Overview/Authentication.html).
+FIRMS requires its own MAP_KEY; a general `api.nasa.gov` key does not replace it.
+
 No paid provider is purchased or provisioned. SONAR charts remain reference-only.
 NOAA AIS provides archive discovery, with historical track analysis labeled
 bulk-only. An unavailable provider/export remains visible with its last attempt
