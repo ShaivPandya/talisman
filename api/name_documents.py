@@ -375,21 +375,28 @@ def research_passages(snapshot: list[dict[str, Any]], query: str, *, max_bytes: 
 
 
 def validate_private_sources(value: Any, supplied: list[dict[str, Any]]) -> None:
-    """A private citation must name a supplied excerpt and quote evidence actually in it."""
+    """Ground a private quote and retain the stored excerpt's canonical location."""
     if isinstance(value, dict):
         url = value.get("url")
         if isinstance(url, str) and url.startswith("/") and not PRIVATE_URL.fullmatch(url):
             raise ValueError("Private sources must use the exact citation URL supplied with the upload.")
         if isinstance(url, str) and PRIVATE_URL.fullmatch(url):
             passage = " ".join(str(value.get("passage", "")).split())
-            location = str(value.get("location", "")).strip().lower()
-            if not passage or not any(
-                source["url"] == url
-                and location == source["location"].lower()
-                and passage in " ".join(source["text"].split())
+            # A model may append a section description to the supplied page/line
+            # anchor. That prose is not part of the excerpt's identity. Keep the
+            # actual anchor, including its page and excerpt numbers, exact.
+            location = " ".join(str(value.get("location", "")).lower().split())
+            anchor = re.split(r"[;:(]|\s+[-–—]\s+", location, maxsplit=1)[0].strip()
+            matches = [
+                source
                 for source in supplied
-            ):
+                if source["url"] == url
+                and anchor == " ".join(source["location"].lower().split())
+                and passage in " ".join(source["text"].split())
+            ]
+            if not passage or not matches:
                 raise ValueError("Private source citation is not supported by a supplied upload passage and location.")
+            value["location"] = matches[0]["location"]
         for child in value.values():
             validate_private_sources(child, supplied)
     elif isinstance(value, list):

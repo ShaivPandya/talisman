@@ -169,7 +169,8 @@ def test_citation_excerpts_preserve_quotes_and_markdown_newlines(research_contex
 
 
 @pytest.mark.parametrize("written_date", ["05 August 2026", "5 August 2026", "August 5, 2026", "Aug. 5, 2026"])
-def test_upload_quotes_accept_pdf_whitespace_and_unambiguous_dates(research_context, written_date):
+@pytest.mark.parametrize("description", ["", "; revenue discussion", ": Revenue", " (Revenue)", " — Revenue"])
+def test_upload_quotes_accept_pdf_whitespace_and_unambiguous_dates(research_context, written_date, description):
     url = "/api/names/MU/documents/" + "a" * 32 + "/content"
     research_context.sources = [
         {
@@ -188,16 +189,55 @@ def test_upload_quotes_accept_pdf_whitespace_and_unambiguous_dates(research_cont
         title="Private upload: analyst.pdf",
         published_on=date(2026, 8, 5),
         passage="Revenue rose 20%.",
-        location="page 1, excerpt 1",
+        location="page 1, excerpt 1" + description,
     )
     research_context.validate_sources(citation)
+    assert citation.location == "page 1, excerpt 1"
     for changes in (
         {"published_on": date(2026, 8, 6)},
         {"passage": "Revenue rose 21%."},
         {"location": "page 2, excerpt 1"},
+        {"location": "page 1, excerpt 10; Revenue"},
+        {"location": "page 10, excerpt 1; Revenue"},
     ):
         with pytest.raises(ValueError):
             research_context.validate_sources(citation.model_copy(update=changes))
+
+
+def test_uploaded_quote_location_is_canonical_in_retained_evidence(research_context):
+    url = "/api/names/MU/documents/" + "a" * 32 + "/content"
+    research_context.sources = [
+        {
+            "url": url,
+            "title": "Private upload: analyst.txt",
+            "source_kind": "private_upload",
+            "data": {"passages": [{"url": url, "location": "lines 10-20", "text": "Revenue rose 20%."}]},
+        }
+    ]
+    record = Fact(
+        record_id="upload",
+        section="Business",
+        claim="Revenue rose 20%.",
+        sources=[
+            Source(
+                url=url,
+                title="Private upload: analyst.txt",
+                published_on=None,
+                passage="Revenue rose 20%.",
+                location="  LINES   10-20; revenue discussion",
+            )
+        ],
+    )
+
+    def respond(_step, _model, **kwargs):
+        result = context.ContextEvidence(facts=[record], commitments=[], gaps=[])
+        kwargs["validate"](result)
+        return result
+
+    research_context.provider.request.side_effect = respond
+    result = research_context.evidence("overview", ["Business"], [])
+    assert len(result.facts) == 1 and not result.gaps
+    assert result.facts[0].sources[0].location == "lines 10-20"
 
 
 def test_private_evidence_retains_supported_records_and_reports_rejections(research_context, monkeypatch):

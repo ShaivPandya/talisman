@@ -267,7 +267,15 @@ class ResearchContext:
         registered = {source["url"]: source for source in self.sources}
 
         def walk(item: Any) -> None:
-            if isinstance(item, dict):
+            if isinstance(item, EvidenceModel):
+                if isinstance(item, Source):
+                    data = item.model_dump(mode="json")
+                    walk(data)
+                    item.location = data["location"]
+                else:
+                    for name in type(item).model_fields:
+                        walk(getattr(item, name))
+            elif isinstance(item, dict):
                 if "url" in item and "passage" in item:
                     source = Source.model_validate(item)
                     snapshot = registered.get(source.url)
@@ -305,7 +313,7 @@ class ResearchContext:
                 for child in item:
                     walk(child)
 
-        walk(value.model_dump(mode="json"))
+        walk(value)
 
     def evidence(self, kind: str, sections: list[str], quarters: list[str]) -> ContextEvidence:
         if not self.sources:
