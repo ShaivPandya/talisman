@@ -19,6 +19,7 @@ SQLITE_PATH: Path = PROJECT_ROOT / "tmp" / "company_research" / "runs.sqlite3"
 MAX_COST_USD = 25.0
 MAX_DURATION_S = 80 * 60
 CONTINUATION_DURATION_S = 30 * 60
+FINISH_WINDOW_S = 90 * 60
 FINISH_RESERVE_USD = 7.0
 FINISH_RESERVE_S = 15 * 60
 LEASE_S = 180
@@ -202,8 +203,10 @@ def allowance_seconds(state: dict[str, Any]) -> int:
 
 def check_run(run_id: str, owner: str, *, gathering: bool = False) -> dict[str, Any]:
     def change(state: dict[str, Any]) -> None:
-        remaining = state["deadline"] - time.time()
-        if remaining <= (FINISH_RESERVE_S if gathering else 0):
+        deadline = (
+            state.get("gathering_deadline", state["deadline"] - FINISH_RESERVE_S) if gathering else state["deadline"]
+        )
+        if deadline <= time.time():
             raise ResearchLimitReached(
                 "Source gathering reached its time allowance; completed evidence is retained."
                 if gathering
@@ -213,6 +216,24 @@ def check_run(run_id: str, owner: str, *, gathering: bool = False) -> dict[str, 
         if state["status"] != "running":
             raise ResearchLeaseLost("Research run is no longer active.")
         state["lease_until"] = time.time() + LEASE_S
+
+    return mutate_run(run_id, change, owner=owner)
+
+
+def begin_finishing(run_id: str, owner: str) -> dict[str, Any]:
+    """Give verified writing its own bounded cloud window without reopening source research or spending."""
+
+    def change(state: dict[str, Any]) -> None:
+        if state["status"] != "running":
+            raise ResearchLeaseLost("Research run is no longer active.")
+        if state.get("finishing_started_at") is not None:
+            return
+        now = time.time()
+        state["gathering_deadline"] = state["deadline"] - FINISH_RESERVE_S
+        state["finishing_started_at"] = now
+        state["deadline"] = max(state["deadline"], now + FINISH_WINDOW_S)
+        state["window_seconds"] = state["deadline"] - state.get("window_started_at", state["created_at"])
+        state["lease_until"] = now + LEASE_S
 
     return mutate_run(run_id, change, owner=owner)
 
@@ -227,8 +248,10 @@ def reserve_call(
     def change(state: dict[str, Any]) -> None:
         if call_id in state["calls"]:
             return
-        remaining = state["deadline"] - time.time()
-        if remaining <= (FINISH_RESERVE_S if gathering else 0):
+        deadline = (
+            state.get("gathering_deadline", state["deadline"] - FINISH_RESERVE_S) if gathering else state["deadline"]
+        )
+        if deadline <= time.time():
             raise ResearchLimitReached("Research time allowance reached; completed evidence is retained.")
         reserve = FINISH_RESERVE_USD if gathering else 0
         ceiling = state["max_cost_usd"] - reserve
@@ -301,7 +324,7 @@ def resume_run(run_id: str, *, extend_time: bool = False) -> dict[str, Any]:
         if state["charged_usd"] >= state["max_cost_usd"]:
             raise ResearchLimitReached("The original research allowance is exhausted.")
         if state["deadline"] <= now:
-            if not extend_time or state.get("continuation_used"):
+            if not extend_time:
                 raise ResearchLimitReached("The research time allowance is exhausted.")
             if state.get("lease_until", 0) > now:
                 raise ResearchLimitReached("The previous worker is still stopping. Retry after it finishes.")

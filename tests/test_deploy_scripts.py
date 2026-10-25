@@ -181,7 +181,7 @@ def test_generic_async_job_defaults_to_smaller_fallback_resources() -> None:
 
 
 def test_async_job_task_timeout_outlasts_the_company_research_deadline() -> None:
-    from api.company_research_store import MAX_DURATION_S
+    from api.company_research_store import FINISH_WINDOW_S, MAX_DURATION_S
     from api.job_registry import get_job_spec
 
     script = (ROOT / "infra/gcp/deploy-async-job.sh").read_text()
@@ -190,10 +190,12 @@ def test_async_job_task_timeout_outlasts_the_company_research_deadline() -> None
     legacy_timeout = re.search(
         r"ASYNC_TIMEOUT_COMPANY_RESEARCH_SECONDS=\$\{ASYNC_TIMEOUT_COMPANY_RESEARCH_SECONDS:-(\d+)\}", lib
     )
-    stale_grace = get_job_spec("company_research_run").stale_grace_s
+    spec = get_job_spec("company_research_run")
+    stale_grace = spec.stale_grace_s
 
     assert task_timeout is not None and legacy_timeout is not None and stale_grace is not None
-    assert int(task_timeout.group(1)) >= MAX_DURATION_S + stale_grace
+    assert spec.timeout_s >= MAX_DURATION_S + FINISH_WINDOW_S
+    assert int(task_timeout.group(1)) >= spec.timeout_s + stale_grace
     assert int(task_timeout.group(1)) >= 81 * 60
     assert int(legacy_timeout.group(1)) == MAX_DURATION_S
 

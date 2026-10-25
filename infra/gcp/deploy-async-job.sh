@@ -6,7 +6,7 @@
 # Tunables:
 #   ASYNC_JOB_RUNNER_JOB=talisman-async-job
 #   ASYNC_JOB_CPU=1  ASYNC_JOB_MEMORY=1Gi
-#   ASYNC_JOB_TIMEOUT=4860  ASYNC_JOB_MAX_RETRIES=0
+#   ASYNC_JOB_TIMEOUT=10800  ASYNC_JOB_MAX_RETRIES=0
 #     (company research runs up to 80 min + the 60 s stale grace; keep this above that)
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
@@ -65,4 +65,4 @@ gcloud run jobs deploy "${ASYNC_JOB_RUNNER_JOB}" \
   --cpu="${ASYNC_JOB_CPU:-1}" \
   --memory="${ASYNC_JOB_MEMORY:-1Gi}" \
   --max-retries="${ASYNC_JOB_MAX_RETRIES:-0}" \
-  --task-timeout="${ASYNC_JOB_TIMEOUT:-4860}"
+  --task-timeout="${ASYNC_JOB_TIMEOUT:-10800}"

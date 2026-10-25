@@ -90,7 +90,6 @@ def _report_status(state, kind, actor_id=None):
         "continuable": (
             status == "incomplete"
             and expired
-            and not state.get("continuation_used")
             and state.get("lease_until", 0) <= time.time()
             and state["charged_usd"] < state["max_cost_usd"]
             and actor_id == state["snapshot"]["actor"].get("actor_id")

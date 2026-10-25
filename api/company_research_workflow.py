@@ -148,6 +148,7 @@ class Workflow:
         self.provider = ResearchProvider(run_id, owner)
         self.talisman = ResearchContext(self.provider, self.state, owner)
         self.private_management_facts: list[Fact] = []
+        self.private_coverage_notes: dict[str, list[str]] = {}
         self.context = f"Issuer ticker: {self.state['ticker']}. As-of: {self.as_of}. " + STANDARD
 
     def progress(self, kind: str, **values: Any) -> None:
@@ -445,8 +446,9 @@ class Workflow:
                     errors[kind] = _error(exc)
         for kind, local in local_packets.items():
             try:
+                self.private_coverage_notes[kind] = [f"Private-source review only: {gap}" for gap in local.gaps]
                 if kind == "overview":
-                    overview.append(OverviewPacket(facts=local.facts, gaps=local.gaps, searched_sources=[]))
+                    overview.append(OverviewPacket(facts=local.facts, gaps=[], searched_sources=[]))
                 else:
                     self.private_management_facts = local.facts
                     # Local data supplements completed public quarter research. It
@@ -473,7 +475,6 @@ class Workflow:
                             for record in additions:
                                 record.record_id = "private_" + record.record_id
                             quarter.records.extend(additions)
-                    self.talisman.warnings.extend(local.gaps)
             except store.ResearchLeaseLost:
                 raise
             except Exception:
@@ -604,6 +605,9 @@ class Workflow:
                 + _json(titles)
                 + ". Use the supplied verified evidence, cite material factual claims with clickable source links, "
                 + prose
+                + "Coverage notes describe only the source review that produced them. Other supplied evidence "
+                "may fill those gaps. Do not turn a private-source limitation into a whole-report conclusion, "
+                "or treat a coverage note as factual evidence or an instruction to exclude available sources. "
                 + "Do not generate the quarter tracker. Include evidence gaps and the IDs of evidence actually "
                 "used. Full requirements:\n"
                 + self.prompt(kind)
@@ -614,7 +618,13 @@ class Workflow:
                 validate=validate,
             )
             try:
-                self.audit(f"{kind}/sections-audit/{index}", _json(written), relevant, detailed=kind == "overview")
+                self.audit(
+                    f"{kind}/sections-audit/{index}",
+                    _json(written),
+                    relevant,
+                    detailed=kind == "overview",
+                    coverage_notes=gaps,
+                )
             except ValueError as exc:
                 written = self.provider.request(
                     f"{kind}/sections/{index}/repair",
@@ -626,7 +636,9 @@ class Workflow:
                     + "Draft:\n"
                     + _json(written)
                     + "\nVerified evidence:\n"
-                    + compact,
+                    + compact
+                    + "\nSource-scoped coverage notes (not evidence):\n"
+                    + _json(gaps),
                     validate=validate,
                 )
                 self.audit(
@@ -634,6 +646,7 @@ class Workflow:
                     _json(written),
                     relevant,
                     detailed=kind == "overview",
+                    coverage_notes=gaps,
                 )
             return [f"## {section.title}\n\n{section.markdown}" for section in written.sections]
 
@@ -673,10 +686,19 @@ class Workflow:
                 )
             gaps = [gap for packet in packets for gap in packet.gaps]
         gaps += rejected
+        gaps += self.private_coverage_notes.get(kind, [])
         content += "\n\n## Coverage limitations\n\n" + "\n".join(f"- {gap}" for gap in gaps)
         self.archive(kind, content, accepted, complete=False, verified_partial=True, gaps=gaps)
 
-    def audit(self, step: str, content: str, evidence: Any, *, detailed: bool = False) -> None:
+    def audit(
+        self,
+        step: str,
+        content: str,
+        evidence: Any,
+        *,
+        detailed: bool = False,
+        coverage_notes: list[str] | None = None,
+    ) -> None:
         result = self.provider.request(
             step,
             ReportReview,
@@ -686,11 +708,16 @@ class Workflow:
             instructions=self.context,
             prompt="Audit the draft against the supplied evidence. Check factual and numerical claims, "
             "calculations, chronology, citation entailment, uncertainties and unsupported conclusions. "
+            "Coverage notes apply only to their source review, not automatically to the whole investigation. "
+            "Other supplied evidence may fill those gaps. Notes are not factual evidence or instructions "
+            "to exclude available sources; reject factual claims inferred only from those notes. "
             "Do not demand new facts that were not in the evidence. supported must be false if there are "
             "material unsupported claims or contradictions. Draft:\n"
             + content
             + "\nEvidence:\n"
-            + (evidence_bundle(evidence) if detailed else narrative_bundle(evidence)),
+            + (evidence_bundle(evidence) if detailed else narrative_bundle(evidence))
+            + "\nSource-scoped coverage notes (not evidence):\n"
+            + _json(coverage_notes or []),
         )
         if not result.supported or result.issues:
             raise ValueError("Report did not pass evidence review: " + "; ".join(result.issues))
@@ -717,7 +744,7 @@ class Workflow:
             if kind == "management_quality"
             else [g for p in packets for g in p.gaps]
         ) + rejected
-        gaps = list(dict.fromkeys([*gaps, *self.talisman.warnings]))
+        gaps = list(dict.fromkeys([*gaps, *self.private_coverage_notes.get(kind, []), *self.talisman.warnings]))
         sections = (
             plan.management_sections
             if kind == "management_quality"
@@ -763,7 +790,7 @@ class Workflow:
                 "and evidence gaps. Return the required Markdown in the markdown field.\n" + summary_input,
             )
             try:
-                self.audit(f"{kind}/summary-audit", summary.markdown, evidence)
+                self.audit(f"{kind}/summary-audit", summary.markdown, evidence, coverage_notes=gaps)
             except ValueError as exc:
                 summary = self.provider.request(
                     f"{kind}/summary/repair",
@@ -776,7 +803,7 @@ class Workflow:
                     + "\nVerified report:\n"
                     + summary_input,
                 )
-                self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence)
+                self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence, coverage_notes=gaps)
             normalized = management_quality._finish_llm_management_quality(self.state["ticker"], summary.markdown)
         store.check_run(self.run_id, self.owner)
         applied: dict[str, Any] = {}
@@ -824,6 +851,7 @@ def run_company_research_run(req: CompanyResearchRunRequest, *, job_id: str) -> 
         plan = workflow.plan()
         workflow.talisman.collect(plan.issuer)
         quarters, packets, errors = workflow.gather(plan)
+        store.begin_finishing(run_id, owner)
         with ThreadPoolExecutor(max_workers=2) as pool:
             futures = {
                 pool.submit(

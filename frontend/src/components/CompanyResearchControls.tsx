@@ -225,7 +225,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
         <button type="button" onClick={() => setEditing(true)} className={`${BUTTON} theme-button-secondary`}>
           <Settings2 size={16} aria-hidden="true" /> Edit Research Prompts
         </button>
-        <p className="text-xs text-subtle">Researches and saves overview and management quality. Each new run allows up to 80 minutes and $25 total.</p>
+        <p className="text-xs text-subtle">Researches and saves overview and management quality in the cloud, with a $25 total spending ceiling. Closing this page does not stop it.</p>
       </div>
       {query.error && (
         <div className="flex flex-wrap items-center gap-2 text-sm text-red-600" role="alert">
@@ -270,7 +270,7 @@ export function CompanyResearchControls({ ticker }: { ticker: string }) {
                 </button>
               )}
             </div>
-            {report.continuable && <p className="text-xs text-subtle">One additional 30-minute window reuses saved work and the remaining original budget. The total spending ceiling does not increase.</p>}
+            {report.continuable && <p className="text-xs text-subtle">Continue saved work with the remaining original budget. Report writing and review receive their own time allowance; the total spending ceiling does not increase.</p>}
             {report.progress && (
               <p className="text-xs text-subtle">
                 {report.progress.quarters_total != null && `${report.progress.quarters_completed ?? 0} / ${report.progress.quarters_total} quarters researched. `}

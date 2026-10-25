@@ -228,8 +228,11 @@ def test_explicit_time_continuation_reuses_run_and_budget_without_duplicate_disp
     repeated = run_store.get_run(run_id)
     assert repeated["deadline"] == after["deadline"] and repeated["job_id"] == after["job_id"]
     run_store.mutate_run(run_id, lambda s: s.update(deadline=time.time() - 1, status="incomplete"))
-    assert auth_client.post("/api/company-research/MU", json=body).status_code == 409
-    assert not auth_client.get("/api/company-research/MU").json()["reports"]["overview"]["continuable"]
+    assert auth_client.get("/api/company-research/MU").json()["reports"]["overview"]["continuable"]
+    assert auth_client.post("/api/company-research/MU", json=body).status_code == 202
+    continued = run_store.get_run(run_id)
+    for field in ("snapshot", "calls", "steps", "charged_usd", "max_cost_usd"):
+        assert continued[field] == before[field]
 
 
 @pytest.mark.parametrize("blocked", ["spent", "live_worker", "other_actor"])

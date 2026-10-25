@@ -1632,3 +1632,71 @@ def test_semantic_fallback_cannot_accept_unobserved_sources(monkeypatch):
             resolve_unobserved=False,
         )
     fallback.assert_not_called()
+
+
+def test_private_coverage_notes_are_scoped_to_their_report_and_shared_with_audits(monkeypatch):
+    overview_note = "The CEO is not identified in the supplied private excerpts."
+    management_note = "The private excerpts contain no original management promises."
+    seen = {}
+
+    class RecordingProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model in (WrittenSections, ReportReview):
+                seen[step] = kwargs["prompt"]
+            return super().request(step, model, **kwargs)
+
+    def private_evidence(self, kind, *args):
+        return ContextEvidence(
+            facts=[], commitments=[], gaps=[overview_note if kind == "overview" else management_note]
+        )
+
+    monkeypatch.setattr(workflow, "ResearchProvider", RecordingProvider)
+    monkeypatch.setattr(workflow.ResearchContext, "evidence", private_evidence)
+    state = create_run()
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="scoped-notes"
+    )
+    assert result["status"] == "done"
+    for kind, own_note, unrelated_note in (
+        ("overview", overview_note, management_note),
+        ("management_quality", management_note, overview_note),
+    ):
+        report = legacy.read_research_report("EL", kind, state["run_id"])
+        assert unrelated_note not in report["content"]
+        assert f"Private-source review only: {own_note}" in report["content"]
+        assert own_note in seen[f"{kind}/sections/0"]
+        assert own_note in seen[f"{kind}/sections-audit/0"]
+        assert "not evidence" in seen[f"{kind}/sections-audit/0"]
+        assert unrelated_note not in seen[f"{kind}/sections/0"]
+
+
+def test_finishing_window_preserves_source_cutoff_cost_and_checkpoints(monkeypatch):
+    run_id = claimed()
+    original = store.get_run(run_id)
+    store.mutate_run(
+        run_id,
+        lambda s: s.update(
+            charged_usd=12, calls={"saved": {"settled": True, "reserved_usd": 0}}, steps={"plan": {"completed": True}}
+        ),
+    )
+    now = original["deadline"] - 300
+    monkeypatch.setattr(store.time, "time", lambda: now)
+    before = store.get_run(run_id)
+    after = store.begin_finishing(run_id, "worker")
+    assert after["deadline"] == now + store.FINISH_WINDOW_S
+    assert after["gathering_deadline"] == original["deadline"] - store.FINISH_RESERVE_S
+    for field in ("calls", "steps", "charged_usd", "max_cost_usd", "created_at", "snapshot"):
+        assert after[field] == before[field]
+    with pytest.raises(store.ResearchLimitReached, match="Source gathering"):
+        store.check_run(run_id, "worker", gathering=True)
+    with pytest.raises(store.ResearchLimitReached, match="time allowance"):
+        store.reserve_call(run_id, "worker", "new-sources", 1, gathering=True, details={})
+    store.reserve_call(run_id, "worker", "writing", 2, gathering=False, details={})
+    with pytest.raises(store.ResearchLimitReached, match="spending allowance"):
+        store.reserve_call(run_id, "worker", "overspend", 14, gathering=False, details={})
+    now += 600
+    assert store.begin_finishing(run_id, "worker")["deadline"] == after["deadline"]
+    store.mutate_run(run_id, lambda s: s.update(status="incomplete", lease_until=0))
+    store.resume_run(run_id)
+    assert store.claim_run(run_id, "replacement")
+    assert store.begin_finishing(run_id, "replacement")["deadline"] == after["deadline"]

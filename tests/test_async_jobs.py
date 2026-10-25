@@ -836,6 +836,8 @@ def test_company_research_run_job_outlasts_its_research_deadline(monkeypatch):
     assert get_job(row["job_id"])["status"] != "failed"
 
     async_job_runner.fail_stale_active_jobs(datetime.now(UTC) + timedelta(seconds=MAX_DURATION_S + 60 + 1))
+    assert get_job(row["job_id"])["status"] != "failed"
+    async_job_runner.fail_stale_active_jobs(datetime.now(UTC) + timedelta(seconds=spec.timeout_s + 60 + 1))
     assert get_job(row["job_id"])["status"] == "failed"
 
 
