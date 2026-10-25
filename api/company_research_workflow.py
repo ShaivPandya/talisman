@@ -32,6 +32,7 @@ from api.company_research_evidence import (
     ResearchPlan,
     WrittenSections,
     apply_decisions,
+    merge_quarter_repair,
     render_tracker,
     source_urls,
     validate_plan,
@@ -204,7 +205,9 @@ class Workflow:
                 "Do not write the final narrative. Document source searches even when disclosure is absent. "
                 "Use source_unavailable only after searching primary-source alternatives; it means evidence "
                 "was unavailable, not that execution failed. Keep sources concise, without losing targets, "
-                "dates or supporting evidence. Keep fields concise and avoid repeating background. Full research requirements:\n"
+                "dates or supporting evidence. Keep fields concise and avoid repeating background. "
+                "For targeted repairs, keep the original record_id for each amended commitment; unmentioned "
+                "quarters and records are retained from the draft. Full research requirements:\n"
                 + self.prompt("management_quality")
                 + "\nFiscal calendar: "
                 + plan.fiscal_calendar
@@ -212,6 +215,7 @@ class Workflow:
                 + _json([q for q in plan.quarters if q.label in labels]),
                 known_urls=source_urls(plan),
                 validate=lambda p: validate_quarters(p, labels, as_of=self.as_of),
+                merge_repair=merge_quarter_repair,
             )
         except ResearchTruncated:
             if len(labels) == 1:

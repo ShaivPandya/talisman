@@ -32,6 +32,7 @@ from api.company_research_evidence import (
     Topic,
     WrittenSections,
     apply_decisions,
+    merge_quarter_repair,
     render_tracker,
     validate_plan,
     validate_quarters,
@@ -1342,3 +1343,77 @@ def test_status_read_backoff_respects_the_original_gathering_deadline(monkeypatc
         provider.ResearchProvider(run_id, "worker")._wait(response({}, status="in_progress"), "unit:0", gathering=True)
     assert client.responses.retrieve.call_count == 1
     client.responses.cancel.assert_called_once_with("resp_1")
+
+
+def quarter_repair_packets():
+    quarters = [
+        QuarterReview(
+            quarter=q.label,
+            coverage="researched",
+            search_attempts=["Read issuer filing"],
+            sources=[source()],
+            gap=None,
+            records=[commitment(q.label)],
+        )
+        for q in plan().quarters[:4]
+    ]
+    bad = commitment(quarters[-1].quarter).model_copy(
+        update={"record_id": "needs-repair", "claim": "Launch a service", "outcome": "Partially achieved"}
+    )
+    quarters[-1].records.append(bad)
+    original = QuarterPacket(quarters=quarters)
+    correction = quarters[-1].model_copy(
+        update={
+            "records": [bad.model_copy(update={"outcome": "Insufficient disclosure"})],
+            "gap": "Later execution evidence was unavailable.",
+        }
+    )
+    return original, QuarterPacket(quarters=[correction])
+
+
+def test_resume_applies_saved_partial_repair_without_repeating_quarter_research(monkeypatch):
+    original, repair = quarter_repair_packets()
+    labels = [q.quarter for q in original.quarters]
+    step = "quarters/" + "/".join(label.replace(" ", "_") for label in labels)
+    run_id = claimed()
+    for index in (0, 1):
+        call_id = f"{step}:{index}"
+        store.reserve_call(run_id, "worker", call_id, 1, gathering=True, details={"response_id": f"resp_{index}"})
+        store.settle_call(run_id, "worker", call_id, actual_usd=0, usage={}, status="completed")
+    client = mock_client(monkeypatch, [])
+    client.responses.retrieve.side_effect = [
+        response(original.model_dump(mode="json")),
+        response(repair.model_dump(mode="json")),
+    ]
+    result = workflow.Workflow(run_id, "worker").gather_quarters(plan(), labels)
+    assert [q.quarter for q in result.quarters] == labels
+    assert sum(len(q.records) for q in result.quarters) == 5
+    assert result.quarters[-1].records[-1].outcome == "Insufficient disclosure"
+    assert result.quarters[0].records[0].claim == original.quarters[0].records[0].claim
+    client.responses.create.assert_not_called()
+    assert store.get_run(run_id)["steps"][step]["completed"]
+
+
+def test_partial_quarter_repairs_cannot_introduce_unknown_ids_or_hide_invalid_outcomes():
+    original, repair = quarter_repair_packets()
+    repair.quarters[0].records[0].record_id = "unknown"
+    with pytest.raises(ValueError, match="original record IDs"):
+        merge_quarter_repair(original, repair)
+    original, repair = quarter_repair_packets()
+    repair.quarters[0].quarter = "FY2099 Q1"
+    with pytest.raises(ValueError, match="existing quarters"):
+        merge_quarter_repair(original, repair)
+    original, repair = quarter_repair_packets()
+    repair.quarters[0].records[0].outcome = "Achieved on time"
+    merged = merge_quarter_repair(original, repair)
+    with pytest.raises(ValueError, match="supporting later evidence"):
+        validate_quarters(merged, [q.quarter for q in original.quarters], as_of=AS_OF)
+
+
+def test_single_quarter_repair_retains_other_records():
+    original, repair = quarter_repair_packets()
+    original = QuarterPacket(quarters=[original.quarters[-1]])
+    merged = merge_quarter_repair(original, repair)
+    validate_quarters(merged, [original.quarters[0].quarter], as_of=AS_OF)
+    assert len(merged.quarters[0].records) == 2
+    assert merged.quarters[0].records[-1].outcome == "Insufficient disclosure"

@@ -101,6 +101,44 @@ class QuarterPacket(EvidenceModel):
     quarters: list[QuarterReview]
 
 
+def merge_quarter_repair(original: QuarterPacket, repair: QuarterPacket) -> QuarterPacket:
+    """Apply a partial repair by stable IDs without discarding untouched quarters."""
+    before = {q.quarter: q for q in original.quarters}
+    labels = [q.quarter for q in repair.quarters]
+    partial_records = any(
+        q.quarter in before
+        and {r.record_id for r in q.records} < {r.record_id for r in before[q.quarter].records}
+        and q.coverage != "source_unavailable"
+        for q in repair.quarters
+    )
+    if len(labels) >= len(before) and not partial_records:
+        return repair  # Complete replacements still undergo the ordinary full validation.
+    if len(labels) != len(set(labels)) or not set(labels).issubset(before):
+        raise ValueError("A partial quarter repair must identify existing quarters exactly once.")
+    updates = {}
+    for quarter in repair.quarters:
+        old = before[quarter.quarter]
+        records = {r.record_id: r for r in old.records}
+        ids = [r.record_id for r in quarter.records]
+        if len(ids) != len(set(ids)) or not set(ids).issubset(records):
+            raise ValueError("A partial quarter repair must preserve the original record IDs.")
+        if quarter.coverage == "source_unavailable":
+            # An explicit unavailable-source finding is a complete quarter replacement.
+            updates[quarter.quarter] = quarter
+            continue
+        records.update({r.record_id: r for r in quarter.records})
+        sources = {s.model_dump_json(): s for s in [*old.sources, *quarter.sources]}
+        updates[quarter.quarter] = quarter.model_copy(
+            update={
+                "records": list(records.values()),
+                "sources": list(sources.values()),
+                "search_attempts": list(dict.fromkeys([*old.search_attempts, *quarter.search_attempts])),
+                "gap": "\n".join(dict.fromkeys(g for g in [old.gap, quarter.gap] if g)) or None,
+            }
+        )
+    return QuarterPacket(quarters=[updates.get(q.quarter, q).model_copy(deep=True) for q in original.quarters])
+
+
 class Fact(EvidenceModel):
     record_id: str
     section: str

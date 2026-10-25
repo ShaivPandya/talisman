@@ -339,6 +339,7 @@ class ResearchProvider:
         output_tokens: int = 64_000,
         tool_calls: int = 12,
         validate: Callable[[T], None] | None = None,
+        merge_repair: Callable[[T, T], T] | None = None,
         known_urls: set[str] | None = None,
         attempts: int = 2,
         resolve_unobserved: bool = True,
@@ -494,6 +495,8 @@ class ResearchProvider:
             draft = ""
             try:
                 result = model.model_validate_json(extract_text(response))
+                if repair_input and merge_repair:
+                    result = merge_repair(model.model_validate_json(repair_input), result)
                 draft = result.model_dump_json()
                 if web:
                     if any(is_private_source_url(url) for url in source_urls(result)):
