@@ -1278,3 +1278,67 @@ def test_background_responses_are_polled_every_two_seconds(monkeypatch):
     research = provider.ResearchProvider(claimed(), "worker")
     assert research._wait(response({}, status="in_progress"), "unit:0")["status"] == "completed"
     assert sleeps == [2, 2]
+
+
+def status_error(code):
+    import httpx
+    from openai import APIStatusError
+
+    return APIStatusError(
+        "Status read failed", response=httpx.Response(code, request=httpx.Request("GET", URL)), body=None
+    )
+
+
+@pytest.mark.parametrize("code", [408, 429, 500, 502, 503, 504, None])
+def test_transient_status_reads_retry_the_same_response_without_cancelling_or_resubmitting(monkeypatch, code):
+    import httpx
+
+    failure = status_error(code) if code else provider.APIConnectionError(request=httpx.Request("GET", URL))
+    client = mock_client(monkeypatch, [])
+    client.responses.retrieve.side_effect = [failure, response({})]
+    sleeps = []
+    monkeypatch.setattr(provider.time, "sleep", sleeps.append)
+    run_id = claimed()
+    store.reserve_call(run_id, "worker", "unit:0", 2, gathering=False, details={"response_id": "resp_1"})
+    research = provider.ResearchProvider(run_id, "worker")
+    assert research._wait(response({}, status="in_progress"), "unit:0")["status"] == "completed"
+    assert sleeps == [2, 1]
+    assert client.responses.retrieve.call_count == 2
+    assert all(call.args == ("resp_1",) for call in client.responses.retrieve.call_args_list)
+    client.responses.cancel.assert_not_called()
+    client.responses.create.assert_not_called()
+    assert len(store.get_run(run_id)["calls"]) == 1
+
+
+def test_status_read_retries_are_bounded_and_nontransient_errors_are_not_retried(monkeypatch):
+    client = mock_client(monkeypatch, [])
+    monkeypatch.setattr(provider.time, "sleep", lambda _: None)
+    research = provider.ResearchProvider(claimed(), "worker")
+    failure = status_error(500)
+    client.responses.retrieve.side_effect = failure
+    with pytest.raises(type(failure)):
+        research._retrieve("resp_1")
+    assert client.responses.retrieve.call_count == 4
+    client.responses.retrieve.reset_mock()
+    client.responses.retrieve.side_effect = status_error(401)
+    with pytest.raises(type(failure)):
+        research._retrieve("resp_1")
+    assert client.responses.retrieve.call_count == 1
+
+
+def test_status_read_backoff_respects_the_original_gathering_deadline(monkeypatch):
+    client = mock_client(monkeypatch, [])
+    client.responses.retrieve.side_effect = [status_error(500), response({})]
+    client.responses.cancel.return_value = response({}, status="cancelled")
+    run_id = claimed()
+    store.reserve_call(run_id, "worker", "unit:0", 2, gathering=True, details={"response_id": "resp_1"})
+
+    def sleep(seconds):
+        if seconds == 1:
+            store.mutate_run(run_id, lambda s: s.update(deadline=time.time() + store.FINISH_RESERVE_S - 1))
+
+    monkeypatch.setattr(provider.time, "sleep", sleep)
+    with pytest.raises(store.ResearchLimitReached):
+        provider.ResearchProvider(run_id, "worker")._wait(response({}, status="in_progress"), "unit:0", gathering=True)
+    assert client.responses.retrieve.call_count == 1
+    client.responses.cancel.assert_called_once_with("resp_1")

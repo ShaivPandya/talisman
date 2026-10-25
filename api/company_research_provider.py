@@ -11,6 +11,7 @@ from collections.abc import Callable
 from typing import Any, TypeVar
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
+from openai import APIConnectionError
 from pydantic import BaseModel, Field
 
 from api import company_research as legacy
@@ -23,6 +24,7 @@ from ontology.policy import actor_from_dict
 logger = logging.getLogger(__name__)
 T = TypeVar("T", bound=BaseModel)
 POLL_SECONDS = 2
+STATUS_READ_RETRIES = 3
 SEARCH_CONTEXT_TOKENS = 128_000
 # Leave two tool turns per URL within the source check's 12-turn allowance.
 # This is a batch size, never a limit on the evidence unit's total citations.
@@ -271,6 +273,28 @@ class ResearchProvider:
         correct(data)
         return type(result).model_validate(data)
 
+    def _retrieve(self, response_id: str, *, gathering: bool = False) -> Any:
+        # Reading a known response is idempotent. A transient poll failure must
+        # not cancel paid work or submit another generation request.
+        for attempt in range(STATUS_READ_RETRIES + 1):
+            store.check_run(self.run_id, self.owner, gathering=gathering)
+            try:
+                return self.client.responses.retrieve(response_id, include=["web_search_call.action.sources"])
+            except Exception as exc:
+                retryable = isinstance(exc, APIConnectionError) or getattr(exc, "status_code", None) in {
+                    408,
+                    429,
+                    500,
+                    502,
+                    503,
+                    504,
+                }
+                if not retryable or attempt == STATUS_READ_RETRIES:
+                    raise
+                state = store.check_run(self.run_id, self.owner, gathering=gathering)
+                logger.warning("Retrying research status read for %s after a transient provider error", self.run_id)
+                time.sleep(min(2**attempt, max(0, state["deadline"] - time.time())))
+
     def _wait(self, response: Any, call_id: str, *, gathering: bool = False) -> Any:
         response_id = legacy._value(response, "id")
         try:
@@ -278,7 +302,7 @@ class ResearchProvider:
                 state = store.check_run(self.run_id, self.owner, gathering=gathering)
                 time.sleep(min(POLL_SECONDS, max(0, state["deadline"] - time.time())))
                 store.check_run(self.run_id, self.owner, gathering=gathering)
-                response = self.client.responses.retrieve(response_id, include=["web_search_call.action.sources"])
+                response = self._retrieve(response_id, gathering=gathering)
         except store.ResearchLeaseLost:
             raise
         except Exception:
@@ -396,9 +420,7 @@ class ResearchProvider:
                     include=["web_search_call.action.sources"],
                 )
             if existing and existing.get("response_id"):
-                response = self.client.responses.retrieve(
-                    existing["response_id"], include=["web_search_call.action.sources"]
-                )
+                response = self._retrieve(existing["response_id"])
             else:
                 if existing:
                     # A worker may have died between provider acceptance and recording the ID.
