@@ -354,6 +354,7 @@ class ResearchContext:
             f"talisman/{kind}/evidence",
             ContextEvidence,
             private=True,
+            replay_private_evidence=True,
             gathering=True,
             output_tokens=16_000,
             effort="medium",

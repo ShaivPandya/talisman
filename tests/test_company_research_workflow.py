@@ -504,6 +504,53 @@ def test_provider_checkpoint_avoids_rebilling_completed_work(monkeypatch):
     assert client.with_options.call_args.kwargs["max_retries"] == 0
 
 
+@pytest.mark.parametrize("legacy_checkpoint", [False, True])
+def test_private_checkpoint_replays_unfiltered_evidence_without_provider_calls(monkeypatch, legacy_checkpoint):
+    packet = OverviewPacket(
+        facts=[Fact(record_id="upload", section="Business", claim="Makes products", sources=[source()])],
+        gaps=[],
+        searched_sources=[],
+    )
+    client = mock_client(monkeypatch, [response(packet.model_dump(mode="json"), web=False)])
+    run_id = claimed()
+    instance = provider.ResearchProvider(run_id, "worker")
+    args = dict(prompt="Extract", instructions="Extract", private=True, replay_private_evidence=True)
+
+    def old_filter(value):
+        value.facts = []
+        value.gaps = ["Old validator excluded a supported quote"]
+
+    first = instance.request("private/evidence", OverviewPacket, validate=old_filter, **args)
+    assert not first.facts
+    cost = store.get_run(run_id)["charged_usd"]
+    key = instance.artifact_key("private/evidence")
+    if legacy_checkpoint:
+        artifact = legacy._read_json(key)
+        artifact.pop("raw_data")
+        legacy._write_json(key, artifact)
+    client.responses.create.reset_mock()
+    replayed = provider.ResearchProvider(run_id, "worker").request("private/evidence", OverviewPacket, **args)
+    assert replayed == packet
+    assert legacy._read_json(key)["data"] == packet.model_dump(mode="json")
+    assert store.get_run(run_id)["charged_usd"] == cost
+    client.responses.create.assert_not_called()
+    client.responses.retrieve.assert_not_called()
+
+
+def test_raw_private_replay_cannot_bypass_public_source_checks(monkeypatch):
+    client = mock_client(monkeypatch, [])
+    with pytest.raises(ValueError, match="restricted to private"):
+        provider.ResearchProvider(claimed(), "worker").request(
+            "public/evidence",
+            OverviewPacket,
+            prompt="Extract",
+            instructions="Extract",
+            web=True,
+            replay_private_evidence=True,
+        )
+    client.responses.create.assert_not_called()
+
+
 @pytest.mark.parametrize("resumed", [False, True])
 def test_background_and_resumed_responses_keep_search_result_trace(monkeypatch, resumed):
     proposed = earnings_plan()

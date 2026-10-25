@@ -137,11 +137,25 @@ class ResearchProvider:
         key = hashlib.sha256(step.encode()).hexdigest()[:24]
         return f"runs/{self.run_id}/{key}/{suffix}.json"
 
-    def load(self, step: str, model: type[T]) -> T | None:
-        saved = store.get_run(self.run_id)["steps"].get(step, {})
+    def load(self, step: str, model: type[T], *, raw_evidence: bool = False) -> T | None:
+        state = store.get_run(self.run_id)
+        saved = state["steps"].get(step, {})
         if saved.get("completed"):
             artifact = legacy._read_json(saved["artifact_key"])
             if artifact is not None:
+                if raw_evidence:
+                    if "raw_data" in artifact:
+                        return model.model_validate(artifact["raw_data"])
+                    # Older checkpoints contain only the filtered evidence. The
+                    # original response is already stored, so a validator fix can
+                    # recover supported records without another provider call.
+                    response_id = artifact.get("response_id")
+                    for call_id, call in state["calls"].items():
+                        if response_id and call.get("response_id") == response_id and call_id.startswith(step + ":"):
+                            attempt = call_id.rsplit(":", 1)[1]
+                            raw = legacy._read_json(self.artifact_key(step, f"attempt-{attempt}"))
+                            if raw and raw.get("id") == response_id and raw.get("status") == "completed":
+                                return model.model_validate_json(extract_text(raw))
                 return model.model_validate(artifact["data"])
         return None
 
@@ -347,17 +361,26 @@ class ResearchProvider:
         resolve_unobserved: bool = True,
         verify_sources: bool = False,
         private: bool = False,
+        replay_private_evidence: bool = False,
     ) -> T:
+        if replay_private_evidence and (not private or web):
+            raise ValueError("Raw evidence replay is restricted to private, non-web evidence.")
         if private:
             if web:
                 raise ValueError("Private Talisman evidence cannot be sent to web-search requests.")
             # The existing egress classifier recognizes portfolio/research material
             # in instructions, even if a source itself contains no thesis keywords.
             instructions += "\nThis request contains private Talisman portfolio/research knowledge base evidence."
-        saved = self.load(step, model)
+        saved = self.load(step, model, raw_evidence=replay_private_evidence)
         if saved is not None:
+            raw_data = saved.model_dump(mode="json")
             if validate:
                 validate(saved)
+            if replay_private_evidence:
+                store.check_run(self.run_id, self.owner)
+                key = store.get_run(self.run_id)["steps"][step]["artifact_key"]
+                artifact = legacy._read_json(key)
+                legacy._write_json(key, {**artifact, "raw_data": raw_data, "data": saved.model_dump(mode="json")})
             return saved
         failure = ""
         repair_input = ""
@@ -553,7 +576,12 @@ class ResearchProvider:
                 continue
             key = self.artifact_key(step)
             legacy._write_json(
-                key, {"data": result.model_dump(mode="json"), "response_id": legacy._value(response, "id")}
+                key,
+                {
+                    "data": result.model_dump(mode="json"),
+                    "response_id": legacy._value(response, "id"),
+                    **({"raw_data": json.loads(draft)} if replay_private_evidence else {}),
+                },
             )
             self.save_step(step, key)
             return result
