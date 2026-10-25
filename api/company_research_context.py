@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -77,7 +78,7 @@ def _json(value: Any) -> str:
 
 def _contains_passage(value: Any, passage: str) -> bool:
     if isinstance(value, str):
-        return passage in value
+        return " ".join(passage.split()) in " ".join(value.split())
     if isinstance(value, dict):
         return any(_contains_passage(child, passage) for child in value.values())
     if isinstance(value, list):
@@ -272,15 +273,32 @@ class ResearchContext:
                     snapshot = registered.get(source.url)
                     if snapshot is None or source.title != snapshot["title"]:
                         raise ValueError("Private evidence must cite a registered snapshot from this run.")
-                    if snapshot.get("source_kind") == "private_upload":
+                    upload = snapshot.get("source_kind") == "private_upload"
+                    if upload:
                         validate_private_sources(item, snapshot["data"]["passages"])
                     text = _json(snapshot["data"])
-                    if not source.passage.strip() or (
-                        source.passage not in text and not _contains_passage(snapshot["data"], source.passage)
+                    if not upload and (
+                        not source.passage.strip()
+                        or (source.passage not in text and not _contains_passage(snapshot["data"], source.passage))
                     ):
                         raise ValueError("Private source passages must be exact excerpts from the saved data.")
                     if source.published_on and source.published_on.isoformat() not in text:
-                        raise ValueError("Private evidence dates must be present in the saved data.")
+                        # PDF dates commonly use named months. Accept only an
+                        # exact, unambiguous spelling of the same calendar date.
+                        day, year = source.published_on.day, source.published_on.year
+                        months = "|".join(source.published_on.strftime(f) for f in ("%B", "%b"))
+                        date_pattern = (
+                            rf"\b(?:0?{day}\s+(?:{months})\.?\s+{year}|(?:{months})\.?\s+0?{day},?\s+{year})\b"
+                        )
+                        upload_text = (
+                            " ".join(" ".join(p["text"].split()) for p in snapshot["data"].get("passages", []))
+                            if upload
+                            else ""
+                        )
+                        if not upload or not re.search(date_pattern, upload_text, re.IGNORECASE):
+                            raise ValueError(
+                                f"Private evidence date {source.published_on} is absent from {source.title}."
+                            )
                 for child in item.values():
                     walk(child)
             elif isinstance(item, list):
@@ -294,15 +312,29 @@ class ResearchContext:
             return ContextEvidence(facts=[], commitments=[], gaps=self.warnings)
 
         def validate(value: ContextEvidence) -> None:
-            self.validate_sources(value)
-            if (kind != "overview" and value.facts) or (kind != "management_quality" and value.commitments):
+            if kind != "management_quality" and value.commitments:
                 raise ValueError("Private evidence must belong to the requested report kind.")
             if any(f.section not in sections for f in value.facts) or any(
                 c.quarter not in quarters for c in value.commitments
             ):
                 raise ValueError("Private evidence must belong to an assigned section or quarter.")
             records: list[Fact | Commitment] = [*value.facts, *value.commitments]
+            accepted: list[Fact | Commitment] = []
+            rejected: list[str] = []
             for record in records:
+                try:
+                    self.validate_sources(record)
+                    accepted.append(record)
+                except ValueError as exc:
+                    rejected.append(f"Excluded private evidence {record.record_id}: {exc}")
+            if rejected and not accepted:
+                raise ValueError("; ".join(rejected))
+            # One malformed data citation must not discard unrelated, supported
+            # upload evidence. Rejections remain visible as report limitations.
+            value.facts = [record for record in accepted if isinstance(record, Fact)]
+            value.commitments = [record for record in accepted if isinstance(record, Commitment)]
+            value.gaps = list(dict.fromkeys([*value.gaps, *rejected]))
+            for record in accepted:
                 record.record_id = (
                     "private_"
                     + hashlib.sha256(_json(record.model_dump(mode="json", exclude={"record_id"})).encode()).hexdigest()[
@@ -329,6 +361,8 @@ class ResearchContext:
             "URLs or add any facts without evidence. Return empty lists when nothing is relevant. "
             "Sources labelled Private upload are user documents, not computed Talisman data. Preserve "
             "their exact filename attribution, citation URL, and supplied page/line excerpt location. "
+            "For management research, facts may retain attributed analyst observations as context; put only "
+            "documented original management promises in commitments. Context is not proof of execution. "
             + SOURCE_INSTRUCTIONS,
             prompt=_json(
                 {

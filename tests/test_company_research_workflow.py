@@ -998,7 +998,18 @@ def test_private_data_reaches_both_reports_with_snapshot_citations_and_without_w
                 else:
                     record = commitment("FY2025 Q4")
                     record.claim, record.claim_sources = private_claim, [citation]
-                    result = ContextEvidence(facts=[], commitments=[record], gaps=[])
+                    result = ContextEvidence(
+                        facts=[
+                            Fact(
+                                record_id="context",
+                                section="Business",
+                                claim="Attributed context: " + private_claim,
+                                sources=[citation],
+                            )
+                        ],
+                        commitments=[record],
+                        gaps=[],
+                    )
             elif model is WrittenSections:
                 titles = json.loads(
                     kwargs["prompt"].split("preserving exact titles and order: ")[1].split(". Use the supplied")[0]
@@ -1039,6 +1050,8 @@ def test_private_data_reaches_both_reports_with_snapshot_citations_and_without_w
         assert any(s["url"].startswith("/api/company-research/EL/runs/") for s in report["sources"]) == talisman_enabled
         assert any("Private Talisman snapshot" in s["title"] for s in report["sources"]) == talisman_enabled
         assert any(step.startswith(f"{kind}/verification-decisions/") for step in private_requests) == talisman_enabled
+        if kind == "management_quality":
+            assert ("Attributed context:" in report["content"]) == talisman_enabled
     assert len(selections) == (2 if talisman_enabled else 1) and read.call_count == int(talisman_enabled)
 
 

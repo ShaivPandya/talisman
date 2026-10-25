@@ -146,6 +146,7 @@ class Workflow:
         self.as_of = date.fromisoformat(self.snapshot["requested_at"][:10])
         self.provider = ResearchProvider(run_id, owner)
         self.talisman = ResearchContext(self.provider, self.state, owner)
+        self.private_management_facts: list[Fact] = []
         self.context = f"Issuer ticker: {self.state['ticker']}. As-of: {self.as_of}. " + STANDARD
 
     def progress(self, kind: str, **values: Any) -> None:
@@ -441,6 +442,7 @@ class Workflow:
                 if kind == "overview":
                     overview.append(OverviewPacket(facts=local.facts, gaps=local.gaps, searched_sources=[]))
                 else:
+                    self.private_management_facts = local.facts
                     # Local data supplements completed public quarter research. It
                     # cannot disguise a failed/unresearched public-source packet.
                     for quarter in quarters:
@@ -486,6 +488,7 @@ class Workflow:
         for record in originals:
             if batches[-1] and (
                 has_private_sources(batches[-1][0]) != has_private_sources(record)
+                or isinstance(batches[-1][0], Commitment) != isinstance(record, Commitment)
                 or len(_json(batches[-1] + [record]).encode()) > 75_000
             ):
                 batches.append([])
@@ -501,7 +504,7 @@ class Workflow:
             def validate(checked: EvidenceDecisions, original: list[Any] = batch) -> None:
                 if private:
                     self.talisman.validate_sources(checked)
-                apply_decisions(original, checked, management=kind == "management_quality", as_of=self.as_of)
+                apply_decisions(original, checked, management=isinstance(original[0], Commitment), as_of=self.as_of)
 
             return self.provider.request(
                 f"{kind}/verification-decisions/{hashlib.sha256(_json(batch).encode()).hexdigest()[:20]}",
@@ -527,7 +530,14 @@ class Workflow:
                 "For management, original promises and targets are immutable; reject unsupported originals. "
                 "For overview, only claim corrections are allowed. replacement_sources replaces outcome sources "
                 "for management and fact sources for overview; use null to keep existing sources. Do not merge "
-                "away distinct quarterly promises or invent evidence. Packet:\n" + _json(batch),
+                "away distinct quarterly promises or invent evidence. "
+                + (
+                    "This packet contains management commitments. "
+                    if isinstance(batch[0], Commitment)
+                    else "This packet contains facts or attributed research context; use fact corrections. "
+                )
+                + "Packet:\n"
+                + _json(batch),
                 known_urls=source_urls(batch),
                 validate=validate,
             )
@@ -536,7 +546,7 @@ class Workflow:
         rejected: list[str] = []
         for batch, checked in zip(batches, _in_order(check, batches), strict=True):
             records, exclusions = apply_decisions(
-                batch, checked, management=kind == "management_quality", as_of=self.as_of
+                batch, checked, management=isinstance(batch[0], Commitment), as_of=self.as_of
             )
             accepted.extend(records)
             rejected.extend(exclusions)
@@ -558,6 +568,7 @@ class Workflow:
                 "evidence. Keep that detail in the prose and cite it with markdown links. "
                 if kind == "overview"
                 else "and distinguish judgments from facts. Reconcile initiatives across quarters where relevant. "
+                "Attributed analyst observations provide context, not proof of original management promises or execution outcomes. "
             )
 
             def validate(w: WrittenSections, expected: list[str] = titles, records: list[Any] = relevant) -> None:
@@ -613,7 +624,7 @@ class Workflow:
     ) -> None:
         """Use the finishing reserve to check useful evidence without publishing an incomplete report."""
         original: list[Any] = (
-            [r for q in quarters for r in q.records]
+            [r for q in quarters for r in q.records] + self.private_management_facts
             if kind == "management_quality"
             else [f for p in packets for f in p.facts]
         )
@@ -626,7 +637,7 @@ class Workflow:
         )
         if kind == "management_quality":
             missing = [q.label for q in plan.quarters if q.label not in {r.quarter for r in quarters}]
-            content += render_tracker(quarters, accepted)
+            content += render_tracker(quarters, [record for record in accepted if isinstance(record, Commitment)])
             gaps = [f"Not researched: {label}" for label in missing] + [
                 f"{q.quarter}: {q.gap}" for q in quarters if q.gap
             ]
@@ -674,7 +685,7 @@ class Workflow:
             return
         originals: list[Any]
         originals = (
-            [r for q in quarters for r in q.records]
+            [r for q in quarters for r in q.records] + self.private_management_facts
             if kind == "management_quality"
             else [f for p in packets for f in p.facts]
         )
@@ -698,7 +709,7 @@ class Workflow:
         if gaps:
             summary_input += "\n\nEvidence gaps and data limitations:\n" + "\n".join(f"- {gap}" for gap in gaps)
         if kind == "management_quality":
-            parts.insert(1, render_tracker(quarters, evidence))
+            parts.insert(1, render_tracker(quarters, [record for record in evidence if isinstance(record, Commitment)]))
         content += "\n\n".join(parts)
         if gaps:
             content += "\n\n## Evidence gaps and exclusions\n\n" + "\n".join(f"- {gap}" for gap in gaps)

@@ -168,6 +168,65 @@ def test_citation_excerpts_preserve_quotes_and_markdown_newlines(research_contex
     research_context.validate_sources(fact(research_context, passage=passage, published_on=None))
 
 
+@pytest.mark.parametrize("written_date", ["05 August 2026", "5 August 2026", "August 5, 2026", "Aug. 5, 2026"])
+def test_upload_quotes_accept_pdf_whitespace_and_unambiguous_dates(research_context, written_date):
+    url = "/api/names/MU/documents/" + "a" * 32 + "/content"
+    research_context.sources = [
+        {
+            "url": url,
+            "title": "Private upload: analyst.pdf",
+            "source_kind": "private_upload",
+            "data": {
+                "passages": [
+                    {"url": url, "location": "page 1, excerpt 1", "text": written_date + "\nRevenue rose\n20%."}
+                ]
+            },
+        }
+    ]
+    citation = Source(
+        url=url,
+        title="Private upload: analyst.pdf",
+        published_on=date(2026, 8, 5),
+        passage="Revenue rose 20%.",
+        location="page 1, excerpt 1",
+    )
+    research_context.validate_sources(citation)
+    for changes in (
+        {"published_on": date(2026, 8, 6)},
+        {"passage": "Revenue rose 21%."},
+        {"location": "page 2, excerpt 1"},
+    ):
+        with pytest.raises(ValueError):
+            research_context.validate_sources(citation.model_copy(update=changes))
+
+
+def test_private_evidence_retains_supported_records_and_reports_rejections(research_context, monkeypatch):
+    collect(research_context, monkeypatch)
+    supported = fact(research_context)
+    unsupported = supported.model_copy(deep=True)
+    unsupported.record_id = "invented"
+    unsupported.sources[0].passage = "A different unsupported forecast."
+
+    def respond(_step, _model, **kwargs):
+        value = context.ContextEvidence(facts=[supported, unsupported], commitments=[], gaps=[])
+        kwargs["validate"](value)
+        return value
+
+    research_context.provider.request.side_effect = respond
+    result = research_context.evidence("overview", ["Business"], [])
+    assert result.facts == [supported]
+    assert len(result.gaps) == 1 and "invented" in result.gaps[0]
+
+    def all_invalid(_step, _model, **kwargs):
+        value = context.ContextEvidence(facts=[unsupported], commitments=[], gaps=[])
+        kwargs["validate"](value)
+        return value
+
+    research_context.provider.request.side_effect = all_invalid
+    with pytest.raises(ValueError, match="exact excerpts"):
+        research_context.evidence("overview", ["Business"], [])
+
+
 def test_private_evidence_requires_assigned_sections_and_stable_ids(research_context, monkeypatch):
     collect(research_context, monkeypatch)
     original = fact(research_context)
