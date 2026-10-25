@@ -159,9 +159,20 @@ class ResearchProvider:
             by_url.setdefault(_canonical(url), set()).add(url)
         urls = sorted(by_url)
         if len(urls) > SOURCE_CHECK_BATCH_SIZE:
+            failures: list[str] = []
             for start in range(0, len(urls), SOURCE_CHECK_BATCH_SIZE):
                 batch = set().union(*(by_url[url] for url in urls[start : start + SOURCE_CHECK_BATCH_SIZE]))
-                result = self.resolve_sources(step, result, batch, gathering=gathering)
+                try:
+                    result = self.resolve_sources(step, result, batch, gathering=gathering)
+                except ValueError as exc:
+                    # Discover every bad batch before spending the evidence unit's
+                    # repair. Cost, deadline and lease exceptions still propagate.
+                    failures.append(str(exc))
+            if failures:
+                raise ValueError(
+                    f"Source verification failed in {len(failures)} batch(es). Full findings are retained."
+                    "\nSource details:\n" + "\n\n".join(failures)
+                )
             return result
 
         passages: list[dict[str, Any]] = []
@@ -267,7 +278,7 @@ class ResearchProvider:
                 state = store.check_run(self.run_id, self.owner, gathering=gathering)
                 time.sleep(min(POLL_SECONDS, max(0, state["deadline"] - time.time())))
                 store.check_run(self.run_id, self.owner, gathering=gathering)
-                response = self.client.responses.retrieve(response_id)
+                response = self.client.responses.retrieve(response_id, include=["web_search_call.action.sources"])
         except store.ResearchLeaseLost:
             raise
         except Exception:
@@ -322,6 +333,7 @@ class ResearchProvider:
             return saved
         failure = ""
         repair_input = ""
+        observed_urls = set(known_urls or set())
         initial_calls = store.get_run(self.run_id)["calls"]
 
         def pending(index: int) -> bool:
@@ -383,7 +395,9 @@ class ResearchProvider:
                     include=["web_search_call.action.sources"],
                 )
             if existing and existing.get("response_id"):
-                response = self.client.responses.retrieve(existing["response_id"])
+                response = self.client.responses.retrieve(
+                    existing["response_id"], include=["web_search_call.action.sources"]
+                )
             else:
                 if existing:
                     # A worker may have died between provider acceptance and recording the ID.
@@ -473,7 +487,8 @@ class ResearchProvider:
                             source_url = legacy._value(source, "url")
                             if isinstance(source_url, str):
                                 observed.add(source_url)
-                    allowed = {_canonical(url) for url in observed | (known_urls or set())}
+                    observed_urls.update(observed)
+                    allowed = {_canonical(url) for url in observed_urls}
                     # An inaccessible URL is an expected negative finding, not
                     # a citation used to support evidence. Positive checks still
                     # require a tool-observed URL.
@@ -493,9 +508,9 @@ class ResearchProvider:
                 # Keep complete diagnostics outside the bounded status/repair
                 # text, so a long URL list is not the only record of the failure.
                 legacy._write_json(self.artifact_key(step, f"validation-{attempt}"), {"error": str(exc)})
-                failure = str(exc)[:1200]
+                failure = str(exc)[:12_000]
                 repair_input = draft
-                self.update_call(call_id, error=failure)
+                self.update_call(call_id, error=failure[:1200])
                 continue
             key = self.artifact_key(step)
             legacy._write_json(

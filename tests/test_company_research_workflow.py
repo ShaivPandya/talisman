@@ -501,6 +501,68 @@ def test_provider_checkpoint_avoids_rebilling_completed_work(monkeypatch):
     assert client.with_options.call_args.kwargs["max_retries"] == 0
 
 
+@pytest.mark.parametrize("resumed", [False, True])
+def test_background_and_resumed_responses_keep_search_result_trace(monkeypatch, resumed):
+    proposed = earnings_plan()
+    queued = {"id": "resp_background", "status": "queued"}
+    completed = response(proposed.model_dump(mode="json"))
+    completed["id"] = queued["id"]
+    completed["output"][-1]["action"]["sources"] = [{"url": q.source.url} for q in proposed.quarters]
+    client = mock_client(monkeypatch, [queued])
+
+    def retrieve(response_id, **kwargs):
+        assert response_id == queued["id"]
+        assert kwargs["include"] == ["web_search_call.action.sources"]
+        return completed
+
+    client.responses.retrieve.side_effect = retrieve
+    monkeypatch.setattr(provider.time, "sleep", lambda _: None)
+    run_id = claimed()
+    if resumed:
+        store.reserve_call(run_id, "worker", "plan:0", 1, gathering=True, details={"response_id": queued["id"]})
+    assert workflow.Workflow(run_id, "worker").plan() == proposed
+    assert client.responses.create.call_count == (0 if resumed else 1)
+    assert client.responses.retrieve.call_count == 1
+
+
+def test_all_bad_source_batches_reach_the_single_repair(monkeypatch):
+    proposed = earnings_plan()
+    repaired = proposed.model_copy(deep=True)
+    failed_urls = {proposed.quarters[0].source.url, proposed.quarters[-1].source.url}
+    for quarter in repaired.quarters:
+        if quarter.source.url in failed_urls:
+            quarter.source.url += "?corrected=1"
+    plan_calls = 0
+    checked_urls = set()
+
+    def respond(**kwargs):
+        nonlocal plan_calls
+        if kwargs["text"]["format"]["name"] == "ResearchPlan":
+            plan_calls += 1
+            if plan_calls == 1:
+                return response(proposed.model_dump(mode="json"))
+            assert checked_urls == {q.source.url for q in proposed.quarters}
+            feedback = kwargs["input"].split("Retained evidence:")[0]
+            assert all(url in feedback for url in failed_urls)
+            result = response(repaired.model_dump(mode="json"))
+            result["output"][-1]["action"]["sources"] = [{"url": q.source.url} for q in repaired.quarters]
+            return result
+        result = check_sources_response(kwargs)
+        content = result["output"][0]["content"][0]
+        data = json.loads(content["text"])
+        for check in data["checks"]:
+            checked_urls.add(check["url"])
+            if check["url"] in failed_urls:
+                check.update(supported=False, explanation="Archive has no dated entries. " + "detail " * 180)
+        content["text"] = json.dumps(data)
+        return result
+
+    client = mock_client(monkeypatch, respond)
+    assert workflow.Workflow(claimed(), "worker").plan() == repaired
+    assert plan_calls == 2
+    assert client.responses.create.call_count == 6
+
+
 def test_resume_can_revalidate_saved_response_after_parser_fix_without_another_call(monkeypatch):
     client = mock_client(monkeypatch, [])
     client.responses.retrieve.return_value = response({"supported": True, "issues": []})

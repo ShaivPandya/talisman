@@ -344,6 +344,59 @@ def test_research_snapshot_excludes_unrelated_later_and_deleted_files():
     assert docs.research_passages(snapshot, "survey") == []
 
 
+def test_research_excerpts_cover_every_attachment_before_keyword_heavy_disclosures():
+    documents = [
+        docs.upload(
+            "CDW", (f"Report {i}: revenue and operating performance. " + "evidence " * 750).encode(), f"broker-{i}.txt"
+        )
+        for i in range(6)
+    ]
+    snapshot = docs.research_snapshot("CDW")
+    passages = docs.research_passages(snapshot, "evidence revenue research investment financial market company")
+    assert {p["id"] for p in passages} == {d["id"] for d in documents}
+    assert all(p["passage_index"] == 0 and p["text"].startswith("Report ") for p in passages)
+    assert len(json.dumps(passages, ensure_ascii=False).encode()) <= 36_000
+    assert any(p.get("partial_excerpt") for p in passages)
+    for passage in passages:
+        original = docs.passages_for("CDW", passage["id"])[0]
+        assert passage["text"] in original["text"] and passage["location"] == original["location"]
+
+
+def test_research_prioritizes_analysis_over_keyword_heavy_disclosures():
+    opening = "Operating summary: sales increased. ".ljust(6000)
+    analysis = "The company completed its facility ahead of schedule. ".ljust(6000)
+    boilerplate = "Analyst certification. Important disclosures. investment market company research financial. ".ljust(
+        6000
+    )
+    docs.upload("CDW", (opening + boilerplate + analysis).encode(), "broker.txt")
+    passages = docs.research_passages(
+        docs.research_snapshot("CDW"), "investment market company research financial", max_bytes=14_000
+    )
+    assert [p["passage_index"] for p in passages] == [0, 2]
+
+
+def test_partial_opening_excerpts_respect_utf8_bytes_and_warn(monkeypatch):
+    from api import company_research_context as context
+
+    document = docs.upload("EL", ("Sales grew. " + "€" * 1800).encode(), "short.txt")
+    snapshot = docs.research_snapshot("EL")
+    passages = docs.research_passages(snapshot, "sales", max_bytes=2500)
+    assert len(json.dumps(passages, ensure_ascii=False).encode()) <= 2500
+    assert passages[0]["partial_excerpt"] and passages[0]["id"] == document["id"]
+    monkeypatch.setattr(context, "research_passages", lambda *args: passages)
+    research = context.ResearchContext(
+        None,
+        {
+            "run_id": "fixture",
+            "ticker": "EL",
+            "snapshot": {"private_documents": snapshot, "prompts": {"overview": "sales"}},
+        },
+        "worker",
+    )
+    research.collect_uploads()
+    assert "only selected excerpts" in research.warnings[0]
+
+
 def private_packet(document):
     return OverviewPacket(
         facts=[

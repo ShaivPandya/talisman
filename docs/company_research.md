@@ -30,6 +30,8 @@ The previous sources phase requested five years of operational evidence in one r
 
 These checks reduce unsupported claims; they do not establish that every public disclosure has been discovered. Evidence gaps remain visible in the report and progress display.
 
+Background response polling and recovery explicitly request the web-search source list, and a repair retains URLs observed in the same unit's earlier attempts. Source checking collects failures across every batch before the single repair, so fixing one archive citation does not consume the repair before a later bad batch is discovered. Upload selection reserves an opening excerpt for each attached file before ranking additional passages; disclosure boilerplate follows substantive passages. Truncated excerpts retain their exact source location and are flagged as partial coverage.
+
 ## Pricing and provider limits
 
 Only `gpt-6.1-sol` is accepted until another model has an explicit cost envelope. Requests pin the standard service tier. The current conservative envelope uses $2.50/million input tokens (including possible cache-write pricing), $10/million output tokens, $0.01/web-search call, and a 10% margin. It reserves a 128,000-token search context for each allowed tool turn, the initial turn, and an extra tool result if a batch straddles the call limit. Non-search requests use input and schema bytes plus overhead as a conservative token bound. Output budgets include reasoning tokens. Cached-input discounts are not credited.

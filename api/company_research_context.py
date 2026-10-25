@@ -151,7 +151,7 @@ class ResearchContext:
             }
             source, _ = redact_secrets(source)
             self.sources.append(source)
-            if len(selected) < document["passage_count"]:
+            if len(selected) < document["passage_count"] or any(p.get("partial_excerpt") for p in selected):
                 self.warnings.append(f"{document['name']}: only selected excerpts fit in this run's context allowance.")
 
     def collect(self, issuer: str) -> None:

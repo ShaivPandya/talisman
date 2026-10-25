@@ -304,7 +304,8 @@ def research_snapshot(ticker: str) -> list[dict[str, Any]]:
 
 def research_passages(snapshot: list[dict[str, Any]], query: str, *, max_bytes: int = 36_000) -> list[dict[str, Any]]:
     """Select bounded excerpts across the run's documents; label partial coverage explicitly."""
-    candidates: list[tuple[int, int, int, dict[str, Any]]] = []
+    candidates: list[tuple[bool, int, int, int, dict[str, Any]]] = []
+    openings: list[dict[str, Any]] = []
     terms = set(re.findall(r"[a-z0-9]{3,}", query.lower()))
     for doc_index, doc in enumerate(snapshot):
         try:
@@ -316,14 +317,60 @@ def research_passages(snapshot: list[dict[str, Any]], query: str, *, max_bytes: 
             continue  # deletion takes effect even for a queued/resumed run
         for index, passage in enumerate(passages):
             score = len(terms & set(re.findall(r"[a-z0-9]{3,}", passage["text"].lower())))
-            candidates.append((-score, doc_index, index, {**doc, **passage, "passage_index": index}))
-    candidates.sort(key=lambda row: row[:3])
-    chosen, used = [], 0
-    for _, _, _, passage in candidates:
+            value = {**doc, **passage, "passage_index": index}
+            if index == 0:
+                openings.append(value)
+            else:
+                # Long disclosures match broad research prompts especially well.
+                # Prefer substantive passages before filling space with boilerplate.
+                disclosures = (
+                    sum(
+                        phrase in passage["text"].lower()
+                        for phrase in (
+                            "analyst certification",
+                            "other disclosures",
+                            "important disclosures",
+                            "conflicts of interest",
+                            "does not constitute",
+                            "ratings definitions",
+                            "not investment advice",
+                            "not individually tailored",
+                            "distribution of ratings",
+                        )
+                    )
+                    >= 2
+                )
+                candidates.append((disclosures, -score, doc_index, index, value))
+    candidates.sort(key=lambda row: row[:4])
+    chosen: list[dict[str, Any]] = []
+    used = 2  # JSON array delimiters, plus separators counted below.
+
+    # Reserve a fair opening excerpt for each attachment before any document can
+    # consume the shared allowance. Analyst summaries usually lead their reports.
+    for index, passage in enumerate(openings):
+        allowance = (max_bytes - used) // (len(openings) - index) - 2
         size = len(json.dumps(passage, ensure_ascii=False).encode())
-        if used + size <= max_bytes:
+        if size > allowance:
+            passage = {**passage, "partial_excerpt": True}
+            original = passage["text"]
+            low, high = 0, len(original)
+            while low < high:
+                middle = (low + high + 1) // 2
+                passage["text"] = original[:middle]
+                if len(json.dumps(passage, ensure_ascii=False).encode()) <= allowance:
+                    low = middle
+                else:
+                    high = middle - 1
+            passage["text"] = original[:low]
+            size = len(json.dumps(passage, ensure_ascii=False).encode())
+        if passage["text"].strip() and size <= allowance:
             chosen.append(passage)
-            used += size
+            used += size + 2
+    for _, _, _, _, passage in candidates:
+        size = len(json.dumps(passage, ensure_ascii=False).encode())
+        if used + size + 2 <= max_bytes:
+            chosen.append(passage)
+            used += size + 2
     return chosen
 
 
