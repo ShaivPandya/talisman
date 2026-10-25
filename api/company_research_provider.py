@@ -318,6 +318,7 @@ class ResearchProvider:
         known_urls: set[str] | None = None,
         attempts: int = 2,
         resolve_unobserved: bool = True,
+        verify_sources: bool = False,
         private: bool = False,
     ) -> T:
         if private:
@@ -498,10 +499,12 @@ class ResearchProvider:
                         else source_urls(result)
                     )
                     missing = {url for url in cited if _canonical(url) not in allowed}
-                    if missing:
+                    if missing or (verify_sources and cited):
                         if not resolve_unobserved:
                             raise ValueError(_unobserved_sources(missing))
-                        result = self.resolve_sources(step, result, missing, gathering=gathering)
+                        result = self.resolve_sources(
+                            step, result, cited if verify_sources else missing, gathering=gathering
+                        )
                 if validate:
                     validate(result)
             except ValueError as exc:

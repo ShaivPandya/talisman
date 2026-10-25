@@ -163,6 +163,7 @@ class Workflow:
             gathering=True,
             output_tokens=32_000,
             tool_calls=6,
+            verify_sources=True,
             instructions=self.context,
             prompt="Verify issuer identity and fiscal calendar. Identify exactly the last 20 REPORTED fiscal "
             "quarters (not calendar quarters or unreported periods), with labels exactly like FY2026 Q1, "

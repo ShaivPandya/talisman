@@ -348,7 +348,9 @@ def test_twenty_quarter_plan_checks_all_unobserved_urls_in_bounded_batches(monke
 
     client = mock_client(monkeypatch, respond)
     instance = workflow.Workflow(claimed(), "worker")
-    accepted = instance.plan()
+    accepted = instance.provider.request(
+        "plan", ResearchPlan, web=True, gathering=True, tool_calls=6, prompt="Plan", instructions="Use sources"
+    )
     assert accepted == proposed
     assert len(accepted.quarters) == 20
     assert set(checked_urls) == {q.source.url for q in proposed.quarters[:unobserved_count]}
@@ -520,7 +522,12 @@ def test_background_and_resumed_responses_keep_search_result_trace(monkeypatch, 
     run_id = claimed()
     if resumed:
         store.reserve_call(run_id, "worker", "plan:0", 1, gathering=True, details={"response_id": queued["id"]})
-    assert workflow.Workflow(run_id, "worker").plan() == proposed
+    assert (
+        provider.ResearchProvider(run_id, "worker").request(
+            "plan", ResearchPlan, web=True, gathering=True, tool_calls=6, prompt="Plan", instructions="Use sources"
+        )
+        == proposed
+    )
     assert client.responses.create.call_count == (0 if resumed else 1)
     assert client.responses.retrieve.call_count == 1
 
@@ -540,7 +547,9 @@ def test_all_bad_source_batches_reach_the_single_repair(monkeypatch):
         if kwargs["text"]["format"]["name"] == "ResearchPlan":
             plan_calls += 1
             if plan_calls == 1:
-                return response(proposed.model_dump(mode="json"))
+                result = response(proposed.model_dump(mode="json"))
+                result["output"][-1]["action"]["sources"] = [{"url": q.source.url} for q in proposed.quarters]
+                return result
             assert checked_urls == {q.source.url for q in proposed.quarters}
             feedback = kwargs["input"].split("Retained evidence:")[0]
             assert all(url in feedback for url in failed_urls)
@@ -560,7 +569,7 @@ def test_all_bad_source_batches_reach_the_single_repair(monkeypatch):
     client = mock_client(monkeypatch, respond)
     assert workflow.Workflow(claimed(), "worker").plan() == repaired
     assert plan_calls == 2
-    assert client.responses.create.call_count == 6
+    assert client.responses.create.call_count == 8
 
 
 def test_resume_can_revalidate_saved_response_after_parser_fix_without_another_call(monkeypatch):
