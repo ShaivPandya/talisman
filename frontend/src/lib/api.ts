@@ -768,6 +768,7 @@ export interface RecordTimelineEntry {
 export interface IdeaDetailResponse {
   idea: InvestmentIdea
   evaluations: IdeaEvaluation[]
+  catalysts?: TrackedCatalyst[]
   lifecycle_history?: IdeaLifecycleEvent[]
   record_timeline?: RecordTimelineEntry[]
   conviction?: ConvictionSummary | null
@@ -3335,6 +3336,10 @@ export const fetchIdeas = (params?: { status?: IdeaStatus | string; include_arch
 export const fetchIdea = (id: string) =>
   client.get(`/ideas/${encodeURIComponent(id)}`).then(r => r.data as IdeaDetailResponse)
 
+export const extractIdeaCatalysts = (id: string) =>
+  client.post(`/ideas/${encodeURIComponent(id)}/catalysts/extract`, {}, { timeout: 120_000 })
+    .then(r => r.data as { catalysts: TrackedCatalyst[]; extracted_count: number } & Partial<StagedMutationResponse>)
+
 export const createIdea = (body: {
   ticker: string
   asset?: PortfolioAsset | null
@@ -3646,6 +3651,16 @@ export const runMonitorBuilderDefinitions = (body?: { monitor_id?: string; missi
   client.post("/monitor-builder/run", body ?? { source: "manual" }).then(r => r.data)
 
 // Catalysts
+export interface TrackedCatalyst {
+  id: number | string
+  object_uid?: string | null
+  description: string | null
+  category: string | null
+  status: string | null
+  target_date: string | null
+  evidence: string | null
+}
+
 export const fetchCatalysts = (ticker: string) =>
   client.get("/catalysts", { params: { ticker } }).then(r => r.data)
 export const createCatalyst = (body: { ticker: string; description: string; category?: string; target_date?: string } & StagedMutationOptions) =>

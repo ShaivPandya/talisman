@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from api.action_execution import stage_api_action
 from api.async_job_runner import enqueue_registered_job, enqueue_response, poll_registered_job
-from api.exceptions import NotFoundError, ValidationError
+from api.exceptions import DataFetchError, NotFoundError, ValidationError
 from api.routers.auth import ActorDep
 from decision_quality import (
     ACTIONABLE_ACTIONS as DECISION_ACTIONABLE_ACTIONS,
@@ -2874,6 +2874,7 @@ def _idea_detail(idea_id: str) -> dict[str, Any]:
             "current": idea.get("conviction"),
             "timeline": conviction_timeline,
         },
+        "catalysts": reads.catalysts(str(idea.get("ticker") or ""), limit=1000),
         "documents": {
             "overview_present": bool(overview),
             "overview_content": _safe_text(overview, max_len=120_000),
@@ -2961,6 +2962,53 @@ def get_idea_comparison_run(run_id: str):
 @router.get("/ideas/{idea_id}")
 def get_idea(idea_id: str):
     return _idea_detail(idea_id)
+
+
+@router.post("/ideas/{idea_id}/catalysts/extract")
+def extract_idea_catalysts(idea_id: str, actor: ActorDep):
+    from api.company_research import read_research_report
+    from portfolio.overview_catalysts import extract_overview_catalysts, parse_overview_catalysts
+    from portfolio.thesis_sync import _replace_section
+
+    idea = _get_idea(idea_id)
+    if not idea:
+        raise NotFoundError("Investment idea", idea_id)
+    ticker = str(idea["ticker"]).upper()
+    overview, error = _read_state_text("investment_overviews", ticker)
+    if error:
+        raise DataFetchError(source="overview", detail=error)
+    if not overview:
+        raise ValidationError("Store overview research before extracting catalysts.")
+    research_content = overview
+    if not parse_overview_catalysts(overview):
+        try:
+            report = read_research_report(ticker, "overview")
+        except NotFoundError:
+            report = {}
+        if report.get("summary_applied") and report.get("content"):
+            research_content = f"{overview}\n\n# Full overview research\n\n{report['content']}"
+    try:
+        candidates = extract_overview_catalysts(ticker, research_content)
+    except Exception as exc:
+        LOGGER.warning("Overview catalyst extraction failed for %s", ticker, exc_info=True)
+        raise DataFetchError(source="catalyst extraction", detail=str(exc)) from exc
+    if not candidates:
+        return {"catalysts": OntologyRuntimeReadService().catalysts(ticker, limit=1000), "extracted_count": 0}
+    content = _replace_section(overview, "Key Catalysts", [f"- {row['description']}" for row in candidates])
+    result = stage_api_action(
+        "save_overview_content",
+        {"ticker": ticker, "content": content, "preserve_exact_content": True},
+        source_id="ideas.extract_catalysts",
+        actor=actor,
+        reason=f"Extract catalysts from overview research for {ticker}",
+        apply=True,
+        approval_note=f"User requested catalyst extraction for {ticker}.",
+    )
+    return {
+        **result,
+        "catalysts": OntologyRuntimeReadService().catalysts(ticker, limit=1000),
+        "extracted_count": len(candidates),
+    }
 
 
 @router.put("/ideas/{idea_id}")

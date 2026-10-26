@@ -1828,6 +1828,41 @@ def test_save_management_quality_content_writes_ontology_children_and_markdown(m
     assert indexed and indexed[0]["doc_type"] == "management_quality"
 
 
+def test_save_overview_catalysts_without_position_preserves_existing_statuses(monkeypatch, tmp_path):
+    import portfolio.overview_content as overview_content
+    from ontology.runtime_read_service import OntologyRuntimeReadService
+
+    monkeypatch.setattr(overview_content, "OVERVIEWS_DIR", tmp_path)
+    monkeypatch.setattr("api.retrieval.index_document", lambda **kwargs: None)
+    repo = NormalizingTemporalRepo()
+    objects = OntologyObjectService(repository=repo)  # type: ignore[arg-type]
+    service = OntologyCommandService(objects)
+    reads = OntologyRuntimeReadService(object_service=objects)
+    context = OntologyCommandContext(actor=admin_actor(source="test"), source_type="test", source_id="unit")
+
+    def apply(action_id, payload):
+        approval = service.propose_action(action_id, payload, context, reason="unit")
+        return service.resolve_approval(approval["id"], "approved", "apply", context)
+
+    content = "# MU Overview\n\n## Key Catalysts\n- **HBM launch:** Ships in Q4.\n- TBD\n"
+    apply("save_overview_content", {"ticker": "MU", "content": content})
+    catalysts = reads.catalysts("MU")
+    assert len(catalysts) == 1
+    assert catalysts[0]["status"] == "pending"
+    assert catalysts[0]["source"] == "overview_markdown"
+    assert reads.catalysts("AAPL") == []
+    assert objects.query_objects("Position") == []
+
+    catalyst_uid = catalysts[0]["object_uid"]
+    apply("update_catalyst_status", {"catalyst_id": catalyst_uid, "status": "played_out", "evidence": "Launched."})
+    apply("save_overview_content", {"ticker": "MU", "content": content + "\n"})
+    catalysts = reads.catalysts("MU")
+    assert len(catalysts) == 1
+    assert catalysts[0]["object_uid"] == catalyst_uid
+    assert catalysts[0]["status"] == "played_out"
+    assert catalysts[0]["evidence"] == "Launched."
+
+
 def test_save_overview_content_writes_typed_research_objects_and_chunk_lineage(monkeypatch, tmp_path):
     import portfolio.overview_content as overview_content
 

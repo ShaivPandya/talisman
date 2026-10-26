@@ -1461,9 +1461,9 @@ class OntologyCommandService:
                 catalyst_key or f"{ticker}:{description}",
                 {
                     "ticker": ticker,
-                    "name": str(payload.get("name") or description[:120]),
+                    "name": str(payload.get("name") or existing.get("name") or description[:120]),
                     "description": description,
-                    "source": context.source_type,
+                    "source": existing.get("source") or context.source_type,
                     "category": payload.get("category")
                     if payload.get("category") is not None
                     else existing.get("category"),
@@ -2817,6 +2817,16 @@ class OntologyCommandService:
                 now=now,
             )
         )
+        refs.extend(
+            self._write_overview_catalysts(
+                ticker=ticker,
+                content=content,
+                actor=actor,
+                provenance_id=provenance_id,
+                input_hash=input_hash,
+                now=now,
+            )
+        )
         _best_effort_index_document(
             "overview",
             saved.index_content,
@@ -2826,6 +2836,52 @@ class OntologyCommandService:
             overview_uid,
             _version_ref_from_row(overview_row).get("version_id"),
         )
+        return refs
+
+    def _write_overview_catalysts(
+        self,
+        *,
+        ticker: str,
+        content: str,
+        actor: Mapping[str, Any],
+        provenance_id: str,
+        input_hash: str,
+        now: str,
+    ) -> list[dict[str, Any]]:
+        from portfolio.overview_catalysts import parse_overview_catalysts
+        from portfolio.thesis_sync import _normalize_match_text
+
+        candidates = parse_overview_catalysts(content)
+        if not candidates:
+            return []
+        existing = self.objects.query_objects(object_type="Catalyst", filters={"ticker": ticker}, limit=1000)
+        seen = {_normalize_match_text(str(_flatten_object(row).get("description") or "")) for row in existing}
+        refs: list[dict[str, Any]] = []
+        for candidate in candidates:
+            description = candidate["description"]
+            key = _normalize_match_text(description)
+            if key in seen:
+                continue
+            seen.add(key)
+            row = self.objects.write_object(
+                "Catalyst",
+                f"{ticker}:{description}",
+                {
+                    "ticker": ticker,
+                    "name": candidate["label"],
+                    "description": description,
+                    "category": candidate["category"],
+                    "source": "overview_markdown",
+                    "evidence": f"Extracted from {ticker} overview: {description}",
+                    "status": "pending",
+                    "ontology_run_id": OPERATIONAL_ONTOLOGY_RUN_ID,
+                },
+                now,
+                actor=actor,
+                provenance=provenance_id,
+                input_hash=input_hash,
+            )
+            refs.append(_version_ref_from_row(row))
         return refs
 
     def _write_overview_children(
