@@ -9,6 +9,7 @@ export const STALE_APPROVAL_MESSAGE =
 const THESIS_FACING_ACTIONS = new Set([
   "change_thesis_status",
   "save_thesis_content",
+  "save_overview_content",
   "save_management_quality_content",
   "save_evaluation",
   "create_catalyst",
@@ -102,7 +103,10 @@ export function invalidateAfterApprovalResolution(queryClient: QueryClient, appr
   const ticker = approval?.ticker ? String(approval.ticker).toUpperCase() : null
   if (ticker) void queryClient.invalidateQueries({ queryKey: ["dossier", ticker] })
   const actionId = String(approval?.action_id || "")
-  if (THESIS_FACING_ACTIONS.has(actionId)) void queryClient.invalidateQueries({ queryKey: ["thesis"] })
+  if (THESIS_FACING_ACTIONS.has(actionId)) {
+    void queryClient.invalidateQueries({ queryKey: ["thesis"] })
+    void queryClient.invalidateQueries({ queryKey: ["idea"] })
+  }
   if (PORTFOLIO_ACTIONS.has(actionId)) void queryClient.invalidateQueries({ queryKey: ["portfolio"] })
 }
 

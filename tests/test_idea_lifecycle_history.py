@@ -186,6 +186,27 @@ def test_idea_detail_includes_record_timeline(ideas_store):
     assert timeline[0]["label"] == "Idea lifecycle"
 
 
+def test_idea_detail_includes_ticker_scoped_catalysts_without_position(ideas_store):
+    from api.routers.ideas import _idea_detail
+
+    for ticker in ("TESTLC", "AAPL"):
+        ideas_store.write_object(
+            "Catalyst",
+            f"catalyst:{ticker}:launch",
+            {
+                "ticker": ticker,
+                "name": "Launch",
+                "description": "Product launch",
+                "source": "overview",
+                "ontology_run_id": "operational",
+            },
+            "2026-10-26T00:00:00Z",
+        )
+    detail = _idea_detail("testlc")
+    assert len(detail["catalysts"]) == 1
+    assert detail["catalysts"][0]["ticker"] == "TESTLC"
+
+
 def test_write_idea_lifecycle_event_records_accept_decision(ideas_store):
     from api.routers.ideas import _write_idea_lifecycle_event
 

@@ -7,6 +7,7 @@ import { FileUp, Loader2, Play, Save, Trash2 } from "lucide-react"
 import { EditableEquityOverview } from "@/components/overview/EditableEquityOverview"
 import { ActionPill, EvaluationPanel } from "@/components/idea/EvaluationPanel"
 import { ManagementQualityPreview } from "@/components/idea/ManagementQualityPreview"
+import { IdeaCatalysts } from "@/components/idea/IdeaCatalysts"
 import { CompanyResearchControls } from "@/components/CompanyResearchControls"
 import { NameDocumentsPanel } from "@/components/NameDocumentsPanel"
 import { PositionValuationTab } from "@/components/valuation/PositionValuationTab"
@@ -59,8 +60,8 @@ import {
 import { RecordEvolutionTimeline } from "@/components/shared/RecordEvolutionTimeline"
 import { cn } from "@/lib/utils"
 
-const TABS = ["Overview", "Management Quality", "Valuation", "Thesis", "Evaluation"] as const
-const NON_EQUITY_TABS = ["Overview", "Thesis", "Evaluation"] as const
+const TABS = ["Overview", "Management Quality", "Valuation", "Thesis", "Catalysts", "Evaluation"] as const
+const NON_EQUITY_TABS = ["Overview", "Thesis", "Catalysts", "Evaluation"] as const
 type Tab = typeof TABS[number]
 
 const IDEA_STATUSES: { value: IdeaStatus; label: string }[] = [
@@ -525,8 +526,8 @@ export function IdeaDetail() {
         <ErrorMessage message="Idea not found." />
       ) : (
         <>
-          {selectedIdeaIsEquitySecurity && <CompanyResearchControls key={selectedIdea.ticker} ticker={selectedIdea.ticker} />}
-          <NameDocumentsPanel key={selectedIdea.ticker} ticker={selectedIdea.ticker} />
+          {selectedIdeaIsEquitySecurity && <CompanyResearchControls key={`research-${selectedIdea.ticker}`} ticker={selectedIdea.ticker} />}
+          <NameDocumentsPanel key={`documents-${selectedIdea.ticker}`} ticker={selectedIdea.ticker} />
           <section className="theme-surface mb-4 rounded-lg p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -589,6 +590,9 @@ export function IdeaDetail() {
                 )}
               >
                 {t}
+                {t === "Catalysts" && Boolean(detail?.catalysts?.length) && (
+                  <span className="ml-1 text-xs text-subtle">({detail?.catalysts?.length})</span>
+                )}
                 {t === "Evaluation" && detail?.evaluations && detail.evaluations.length > 0 && (
                   <span className="ml-1 text-xs text-subtle">({detail.evaluations.length})</span>
                 )}
@@ -726,6 +730,16 @@ export function IdeaDetail() {
             )}
 
             {tab === "Valuation" && selectedIdeaIsEquitySecurity && <PositionValuationTab ticker={selectedIdea.ticker} />}
+
+            {tab === "Catalysts" && (
+              <IdeaCatalysts
+                key={selectedIdea.ticker}
+                ideaId={selectedIdea.id}
+                ticker={selectedIdea.ticker}
+                catalysts={detail?.catalysts ?? []}
+                overviewPresent={Boolean(detail?.documents?.overview_present)}
+              />
+            )}
 
             {tab === "Thesis" && (
               <section className="space-y-4">

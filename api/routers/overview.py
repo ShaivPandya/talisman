@@ -81,6 +81,11 @@ Do not output empty Supply Chain tables, demo names, hallucinated counterparties
 ### Demand Outlook
 - current and forward-looking demand dynamics
 
+## Key Catalysts
+- **Short catalyst label:** Specific, monitorable upcoming event or business driver, including timing and source links when available.
+Include only catalysts supported by the source research. Do not invent dates or treat generic business strengths as catalysts.
+If no catalysts are supported, omit this section.
+
 Use short bullets. Be concise and decision-useful.
 Focus on company-specific and financially material points.
 Do not include disclaimers or any text outside the markdown."""
