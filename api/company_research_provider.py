@@ -8,7 +8,7 @@ import logging
 import re
 import time
 from collections.abc import Callable
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 
 from openai import APIConnectionError
 from pydantic import BaseModel, Field
@@ -35,6 +35,9 @@ SEARCH_CONTEXT_TOKENS = 128_000
 # Leave two tool turns per URL within the source check's 12-turn allowance.
 # This is a batch size, never a limit on the evidence unit's total citations.
 SOURCE_CHECK_BATCH_SIZE = 6
+# Research responses finish in under ten minutes. One left queued far past that is
+# cancelled and resubmitted rather than holding a slot until the run's deadline.
+STALLED_RESPONSE_S = 20 * 60
 # Conservative standard-rate envelope, including cache writes and a regional-price margin.
 # https://developers.openai.com/api/docs/models/gpt-6.1-sol
 # https://developers.openai.com/api/docs/pricing
@@ -50,6 +53,18 @@ class ResearchTruncated(RuntimeError):
 
 class ResearchValidationFailed(RuntimeError):
     pass
+
+
+class ResearchStalled(RuntimeError):
+    pass
+
+
+class UnsupportedSources(ValueError):
+    """Cited URLs that could not be confirmed. ``result`` carries every confirmed location correction."""
+
+    def __init__(self, message: str, urls: set[str], result: Any):
+        super().__init__(message)
+        self.urls, self.result = urls, result
 
 
 class SourceLocationCorrection(EvidenceModel):
@@ -172,6 +187,7 @@ class ResearchProvider:
         urls = sorted(by_url)
         if len(urls) > SOURCE_CHECK_BATCH_SIZE:
             failures: list[str] = []
+            failed: set[str] = set()
             for start in range(0, len(urls), SOURCE_CHECK_BATCH_SIZE):
                 batch = set().union(*(by_url[url] for url in urls[start : start + SOURCE_CHECK_BATCH_SIZE]))
                 try:
@@ -180,10 +196,14 @@ class ResearchProvider:
                     # Discover every bad batch before spending the evidence unit's
                     # repair. Cost, deadline and lease exceptions still propagate.
                     failures.append(str(exc))
+                    failed |= exc.urls if isinstance(exc, UnsupportedSources) else batch
+                    result = exc.result if isinstance(exc, UnsupportedSources) else result
             if failures:
-                raise ValueError(
+                raise UnsupportedSources(
                     f"Source verification failed in {len(failures)} batch(es). Full findings are retained."
-                    "\nSource details:\n" + "\n\n".join(failures)
+                    "\nSource details:\n" + "\n\n".join(failures),
+                    failed,
+                    result,
                 )
             return result
 
@@ -208,7 +228,7 @@ class ResearchProvider:
 
         collect(result.model_dump(mode="json"))
         if not passages or {_canonical(p["url"]) for p in passages} != set(urls):
-            raise ValueError(_unobserved_sources(missing))
+            raise UnsupportedSources(_unobserved_sources(missing), missing, result)
 
         def validate(checked: SourceChecks) -> None:
             urls = [_canonical(c.url) for c in checked.checks]
@@ -252,16 +272,7 @@ class ResearchProvider:
         except ResearchValidationFailed as exc:
             # Only validation failures can enter the parent's bounded repair.
             # Deadline, spending and lease failures must still stop immediately.
-            raise ValueError(str(exc)) from exc
-        unsupported = [check for check in checked.checks if not check.supported]
-        if unsupported:
-            # Retry the affected evidence with actionable findings, not the same
-            # verification request in the hope it returns a positive answer.
-            raise ValueError(
-                f"Source passages could not be independently supported: {len(unsupported)} URL(s). "
-                "Full findings are retained with the source checks.\nSource details:\n"
-                + "; ".join(f"{check.url}: {check.explanation}" for check in unsupported)
-            )
+            raise UnsupportedSources(str(exc), missing, result) from exc
         locations = {
             correction.source_index: correction.location
             for check in checked.checks
@@ -281,7 +292,20 @@ class ResearchProvider:
 
         data = result.model_dump(mode="json")
         correct(data)
-        return type(result).model_validate(data)
+        result = type(result).model_validate(data)
+        unsupported = [check for check in checked.checks if not check.supported]
+        if unsupported:
+            # Retry the affected evidence with actionable findings, not the same
+            # verification request in the hope it returns a positive answer.
+            failed = {_canonical(check.url) for check in unsupported}
+            raise UnsupportedSources(
+                f"Source passages could not be independently supported: {len(unsupported)} URL(s). "
+                "Full findings are retained with the source checks.\nSource details:\n"
+                + "; ".join(f"{check.url}: {check.explanation}" for check in unsupported),
+                {url for url in missing if _canonical(url) in failed},
+                result,
+            )
+        return result
 
     def _retrieve(self, response_id: str, *, gathering: bool = False) -> Any:
         # Reading a known response is idempotent. A transient poll failure must
@@ -307,8 +331,12 @@ class ResearchProvider:
 
     def _wait(self, response: Any, call_id: str, *, gathering: bool = False) -> Any:
         response_id = legacy._value(response, "id")
+        created = legacy._value(response, "created_at")
+        started = float(created) if isinstance(created, int | float) else time.time()
         try:
             while legacy._value(response, "status") in {"queued", "in_progress"}:
+                if time.time() - started > STALLED_RESPONSE_S:
+                    raise ResearchStalled(f"Research response {response_id} stalled; it was cancelled.")
                 state = store.check_run(self.run_id, self.owner, gathering=gathering)
                 time.sleep(min(POLL_SECONDS, max(0, state["deadline"] - time.time())))
                 store.check_run(self.run_id, self.owner, gathering=gathering)
@@ -344,7 +372,10 @@ class ResearchProvider:
                 continue
             # Recovery reads existing work; it never launches new discovery and
             # can use the finishing window. The original deadline still applies.
-            response = self._wait(self._retrieve(response_id), call_id)
+            try:
+                response = self._wait(self._retrieve(response_id), call_id)
+            except ResearchStalled:
+                continue  # Cancelled and settled; its step resubmits when it runs.
             step, attempt = call_id.rsplit(":", 1)
             legacy._write_json(self.artifact_key(step, f"attempt-{attempt}"), _dict(response))
             usage, cost = response_usage(response)
@@ -373,6 +404,7 @@ class ResearchProvider:
         validate: Callable[[T], None] | None = None,
         validation_fallback: Callable[[T], None] | None = None,
         merge_repair: Callable[[T, T], T] | None = None,
+        prune: Callable[[T, set[str]], T] | None = None,
         known_urls: set[str] | None = None,
         attempts: int = 2,
         resolve_unobserved: bool = True,
@@ -534,7 +566,11 @@ class ResearchProvider:
                     store.settle_call(self.run_id, self.owner, call_id, actual_usd=None, usage={}, status="unknown")
                     raise RuntimeError("Research provider returned no response identifier.")
                 self.update_call(call_id, response_id=response_id)
-            response = self._wait(response, call_id, gathering=active_gathering)
+            try:
+                response = self._wait(response, call_id, gathering=active_gathering)
+            except ResearchStalled:
+                # Settled as cancelled; resubmit the same request (and any repair) once more.
+                continue
             raw = _dict(response)
             legacy._write_json(self.artifact_key(step, f"attempt-{attempt}"), raw)
             usage, cost = response_usage(response)
@@ -550,6 +586,7 @@ class ResearchProvider:
                     continue
                 raise RuntimeError(f"Research unit did not complete ({reason}).")
             draft = ""
+            pruned = ""
             validated_attempts += 1
             try:
                 result = model.model_validate_json(extract_text(response))
@@ -573,21 +610,33 @@ class ResearchProvider:
                                 observed.add(source_url)
                     observed_urls.update(observed)
                     allowed = {_canonical(url) for url in observed_urls}
-                    # An inaccessible URL is an expected negative finding, not
-                    # a citation used to support evidence. Positive checks still
-                    # require a tool-observed URL.
-                    cited = (
-                        {check.url for check in result.checks if check.supported}
-                        if isinstance(result, SourceChecks)
-                        else source_urls(result)
-                    )
+                    cited = source_urls(result)
+                    if isinstance(result, SourceChecks):
+                        # An inaccessible URL is an expected negative finding. A positive
+                        # check needs the page opened in this check; any other check is
+                        # reported unconfirmed rather than failing the whole batch.
+                        for check in result.checks:
+                            if check.supported and _canonical(check.url) not in allowed:
+                                check.supported = False
+                                check.location_corrections = []
+                                check.explanation = "The URL was not opened during this check. " + check.explanation
+                        cited = set()
                     missing = {url for url in cited if _canonical(url) not in allowed}
                     if missing or (verify_sources and cited):
                         if not resolve_unobserved:
                             raise ValueError(_unobserved_sources(missing))
-                        result = self.resolve_sources(
-                            step, result, cited if verify_sources else missing, gathering=active_gathering
-                        )
+                        try:
+                            result = self.resolve_sources(
+                                step, result, cited if verify_sources else missing, gathering=active_gathering
+                            )
+                        except UnsupportedSources as exc:
+                            if prune is None:
+                                raise
+                            # Keep the confirmed evidence. One unconfirmed citation must not
+                            # discard a paid packet; validation still decides if what remains holds.
+                            pruned = str(exc)
+                            legacy._write_json(self.artifact_key(step, f"pruned-{attempt}"), {"error": pruned})
+                            result = prune(cast(T, exc.result), exc.urls)
                 if validate:
                     try:
                         validate(result)
@@ -602,7 +651,7 @@ class ResearchProvider:
                 # Keep complete diagnostics outside the bounded status/repair
                 # text, so a long URL list is not the only record of the failure.
                 legacy._write_json(self.artifact_key(step, f"validation-{attempt}"), {"error": str(exc)})
-                failure = str(exc)[:12_000]
+                failure = (f"{exc}\n{pruned}" if pruned else str(exc))[:12_000]
                 repair_input = draft
                 self.update_call(call_id, error=failure[:1200])
                 continue

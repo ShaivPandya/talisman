@@ -33,6 +33,8 @@ from api.company_research_evidence import (
     WrittenSections,
     apply_decisions,
     merge_quarter_repair,
+    prune_overview_sources,
+    prune_quarter_sources,
     remove_unverified_report_links,
     render_tracker,
     source_urls,
@@ -59,6 +61,34 @@ STANDARD = (
     "execution. Preserve original promises and dates; do not retroactively move the target. Explicitly "
     "identify inaccessible sources, absent disclosure, unresolved contradictions and uncertainty. "
     "Use only information available by the as-of date. Do not provide investment advice."
+)
+# "Do managers think and act like owners?" is answered by proxies, insider filings and
+# capital-allocation disclosures, which the quarter-by-quarter operational tracker never reads.
+OWNER_STEP = "management_quality/owner_mindset"
+OWNER_SECTIONS = [
+    "Owner mindset: capital allocation record",
+    "Owner mindset: incentives, ownership and insider activity",
+    "Business value understanding: stated value drivers and returns",
+]
+OWNER_REPORT_SECTION = "Owner mindset, incentives and capital allocation"
+OWNER_RESEARCH = (
+    "Investigate whether management thinks and acts like owners and understands what drives business value "
+    "over the review window. Most of this evidence is in regulatory filings, not earnings calls. Read the "
+    "primary documents:\n"
+    "- Each year's proxy statement (DEF 14A): pay mix, incentive metrics and weights, targets versus payouts, "
+    "discretionary or one-time awards, stock ownership guidelines and actual executive and director holdings, "
+    "pledging, say-on-pay results and related-party transactions.\n"
+    "- SEC Form 4 filings: open-market purchases and sales by executives and directors (dates, shares, prices), "
+    "distinguished from award vesting and tax withholding.\n"
+    "- 10-K and 10-Q filings: share repurchases (amounts, shares, average prices) and authorizations, dividends "
+    "including suspensions and reinstatements, debt reduction against stated leverage targets, acquisitions, "
+    "divestitures and strategic investments with later outcomes or impairments, capital expenditure against "
+    "plan, stock-based compensation and diluted share count over time, and employee profit-sharing programs.\n"
+    "- Investor-day materials, shareholder letters and earnings calls: stated capital-allocation priorities and "
+    "return-on-capital, free-cash-flow, margin or leverage targets, and what management says drives value.\n"
+    "Pair each stated priority or target with what was actually done, with figures, units, periods and dates. "
+    "Each fact is a complete statement with its supporting passage, not a rating; do not infer motives. "
+    "Name a gap only when the sources do not answer that part."
 )
 
 
@@ -149,6 +179,8 @@ class Workflow:
         self.provider = ResearchProvider(run_id, owner)
         self.talisman = ResearchContext(self.provider, self.state, owner)
         self.private_management_facts: list[Fact] = []
+        self.owner_facts: list[Fact] = []
+        self.owner_gaps: list[str] = []
         self.private_coverage_notes: dict[str, list[str]] = {}
         self.context = f"Issuer ticker: {self.state['ticker']}. As-of: {self.as_of}. " + STANDARD
 
@@ -192,6 +224,12 @@ class Workflow:
 
     def gather_quarters(self, plan: ResearchPlan, labels: list[str]) -> QuarterPacket:
         step = "quarters/" + "/".join(q.replace(" ", "_") for q in labels)
+
+        def validate(packet: QuarterPacket) -> None:
+            # Another batch owns any extra quarter; it must not fail this batch's research.
+            packet.quarters[:] = [q for q in packet.quarters if q.quarter in labels]
+            validate_quarters(packet, labels, as_of=self.as_of)
+
         try:
             return self.provider.request(
                 step,
@@ -209,6 +247,8 @@ class Workflow:
                 "Use source_unavailable only after searching primary-source alternatives; it means evidence "
                 "was unavailable, not that execution failed. Keep sources concise, without losing targets, "
                 "dates or supporting evidence. Keep fields concise and avoid repeating background. "
+                "Use gap only for material disclosure the quarter's sources did not provide, never for notes "
+                "about repairs, record IDs or the scope of this packet. "
                 "For targeted repairs, keep the original record_id for each amended commitment; unmentioned "
                 "quarters and records are retained from the draft. Full research requirements:\n"
                 + self.prompt("management_quality")
@@ -217,8 +257,9 @@ class Workflow:
                 + "\nAssigned quarters:\n"
                 + _json([q for q in plan.quarters if q.label in labels]),
                 known_urls=source_urls(plan),
-                validate=lambda p: validate_quarters(p, labels, as_of=self.as_of),
+                validate=validate,
                 merge_repair=merge_quarter_repair,
+                prune=prune_quarter_sources,
             )
         except ResearchTruncated:
             if len(labels) == 1:
@@ -228,22 +269,23 @@ class Workflow:
             right = self.gather_quarters(plan, labels[middle:])
             return QuarterPacket(quarters=left.quarters + right.quarters)
 
+    def validate_topic(self, packet: OverviewPacket, sections: list[str], prefix: str) -> None:
+        validate_sources(packet, as_of=self.as_of)
+        if not packet.searched_sources:
+            raise ValueError("Topic research needs a record of sources consulted.")
+        if any(f.section not in sections for f in packet.facts):
+            raise ValueError("Facts must belong to the assigned sections: " + _json(sections))
+        for section in sections:
+            if not any(f.section == section for f in packet.facts) and not any(section in gap for gap in packet.gaps):
+                raise ValueError(f"Section {section} needs facts or an explicit named evidence gap.")
+        unique: dict[str, Fact] = {}
+        for fact in packet.facts:
+            fact.record_id = prefix + hashlib.sha256(f"{fact.section}|{fact.claim}".encode()).hexdigest()[:20]
+            unique.setdefault(fact.record_id, fact)
+        packet.facts[:] = unique.values()
+
     def gather_overview(self, plan: ResearchPlan, index: int) -> OverviewPacket:
         topic = plan.overview_topics[index]
-
-        def validate(packet: OverviewPacket) -> None:
-            validate_sources(packet, as_of=self.as_of)
-            if not packet.searched_sources:
-                raise ValueError("Overview research needs a record of sources consulted.")
-            if any(f.section not in topic.sections for f in packet.facts):
-                raise ValueError("Facts must belong to the assigned sections.")
-            for section in topic.sections:
-                if not any(f.section == section for f in packet.facts) and not any(
-                    section in gap for gap in packet.gaps
-                ):
-                    raise ValueError(f"Section {section} needs facts or an explicit named evidence gap.")
-            for fact in packet.facts:
-                fact.record_id = "fact_" + hashlib.sha256(f"{fact.section}|{fact.claim}".encode()).hexdigest()[:20]
 
         return self.provider.request(
             f"overview/{topic.key}",
@@ -265,7 +307,33 @@ class Workflow:
             + "; "
             + plan.fiscal_calendar,
             known_urls=source_urls(plan),
-            validate=validate,
+            validate=lambda packet: self.validate_topic(packet, topic.sections, "fact_"),
+            prune=prune_overview_sources,
+        )
+
+    def gather_owner_mindset(self, plan: ResearchPlan, _: Any = None) -> OverviewPacket:
+        window = f"{plan.quarters[0].label} to {plan.quarters[-1].label}" if plan.quarters else "the last five years"
+        return self.provider.request(
+            OWNER_STEP,
+            OverviewPacket,
+            web=True,
+            gathering=True,
+            tool_calls=12,
+            repair_tool_calls=4,
+            effort="high",
+            instructions=self.context,
+            prompt=OWNER_RESEARCH
+            + "\nReview window: "
+            + window
+            + ".\nSections (use these exact titles): "
+            + _json(OWNER_SECTIONS)
+            + "\nIssuer and fiscal calendar: "
+            + plan.issuer
+            + "; "
+            + plan.fiscal_calendar,
+            known_urls=source_urls(plan),
+            validate=lambda packet: self.validate_topic(packet, OWNER_SECTIONS, "owner_"),
+            prune=prune_overview_sources,
         )
 
     def archive(
@@ -352,7 +420,7 @@ class Workflow:
                     ),
                 )
         with ThreadPoolExecutor(max_workers=store.MAX_INFLIGHT) as pool:
-            futures: dict[Future[Any], str] = {}
+            futures: dict[Future[Any], tuple[str, str]] = {}
             tasks: list[tuple[str, str, Any, Any]] = []
             management_pending = (
                 "management_quality" in self.snapshot["kinds"]
@@ -362,6 +430,8 @@ class Workflow:
                 "overview" in self.snapshot["kinds"] and self.state["reports"]["overview"]["status"] != "done"
             )
             labels = [q.label for q in plan.quarters]
+            if management_pending:
+                tasks.append((OWNER_STEP, "management_quality", self.gather_owner_mindset, None))
             # Interleave reports so a difficult management packet cannot starve overview work.
             for index in range(
                 max(5 if management_pending else 0, len(plan.overview_topics) if overview_pending else 0)
@@ -401,13 +471,15 @@ class Workflow:
             # Recover known provider calls before admitting fresh work into the bounded slots.
             completed_steps = store.get_run(self.run_id)["steps"]
             tasks.sort(key=lambda task: 0 if task[0] in completed_steps else 1 if recovering(task) else 2)
-            for _step, kind, function, argument in tasks:
-                futures[pool.submit(function, plan, argument)] = kind
+            for step, kind, function, argument in tasks:
+                futures[pool.submit(function, plan, argument)] = (kind, step)
             for future in as_completed(futures):
-                kind = futures[future]
+                kind, step = futures[future]
                 try:
                     packet = future.result()
-                    if isinstance(packet, QuarterPacket):
+                    if step == OWNER_STEP:
+                        self.owner_facts, self.owner_gaps = packet.facts, packet.gaps
+                    elif isinstance(packet, QuarterPacket):
                         quarters.extend(packet.quarters)
                         quarters.sort(
                             key=lambda q: next(i for i, p in enumerate(plan.quarters) if p.label == q.quarter)
@@ -443,8 +515,12 @@ class Workflow:
                 except store.ResearchLeaseLost:
                     raise
                 except Exception as exc:
-                    logger.exception("Research unit failed for %s/%s", self.run_id, kind)
-                    errors[kind] = _error(exc)
+                    logger.exception("Research unit failed for %s/%s", self.run_id, step)
+                    if step == OWNER_STEP:
+                        # The operational tracker still stands; report the missing owner evidence as a gap.
+                        self.owner_gaps = [f"Owner-mindset research did not complete: {_error(exc)}"]
+                    else:
+                        errors[kind] = _error(exc)
         for kind, local in local_packets.items():
             try:
                 self.private_coverage_notes[kind] = [f"Private-source review only: {gap}" for gap in local.gaps]
@@ -538,7 +614,12 @@ class Workflow:
                     if private
                     else "Independently verify this evidence packet against public sources. "
                 )
-                + "Reconcile contradictions, "
+                + "Each record's passages were captured from sources opened during research. Check every record "
+                "against its own passages first; use lookups to settle contradictions or doubtful items, not to "
+                "reopen every source. Set supported=false only with a rejection_basis: contradicted_by_source (a "
+                "source you consulted contradicts it), not_supported_by_cited_passages (its own passages do not "
+                "say what it claims) or impossible_dates_or_arithmetic. A source you did not get to reopen is not "
+                "a reason to reject; keep that record supported with rejection_basis null. Reconcile contradictions, "
                 "check dates, targets, outcomes, and calculations. Return one decision for EVERY original record ID. "
                 "Keep supported originals intact: output only required field corrections, not a copy of the ledger. "
                 "For management, original promises and targets are immutable; reject unsupported originals. "
@@ -591,6 +672,10 @@ class Workflow:
                 if kind == "overview"
                 else "and distinguish judgments from facts. Reconcile initiatives across quarters where relevant. "
                 "Attributed analyst observations provide context, not proof of original management promises or execution outcomes. "
+                "Owner-mindset and business-value facts come from proxy statements, insider filings and "
+                "capital-allocation disclosures; they are the evidence for whether managers think and act like "
+                "owners and understand what drives value. Use them wherever the requirements ask about capital "
+                "allocation, incentives or the overall assessment. "
             )
 
             def validate(w: WrittenSections, expected: list[str] = titles, records: list[Any] = relevant) -> None:
@@ -664,7 +749,7 @@ class Workflow:
     ) -> None:
         """Use the finishing reserve to check useful evidence without publishing an incomplete report."""
         original: list[Any] = (
-            [r for q in quarters for r in q.records] + self.private_management_facts
+            [r for q in quarters for r in q.records] + self.owner_facts + self.private_management_facts
             if kind == "management_quality"
             else [f for p in packets for f in p.facts]
         )
@@ -678,9 +763,18 @@ class Workflow:
         if kind == "management_quality":
             missing = [q.label for q in plan.quarters if q.label not in {r.quarter for r in quarters}]
             content += render_tracker(quarters, [record for record in accepted if isinstance(record, Commitment)])
-            gaps = [f"Not researched: {label}" for label in missing] + [
-                f"{q.quarter}: {q.gap}" for q in quarters if q.gap
-            ]
+            gaps = (
+                [f"Not researched: {label}" for label in missing]
+                + [f"{q.quarter}: {q.gap}" for q in quarters if q.gap]
+                + self.owner_gaps
+            )
+            owner = [fact for fact in accepted if isinstance(fact, Fact) and fact.record_id.startswith("owner_")]
+            for section in OWNER_SECTIONS:
+                facts = [fact for fact in owner if fact.section == section]
+                if facts:
+                    content += f"\n\n## {section}\n\n" + "\n".join(
+                        f"- {fact.claim} " + "; ".join(f"[{s.title}]({s.url})" for s in fact.sources) for fact in facts
+                    )
         else:
             for section in [s for topic in plan.overview_topics for s in topic.sections]:
                 facts = [f for f in accepted if f.section == section]
@@ -739,7 +833,7 @@ class Workflow:
             return
         originals: list[Any]
         originals = (
-            [r for q in quarters for r in q.records] + self.private_management_facts
+            [r for q in quarters for r in q.records] + self.owner_facts + self.private_management_facts
             if kind == "management_quality"
             else [f for p in packets for f in p.facts]
         )
@@ -747,16 +841,23 @@ class Workflow:
             raise ValueError("Duplicate evidence records require reconciliation before publication.")
         evidence, rejected = self.verify(kind, originals)
         gaps = (
-            [f"{q.quarter}: {q.gap}" for q in quarters if q.gap]
+            [f"{q.quarter}: {q.gap}" for q in quarters if q.gap] + self.owner_gaps
             if kind == "management_quality"
             else [g for p in packets for g in p.gaps]
         ) + rejected
         gaps = list(dict.fromkeys([*gaps, *self.private_coverage_notes.get(kind, []), *self.talisman.warnings]))
         sections = (
-            plan.management_sections
+            list(plan.management_sections)
             if kind == "management_quality"
             else [s for topic in plan.overview_topics for s in topic.sections]
         )
+        if (
+            kind == "management_quality"
+            and any(f.record_id.startswith("owner_") for f in evidence if isinstance(f, Fact))
+            and not any("owner" in title.lower() for title in sections)
+        ):
+            # Give the owner evidence its own place ahead of the closing assessment.
+            sections.insert(len(sections) - 1 if len(sections) > 1 else len(sections), OWNER_REPORT_SECTION)
         content = f"# {plan.issuer} — {kind.replace('_', ' ').title()}\n\nAs of {self.as_of}.\n\n"
         parts = self.write(kind, sections, evidence, gaps)
         summary_input = content + "\n\n".join(parts)

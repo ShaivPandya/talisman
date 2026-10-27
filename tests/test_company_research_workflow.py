@@ -33,6 +33,7 @@ from api.company_research_evidence import (
     WrittenSections,
     apply_decisions,
     merge_quarter_repair,
+    prune_quarter_sources,
     render_tracker,
     validate_plan,
     validate_quarters,
@@ -470,13 +471,13 @@ def test_failed_later_source_batch_never_accepts_plan(monkeypatch, failure):
 
 def test_source_failure_status_is_concise_and_full_url_diagnostics_are_retained(monkeypatch):
     urls = [q.source.url for q in earnings_plan().quarters]
-    checks = {"checks": [{"url": url, "supported": True, "explanation": "Claimed support"} for url in urls]}
-    mock_client(monkeypatch, [response(checks)])
+    packet = OverviewPacket(facts=[], gaps=[], searched_sources=[source().model_copy(update={"url": u}) for u in urls])
+    mock_client(monkeypatch, [response(packet.model_dump(mode="json"))])
     instance = provider.ResearchProvider(claimed(), "worker")
     with pytest.raises(provider.ResearchValidationFailed) as error:
         instance.request(
             "plan/source-check/example",
-            provider.SourceChecks,
+            OverviewPacket,
             prompt="Check",
             instructions="Check",
             web=True,
@@ -722,19 +723,29 @@ def test_negative_source_check_repairs_retained_evidence_instead_of_rechecking_t
 
 def test_positive_source_check_still_requires_an_observed_url(monkeypatch):
     checked = response(
-        {"checks": [{"url": "https://invented.example/", "supported": True, "explanation": "Claimed support"}]}
+        {
+            "checks": [
+                {"url": "https://invented.example/", "supported": True, "explanation": "Claimed support"},
+                {"url": URL, "supported": True, "explanation": "Opened and supported"},
+            ]
+        }
     )
     client = mock_client(monkeypatch, [checked])
-    with pytest.raises(RuntimeError, match="Source URLs not observed"):
-        provider.ResearchProvider(claimed(), "worker").request(
-            "check",
-            provider.SourceChecks,
-            prompt="Check",
-            instructions="Check",
-            web=True,
-            resolve_unobserved=False,
-            attempts=1,
-        )
+    result = provider.ResearchProvider(claimed(), "worker").request(
+        "check",
+        provider.SourceChecks,
+        prompt="Check",
+        instructions="Check",
+        web=True,
+        resolve_unobserved=False,
+        attempts=1,
+    )
+    # The unopened page is reported unconfirmed; the opened one keeps its result without a repair call.
+    assert [(check.url, check.supported) for check in result.checks] == [
+        ("https://invented.example/", False),
+        (URL, True),
+    ]
+    assert result.checks[0].explanation.startswith("The URL was not opened during this check.")
     assert client.responses.create.call_count == 1
 
 
@@ -962,6 +973,15 @@ class FakeProvider:
                     for q in assigned
                 ]
             )
+        elif model is OverviewPacket and step == workflow.OWNER_STEP:
+            result = OverviewPacket(
+                facts=[
+                    Fact(record_id="fact", section=section, claim=f"Owner evidence: {section}", sources=[source()])
+                    for section in workflow.OWNER_SECTIONS
+                ],
+                gaps=[],
+                searched_sources=[source()],
+            )
         elif model is OverviewPacket:
             result = OverviewPacket(
                 facts=[Fact(record_id="fact", section="Business", claim="Makes products", sources=[source()])],
@@ -1041,7 +1061,10 @@ def test_complete_workflow_covers_all_quarters_and_eval_never_publishes(monkeypa
     report = legacy.read_research_report("EL", "management_quality", state["run_id"])
     assert report["complete"] and not report["summary_applied"]
     assert all(q.label in report["content"] for q in plan().quarters)
-    assert len(report["evidence"]) == 20
+    # Twenty quarterly commitments plus the proxy/filing evidence for "do they act like owners?"
+    assert len(report["evidence"]) == 20 + len(workflow.OWNER_SECTIONS)
+    assert workflow.OWNER_STEP in FakeProvider.calls
+    assert f"## {workflow.OWNER_REPORT_SECTION}" in report["content"]
     assert legacy._read_json("EL/management_quality/latest.json") is None
 
 
@@ -1214,7 +1237,8 @@ def test_partial_coverage_is_verified_and_retained_without_publication(monkeypat
     assert result["status"] == "incomplete"
     report = legacy.read_research_report("EL", "management_quality", state["run_id"])
     assert report["verified_partial"] and not report["complete"] and not report["summary_applied"]
-    assert len(report["evidence"]) == 4
+    assert len(report["evidence"]) == 4 + len(workflow.OWNER_SECTIONS)
+    assert all(f"## {section}" in report["content"] for section in workflow.OWNER_SECTIONS)
     assert "Not researched: FY2025 Q4" in report["content"]
     assert all(call.args[0] == "save_overview_content" for call in publish.call_args_list)
     assert legacy._read_json("EL/management_quality/latest.json") is None
@@ -1597,7 +1621,12 @@ def test_undated_outcome_fallback_preserves_promise_and_marks_result_unverified(
     original.claim_sources[0].published_on = date(2022, 4, 30)
     original.outcome_sources[0].published_on = date(2021, 4, 30)
     with pytest.raises(ValueError, match="Concluded outcomes"):
-        apply_decisions([original], checked, management=True, as_of=AS_OF, allow_unverified_outcomes=True)
+        apply_decisions([original], checked, management=True, as_of=AS_OF)
+    # After the one repair, an out-of-order chronology marks this outcome unverified instead
+    # of failing every other record in the verification batch.
+    accepted, gaps = apply_decisions([original], checked, management=True, as_of=AS_OF, allow_unverified_outcomes=True)
+    assert accepted[0].outcome == "Insufficient disclosure"
+    assert "predates the original promise" in gaps[0]
 
 
 def test_semantic_fallback_only_follows_completed_repair_and_is_checkpointed(monkeypatch):
@@ -1797,3 +1826,223 @@ def test_link_cleanup_does_not_turn_an_unverified_url_label_into_an_autolink():
     assert written.sections[0].markdown == original
     with pytest.raises(ValueError, match="not researched"):
         workflow.validate_sections(written, ["Business"], {"fact"}, {URL})
+
+
+UNITED = "https://united.mediaroom.com/2026-10-20-United-Delivers-Record-17-Revenue-Growth-in-Q3"
+
+
+def topic_plan():
+    return plan().model_copy(
+        update={
+            "overview_topics": [
+                Topic(
+                    key="industry", title="Industry", requirements="Industry history", sections=["Industry", "History"]
+                )
+            ]
+        }
+    )
+
+
+def topic_packet(bad_url):
+    return OverviewPacket(
+        facts=[
+            Fact(record_id="a", section="Industry", claim="Four carriers hold most capacity.", sources=[source()]),
+            Fact(
+                record_id="b",
+                section="History",
+                claim="A competitor grew revenue 17%.",
+                sources=[source().model_copy(update={"url": bad_url})],
+            ),
+        ],
+        gaps=[],
+        searched_sources=[source()],
+    )
+
+
+@pytest.mark.parametrize(
+    ("bad_url", "claimed_support"),
+    [(UNITED, True), ("", False)],
+    ids=["check-claims-support-without-opening", "empty-url"],
+)
+def test_one_unconfirmed_citation_drops_only_its_claim_not_the_topic(monkeypatch, bad_url, claimed_support):
+    # DAL run eb6e6229: 62 and 47 facts were discarded over one United link and one empty URL.
+    checked = response({"checks": [{"url": bad_url, "supported": claimed_support, "explanation": "Checked"}]})
+    client = mock_client(monkeypatch, [response(topic_packet(bad_url).model_dump(mode="json")), checked])
+    instance = workflow.Workflow(claimed(), "worker")
+    result = instance.gather_overview(topic_plan(), 0)
+    assert [fact.claim for fact in result.facts] == ["Four carriers hold most capacity."]
+    assert result.facts[0].record_id.startswith("fact_")
+    assert any(gap.startswith("History: removed a claim") for gap in result.gaps)
+    # No repair round-trip: the paid packet is kept, minus the claim that could not be confirmed.
+    assert client.responses.create.call_count == 2
+    assert instance.provider.load("overview/industry", OverviewPacket) == result
+    assert legacy._read_json(instance.provider.artifact_key("overview/industry", "pruned-0"))
+
+
+def test_pruning_that_leaves_an_invalid_packet_still_gets_the_one_repair(monkeypatch):
+    bad = source().model_copy(update={"url": UNITED})
+    packet = OverviewPacket(
+        facts=[Fact(record_id="b", section="History", claim="Claim", sources=[bad])],
+        gaps=["Industry: not disclosed."],
+        searched_sources=[bad],
+    )
+    repaired = OverviewPacket(
+        facts=[Fact(record_id="a", section="History", claim="Repaired claim", sources=[source()])],
+        gaps=["Industry: not disclosed."],
+        searched_sources=[source()],
+    )
+    checked = response({"checks": [{"url": UNITED, "supported": True, "explanation": "Claimed"}]})
+    client = mock_client(
+        monkeypatch,
+        [response(packet.model_dump(mode="json")), checked, response(repaired.model_dump(mode="json"))],
+    )
+    result = workflow.Workflow(claimed(), "worker").gather_overview(topic_plan(), 0)
+    assert [fact.claim for fact in result.facts] == ["Repaired claim"]
+    repair_prompt = client.responses.create.call_args_list[2].kwargs["input"]
+    assert "sources consulted" in repair_prompt and "not opened during this check" in repair_prompt
+
+
+def test_quarter_pruning_keeps_confirmed_commitments_and_unverifies_outcomes():
+    bad = source().model_copy(update={"url": UNITED})
+    lost = commitment().model_copy(update={"initiative": "Lounge", "claim_sources": [bad]})
+    kept = commitment().model_copy(
+        update={
+            "initiative": "Fleet",
+            "outcome": "Achieved on time",
+            "outcome_sources": [bad],
+        }
+    )
+    packet = QuarterPacket(
+        quarters=[
+            QuarterReview(
+                quarter="FY2021 Q1",
+                coverage="researched",
+                search_attempts=["Read release"],
+                sources=[bad],
+                gap=None,
+                records=[lost, kept],
+            )
+        ]
+    )
+    pruned = prune_quarter_sources(packet, {UNITED + "?utm_source=openai"})
+    quarter = pruned.quarters[0]
+    assert [r.initiative for r in quarter.records] == ["Fleet"]
+    assert quarter.records[0].outcome == "Insufficient disclosure" and not quarter.records[0].outcome_sources
+    assert quarter.sources == [source()] and "Lounge" in quarter.gap
+    validate_quarters(pruned, ["FY2021 Q1"], as_of=AS_OF)
+
+
+def test_quarter_batch_ignores_quarters_owned_by_another_batch_and_accepts_label_variants(monkeypatch):
+    class ExtraQuarterProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is QuarterPacket:
+                extra = QuarterReview(
+                    quarter="Q1 FY2026",
+                    coverage="researched",
+                    search_attempts=["Read release"],
+                    sources=[source()],
+                    gap=None,
+                    records=[],
+                )
+                packet = super().request(step, model, **{**kwargs, "validate": None})
+                data = packet.model_dump(mode="json")
+                data["quarters"][0]["quarter"] = "Q1 FY2021"
+                data["quarters"][0]["records"][0]["quarter"] = "Q1 FY2021"
+                packet = QuarterPacket.model_validate({"quarters": [*data["quarters"], extra.model_dump(mode="json")]})
+                kwargs["validate"](packet)
+                return packet
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", ExtraQuarterProvider)
+    labels = [q.label for q in plan().quarters[:4]]
+    packet = workflow.Workflow(claimed(), "worker").gather_quarters(plan(), labels)
+    assert [q.quarter for q in packet.quarters] == labels
+
+
+def decision(record_id, **values):
+    return {
+        "record_id": record_id,
+        "supported": False,
+        "reason": "Not reviewed",
+        "corrections": [],
+        "replacement_sources": None,
+        **values,
+    }
+
+
+def test_verifier_cannot_reject_a_record_only_because_it_did_not_reopen_the_source():
+    # DAL run eb6e6229: 86 of 88 rejections were "not independently inspected", leaving 20 of 72 commitments.
+    unread, wrong, legacy_reject = (commitment(label) for label in ("FY2021 Q1", "FY2021 Q2", "FY2021 Q3"))
+    unread.outcome, unread.outcome_sources = "Achieved on time", [source(date(2022, 4, 30))]
+    checked = EvidenceDecisions.model_validate(
+        {
+            "decisions": [
+                decision(unread.record_id, rejection_basis=None),
+                decision(wrong.record_id, reason="Release says 2027", rejection_basis="contradicted_by_source"),
+                decision(legacy_reject.record_id),
+            ]
+        }
+    )
+    assert "rejection_basis" not in checked.decisions[2].model_fields_set
+    accepted, rejected = apply_decisions([unread, wrong, legacy_reject], checked, management=True, as_of=AS_OF)
+    assert accepted == [unread] and accepted[0].outcome == "Achieved on time"
+    assert [line.split(":")[0] for line in rejected] == [wrong.record_id, legacy_reject.record_id]
+    # An unread record whose chronology cannot be shown is kept as unverified, not failed or dropped.
+    unread.outcome_sources[0].published_on = None
+    accepted, rejected = apply_decisions([unread, wrong, legacy_reject], checked, management=True, as_of=AS_OF)
+    assert accepted[0].outcome == "Insufficient disclosure"
+    assert "publication dates are missing" in rejected[0]
+
+
+def test_stalled_provider_response_is_cancelled_and_resubmitted(monkeypatch):
+    # DAL run eb6e6229: a repair sat queued for 40 minutes until the run's deadline cancelled the topic.
+    stalled = {"id": "resp_stalled", "status": "queued", "created_at": time.time() - provider.STALLED_RESPONSE_S - 1}
+    client = mock_client(monkeypatch, [stalled, response({"supported": True, "issues": []})])
+    client.responses.cancel.return_value = {"id": "resp_stalled", "status": "cancelled"}
+    run_id = claimed()
+    result = provider.ResearchProvider(run_id, "worker").request(
+        "audit", ReportReview, prompt="Check", instructions="Check", web=True
+    )
+    assert result.supported
+    client.responses.cancel.assert_called_once_with("resp_stalled")
+    client.responses.retrieve.assert_not_called()
+    calls = store.get_run(run_id)["calls"]
+    assert calls["audit:0"]["status"] == "cancelled" and calls["audit:1"]["status"] == "completed"
+
+
+def test_owner_mindset_failure_leaves_a_gap_instead_of_failing_management(monkeypatch):
+    class NoOwnerProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if step == workflow.OWNER_STEP:
+                raise provider.ResearchValidationFailed("Proxy statements unavailable")
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", NoOwnerProvider)
+    state = create_run()
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="test"
+    )
+    assert result["status"] == "done"
+    report = legacy.read_research_report("EL", "management_quality", state["run_id"])
+    assert len(report["evidence"]) == 20
+    assert any(gap.startswith("Owner-mindset research did not complete") for gap in report["gaps"])
+    assert workflow.OWNER_REPORT_SECTION not in report["content"]
+
+
+def test_owner_research_reads_filings_and_uses_fixed_sections(monkeypatch):
+    FakeProvider.calls = []
+    prompts = {}
+
+    class RecordingProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            prompts[step] = kwargs
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", RecordingProvider)
+    packet = workflow.Workflow(claimed(), "worker").gather_owner_mindset(plan())
+    request = prompts[workflow.OWNER_STEP]
+    assert request["web"] and request["gathering"] and request["prune"] is not None
+    for term in ("DEF 14A", "Form 4", "share repurchases", "FY2021 Q1 to FY2025 Q4"):
+        assert term in request["prompt"]
+    assert {fact.section for fact in packet.facts} == set(workflow.OWNER_SECTIONS)
+    assert all(fact.record_id.startswith("owner_") for fact in packet.facts)
