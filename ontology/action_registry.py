@@ -243,6 +243,11 @@ class PortfolioPositionInputBase(BaseModel):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
+    as_of: str | None = None
     valuation_status: str | None = None
 
     @model_validator(mode="after")
@@ -262,6 +267,26 @@ class PortfolioPositionInput(PortfolioPositionInputBase):
     def _normalize_group(self) -> PortfolioPositionInput:
         self.group_name, self.group_conviction = normalize_position_group_fields(self.model_dump())
         return self
+
+
+class UpdatePortfolioSettingsInput(BaseModel):
+    book_size: float
+    source: str | None = None
+    as_of: str | None = None
+    base_currency: Literal["USD"] = "USD"
+
+    @model_validator(mode="after")
+    def _normalize_book(self) -> UpdatePortfolioSettingsInput:
+        from api.portfolio_settings import normalize_portfolio_book_size
+
+        self.book_size = normalize_portfolio_book_size(self.book_size)
+        return self
+
+
+def _hash_current_portfolio_settings(_model: BaseModel) -> dict[str, Any]:
+    from api.portfolio_settings import get_configured_portfolio_book_size
+
+    return {"book_size": get_configured_portfolio_book_size()}
 
 
 class UpdatePortfolioPositionsInput(BaseModel):
@@ -307,6 +332,11 @@ class HedgePositionInput(BaseModel):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
+    as_of: str | None = None
     valuation_status: str | None = None
 
     @model_validator(mode="after")
@@ -1796,12 +1826,23 @@ def _position_rows(
             "cost_basis_base": pos.cost_basis_base,
             "notional_base": pos.notional_base,
             "valuation_status": pos.valuation_status,
+            "source": pos.source,
+            "as_of": pos.as_of,
+            "broker_mark_price": pos.broker_mark_price,
+            "broker_unrealized_pnl_base": pos.broker_unrealized_pnl_base,
+            "ibkr_lots": pos.ibkr_lots,
             "group_name": pos.group_name,
             "group_conviction": pos.group_conviction,
         }
         for pos in input_model.positions
     ]
-    return enrich_position_valuations(rows, preserve_existing=preserve_existing_valuation)
+    # Broker statement values already carry their dated FX conversion and marks.
+    return [
+        row
+        if row.get("source") == "ibkr_flex"
+        else enrich_position_valuations([row], preserve_existing=preserve_existing_valuation)[0]
+        for row in rows
+    ]
 
 
 def _hedge_rows(
@@ -1841,10 +1882,21 @@ def _hedge_rows(
             "cost_basis_base": pos.cost_basis_base,
             "notional_base": pos.notional_base,
             "valuation_status": pos.valuation_status,
+            "source": pos.source,
+            "as_of": pos.as_of,
+            "broker_mark_price": pos.broker_mark_price,
+            "broker_unrealized_pnl_base": pos.broker_unrealized_pnl_base,
+            "ibkr_lots": pos.ibkr_lots,
         }
         for pos in input_model.positions
     ]
-    return enrich_position_valuations(rows, preserve_existing=preserve_existing_valuation)
+    # Broker statement values already carry their dated FX conversion and marks.
+    return [
+        row
+        if row.get("source") == "ibkr_flex"
+        else enrich_position_valuations([row], preserve_existing=preserve_existing_valuation)[0]
+        for row in rows
+    ]
 
 
 def _disabled_action_handler(_input_model: BaseModel, _context: ActionContext) -> ActionResult:
@@ -1902,6 +1954,15 @@ def _ticker_from_model(model: BaseModel) -> str | None:
 
 
 _ACTIONS: dict[ActionId, DomainAction] = {
+    "update_portfolio_settings": DomainAction(
+        action_id="update_portfolio_settings",
+        input_model=UpdatePortfolioSettingsInput,
+        handler=_disabled_action_handler,
+        approval_entity_type="portfolio_settings",
+        approval_payload=_model_payload,
+        precondition_builder=_hash_current_portfolio_settings,
+        base_state_hash_fields=("book_size",),
+    ),
     "update_portfolio_positions": DomainAction(
         action_id="update_portfolio_positions",
         input_model=UpdatePortfolioPositionsInput,

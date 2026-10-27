@@ -103,6 +103,12 @@ export WORKER_SECRETS=(
   "SENTRY_DSN=SENTRY_DSN:latest"
 )
 
+# Optional daily read-only IBKR statement reconciliation. First configure the
+# Flex query, then enable this and run setup-secrets.sh before deploying.
+export SCHEDULE_IBKR_FLEX_SYNC="${SCHEDULE_IBKR_FLEX_SYNC:-0}"
+export IBKR_FLEX_SYNC_SCHEDULE="${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}"
+export IBKR_FLEX_SYNC_TIME_ZONE="${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
+
 # Optional alternative-data credentials, bound to both API and workers only
 # when supplied. Example: ("FIRMS_MAP_KEY=FIRMS_MAP_KEY:latest").
 # setup-data-source-secrets.sh --apply appends managed bindings to config.sh.

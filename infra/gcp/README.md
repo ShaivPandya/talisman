@@ -414,3 +414,10 @@ Returns 200 when all pass, 503 with `failed_checks` array on any failure.
 | Migration mismatch | Alembic upgrade didn't complete; check migration job logs |
 | Read-model failure | Ontology DB tables missing or Postgres pool exhausted |
 | Approval safety failure | Command service initialization error; check API logs |
+
+### Optional IBKR Flex sync
+
+See [Flex setup and operations](../../docs/ibkr-flex-sync.md). Enable
+`SCHEDULE_IBKR_FLEX_SYNC=1` in local `config.sh`, run `setup-secrets.sh`, then
+redeploy the API and async job and run `setup-scheduler.sh`. The default is
+weekdays at 16:35 America/New_York. The integration only stages approvals.

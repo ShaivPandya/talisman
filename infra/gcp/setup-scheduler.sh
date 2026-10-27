@@ -160,6 +160,12 @@ upsert_api_job macro-snapshot-refresh "${MACRO_SNAPSHOT_SCHEDULE:-25 16 * * 1-5}
 upsert_api_job workspace-source-refresh "${WORKSPACE_SOURCE_REFRESH_SCHEDULE:-30 16 * * 1-5}" /api/admin/jobs/enqueue-workspace-source-refresh "${WORKSPACE_SOURCE_REFRESH_TIME_ZONE:-America/New_York}"
 upsert_api_job continuous-optimizer "${CONTINUOUS_OPTIMIZER_SCHEDULE:-15 10 * * 1-5}" /api/admin/jobs/enqueue-continuous-optimizer "${CONTINUOUS_OPTIMIZER_TIME_ZONE:-America/New_York}"
 
+if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+  upsert_api_job ibkr-flex-sync "${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}" /api/admin/jobs/enqueue-ibkr-flex-sync "${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
+else
+  delete_scheduler_job_if_present ibkr-flex-sync
+fi
+
 if is_truthy "${SCHEDULE_AGENT_MODEL_RELEASE_REFRESH:-0}"; then
   upsert_api_job agent-model-release-refresh "${AGENT_MODEL_RELEASE_REFRESH_SCHEDULE:-0 6 * * 1}" /api/admin/jobs/enqueue-agent-model-release-refresh
 else

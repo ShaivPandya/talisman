@@ -280,6 +280,20 @@ WORKER_ALLOWED=(
 )
 MIGRATOR_ALLOWED=( DATABASE_URL_MIGRATION )
 
+# Optional read-only Flex integration; values only travel over stdin.
+if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+  for flex_secret in IBKR_FLEX_TOKEN IBKR_FLEX_QUERY_ID; do
+    if ! secret_exists "${flex_secret}"; then
+      flex_value="$(prompt_secret "${flex_secret}")"
+      [[ -n "${flex_value}" ]] || { echo "${flex_secret} must not be empty" >&2; exit 1; }
+      printf '%s' "${flex_value}" | create_if_missing "${flex_secret}"
+      unset flex_value
+    fi
+    API_ALLOWED+=("${flex_secret}")
+    WORKER_ALLOWED+=("${flex_secret}")
+  done
+fi
+
 log "IAM bindings: api-sa"
 for s in "${API_ALLOWED[@]}"; do
   if secret_exists "${s}"; then

@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import math
+import re
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from datetime import date
 from typing import Any
 
 from portfolio.instruments import (
     build_option_contract_symbol,
     display_ticker,
+    futures_spec,
     normalize_option_type,
     normalize_portfolio_instrument_row,
     parse_occ_symbol,
@@ -16,7 +20,7 @@ from portfolio.instruments import (
 )
 from portfolio.position_groups import normalize_group_name
 
-SUPPORTED_ASSET_CATEGORIES = {"STK", "OPT"}
+SUPPORTED_ASSET_CATEGORIES = {"STK", "OPT", "FUT"}
 PRESERVED_METADATA_FIELDS = ("conviction", "contrarian", "group_name", "group_conviction")
 DEFAULT_CONVICTION = 3
 IBKR_FLEX_INDEX_HEDGE_TICKERS = frozenset({"SPY", "IWM", "QQQ"})
@@ -34,7 +38,7 @@ def _optional_float(value: str) -> float | None:
         parsed = float(text)
     except ValueError:
         return None
-    return parsed if parsed == parsed else None
+    return parsed if math.isfinite(parsed) else None
 
 
 def _ibkr_expiry_to_iso(value: str) -> str | None:
@@ -45,7 +49,7 @@ def _ibkr_expiry_to_iso(value: str) -> str | None:
         day = int(text[6:8])
         return date(year, month, day).isoformat()
     if len(text) == 10 and text[4] == "-":
-        return text
+        return date.fromisoformat(text).isoformat()
     return None
 
 
@@ -79,21 +83,35 @@ def _option_type_from_put_call(value: str) -> str | None:
     return normalize_option_type(raw)
 
 
-def _parse_open_position_row(element: ET.Element) -> dict[str, Any] | None:
+def _parse_open_position_row(
+    element: ET.Element, *, base_currency: str | None = None, as_of: str | None = None
+) -> dict[str, Any] | None:
     asset_category = _attr(element, "assetCategory").upper()
     if asset_category not in SUPPORTED_ASSET_CATEGORIES:
         return None
 
     raw_quantity = _optional_float(_attr(element, "position"))
+    if raw_quantity is None:
+        raise ValueError("Open position has missing or invalid quantity.")
     direction = _normalize_direction(_attr(element, "side"), raw_quantity)
     quantity = _abs_quantity(raw_quantity)
     currency = _attr(element, "currency") or None
     exchange = _attr(element, "listingExchange") or None
     fx_rate = _optional_float(_attr(element, "fxRateToBase"))
     cost_basis = _optional_float(_attr(element, "costBasisPrice"))
-    cost_basis_base = _optional_float(_attr(element, "costBasisMoney"))
-    notional_base = _optional_float(_attr(element, "positionValue"))
-    report_date = _attr(element, "reportDate") or None
+    base_currency = base_currency or (currency if fx_rate == 1 else None)
+    if currency and currency == base_currency:
+        fx_rate = 1.0
+    if fx_rate is not None and fx_rate <= 0:
+        raise ValueError("FX rate to base must be positive.")
+
+    def in_base(name: str) -> float | None:
+        value = _optional_float(_attr(element, name))
+        return value * fx_rate if value is not None and fx_rate is not None else None
+
+    cost_basis_base = in_base("costBasisMoney")
+    notional_base = in_base("positionValue")
+    report_date = _ibkr_expiry_to_iso(_attr(element, "reportDate")) or as_of
 
     base_row: dict[str, Any] = {
         "asset": "equity",
@@ -105,11 +123,17 @@ def _parse_open_position_row(element: ET.Element) -> dict[str, Any] | None:
         "quantity": quantity,
         "currency": currency,
         "exchange": exchange,
-        "base_currency": currency,
+        "base_currency": base_currency,
         "fx_rate_to_base": fx_rate,
         "fx_rate_as_of": report_date,
         "cost_basis_base": cost_basis_base,
         "notional_base": notional_base,
+        "source": "ibkr_flex",
+        "as_of": report_date,
+        "broker_mark_price": _optional_float(_attr(element, "markPrice")),
+        "broker_unrealized_pnl_base": in_base("fifoPnlUnrealized"),
+        "valuation_status": "ok" if currency and fx_rate else "missing_fx_rate",
+        "ibkr_lots": [],
     }
 
     if asset_category == "STK":
@@ -123,6 +147,25 @@ def _parse_open_position_row(element: ET.Element) -> dict[str, Any] | None:
                 "price_symbol": ticker,
                 "contract_multiplier": 1,
             }
+        )
+        return base_row
+
+    if asset_category == "FUT":
+        ticker = _attr(element, "symbol").upper().replace(" ", "")
+        match = re.fullmatch(r"(.+?)[FGHJKMNQUVXZ]\d{1,4}", ticker)
+        root_symbol = _attr(element, "underlyingSymbol").upper() or (match.group(1) if match else ticker)
+        spec = futures_spec(root_symbol)
+        multiplier = _optional_float(_attr(element, "multiplier"))
+        if multiplier is None and spec:
+            multiplier = spec.contract_multiplier
+        if not ticker or multiplier is None:
+            raise ValueError("Futures row requires a symbol and known or explicit multiplier.")
+        base_row.update(
+            ticker=ticker,
+            instrument_type="future",
+            price_symbol=f"{root_symbol}=F",
+            contract_multiplier=multiplier,
+            asset=spec.asset if spec else "commodity",
         )
         return base_row
 
@@ -163,38 +206,126 @@ def _parse_open_position_row(element: ET.Element) -> dict[str, Any] | None:
     return base_row
 
 
-def parse_ibkr_flex_open_positions_xml(payload: bytes | str) -> list[dict[str, Any]]:
-    """Parse IBKR Flex Open Positions XML into normalized portfolio rows."""
-    if isinstance(payload, bytes):
-        text = payload.decode("utf-8-sig")
-    else:
-        text = str(payload)
+@dataclass(frozen=True)
+class FlexStatement:
+    positions: list[dict[str, Any]]
+    as_of: str | None
+    base_currency: str | None
+    net_liquidation: float | None
+    cash_balances: list[dict[str, Any]]
+
+
+def parse_ibkr_flex_statement(payload: bytes | str) -> FlexStatement:
+    """Read one account statement, retaining lots without counting summaries twice."""
+    text = payload.decode("utf-8-sig") if isinstance(payload, bytes) else str(payload)
     if not text.strip():
         raise ValueError("Uploaded Flex XML is empty.")
-
+    if "<!DOCTYPE" in text.upper() or "<!ENTITY" in text.upper():
+        raise ValueError("Flex XML must not contain document types or entities.")
     try:
         root = ET.fromstring(text)
     except ET.ParseError as exc:
-        raise ValueError(f"Invalid Flex XML: {exc}") from exc
-
-    rows: list[dict[str, Any]] = []
-    for element in root.iter("OpenPosition"):
-        parsed = _parse_open_position_row(element)
+        raise ValueError("Invalid Flex XML.") from exc
+    statements = list(root.iter("FlexStatement"))
+    if len(statements) > 1:
+        raise ValueError("Configure a single-account, single-day Flex query.")
+    statement = statements[0] if statements else root
+    dates = {_ibkr_expiry_to_iso(_attr(row, "reportDate")) for row in statement.iter("OpenPosition")}
+    dates.discard(None)
+    if len(dates) > 1:
+        raise ValueError("Flex query contains multiple position report dates.")
+    as_of = next(iter(dates), None) or _ibkr_expiry_to_iso(_attr(statement, "toDate"))
+    info = next(statement.iter("AccountInformation"), statement)
+    base_currency = _attr(info, "baseCurrency") or _attr(info, "currency") or None
+    if not base_currency:
+        base_candidates = {
+            _attr(row, "currency")
+            for row in statement.iter("OpenPosition")
+            if _optional_float(_attr(row, "fxRateToBase")) == 1
+        }
+        if len(base_candidates) == 1:
+            base_currency = base_candidates.pop()
+    grouped: dict[str, list[tuple[ET.Element, dict[str, Any]]]] = {}
+    for element in statement.iter("OpenPosition"):
+        parsed = _parse_open_position_row(element, base_currency=base_currency, as_of=as_of)
         if parsed is None:
+            # Ignore zero balances, but never propose a partial replacement of a book.
+            if _optional_float(_attr(element, "position")) != 0:
+                raise ValueError(f"Unsupported open position asset category: {_attr(element, 'assetCategory')}.")
             continue
-        normalized = normalize_portfolio_instrument_row(parsed)
-        normalized["position_id"] = position_row_id(normalized)
-        rows.append(normalized)
-
+        if not parsed["quantity"]:
+            continue
+        row = normalize_portfolio_instrument_row(parsed)
+        row["position_id"] = position_row_id(row)
+        grouped.setdefault(row["position_id"], []).append((element, row))
+    rows = []
+    for position_id, entries in grouped.items():
+        summaries = [row for element, row in entries if _attr(element, "levelOfDetail").upper() != "LOT"]
+        lots = [(element, row) for element, row in entries if _attr(element, "levelOfDetail").upper() == "LOT"]
+        if len(summaries) > 1 or len({row["direction"] for _, row in entries}) > 1:
+            raise ValueError(f"Duplicate position_id in Flex import: {position_id}.")
+        row = dict(summaries[0] if summaries else entries[0][1])
+        if not summaries:
+            quantity = sum(lot["quantity"] for _, lot in lots)
+            row["quantity"] = row["shares"] = quantity
+            for field in ("cost_basis_base", "notional_base", "broker_unrealized_pnl_base"):
+                values = [lot[field] for _, lot in lots]
+                row[field] = sum(values) if all(v is not None for v in values) else None
+            costs = [lot["cost_basis"] for _, lot in lots]
+            row["cost_basis"] = (
+                sum(lot["cost_basis"] * lot["quantity"] for _, lot in lots) / quantity
+                if all(v is not None for v in costs)
+                else None
+            )
+        if summaries and lots and not math.isclose(sum(lot["quantity"] for _, lot in lots), row["quantity"]):
+            raise ValueError(f"Lot quantities do not match summary for {position_id}.")
+        lot_ids = [_attr(element, "originatingTransactionID") for element, _ in lots]
+        nonempty_ids = [lot_id for lot_id in lot_ids if lot_id]
+        if len(nonempty_ids) != len(set(nonempty_ids)):
+            raise ValueError(f"Duplicate lot in Flex import: {position_id}.")
+        row["ibkr_lots"] = [
+            {
+                "open_date": _ibkr_expiry_to_iso(_attr(element, "openDateTime").split(";")[0]),
+                "quantity": lot["quantity"],
+                "cost_basis": lot["cost_basis"],
+                "lot_id": _attr(element, "originatingTransactionID") or None,
+            }
+            for element, lot in lots
+        ]
+        rows.append(row)
     if not rows:
-        raise ValueError("No supported STK/OPT open positions found in Flex XML.")
+        raise ValueError("No supported STK/OPT/FUT open positions found in Flex XML.")
+    nav_rows = list(statement.iter("EquitySummaryByReportDateInBase"))
+    if not nav_rows:
+        nav_rows = [row for row in statement.iter("EquitySummaryInBase") if "total" in row.attrib]
+    nav_values = [
+        _optional_float(_attr(row, "total"))
+        for row in nav_rows
+        if not as_of or not _attr(row, "reportDate") or _ibkr_expiry_to_iso(_attr(row, "reportDate")) == as_of
+    ]
+    nav = nav_values[0] if len(nav_values) == 1 else None
+    if len(nav_values) > 1:
+        raise ValueError("Ambiguous net liquidation values in Flex statement.")
+    balances = []
+    for element in statement.iter("CashReportCurrency"):
+        currency = _attr(element, "currency")
+        if not currency or currency == "BASE_SUMMARY":
+            continue
+        amount = _optional_float(_attr(element, "endingCash"))
+        if amount is not None:
+            balances.append(
+                {
+                    "currency": currency,
+                    "balance": amount,
+                    "settled_cash": _optional_float(_attr(element, "endingSettledCash")),
+                }
+            )
+    return FlexStatement(rows, as_of, base_currency, nav, balances)
 
-    position_ids = [position_row_id(row) for row in rows]
-    if len(set(position_ids)) != len(position_ids):
-        duplicate = next(pid for pid in position_ids if position_ids.count(pid) > 1)
-        raise ValueError(f"Duplicate position_id in Flex import: {duplicate}.")
 
-    return rows
+def parse_ibkr_flex_open_positions_xml(payload: bytes | str) -> list[dict[str, Any]]:
+    """Compatibility entry point for manual XML uploads."""
+    return parse_ibkr_flex_statement(payload).positions
 
 
 def _leg_conviction(row: dict[str, Any]) -> int:
@@ -310,7 +441,8 @@ def merge_ibkr_flex_hedge_replacement(
             merged.append(dict(imported_by_id[key]))
             seen_ids.add(key)
         else:
-            merged.append(dict(existing))
+            if existing.get("source") != "ibkr_flex":
+                merged.append(dict(existing))
             seen_ids.add(key)
 
     for key, row in imported_by_id.items():

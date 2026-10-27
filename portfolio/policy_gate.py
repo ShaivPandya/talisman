@@ -19,6 +19,7 @@ POLICY_GATE_DECISIONS = ("pass", "warn", "review_required", "blocked", "error")
 ACTIONABLE_RECOMMENDATION_ACTIONS = {"buy", "add", "short", "sell", "trim", "reduce", "exit", "hedge", "rebalance"}
 FINANCIAL_ACTION_ITEM_TYPES = {"enter", "exit", "resize", "hedge"}
 FINANCIAL_ACTION_IDS = {
+    "update_portfolio_settings",
     "create_course_of_action",
     "create_recommendation",
     "update_portfolio_positions",

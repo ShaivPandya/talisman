@@ -75,7 +75,12 @@ OPERATIONAL_ONTOLOGY_RUN_ID = "operational"
 logger = logging.getLogger(__name__)
 ACTIONABLE_ACTIONS = set(DECISION_ACTIONABLE_ACTIONS)
 COURSE_OF_ACTION_CREATE_ACTION_IDS = {"create_course_of_action", "create_recommendation"}
-FINANCIAL_ACTION_IDS = {"update_portfolio_positions", "update_hedge_positions", *COURSE_OF_ACTION_CREATE_ACTION_IDS}
+FINANCIAL_ACTION_IDS = {
+    "update_portfolio_settings",
+    "update_portfolio_positions",
+    "update_hedge_positions",
+    *COURSE_OF_ACTION_CREATE_ACTION_IDS,
+}
 RESEARCH_ACTION_IDS = {
     "change_thesis_status",
     "create_catalyst",
@@ -1233,6 +1238,11 @@ class OntologyCommandService:
         now = _now()
         actor = actor_to_dict(context.actor)
         refs: list[dict[str, Any]] = []
+        if action_id == "update_portfolio_settings":
+            from api.portfolio_settings import set_portfolio_book_size
+
+            set_portfolio_book_size(payload.get("book_size"))
+            return refs
         if action_id == "update_portfolio_positions":
             positions = _list(payload.get("positions"))
             submitted_keys = {
@@ -3931,6 +3941,8 @@ def _normalize_mission_definition_uid(value: Any) -> str:
 
 
 def _entity_type_for_action(action_id: str) -> str:
+    if action_id == "update_portfolio_settings":
+        return "portfolio_settings"
     if action_id == "update_portfolio_positions":
         return "portfolio_positions"
     if action_id == "update_hedge_positions":

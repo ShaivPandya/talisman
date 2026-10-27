@@ -22,7 +22,7 @@ const THESIS_FACING_ACTIONS = new Set([
   "create_recommendation",
 ])
 
-const PORTFOLIO_ACTIONS = new Set(["update_portfolio_positions", "update_hedge_positions"])
+const PORTFOLIO_ACTIONS = new Set(["update_portfolio_positions", "update_hedge_positions", "update_portfolio_settings"])
 
 function normalizedApprovalSummaryParams(params: ApprovalSummaryParams = {}) {
   return {
