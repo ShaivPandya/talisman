@@ -100,6 +100,20 @@ class SheetSummary(EvidenceModel):
     markdown: str
 
 
+class ReviewFindings(ValueError):
+    """Evidence-review findings; the message is what the one repair request receives."""
+
+    def __init__(self, issues: list[str]):
+        self.issues = issues or ["The reviewer marked the draft unsupported without listing issues."]
+        super().__init__("Report did not pass evidence review: " + "; ".join(self.issues))
+
+
+def review_notes(issues: list[str]) -> str:
+    # One correction pass is the budget. Findings that remain are shown beside the
+    # verified text instead of discarding every other section of the report.
+    return "\n\n**Unresolved evidence-review notes:**\n" + "\n".join(f"- {issue}" for issue in issues)
+
+
 def _json(value: Any) -> str:
     if isinstance(value, BaseModel):
         return value.model_dump_json()
@@ -733,13 +747,16 @@ class Workflow:
                     validate=validate,
                     validation_fallback=retain_verified_links,
                 )
-                self.audit(
-                    f"{kind}/sections-audit/{index}/repair",
-                    _json(written),
-                    relevant,
-                    detailed=kind == "overview",
-                    coverage_notes=gaps,
-                )
+                try:
+                    self.audit(
+                        f"{kind}/sections-audit/{index}/repair",
+                        _json(written),
+                        relevant,
+                        detailed=kind == "overview",
+                        coverage_notes=gaps,
+                    )
+                except ReviewFindings as unresolved:
+                    written.sections[-1].markdown += review_notes(unresolved.issues)
             return [f"## {section.title}\n\n{section.markdown}" for section in written.sections]
 
         return [part for pair in _in_order(write_pair, range(0, len(sections), 2)) for part in pair]
@@ -821,7 +838,7 @@ class Workflow:
             + _json(coverage_notes or []),
         )
         if not result.supported or result.issues:
-            raise ValueError("Report did not pass evidence review: " + "; ".join(result.issues))
+            raise ReviewFindings(result.issues)
 
     def finish(
         self, kind: str, plan: ResearchPlan, quarters: list[QuarterReview], packets: list[OverviewPacket]
@@ -911,7 +928,13 @@ class Workflow:
                     + "\nVerified report:\n"
                     + summary_input,
                 )
-                self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence, coverage_notes=gaps)
+                try:
+                    self.audit(f"{kind}/summary-audit/repair", summary.markdown, evidence, coverage_notes=gaps)
+                except ReviewFindings as unresolved:
+                    # Evidence Notes closes the sheet schema, so the findings land in that section.
+                    if not summary.markdown.rstrip().split("\n## ")[-1].startswith("Evidence Notes"):
+                        summary.markdown += "\n\n## Evidence Notes"
+                    summary.markdown += review_notes(unresolved.issues)
             normalized = management_quality._finish_llm_management_quality(self.state["ticker"], summary.markdown)
         store.check_run(self.run_id, self.owner)
         applied: dict[str, Any] = {}
