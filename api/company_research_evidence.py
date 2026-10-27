@@ -26,20 +26,22 @@ class Source(EvidenceModel):
     location: str
 
 
+def fiscal_label(value: Any) -> Any:
+    """Accept "Q1 FY2026" for the canonical "FY2026 Q1" fiscal quarter label."""
+    if isinstance(value, str):
+        match = re.fullmatch(r"Q([1-4])\s+FY(20\d{2})", value.strip(), re.IGNORECASE)
+        if match:
+            return f"FY{match[2]} Q{match[1]}"
+    return value
+
+
 class Quarter(EvidenceModel):
     label: str = Field(pattern=r"^FY20\d{2} Q[1-4]$")
     ended_on: date
     reported_on: date
     source: Source
 
-    @field_validator("label", mode="before")
-    @classmethod
-    def normalize_label(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            match = re.fullmatch(r"Q([1-4])\s+FY(20\d{2})", value.strip(), re.IGNORECASE)
-            if match:
-                return f"FY{match[2]} Q{match[1]}"
-        return value
+    normalize_label = field_validator("label", mode="before")(fiscal_label)
 
 
 class Topic(EvidenceModel):
@@ -88,6 +90,8 @@ class Commitment(EvidenceModel):
     claim_sources: list[Source] = Field(min_length=1)
     outcome_sources: list[Source]
 
+    normalize_quarter = field_validator("quarter", mode="before")(fiscal_label)
+
 
 class QuarterReview(EvidenceModel):
     quarter: str
@@ -96,6 +100,8 @@ class QuarterReview(EvidenceModel):
     sources: list[Source]
     gap: str | None
     records: list[Commitment]
+
+    normalize_quarter = field_validator("quarter", mode="before")(fiscal_label)
 
 
 class QuarterPacket(EvidenceModel):
@@ -153,6 +159,60 @@ class OverviewPacket(EvidenceModel):
     searched_sources: list[Source]
 
 
+def _confirmed(sources: list[Source], failed: set[str]) -> list[Source]:
+    return [s for s in sources if canonical_source_url(s.url) not in failed]
+
+
+def prune_overview_sources(packet: OverviewPacket, urls: set[str]) -> OverviewPacket:
+    """Drop citations that failed their source check instead of discarding the whole topic."""
+    failed = {canonical_source_url(url) for url in urls}
+    facts, gaps = [], list(packet.gaps)
+    for fact in packet.facts:
+        if sources := _confirmed(fact.sources, failed):
+            facts.append(fact.model_copy(update={"sources": sources}))
+        else:
+            cited = ", ".join(sorted({s.url for s in fact.sources})) or "no URL"
+            gaps.append(f"{fact.section}: removed a claim whose only source could not be confirmed ({cited}).")
+    return OverviewPacket(facts=facts, gaps=gaps, searched_sources=_confirmed(packet.searched_sources, failed))
+
+
+def prune_quarter_sources(packet: QuarterPacket, urls: set[str]) -> QuarterPacket:
+    """Drop unconfirmed citations; a promise without a confirmed source is removed, an outcome is unverified."""
+    failed = {canonical_source_url(url) for url in urls}
+    quarters = []
+    for quarter in packet.quarters:
+        notes, records = [], []
+        for record in quarter.records:
+            claim_sources = _confirmed(record.claim_sources, failed)
+            if not claim_sources:
+                notes.append(f"Removed the {record.initiative} commitment: its promise source could not be confirmed.")
+                continue
+            update: dict[str, Any] = {
+                "claim_sources": claim_sources,
+                "outcome_sources": _confirmed(record.outcome_sources, failed),
+            }
+            if (
+                record.outcome_sources
+                and not update["outcome_sources"]
+                and record.outcome not in {"Not yet measurable", "Insufficient disclosure"}
+            ):
+                limitation = "The later-outcome source could not be confirmed, so the outcome is unverified."
+                update.update(
+                    outcome="Insufficient disclosure",
+                    variance=limitation,
+                    fix_result=limitation,
+                    independent_verification=limitation,
+                )
+            records.append(record.model_copy(update=update))
+        # Documents behind the retained records were reviewed even if the quarter-level citation failed.
+        sources = _confirmed(quarter.sources, failed) or list(
+            {s.model_dump_json(): s for r in records for s in r.claim_sources}.values()
+        )
+        gap = "\n".join(note for note in [quarter.gap, *notes] if note) or None
+        quarters.append(quarter.model_copy(update={"records": records, "sources": sources, "gap": gap}))
+    return QuarterPacket(quarters=quarters)
+
+
 class Rejection(EvidenceModel):
     record_id: str
     reason: str
@@ -191,6 +251,11 @@ class EvidenceDecision(EvidenceModel):
     record_id: str
     supported: bool
     reason: str
+    # A rejection must name what is wrong with the record. A reviewer that only ran
+    # out of lookups leaves this null, and the record keeps its gathered sources.
+    rejection_basis: (
+        Literal["contradicted_by_source", "not_supported_by_cited_passages", "impossible_dates_or_arithmetic"] | None
+    ) = None
     corrections: list[EvidenceCorrection]
     replacement_sources: list[Source] | None
 
@@ -215,13 +280,22 @@ def apply_decisions(
         raise ValueError("Verification must account for every evidence record exactly once.")
     accepted: list[Any] = []
     rejected: list[str] = []
+    excluded: list[EvidenceDecision] = []
     for decision in checked.decisions:
         old = before[decision.record_id]
+        unchecked = False
         if not decision.supported:
             if not decision.reason.strip():
                 raise ValueError("An evidence rejection needs a reason.")
-            rejected.append(f"{decision.record_id}: {decision.reason}")
-            continue
+            # Checkpoints from before rejection_basis existed keep their original rejection.
+            if decision.rejection_basis is not None or "rejection_basis" not in decision.model_fields_set:
+                rejected.append(f"{decision.record_id}: {decision.reason}")
+                excluded.append(decision)
+                continue
+            # Not re-checked is not disproved: the record keeps its own tool-observed passages,
+            # and an outcome whose chronology cannot be shown is marked unverified below.
+            decision = decision.model_copy(update={"corrections": [], "replacement_sources": None})
+            unchecked = True
         changes: dict[str, Any] = {c.field: c.value for c in decision.corrections}
         if len(changes) != len(decision.corrections):
             raise ValueError("Corrections must not repeat the same field.")
@@ -235,13 +309,19 @@ def apply_decisions(
         record = Commitment.model_validate(value) if management else Fact.model_validate(value)
         if (
             management
-            and allow_unverified_outcomes
+            and (allow_unverified_outcomes or unchecked)
             and record.outcome not in {"Not yet measurable", "Insufficient disclosure"}
         ):
-            if not any(s.published_on for s in record.claim_sources) or not any(
-                s.published_on for s in record.outcome_sources
-            ):
-                limitation = "Outcome chronology is unverified because source publication dates are missing."
+            claim_dates = [s.published_on for s in record.claim_sources if s.published_on]
+            outcome_dates = [s.published_on for s in record.outcome_sources if s.published_on]
+            limitation = (
+                "Outcome chronology is unverified because source publication dates are missing."
+                if not claim_dates or not outcome_dates
+                else "Outcome chronology is unverified because the outcome evidence predates the original promise."
+                if min(outcome_dates) < min(claim_dates)
+                else ""
+            )
+            if limitation:
                 record.outcome = "Insufficient disclosure"
                 record.variance = limitation
                 record.fix_result = limitation
@@ -254,9 +334,7 @@ def apply_decisions(
             original,
             CheckedCommitments(
                 records=accepted,
-                rejected=[
-                    Rejection(record_id=d.record_id, reason=d.reason) for d in checked.decisions if not d.supported
-                ],
+                rejected=[Rejection(record_id=d.record_id, reason=d.reason) for d in excluded],
             ),
             as_of=as_of,
         )
