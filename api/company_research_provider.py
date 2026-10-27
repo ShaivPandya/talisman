@@ -38,6 +38,10 @@ SOURCE_CHECK_BATCH_SIZE = 6
 # Research responses finish in under ten minutes. One left queued far past that is
 # cancelled and resubmitted rather than holding a slot until the run's deadline.
 STALLED_RESPONSE_S = 20 * 60
+# Web requests leave room for search results in context. Report writing and audits carry a
+# whole verified ledger (about 210 KB for DAL's 20 quarters plus owner-mindset facts).
+WEB_PROMPT_BYTES = 96_000
+PROMPT_BYTES = 400_000
 # Conservative standard-rate envelope, including cache writes and a regional-price margin.
 # https://developers.openai.com/api/docs/models/gpt-6.1-sol
 # https://developers.openai.com/api/docs/pricing
@@ -482,7 +486,7 @@ class ResearchProvider:
             # Only fresh discovery is subject to the earlier gathering cutoff.
             active_gathering = gathering and not repair_input
             size = len((request_prompt + instructions).encode()) + len(json.dumps(schema).encode()) + 1024
-            if size > (96_000 if web else 200_000):
+            if size > (WEB_PROMPT_BYTES if web else PROMPT_BYTES):
                 raise ResearchTruncated(f"Research unit {step} needs a smaller evidence packet.")
             kwargs: dict[str, Any] = {
                 "model": self.snapshot["model"],

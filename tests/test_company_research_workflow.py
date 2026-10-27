@@ -2046,3 +2046,15 @@ def test_owner_research_reads_filings_and_uses_fixed_sections(monkeypatch):
         assert term in request["prompt"]
     assert {fact.section for fact in packet.facts} == set(workflow.OWNER_SECTIONS)
     assert all(fact.record_id.startswith("owner_") for fact in packet.facts)
+
+
+def test_report_audit_accepts_a_full_twenty_quarter_ledger_but_still_bounds_requests(monkeypatch):
+    # DAL run c324b24f: the section audit (60 KB draft + ~150 KB ledger) exceeded the old 200 KB cap.
+    client = mock_client(monkeypatch, [response({"supported": True, "issues": []}, web=False)])
+    instance = provider.ResearchProvider(claimed(), "worker")
+    assert instance.request("audit", ReportReview, prompt="x" * 250_000, instructions="Audit").supported
+    with pytest.raises(provider.ResearchTruncated):
+        instance.request("too-large", ReportReview, prompt="x" * provider.PROMPT_BYTES, instructions="Audit")
+    with pytest.raises(provider.ResearchTruncated):
+        instance.request("web", ReportReview, prompt="x" * provider.WEB_PROMPT_BYTES, instructions="Audit", web=True)
+    assert client.responses.create.call_count == 1
