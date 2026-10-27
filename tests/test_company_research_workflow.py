@@ -1806,9 +1806,11 @@ def test_cleaning_unverified_links_does_not_bypass_factual_audit(monkeypatch):
             return super().request(step, model, **kwargs)
 
     monkeypatch.setattr(workflow, "ResearchProvider", UnsupportedProvider)
-    with pytest.raises(ValueError, match="unsupported"):
-        workflow.Workflow(claimed(), "worker").write("management_quality", ["Business"], [commitment()], [])
+    [part] = workflow.Workflow(claimed(), "worker").write("management_quality", ["Business"], [commitment()], [])
     assert audited == ["management_quality/sections-audit/0", "management_quality/sections-audit/0/repair"]
+    # The repaired text is kept with the reviewer's unresolved finding beside it, and the unverified link is gone.
+    assert "https://unreviewed.example" not in part
+    assert part.endswith("**Unresolved evidence-review notes:**\n- The conclusion is unsupported.")
 
 
 def test_link_cleanup_does_not_turn_an_unverified_url_label_into_an_autolink():
@@ -2058,3 +2060,24 @@ def test_report_audit_accepts_a_full_twenty_quarter_ledger_but_still_bounds_requ
     with pytest.raises(provider.ResearchTruncated):
         instance.request("web", ReportReview, prompt="x" * provider.WEB_PROMPT_BYTES, instructions="Audit", web=True)
     assert client.responses.create.call_count == 1
+
+
+def test_unresolved_summary_review_is_published_as_evidence_notes(monkeypatch):
+    # DAL run c324b24f: two minor wording findings left after the one repair failed the whole report.
+    class NitpickingProvider(FakeProvider):
+        def request(self, step, model, **kwargs):
+            if model is ReportReview and step.startswith("management_quality/summary-audit"):
+                return ReportReview(supported=False, issues=["Q1 and Q3 targets should be distinguished."])
+            if model is workflow.SheetSummary and step.startswith("management_quality/summary"):
+                return workflow.SheetSummary(markdown="# EL Management Quality\n\n## Executive Summary\n- Mixed.")
+            return super().request(step, model, **kwargs)
+
+    monkeypatch.setattr(workflow, "ResearchProvider", NitpickingProvider)
+    state = create_run()
+    result = workflow.run_company_research_run(
+        workflow.CompanyResearchRunRequest(run_id=state["run_id"]), job_id="test"
+    )
+    assert result["status"] == "done"
+    summary = legacy.read_research_report("EL", "management_quality", state["run_id"])["summary"]
+    notes = summary.split("## Evidence Notes")[-1]
+    assert "Unresolved evidence-review notes" in notes and "Q1 and Q3 targets" in notes
