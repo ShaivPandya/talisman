@@ -1,0 +1,219 @@
+"""Idea scan presets and run limits, stored as an app setting so they change without a deploy."""
+
+from __future__ import annotations
+
+import json
+from typing import Any, Literal
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from api.llm_settings import get_setting, set_setting
+
+IDEA_SCAN_SETTINGS_KEY = "idea_scan.settings"
+
+UniverseKey = Literal["sp500", "sp400", "sp600", "russell2000"]
+UNIVERSE_KEYS: tuple[UniverseKey, ...] = ("sp500", "sp400", "sp600", "russell2000")
+UNIVERSE_LABELS: dict[str, str] = {
+    "sp500": "S&P 500",
+    "sp400": "S&P 400",
+    "sp600": "S&P 600",
+    "russell2000": "Russell 2000",
+}
+
+ScreenKind = Literal["long_screen", "short_screen", "quality_value", "composite_top", "breakdown"]
+
+
+class _Params(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class LongScreenParams(_Params):
+    pb_threshold: float | None = Field(default=1.5, gt=0)
+    profit_type: Literal["Gross Profit", "Operating Income"] | None = "Gross Profit"
+    check_revenue: bool = True
+    min_revenue_growth: float = 5.0
+    check_eps: bool = True
+    min_eps_growth: float = 5.0
+    require_buybacks: bool = True
+    check_ebit_multiple: bool = False
+    max_ebit_multiple: float = Field(default=20.0, gt=0)
+    check_52w_positive: bool = False
+    check_3m_pos_momentum: bool = False
+    check_2m_pos_rel_momentum: bool = False
+
+
+class ShortScreenParams(_Params):
+    pb_threshold: float | None = Field(default=3.0, gt=0)
+    loss_type: Literal["Gross Loss", "Operating Loss"] | None = "Operating Loss"
+    check_revenue: bool = True
+    max_revenue_growth: float = 0.0
+    check_eps: bool = False
+    max_eps_growth: float = 0.0
+    require_dilution: bool = False
+    check_3m_neg_momentum: bool = False
+    check_2m_neg_rel_momentum: bool = False
+
+
+class QualityValueParams(_Params):
+    min_quality_pct: float = Field(default=0.8, ge=0, le=1)
+    valuation_metric: Literal["enterpriseToEbitda", "forwardPE", "trailingPE", "priceToBook"] = "enterpriseToEbitda"
+    max_sector_valuation_pct: float = Field(default=0.5, gt=0, le=1)
+
+
+class CompositeTopParams(_Params):
+    min_composite_pct: float = Field(default=0.9, ge=0, le=1)
+
+
+class BreakdownParams(_Params):
+    max_price_momentum_pct: float = Field(default=0.1, gt=0, le=1)
+    require_negative_revisions: bool = True
+
+
+PARAM_MODELS: dict[str, type[_Params]] = {
+    "long_screen": LongScreenParams,
+    "short_screen": ShortScreenParams,
+    "quality_value": QualityValueParams,
+    "composite_top": CompositeTopParams,
+    "breakdown": BreakdownParams,
+}
+
+SCREEN_DIRECTIONS: dict[str, set[str]] = {
+    "long_screen": {"long"},
+    "short_screen": {"short"},
+    "quality_value": {"long"},
+    "composite_top": {"long"},
+    "breakdown": {"short"},
+}
+
+
+class RankWeights(BaseModel):
+    """Composite factor weights, as in portfolio/portfolio_optimizer/rank_universe.py."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    quality: float = Field(default=0.33, ge=0)
+    price_momentum: float = Field(default=0.33, ge=0)
+    revenue_momentum: float = Field(default=0.20, ge=0)
+    eps_momentum: float = Field(default=0.14, ge=0)
+
+    @model_validator(mode="after")
+    def _some_weight(self) -> RankWeights:
+        if self.quality + self.price_momentum + self.revenue_momentum + self.eps_momentum <= 0:
+            raise ValueError("At least one ranking weight must be positive.")
+        return self
+
+
+class IdeaScanPreset(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str = Field(pattern=r"^[a-z0-9][a-z0-9_-]{0,47}$")
+    name: str = Field(min_length=1, max_length=80)
+    direction: Literal["long", "short"]
+    universes: list[UniverseKey] = Field(default_factory=lambda: list(UNIVERSE_KEYS), min_length=1)
+    screen: ScreenKind
+    params: dict[str, Any] = Field(default_factory=dict)
+    weights: RankWeights = Field(default_factory=lambda: RankWeights())
+    max_names: int = Field(default=10, ge=1, le=100)
+    enabled: bool = True
+
+    @field_validator("universes")
+    @classmethod
+    def _dedupe_universes(cls, value: list[str]) -> list[str]:
+        return list(dict.fromkeys(value))
+
+    @model_validator(mode="after")
+    def _validate_params(self) -> IdeaScanPreset:
+        if self.direction not in SCREEN_DIRECTIONS[self.screen]:
+            raise ValueError(f"The {self.screen} screen can't be used for {self.direction} ideas.")
+        self.params = PARAM_MODELS[self.screen].model_validate(self.params).model_dump()
+        return self
+
+
+class IdeaScanConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    max_reviews: int = Field(default=15, ge=0, le=50)
+    max_cost_usd: float = Field(default=2.0, ge=0, le=10)
+    review_web_searches: int = Field(default=2, ge=0, le=5)
+    macro_web_searches: int = Field(default=5, ge=0, le=10)
+    near_miss_limit: int = Field(default=10, ge=0, le=50)
+
+
+class IdeaScanSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    presets: list[IdeaScanPreset]
+    config: IdeaScanConfig = Field(default_factory=lambda: IdeaScanConfig())
+
+    @model_validator(mode="after")
+    def _unique_ids(self) -> IdeaScanSettings:
+        ids = [preset.id for preset in self.presets]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Preset ids must be unique.")
+        return self
+
+
+def default_presets() -> list[IdeaScanPreset]:
+    return [
+        IdeaScanPreset(
+            id="long-cheap-improving",
+            name="Long · Cheap & improving",
+            direction="long",
+            screen="long_screen",
+            params=LongScreenParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="long-momentum-quality",
+            name="Long · Momentum + quality",
+            direction="long",
+            screen="composite_top",
+            params=CompositeTopParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="long-quality-fair-price",
+            name="Long · Quality at a fair price",
+            direction="long",
+            screen="quality_value",
+            params=QualityValueParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="short-expensive-deteriorating",
+            name="Short · Expensive & deteriorating",
+            direction="short",
+            screen="short_screen",
+            params=ShortScreenParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="short-breaking-down",
+            name="Short · Breaking down",
+            direction="short",
+            screen="breakdown",
+            params=BreakdownParams().model_dump(),
+        ),
+    ]
+
+
+def default_settings() -> IdeaScanSettings:
+    return IdeaScanSettings(presets=default_presets())
+
+
+def get_idea_scan_settings() -> IdeaScanSettings:
+    row = get_setting(IDEA_SCAN_SETTINGS_KEY)
+    if not row:
+        return default_settings()
+    try:
+        return IdeaScanSettings.model_validate(json.loads(str(row.get("value") or "{}")))
+    except (TypeError, ValueError):
+        return default_settings()
+
+
+def set_idea_scan_settings(settings: IdeaScanSettings | dict[str, Any]) -> IdeaScanSettings:
+    normalized = IdeaScanSettings.model_validate(
+        settings.model_dump() if isinstance(settings, IdeaScanSettings) else settings
+    )
+    set_setting(IDEA_SCAN_SETTINGS_KEY, normalized.model_dump_json())
+    return normalized
+
+
+def reset_idea_scan_settings() -> IdeaScanSettings:
+    return set_idea_scan_settings(default_settings())

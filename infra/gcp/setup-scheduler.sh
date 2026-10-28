@@ -16,6 +16,7 @@
 #   monitor-mission-runner    35 14-22 * * 1-5 POST /api/admin/jobs/enqueue-monitor-mission-runner
 #   governance-outbox-drain   */5 * * * *   POST  /api/admin/jobs/enqueue-governance-outbox-drain
 #   enqueue-cache-warm        0 * * * *     POST  /api/admin/jobs/enqueue-cache-warm
+#   weekly-idea-scan          0 8 * * 6     POST  /api/admin/jobs/enqueue-weekly-idea-scan (America/New_York)
 #
 # The governance outbox drain is disabled by default because the runtime
 # job is now a no-op. Set SCHEDULE_GOVERNANCE_OUTBOX_DRAIN=1 to recreate it.
@@ -29,6 +30,10 @@
 # cache or local filesystem cache, so a 5-minute warm cadence adds many API/job
 # executions without materially improving interactive cold-start behavior. Set
 # SCHEDULE_CACHE_WARM=1 to recreate it at the lower CACHE_WARM_SCHEDULE cadence.
+#
+# The weekly idea scan is disabled by default. It runs after Friday's close,
+# screens about 3,500 names and spends up to its configured LLM budget ($2 by
+# default) per run. Set SCHEDULE_WEEKLY_IDEA_SCAN=1 to create it.
 #
 # Prereqs: deploy-api.sh has run (so the API URL is resolvable), deploy-top50-
 # refresh-job.sh has run (so the job exists), and iam.sh has bound
@@ -183,6 +188,12 @@ if is_truthy "${SCHEDULE_GOVERNANCE_OUTBOX_DRAIN:-0}"; then
   upsert_api_job governance-outbox-drain "${GOVERNANCE_OUTBOX_DRAIN_SCHEDULE:-*/5 * * * *}" /api/admin/jobs/enqueue-governance-outbox-drain
 else
   delete_scheduler_job_if_present governance-outbox-drain
+fi
+
+if is_truthy "${SCHEDULE_WEEKLY_IDEA_SCAN:-0}"; then
+  upsert_api_job weekly-idea-scan "${WEEKLY_IDEA_SCAN_SCHEDULE:-0 8 * * 6}" /api/admin/jobs/enqueue-weekly-idea-scan "${WEEKLY_IDEA_SCAN_TIME_ZONE:-America/New_York}"
+else
+  delete_scheduler_job_if_present weekly-idea-scan
 fi
 
 if is_truthy "${SCHEDULE_CACHE_WARM:-0}"; then

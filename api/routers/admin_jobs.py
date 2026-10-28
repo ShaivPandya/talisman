@@ -184,6 +184,17 @@ def enqueue_continuous_optimizer(_sub: str = Depends(require_scheduler_or_job_ad
     return enqueue_response(row, "/api/admin/jobs/{job_id}")
 
 
+@router.post("/admin/jobs/enqueue-weekly-idea-scan")
+def enqueue_weekly_idea_scan(_sub: str = Depends(require_scheduler_or_job_admin)):
+    row, _disposition = enqueue_registered_job(
+        "weekly_idea_scan",
+        {"source": "scheduler"},
+        cache_key="maintenance:weekly_idea_scan:v1",
+        reuse_completed=False,
+    )
+    return enqueue_response(row, "/api/admin/jobs/{job_id}")
+
+
 @router.post("/admin/jobs/enqueue-agent-model-release-refresh")
 def enqueue_agent_model_release_refresh(_sub: str = Depends(require_scheduler_or_job_admin)):
     row, _disposition = enqueue_registered_job(

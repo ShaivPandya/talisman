@@ -145,7 +145,11 @@ def compute_beta(stock: str, market: str = "SPY", window_years: float = 3.0) -> 
         return np.nan
 
     px_s = hist["Close"].squeeze().dropna()
+    return beta_from_prices(px_s, px_m)
 
+
+def beta_from_prices(px_s: pd.Series, px_m: pd.Series) -> float:
+    """OLS beta of daily stock returns on market returns over the overlapping window."""
     df = pd.concat([px_s, px_m], axis=1).dropna()
     if df.shape[0] < 60:
         return np.nan
@@ -245,6 +249,21 @@ def compute_roe_vol(net_income_series: pd.Series, equity_series: pd.Series) -> f
     return float(roe.std(ddof=0))
 
 
+def _series_from_table(df: pd.DataFrame | None, keys: list[str]) -> pd.Series | None:
+    if df is None or df.empty:
+        return None
+    for k in keys:
+        if k in df.index:
+            s = df.loc[k].copy()
+            try:
+                s = s.astype(float)
+                s.index = pd.to_datetime(s.index)
+                return s.sort_index()
+            except Exception:
+                return None
+    return None
+
+
 def fetch_raw_metrics(ticker: str, market: str, growth_years: int, beta_years: float) -> RawMetrics:
     t = yf.Ticker(ticker)
 
@@ -253,6 +272,38 @@ def fetch_raw_metrics(ticker: str, market: str, growth_years: int, beta_years: f
     bal = t.balance_sheet  # balance sheet (annual)
     cfs = t.cashflow  # cash flow (annual)
 
+    # Safety metrics
+    beta = compute_beta(ticker, market=market, window_years=beta_years)
+
+    # Altman Z-score needs market value of equity; approximate from current price and shares outstanding
+    info = {}
+    try:
+        info = yf_ticker_info(ticker)
+    except Exception:
+        info = {}
+    shares_out = info.get("sharesOutstanding", np.nan)
+    last_px = np.nan
+    try:
+        last_px = float(t.history(period="5d", interval="1d", auto_adjust=True)["Close"].dropna().iloc[-1])
+    except Exception:
+        last_px = np.nan
+
+    return raw_metrics_from_statements(
+        inc, bal, cfs, beta=beta, shares_out=shares_out, last_px=last_px, growth_years=growth_years
+    )
+
+
+def raw_metrics_from_statements(
+    inc: pd.DataFrame | None,
+    bal: pd.DataFrame | None,
+    cfs: pd.DataFrame | None,
+    *,
+    beta: float,
+    shares_out: float | None,
+    last_px: float,
+    growth_years: int,
+) -> RawMetrics:
+    """Quality raw metrics from annual income, balance-sheet and cash-flow statements."""
     inc_last = last_col(inc)
     bal_last = last_col(bal)
     cfs_last = last_col(cfs)
@@ -320,19 +371,7 @@ def fetch_raw_metrics(ticker: str, market: str, growth_years: int, beta_years: f
 
     # Growth inputs: need time series. yfinance columns are dates; we want aligned series.
     # Build series for numerator/denominator pairs
-    def series_from_table(df: pd.DataFrame, keys: list[str]) -> pd.Series | None:
-        if df is None or df.empty:
-            return None
-        for k in keys:
-            if k in df.index:
-                s = df.loc[k].copy()
-                try:
-                    s = s.astype(float)
-                    s.index = pd.to_datetime(s.index)
-                    return s.sort_index()
-                except Exception:
-                    return None
-        return None
+    series_from_table = _series_from_table
 
     gp_series = series_from_table(inc, ["Gross Profit", "GrossProfit"])
     if gp_series is None and (inc is not None and not inc.empty):
@@ -367,24 +406,10 @@ def fetch_raw_metrics(ticker: str, market: str, growth_years: int, beta_years: f
     dcfoa = compute_growth_change_over_lag(opcf_series, assets_series, growth_years)
     dgmar = compute_growth_change_over_lag(gp_series, rev_series, growth_years)
 
-    # Safety metrics
-    beta = compute_beta(ticker, market=market, window_years=beta_years)
-
     leverage = safe_div(total_debt, total_assets)  # debt/assets (lower is better)
 
-    # Altman Z-score needs market value of equity; approximate from current price and shares outstanding
-    info = {}
-    try:
-        info = yf_ticker_info(ticker)
-    except Exception:
-        info = {}
-    shares_out = info.get("sharesOutstanding", np.nan)
-    last_px = np.nan
-    try:
-        last_px = float(t.history(period="5d", interval="1d", auto_adjust=True)["Close"].dropna().iloc[-1])
-    except Exception:
-        last_px = np.nan
-
+    if shares_out is None:
+        shares_out = np.nan
     mve = np.nan
     if not np.isnan(shares_out) and not np.isnan(last_px):
         mve = float(shares_out) * float(last_px)

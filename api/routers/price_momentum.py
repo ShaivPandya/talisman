@@ -13,6 +13,7 @@ _UNIVERSE_MAP = {
     "S&P 500": "sp500",
     "Russell 2000": "russell2000",
     "S&P 400": "sp400",
+    "S&P 600": "sp600",
 }
 
 _SECTOR_PREFIX_MAP = {
@@ -35,12 +36,14 @@ _BENCHMARK_MAP = {
     "S&P 500": "SPY",
     "Russell 2000": "IWM",
     "S&P 400": "MDY",
+    "S&P 600": "IJR",
 }
 
 _UNIVERSE_TO_ETF = {
     "S&P 500": "SPY",
     "Russell 2000": "IWM",
     "S&P 400": "MDY",
+    "S&P 600": "IJR",
 }
 
 

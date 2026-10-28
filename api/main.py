@@ -500,6 +500,7 @@ from api.routers import (
     decision_outcomes,
     domain_actions,
     dossier,
+    idea_scan,
     ideas,
     monitor_builder,
     optimization,
@@ -517,6 +518,7 @@ from api.routers import (
 app.include_router(workspace.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["workspace"])
 app.include_router(dossier.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["workspace"])
 app.include_router(ideas.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["ideas"])
+app.include_router(idea_scan.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["ideas"])
 app.include_router(approvals.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["approvals"])
 app.include_router(domain_actions.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["domain-actions"])
 app.include_router(action_items.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["actions"])

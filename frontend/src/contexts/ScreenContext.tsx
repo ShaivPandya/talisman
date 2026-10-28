@@ -46,6 +46,7 @@ const ROUTE_PAGE_MAP: Record<string, RouteEntry> = {
 
   // Review Decisions
   "/ideas": { pageName: "Idea Watchlist" },
+  "/idea-digest": { pageName: "Idea Digest" },
 
   // Pressure-Test Positions
   "/analyzer": { pageName: "Portfolio Analyzer", tools: ["run_portfolio_analyzer"] },

@@ -17,8 +17,31 @@ UNIVERSES_DIR = Path(__file__).parent.parent / "universes"
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _ETF_HOLDINGS_CACHE_DIR = _REPO_ROOT / "data_cache" / "etf_holdings"
 _ETF_HOLDINGS_CACHE_TTL_SECS = 24 * 60 * 60  # 24 hours
-_SP500_CACHE_PATH = _REPO_ROOT / "data_cache" / "universes" / "sp500.txt"
+_INDEX_CACHE_DIR = _REPO_ROOT / "data_cache" / "universes"
+_SP500_CACHE_PATH = _INDEX_CACHE_DIR / "sp500.txt"
 _SP500_CACHE_TTL_SECS = 24 * 60 * 60  # 24 hours
+
+# S&P indexes whose constituents come from Wikipedia, with an SPDR ETF whose
+# holdings stand in when Wikipedia is unreachable.
+_SP_INDEXES = {
+    "sp500": ("https://en.wikipedia.org/wiki/List_of_S%26P_500_companies", "SPY"),
+    "sp400": ("https://en.wikipedia.org/wiki/List_of_S%26P_400_companies", "MDY"),
+    "sp600": ("https://en.wikipedia.org/wiki/List_of_S%26P_600_companies", "SPSM"),
+}
+_SP_INDEX_ALIASES = {
+    "sp500": "sp500",
+    "s&p500": "sp500",
+    "s&p 500": "sp500",
+    "sp-500": "sp500",
+    "sp400": "sp400",
+    "s&p400": "sp400",
+    "s&p 400": "sp400",
+    "sp600": "sp600",
+    "s&p600": "sp600",
+    "s&p 600": "sp600",
+}
+# A constituent list shorter than this is treated as a failed fetch.
+_SP_INDEX_MIN_TICKERS = 300
 
 # SPDR Select Sector ETFs (State Street / SSGA) — kept for sector_metrics compatibility
 _SPDR_SECTOR_ETFS = {
@@ -133,11 +156,14 @@ def load_universe(path_or_name: str) -> list[str]:
 
     if path.suffix.lower() == ".csv":
         df = pd.read_csv(path)
-        cols_lower = {c.lower(): c for c in df.columns}
+        cols_lower = {str(c).lower(): c for c in df.columns}
         if "ticker" in cols_lower:
             tickers = df[cols_lower["ticker"]].astype(str).tolist()
+        elif "symbol" in cols_lower:
+            tickers = df[cols_lower["symbol"]].astype(str).tolist()
         else:
-            tickers = df.iloc[:, 0].astype(str).tolist()
+            # Headerless file: the first row is a ticker, not column names.
+            tickers = pd.read_csv(path, header=None).iloc[:, 0].astype(str).tolist()
     else:
         with open(path, encoding="utf-8") as f:
             tickers = [line.strip() for line in f if line.strip() and not line.strip().startswith("#")]
@@ -146,41 +172,75 @@ def load_universe(path_or_name: str) -> list[str]:
     return list(dict.fromkeys(clean_ticker(t) for t in tickers if t.strip()))
 
 
-def get_sp500_universe() -> list[str]:
-    """Fetch S&P 500 tickers from Wikipedia."""
+def _read_index_cache(path: Path, *, max_age_secs: float | None) -> list[str]:
+    try:
+        if not path.exists():
+            return []
+        if max_age_secs is not None and time.time() - path.stat().st_mtime > max_age_secs:
+            return []
+        tickers = [
+            clean_ticker(line)
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+        return sorted({t for t in tickers if t})
+    except Exception:
+        return []
+
+
+def _fetch_wikipedia_constituents(url: str) -> list[str]:
     import urllib.request
 
-    try:
-        if _SP500_CACHE_PATH.exists():
-            age = time.time() - _SP500_CACHE_PATH.stat().st_mtime
-            if age <= _SP500_CACHE_TTL_SECS:
-                tickers = [
-                    clean_ticker(line)
-                    for line in _SP500_CACHE_PATH.read_text(encoding="utf-8").splitlines()
-                    if line.strip() and not line.strip().startswith("#")
-                ]
-                tickers = [t for t in tickers if t]
-                if tickers:
-                    return sorted(set(tickers))
-    except Exception:
-        pass
-
-    url = "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    req = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(req) as resp:
+    req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(req, timeout=30) as resp:
         html = resp.read()
 
-    tables = pd.read_html(html)
-    tickers = sorted({clean_ticker(x) for x in tables[0]["Symbol"].astype(str)})
+    for table in pd.read_html(io.BytesIO(html)):
+        if "Symbol" in table.columns:
+            return sorted({clean_ticker(x) for x in table["Symbol"].astype(str) if str(x).strip()})
+    return []
+
+
+def get_sp_index_universe(index: str) -> list[str]:
+    """Return current S&P 500, 400 or 600 constituents.
+
+    Wikipedia's constituent table is the source, cached for 24 hours. When it
+    can't be fetched, the SPDR ETF holdings for the same index stand in, and a
+    stale cached list is the last resort.
+    """
+    key = _SP_INDEX_ALIASES.get(str(index).strip().lower())
+    if key is None:
+        raise ValueError(f"Unknown S&P index: {index!r}")
+    url, etf = _SP_INDEXES[key]
+    cache_path = _INDEX_CACHE_DIR / f"{key}.txt"
+
+    cached = _read_index_cache(cache_path, max_age_secs=_SP500_CACHE_TTL_SECS)
+    if cached:
+        return cached
+
+    tickers: list[str] = []
+    try:
+        tickers = _fetch_wikipedia_constituents(url)
+    except Exception:
+        tickers = []
+    if len(tickers) < _SP_INDEX_MIN_TICKERS:
+        holdings = sorted(set(fetch_etf_holdings_ssga(etf)))
+        if len(holdings) >= _SP_INDEX_MIN_TICKERS:
+            tickers = holdings
+    if len(tickers) < _SP_INDEX_MIN_TICKERS:
+        return _read_index_cache(cache_path, max_age_secs=None) or tickers
 
     try:
-        _SP500_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _SP500_CACHE_PATH.write_text("\n".join(tickers) + "\n", encoding="utf-8")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_text("\n".join(tickers) + "\n", encoding="utf-8")
     except Exception:
         pass
-
     return tickers
+
+
+def get_sp500_universe() -> list[str]:
+    """Fetch S&P 500 tickers from Wikipedia."""
+    return get_sp_index_universe("sp500")
 
 
 def _read_cached_etf_holdings(etf_ticker: str) -> list[str] | None:
@@ -458,7 +518,7 @@ def get_universe_tickers(key: str) -> list[str]:
     Resolve a universe key to a ticker list.
 
     Supported inputs:
-      - "sp500": S&P 500 constituents (Wikipedia)
+      - "sp500", "sp400", "sp600": S&P 500 / 400 / 600 constituents (Wikipedia)
       - Named universe files in `equities/universes/` (e.g., "russell2000")
       - A file path to a .csv/.txt universe
       - SPDR Select Sector ETFs: "XLY" or shortcut "xly" (ETF holdings)
@@ -472,11 +532,14 @@ def get_universe_tickers(key: str) -> list[str]:
     raw = str(key).strip()
     k = raw.lower()
 
-    if k in ("sp500", "s&p500", "s&p 500", "sp-500"):
-        return get_sp500_universe()
+    if k in _SP_INDEX_ALIASES:
+        try:
+            return get_sp_index_universe(k)
+        except Exception:
+            return []
 
     # Common index universes stored as files
-    if k in ("russell2000", "sp400", "sp600", "nasdaq100", "dow30"):
+    if k in ("russell2000", "nasdaq100", "dow30"):
         try:
             return load_universe(k)
         except Exception:
