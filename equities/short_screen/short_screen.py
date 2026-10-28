@@ -115,6 +115,13 @@ REVENUE_KEYS = ["Total Revenue", "TotalRevenue", "Revenue", "Operating Revenue",
 EPS_KEYS = ["Diluted EPS", "DilutedEPS", "Basic EPS", "BasicEPS"]
 NET_INCOME_KEYS = ["Net Income", "NetIncome", "Net Income Common Stockholders", "NetIncomeCommonStockholders"]
 DILUTED_SHARES_KEYS = ["Diluted Average Shares", "DilutedAverageShares", "Weighted Average Shares Diluted"]
+BOOK_VALUE_KEYS = [
+    "Stockholders Equity",
+    "StockholdersEquity",
+    "Total Stockholder Equity",
+    "TotalStockholderEquity",
+    "Common Stock Equity",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -239,16 +246,7 @@ def fetch_yf_data(
                 LOGGER.debug("Balance sheet fetch failed for %s", ticker, exc_info=True)
                 bal = pd.DataFrame()
             bal_last = last_col(bal)
-            book_value = get_item(
-                bal_last,
-                [
-                    "Stockholders Equity",
-                    "StockholdersEquity",
-                    "Total Stockholder Equity",
-                    "TotalStockholderEquity",
-                    "Common Stock Equity",
-                ],
-            )
+            book_value = get_item(bal_last, BOOK_VALUE_KEYS)
 
         # P/B fallback: market_cap / book_value when priceToBook is missing
         if np.isnan(price_to_book) and not np.isnan(market_cap) and not np.isnan(book_value) and book_value > 0:
@@ -273,58 +271,11 @@ def fetch_yf_data(
         )
 
         # Quarterly revenue & EPS YoY growth (need 7 quarters: 3 recent + 4 year-ago)
-        rev_yoy_q0 = rev_yoy_q1 = rev_yoy_q2 = rev_yoy_avg = np.nan
-        eps_yoy_q0 = eps_yoy_q1 = eps_yoy_q2 = eps_yoy_avg = np.nan
+        quarterly = compute_quarterly_growth(None)
         if include_quarterly:
             try:
                 q_fin = _throttled_yf_call(f"{ticker}.quarterly_financials", lambda: t.quarterly_financials)
-                if q_fin is not None and not q_fin.empty and q_fin.shape[1] >= 5:
-                    # Extract per-quarter revenue
-                    revs = [get_item(q_fin.iloc[:, i], REVENUE_KEYS) for i in range(min(q_fin.shape[1], 7))]
-                    rev_yoys: list[float] = []
-                    for idx, (recent_i, prior_i) in enumerate([(0, 4), (1, 5), (2, 6)]):
-                        if prior_i < len(revs):
-                            r, p = revs[recent_i], revs[prior_i]
-                            if not np.isnan(r) and not np.isnan(p) and p != 0:
-                                val = (r / p - 1) * 100
-                                rev_yoys.append(val)
-                                if idx == 0:
-                                    rev_yoy_q0 = val
-                                elif idx == 1:
-                                    rev_yoy_q1 = val
-                                else:
-                                    rev_yoy_q2 = val
-                    if rev_yoys:
-                        rev_yoy_avg = float(np.mean(rev_yoys))
-
-                    # Extract per-quarter EPS (direct label, then fallback to net income / shares)
-                    def _get_eps(col_idx: int) -> float:
-                        col = q_fin.iloc[:, col_idx]
-                        eps_val = get_item(col, EPS_KEYS)
-                        if not np.isnan(eps_val):
-                            return eps_val
-                        ni = get_item(col, NET_INCOME_KEYS)
-                        sh = get_item(col, DILUTED_SHARES_KEYS)
-                        if not np.isnan(ni) and not np.isnan(sh) and sh != 0:
-                            return ni / sh
-                        return np.nan
-
-                    epss = [_get_eps(i) for i in range(min(q_fin.shape[1], 7))]
-                    eps_yoys: list[float] = []
-                    for idx, (recent_i, prior_i) in enumerate([(0, 4), (1, 5), (2, 6)]):
-                        if prior_i < len(epss):
-                            r, p = epss[recent_i], epss[prior_i]
-                            if not np.isnan(r) and not np.isnan(p) and abs(p) > 0:
-                                val = (r - p) / abs(p) * 100
-                                eps_yoys.append(val)
-                                if idx == 0:
-                                    eps_yoy_q0 = val
-                                elif idx == 1:
-                                    eps_yoy_q1 = val
-                                else:
-                                    eps_yoy_q2 = val
-                    if eps_yoys:
-                        eps_yoy_avg = float(np.mean(eps_yoys))
+                quarterly = compute_quarterly_growth(q_fin)
             except YahooRateLimitError as exc:
                 return {"ticker": ticker, "error": str(exc)}
             except Exception:
@@ -340,18 +291,69 @@ def fetch_yf_data(
             "operating_income": operating_income,
             "market_cap": market_cap,
             "book_value": book_value,
-            "rev_yoy_q0": rev_yoy_q0,
-            "rev_yoy_q1": rev_yoy_q1,
-            "rev_yoy_q2": rev_yoy_q2,
-            "rev_yoy_avg": rev_yoy_avg,
-            "eps_yoy_q0": eps_yoy_q0,
-            "eps_yoy_q1": eps_yoy_q1,
-            "eps_yoy_q2": eps_yoy_q2,
-            "eps_yoy_avg": eps_yoy_avg,
+            **quarterly,
         }
 
     except Exception as e:
         return {"ticker": ticker, "error": str(e)}
+
+
+def compute_quarterly_growth(q_fin: pd.DataFrame | None) -> dict[str, float]:
+    """Revenue and EPS YoY growth for the 3 latest quarters, from quarterly financials.
+
+    Returns rev_yoy_q0..q2, rev_yoy_avg, eps_yoy_q0..q2 and eps_yoy_avg (percent),
+    with np.nan where fewer than 5 quarters or a matching year-ago quarter are missing.
+    """
+    out = {
+        "rev_yoy_q0": np.nan,
+        "rev_yoy_q1": np.nan,
+        "rev_yoy_q2": np.nan,
+        "rev_yoy_avg": np.nan,
+        "eps_yoy_q0": np.nan,
+        "eps_yoy_q1": np.nan,
+        "eps_yoy_q2": np.nan,
+        "eps_yoy_avg": np.nan,
+    }
+    if q_fin is None or q_fin.empty or q_fin.shape[1] < 5:
+        return out
+
+    # Extract per-quarter revenue
+    revs = [get_item(q_fin.iloc[:, i], REVENUE_KEYS) for i in range(min(q_fin.shape[1], 7))]
+    rev_yoys: list[float] = []
+    for idx, (recent_i, prior_i) in enumerate([(0, 4), (1, 5), (2, 6)]):
+        if prior_i < len(revs):
+            r, p = revs[recent_i], revs[prior_i]
+            if not np.isnan(r) and not np.isnan(p) and p != 0:
+                val = (r / p - 1) * 100
+                rev_yoys.append(val)
+                out[f"rev_yoy_q{idx}"] = val
+    if rev_yoys:
+        out["rev_yoy_avg"] = float(np.mean(rev_yoys))
+
+    # Extract per-quarter EPS (direct label, then fallback to net income / shares)
+    def _get_eps(col_idx: int) -> float:
+        col = q_fin.iloc[:, col_idx]
+        eps_val = get_item(col, EPS_KEYS)
+        if not np.isnan(eps_val):
+            return eps_val
+        ni = get_item(col, NET_INCOME_KEYS)
+        sh = get_item(col, DILUTED_SHARES_KEYS)
+        if not np.isnan(ni) and not np.isnan(sh) and sh != 0:
+            return ni / sh
+        return np.nan
+
+    epss = [_get_eps(i) for i in range(min(q_fin.shape[1], 7))]
+    eps_yoys: list[float] = []
+    for idx, (recent_i, prior_i) in enumerate([(0, 4), (1, 5), (2, 6)]):
+        if prior_i < len(epss):
+            r, p = epss[recent_i], epss[prior_i]
+            if not np.isnan(r) and not np.isnan(p) and abs(p) > 0:
+                val = (r - p) / abs(p) * 100
+                eps_yoys.append(val)
+                out[f"eps_yoy_q{idx}"] = val
+    if eps_yoys:
+        out["eps_yoy_avg"] = float(np.mean(eps_yoys))
+    return out
 
 
 def screen_ticker(
@@ -382,6 +384,29 @@ def screen_ticker(
     if "error" in data:
         return False, data
 
+    passes = short_fundamentals_pass(
+        data,
+        pb_threshold=pb_threshold,
+        loss_type=loss_type,
+        check_revenue=check_revenue,
+        max_revenue_growth=max_revenue_growth,
+        check_eps=check_eps,
+        max_eps_growth=max_eps_growth,
+    )
+    return passes, data
+
+
+def short_fundamentals_pass(
+    data: dict,
+    *,
+    pb_threshold: float | None,
+    loss_type: str | None,
+    check_revenue: bool = False,
+    max_revenue_growth: float = 0.0,
+    check_eps: bool = False,
+    max_eps_growth: float = 0.0,
+) -> bool:
+    """Phase 1 short criteria over a fetch_yf_data-shaped dict."""
     pb = data.get("price_to_book", np.nan)
     gross = data.get("gross_profit", np.nan)
     operating = data.get("operating_income", np.nan)
@@ -412,7 +437,7 @@ def screen_ticker(
     else:
         eps_ok = True
 
-    return (pb_ok and loss_ok and rev_ok and eps_ok), data
+    return bool(pb_ok and loss_ok and rev_ok and eps_ok)
 
 
 # ---------------------------------------------------------------------------
@@ -626,67 +651,92 @@ def _apply_price_filters(
         if close is None or len(close) < 10:
             continue  # Insufficient data — exclude
 
-        current = float(close.iloc[-1])
-        m: dict[str, float | None] = {}
-
-        # 52-week return
-        ret_52w: float | None = None
-        if len(close) >= 200:  # need ~1 year of data
-            price_52w = float(close.iloc[0])
-            ret_52w = (current / price_52w - 1) * 100
-        m["return_52w"] = ret_52w
-
-        # Drawdown from 52-week high
-        peak = float(close.max())
-        dd_pct = (current - peak) / peak * 100 if peak > 0 else None
-        m["drawdown_pct"] = dd_pct
-
-        # 3-month return (~63 trading days)
-        ret_3m: float | None = None
-        if len(close) >= 63:
-            price_3m = float(close.iloc[-63])
-            ret_3m = (current / price_3m - 1) * 100
-        m["return_3m"] = ret_3m
-
-        # 2-month relative return (~42 trading days)
-        rel_ret_2m: float | None = None
-        if len(close) >= 42 and bench_close is not None and len(bench_close) >= 42:
-            price_2m = float(close.iloc[-42])
-            stock_ret = (current / price_2m - 1) * 100
-            bench_current = float(bench_close.iloc[-1])
-            bench_2m = float(bench_close.iloc[-42])
-            bench_ret = (bench_current / bench_2m - 1) * 100
-            rel_ret_2m = stock_ret - bench_ret
-        m["rel_return_2m"] = rel_ret_2m
-
-        # Apply filters — stock must pass ALL enabled filters
-        passes = True
-
-        if check_52w_positive:
-            if ret_52w is None or ret_52w <= 0:
-                passes = False
-
-        if check_min_drawdown and passes:
-            if dd_pct is None or abs(dd_pct) < min_drawdown_pct:
-                passes = False
-
-        if check_max_drawdown and passes:
-            if dd_pct is None or abs(dd_pct) > max_drawdown_pct:
-                passes = False
-
-        if check_3m_neg_momentum and passes:
-            if ret_3m is None or ret_3m >= 0:
-                passes = False
-
-        if check_2m_neg_rel_momentum and passes:
-            if rel_ret_2m is None or rel_ret_2m >= 0:
-                passes = False
-
+        m = compute_price_metrics(close, bench_close)
+        passes = short_price_filters_pass(
+            m,
+            check_52w_positive=check_52w_positive,
+            check_min_drawdown=check_min_drawdown,
+            min_drawdown_pct=min_drawdown_pct,
+            check_max_drawdown=check_max_drawdown,
+            max_drawdown_pct=max_drawdown_pct,
+            check_3m_neg_momentum=check_3m_neg_momentum,
+            check_2m_neg_rel_momentum=check_2m_neg_rel_momentum,
+        )
         if passes:
             filtered.append(data)
             metrics[tk] = m
 
     return filtered, metrics
+
+
+def compute_price_metrics(close: pd.Series, bench_close: pd.Series | None = None) -> dict[str, float | None]:
+    """52w return, drawdown from the 52w high, 3m return and 2m return relative to a benchmark.
+
+    `close` is about one year of daily closes, oldest first.
+    """
+    current = float(close.iloc[-1])
+    m: dict[str, float | None] = {}
+
+    # 52-week return
+    ret_52w: float | None = None
+    if len(close) >= 200:  # need ~1 year of data
+        price_52w = float(close.iloc[0])
+        ret_52w = (current / price_52w - 1) * 100
+    m["return_52w"] = ret_52w
+
+    # Drawdown from 52-week high
+    peak = float(close.max())
+    dd_pct = (current - peak) / peak * 100 if peak > 0 else None
+    m["drawdown_pct"] = dd_pct
+
+    # 3-month return (~63 trading days)
+    ret_3m: float | None = None
+    if len(close) >= 63:
+        price_3m = float(close.iloc[-63])
+        ret_3m = (current / price_3m - 1) * 100
+    m["return_3m"] = ret_3m
+
+    # 2-month relative return (~42 trading days)
+    rel_ret_2m: float | None = None
+    if len(close) >= 42 and bench_close is not None and len(bench_close) >= 42:
+        price_2m = float(close.iloc[-42])
+        stock_ret = (current / price_2m - 1) * 100
+        bench_current = float(bench_close.iloc[-1])
+        bench_2m = float(bench_close.iloc[-42])
+        bench_ret = (bench_current / bench_2m - 1) * 100
+        rel_ret_2m = stock_ret - bench_ret
+    m["rel_return_2m"] = rel_ret_2m
+    return m
+
+
+def short_price_filters_pass(
+    m: dict[str, float | None],
+    *,
+    check_52w_positive: bool = False,
+    check_min_drawdown: bool = False,
+    min_drawdown_pct: float = 25.0,
+    check_max_drawdown: bool = False,
+    max_drawdown_pct: float = 60.0,
+    check_3m_neg_momentum: bool = False,
+    check_2m_neg_rel_momentum: bool = False,
+) -> bool:
+    """Stock must pass ALL enabled short price filters."""
+    ret_52w = m.get("return_52w")
+    dd_pct = m.get("drawdown_pct")
+    ret_3m = m.get("return_3m")
+    rel_ret_2m = m.get("rel_return_2m")
+
+    if check_52w_positive and (ret_52w is None or ret_52w <= 0):
+        return False
+    if check_min_drawdown and (dd_pct is None or abs(dd_pct) < min_drawdown_pct):
+        return False
+    if check_max_drawdown and (dd_pct is None or abs(dd_pct) > max_drawdown_pct):
+        return False
+    if check_3m_neg_momentum and (ret_3m is None or ret_3m >= 0):
+        return False
+    if check_2m_neg_rel_momentum and (rel_ret_2m is None or rel_ret_2m >= 0):
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------

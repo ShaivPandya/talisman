@@ -3925,3 +3925,238 @@ export const confirmAlternativeDataMapping = (body: { ticker: string; source_id:
 
 export const removeAlternativeDataMapping = (mappingId: string) =>
   client.delete(`/alternative-data/mappings/${encodeURIComponent(mappingId)}`).then(r => r.data)
+
+// Weekly idea scan
+export type IdeaScanDirection = "long" | "short"
+export type IdeaScanUniverse = "sp500" | "sp400" | "sp600" | "russell2000"
+export type IdeaScanScreen = "long_screen" | "short_screen" | "quality_value" | "composite_top" | "breakdown"
+export type IdeaScanReviewStatus = "reviewed" | "review_failed" | "not_reviewed_budget" | "not_reviewed_cap"
+
+export interface IdeaScanRunSummary {
+  run_id: string
+  week: string | null
+  status: "running" | "completed" | "failed"
+  source: "scheduler" | "manual" | null
+  created_at: string | null
+  completed_at: string | null
+  candidates: number | null
+  reviewed: number | null
+  spent_usd: number | null
+  limited: boolean
+}
+
+export interface IdeaScanEvidence {
+  type: "snapshot" | "search"
+  ref: string
+  detail: string
+}
+
+export interface IdeaScanMacroRow {
+  sector: string
+  score: number
+  previous_score: number | null
+  confidence: "low" | "medium" | "high"
+  reason: string
+  evidence: IdeaScanEvidence[]
+  change_explanation: string
+  origin: "llm" | "rule"
+}
+
+export interface IdeaScanMacroView {
+  status: "ok" | "skipped" | "failed"
+  as_of: string
+  model?: string
+  summary: string
+  rows: IdeaScanMacroRow[]
+  dropped: { sector: string; reason: string }[]
+  sources: { title: string; url: string }[]
+  snapshots: { key: string; as_of: string | null; stale: boolean | null }[]
+  previous_run_id?: string | null
+  error: string | null
+}
+
+export interface IdeaScanHeadline {
+  title: string
+  url: string
+  date: string
+}
+
+export interface IdeaScanReview {
+  status: "ok" | "failed"
+  error?: string
+  trigger?: string
+  why_now?: string
+  consensus?: string
+  variant_view?: string
+  macro_fit?: string
+  headlines?: IdeaScanHeadline[]
+  missing_inputs?: string[]
+  next_action?: "research" | "watch" | "avoid"
+  language_flagged?: boolean
+  cost_usd?: number
+  web_searches?: number
+  filings?: {
+    status: string
+    eight_k?: { date: string; form: string; items: string[]; url: string }[]
+    form4?: { purchases: number; sales: number; other: number }
+  }
+}
+
+export interface IdeaScanCandidate {
+  ticker: string
+  direction: IdeaScanDirection
+  company: string
+  sector: string
+  industry: string
+  universes: IdeaScanUniverse[]
+  presets: { id: string; name: string }[]
+  signals: { preset_id: string; label: string }[]
+  preset_count: number
+  agreement_score: number
+  macro_boost: number
+  final_score: number
+  macro_fit: { sector: string; score: number; confidence: string; reason: string; fit: "tailwind" | "headwind" | "neutral"; boost: number } | null
+  factor_ranks: Record<string, number | null>
+  metrics: Record<string, number | null>
+  revision_30d: number | null
+  days_to_earnings: number | null
+  short_data?: { short_percent_of_float: number | null; short_ratio: number | null; shares_short: number | null; borrow: null }
+  review: IdeaScanReview | null
+  review_status: IdeaScanReviewStatus
+  scout_status: string | null
+  scout_candidate_id?: string
+  card_state: "open" | "dismissed" | "promoted"
+  idea_id: string | null
+}
+
+export interface IdeaScanTrackedName {
+  ticker: string
+  direction: IdeaScanDirection
+  company: string | null
+  tracked_as: "idea" | "position"
+  presets: { id: string; name: string }[]
+}
+
+export interface IdeaScanNearMiss {
+  ticker: string
+  direction: IdeaScanDirection
+  company: string | null
+  sector: string | null
+  preset_id: string
+  preset_name: string
+  failed_check: string | null
+  signals: string[]
+}
+
+export interface IdeaScanCostEntry {
+  step: string
+  label: string
+  model: string
+  calls: number
+  input_tokens: number
+  output_tokens: number
+  web_searches: number
+  cost_usd: number
+}
+
+export interface IdeaScanRun {
+  run_id: string
+  week: string
+  status: "running" | "completed" | "failed"
+  phase?: string
+  source: "scheduler" | "manual"
+  limited: boolean
+  created_at: string
+  completed_at?: string
+  error?: string | null
+  macro_view?: IdeaScanMacroView
+  candidates?: IdeaScanCandidate[]
+  already_tracked?: IdeaScanTrackedName[]
+  near_misses?: IdeaScanNearMiss[]
+  changes?: Record<"new" | "still" | "dropped", { ticker: string; direction: IdeaScanDirection; company: string | null }[]>
+  compared_with_run_id?: string | null
+  summary?: { text: string; origin: "llm" | "rule" }
+  presets?: { id: string; name: string; direction: IdeaScanDirection; evaluated: number; hits: number; kept: number; near_misses: number }[]
+  stats?: {
+    universe?: number
+    with_data?: number
+    candidates?: number
+    already_tracked?: number
+    review_slots?: number
+    reviewed?: number
+    review_failed?: number
+    not_reviewed_budget?: number
+    not_reviewed_cap?: number
+    published?: number
+    near_misses?: number
+  }
+  cost?: {
+    limit_usd: number
+    spent_usd: number
+    web_searches?: number
+    by_step?: Record<string, number>
+    entries?: IdeaScanCostEntry[]
+    skipped?: { step: string; label: string; reason: string }[]
+  }
+  data?: { dataset_key: string; fetched_at: string; failed: number }
+}
+
+export interface IdeaScanPreset {
+  id: string
+  name: string
+  direction: IdeaScanDirection
+  universes: IdeaScanUniverse[]
+  screen: IdeaScanScreen
+  params: Record<string, unknown>
+  weights: { quality: number; price_momentum: number; revenue_momentum: number; eps_momentum: number }
+  max_names: number
+  enabled: boolean
+}
+
+export interface IdeaScanSettings {
+  presets: IdeaScanPreset[]
+  config: {
+    max_reviews: number
+    max_cost_usd: number
+    review_web_searches: number
+    macro_web_searches: number
+    near_miss_limit: number
+  }
+}
+
+export type IdeaScanJobResponse =
+  | { job_id: string; status: "queued" | "running"; progress?: { phase?: string; done?: number; total?: number } }
+  | { job_id: string; status: "done"; result?: { run_id: string; final_count: number; spent_usd: number } }
+  | { job_id: string; status: "error" | "cancelled"; error?: string }
+
+export const fetchIdeaScanRuns = () =>
+  client.get("/idea-scan/runs").then(r => r.data as { runs: IdeaScanRunSummary[] })
+
+export const fetchIdeaScanRun = (runId: string) =>
+  client.get(`/idea-scan/runs/${encodeURIComponent(runId)}`).then(r => r.data as IdeaScanRun)
+
+export const startIdeaScanRun = (body: { universes?: IdeaScanUniverse[]; tickers?: string[]; max_reviews?: number } = {}) =>
+  client.post("/idea-scan/runs", body).then(r => r.data as IdeaScanJobResponse)
+
+export const fetchIdeaScanJob = (jobId: string) =>
+  client.get(`/idea-scan/jobs/${encodeURIComponent(jobId)}`, { timeout: 30_000 }).then(r => r.data as IdeaScanJobResponse)
+
+export const fetchIdeaScanSettings = () =>
+  client.get("/idea-scan/settings").then(r => r.data as { settings: IdeaScanSettings; defaults: IdeaScanSettings })
+
+export const saveIdeaScanSettings = (settings: IdeaScanSettings) =>
+  client.put("/idea-scan/settings", settings).then(r => r.data as { settings: IdeaScanSettings })
+
+export const resetIdeaScanSettings = () =>
+  client.post("/idea-scan/settings/reset").then(r => r.data as { settings: IdeaScanSettings })
+
+const ideaScanCardPath = (runId: string, direction: IdeaScanDirection, ticker: string) =>
+  `/idea-scan/runs/${encodeURIComponent(runId)}/candidates/${direction}/${encodeURIComponent(ticker)}`
+
+export const dismissIdeaScanCandidate = (runId: string, direction: IdeaScanDirection, ticker: string) =>
+  client.post(`${ideaScanCardPath(runId, direction, ticker)}/dismiss`).then(r => r.data as { candidate: IdeaScanCandidate })
+
+export const promoteIdeaScanCandidate = (runId: string, direction: IdeaScanDirection, ticker: string) =>
+  client
+    .post(`${ideaScanCardPath(runId, direction, ticker)}/promote`)
+    .then(r => r.data as { candidate: IdeaScanCandidate; idea_id: string; created: boolean })

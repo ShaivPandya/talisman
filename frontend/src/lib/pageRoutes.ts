@@ -41,6 +41,7 @@ const Workspace = lazyPage(() => import("@/pages/Workspace"), "Workspace")
 const PositionDossier = lazyPage(() => import("@/pages/PositionDossier"), "PositionDossier")
 const IdeaWatchlist = lazyPage(() => import("@/pages/IdeaWatchlist"), "IdeaWatchlist")
 const IdeaDetail = lazyPage(() => import("@/pages/IdeaDetail"), "IdeaDetail")
+const IdeaDigest = lazyPage(() => import("@/pages/IdeaDigest"), "IdeaDigest")
 const DCFModel = lazyPage(() => import("@/pages/DCFModel"), "DCFModel")
 const AISettings = lazyPage(() => import("@/pages/AISettings"), "AISettings")
 const PolicyMatrixSettings = lazyPage(() => import("@/pages/PolicyMatrixSettings"), "PolicyMatrixSettings")
@@ -57,6 +58,7 @@ export const PAGE_ROUTES = [
   { path: "/dossier/:ticker", page: PositionDossier },
   { path: "/ideas", page: IdeaWatchlist },
   { path: "/ideas/:id", page: IdeaDetail },
+  { path: "/idea-digest", page: IdeaDigest },
   { path: "/theses", page: ThesisManager },
   { path: "/analyzer", page: PortfolioAnalyzer },
   { path: "/hedging-tool", page: HedgingTool },

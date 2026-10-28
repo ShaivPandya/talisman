@@ -6,7 +6,9 @@ import importlib
 import os
 import re
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import contextmanager
+from contextvars import ContextVar
 from typing import Any
 
 # Assistant-export citation/navigation tokens (e.g. from ChatGPT web/file search) wrap
@@ -1082,6 +1084,36 @@ def _openai_strict_json_schema(schema: dict[str, Any]) -> dict[str, Any]:
     return converted if isinstance(converted, dict) else {}
 
 
+_RESPONSE_OBSERVER: ContextVar[Callable[[str, str, Any], None] | None] = ContextVar(
+    "llm_response_observer", default=None
+)
+
+
+@contextmanager
+def observe_llm_responses(callback: Callable[[str, str, Any], None]) -> Iterator[None]:
+    """Call ``callback(provider, model, response)`` for every provider response made in this context.
+
+    This sees each real API response, including Anthropic pause-turn continuations
+    and JSON repair calls, which the higher-level helpers only return the last of.
+    """
+    token = _RESPONSE_OBSERVER.set(callback)
+    try:
+        yield
+    finally:
+        _RESPONSE_OBSERVER.reset(token)
+
+
+def _notify_response_observer(provider: str, model: str, response: Any) -> None:
+    observer = _RESPONSE_OBSERVER.get()
+    if observer is None:
+        return
+    try:
+        observer(provider, model, response)
+    except Exception:
+        # Observers are accounting hooks; they must never fail the call.
+        pass
+
+
 def _call_anthropic_messages(
     *,
     messages: list[dict[str, Any]],
@@ -1131,11 +1163,13 @@ def _call_anthropic_messages(
             return response_stream.get_final_message()
 
     response = _send_message()
+    _notify_response_observer(PROVIDER_ANTHROPIC, resolved_model, response)
     while _obj_get(response, "stop_reason") == "pause_turn":
         messages.append({"role": "assistant", "content": _obj_get(response, "content", [])})
         messages.append({"role": "user", "content": [{"type": "text", "text": "Continue."}]})
         kwargs["messages"] = messages
         response = _send_message()
+        _notify_response_observer(PROVIDER_ANTHROPIC, resolved_model, response)
     return response
 
 
@@ -1208,7 +1242,9 @@ def _call_openai_response(
         kwargs["include"] = ["web_search_call.action.sources"]
     elif enable_web_search:
         raise RuntimeError("This LLM provider does not support managed web search in llm_utils")
-    return client.responses.create(**kwargs)
+    response = client.responses.create(**kwargs)
+    _notify_response_observer(resolved_provider, resolved_model, response)
+    return response
 
 
 def _call_gemini_generate_content(
@@ -1244,7 +1280,9 @@ def _call_gemini_generate_content(
         max_tokens=max_tokens,
         reasoning_effort=reasoning_effort,
     )
-    return client.models.generate_content(**kwargs)
+    response = client.models.generate_content(**kwargs)
+    _notify_response_observer(PROVIDER_GEMINI, resolved_model, response)
+    return response
 
 
 def _web_search_enabled(

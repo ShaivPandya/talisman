@@ -303,53 +303,75 @@ def fetch_eps_metrics(ticker: str, growth_years: int = 3, use_edgar: bool = True
 
     else:
         # Fallback: yfinance quarterly income statement
-        q_inc = try_get_income_stmt(t, "quarterly")
-        if q_inc is not None and not q_inc.empty and q_inc.shape[1] >= 5:
-            out.q0_end = pd.to_datetime(q_inc.columns[0])
-            out.q4_end = pd.to_datetime(q_inc.columns[4])
+        _apply_quarterly_eps(out, try_get_income_stmt(t, "quarterly"), shares_out)
 
-            q0 = col_at(q_inc, 0)
-            q4 = col_at(q_inc, 4)
+    _apply_annual_eps(out, try_get_income_stmt(t, "annual"), shares_out, growth_years)
 
-            if q0 is not None and q4 is not None:
-                out.eps_q0 = compute_eps_from_stmt(q0, fallback_shares=shares_out)
-                out.eps_q4 = compute_eps_from_stmt(q4, fallback_shares=shares_out)
+    return out
 
-            if q_inc.shape[1] >= 7:
-                out.q6_end = pd.to_datetime(q_inc.columns[6])
-                yoy_changes = []
-                for recent_idx, prior_idx in [(0, 4), (1, 5), (2, 6)]:
-                    col_recent = col_at(q_inc, recent_idx)
-                    col_prior = col_at(q_inc, prior_idx)
-                    if col_recent is not None and col_prior is not None:
-                        eps_recent = compute_eps_from_stmt(col_recent, fallback_shares=shares_out)
-                        eps_prior = compute_eps_from_stmt(col_prior, fallback_shares=shares_out)
-                        yoy_changes.append(safe_div(eps_recent - eps_prior, abs(eps_prior)))
-                    else:
-                        yoy_changes.append(np.nan)
-                out.eps_yoy_changes = yoy_changes
-                valid = [v for v in yoy_changes if not np.isnan(v)]
-                out.eps_yoy_change = float(np.mean(valid)) if valid else np.nan
 
-            if q_inc.shape[1] >= 5:
-                eps_values = []
-                for i in range(5):
-                    q_col = col_at(q_inc, i)
-                    eps_values.append(
-                        compute_eps_from_stmt(q_col, fallback_shares=shares_out) if q_col is not None else np.nan
-                    )
-                growth_rates = []
-                for i in range(4):
-                    growth_rates.append(safe_div(eps_values[i] - eps_values[i + 1], abs(eps_values[i + 1])))
-                out.eps_growth_rates = growth_rates
-                valid_growth = [(i, g) for i, g in enumerate(growth_rates) if not np.isnan(g)]
-                if len(valid_growth) >= 2:
-                    x = np.array([v[0] for v in valid_growth])
-                    y = np.array([v[1] for v in valid_growth])
-                    slope = np.polyfit(x, y, 1)[0]
-                    out.eps_growth_acceleration = -slope
+def eps_metrics_from_statements(
+    q_inc: pd.DataFrame | None,
+    a_inc: pd.DataFrame | None,
+    *,
+    shares_out: float = np.nan,
+    growth_years: int = 3,
+) -> EPSMetrics:
+    """EPS metrics from pre-fetched quarterly and annual income statements (no EDGAR)."""
+    out = EPSMetrics()
+    _apply_quarterly_eps(out, q_inc, shares_out)
+    _apply_annual_eps(out, a_inc, shares_out, growth_years)
+    return out
 
-    a_inc = try_get_income_stmt(t, "annual")
+
+def _apply_quarterly_eps(out: EPSMetrics, q_inc: pd.DataFrame | None, shares_out: float) -> None:
+    if q_inc is not None and not q_inc.empty and q_inc.shape[1] >= 5:
+        out.q0_end = pd.to_datetime(q_inc.columns[0])
+        out.q4_end = pd.to_datetime(q_inc.columns[4])
+
+        q0 = col_at(q_inc, 0)
+        q4 = col_at(q_inc, 4)
+
+        if q0 is not None and q4 is not None:
+            out.eps_q0 = compute_eps_from_stmt(q0, fallback_shares=shares_out)
+            out.eps_q4 = compute_eps_from_stmt(q4, fallback_shares=shares_out)
+
+        if q_inc.shape[1] >= 7:
+            out.q6_end = pd.to_datetime(q_inc.columns[6])
+            yoy_changes = []
+            for recent_idx, prior_idx in [(0, 4), (1, 5), (2, 6)]:
+                col_recent = col_at(q_inc, recent_idx)
+                col_prior = col_at(q_inc, prior_idx)
+                if col_recent is not None and col_prior is not None:
+                    eps_recent = compute_eps_from_stmt(col_recent, fallback_shares=shares_out)
+                    eps_prior = compute_eps_from_stmt(col_prior, fallback_shares=shares_out)
+                    yoy_changes.append(safe_div(eps_recent - eps_prior, abs(eps_prior)))
+                else:
+                    yoy_changes.append(np.nan)
+            out.eps_yoy_changes = yoy_changes
+            valid = [v for v in yoy_changes if not np.isnan(v)]
+            out.eps_yoy_change = float(np.mean(valid)) if valid else np.nan
+
+        if q_inc.shape[1] >= 5:
+            eps_values = []
+            for i in range(5):
+                q_col = col_at(q_inc, i)
+                eps_values.append(
+                    compute_eps_from_stmt(q_col, fallback_shares=shares_out) if q_col is not None else np.nan
+                )
+            growth_rates = []
+            for i in range(4):
+                growth_rates.append(safe_div(eps_values[i] - eps_values[i + 1], abs(eps_values[i + 1])))
+            out.eps_growth_rates = growth_rates
+            valid_growth = [(i, g) for i, g in enumerate(growth_rates) if not np.isnan(g)]
+            if len(valid_growth) >= 2:
+                x = np.array([v[0] for v in valid_growth])
+                y = np.array([v[1] for v in valid_growth])
+                slope = np.polyfit(x, y, 1)[0]
+                out.eps_growth_acceleration = -slope
+
+
+def _apply_annual_eps(out: EPSMetrics, a_inc: pd.DataFrame | None, shares_out: float, growth_years: int) -> None:
     if a_inc is not None and not a_inc.empty and a_inc.shape[1] >= 2:
         max_years_available = a_inc.shape[1] - 1
         years_used = min(growth_years, max_years_available)
@@ -370,8 +392,6 @@ def fetch_eps_metrics(ticker: str, growth_years: int = 3, use_edgar: bool = True
                     out.eps_cagr = (out.eps_a0 / out.eps_aN) ** (1.0 / years_used) - 1.0
                 else:
                     out.eps_cagr = np.nan
-
-    return out
 
 
 # -------------------------

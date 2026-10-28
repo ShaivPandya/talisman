@@ -54,7 +54,7 @@ function useScreenerMutation<T, Body>(screen: ScreenerTab, options: { mutationFn
 }
 
 const UNIVERSE_OPTIONS = [
-  "S&P 500", "Russell 2000", "S&P 400",
+  "S&P 500", "Russell 2000", "S&P 400", "S&P 600",
   "VAW — Materials", "VOX — Communication Services", "VDE — Energy",
   "VFH — Financials", "VIS — Industrials", "VGT — Technology",
   "VDC — Consumer Staples", "VNQ — Real Estate", "VPU — Utilities",
@@ -70,7 +70,7 @@ const BENCHMARK_OPTIONS = [
 ]
 
 const PRICE_MOMENTUM_BENCHMARK_OPTIONS = [
-  "Same as Input", "S&P 500", "Russell 2000", "S&P 400",
+  "Same as Input", "S&P 500", "Russell 2000", "S&P 400", "S&P 600",
   "VAW — Materials", "VOX — Communication Services", "VDE — Energy",
   "VFH — Financials", "VIS — Industrials", "VGT — Technology",
   "VDC — Consumer Staples", "VNQ — Real Estate", "VPU — Utilities",

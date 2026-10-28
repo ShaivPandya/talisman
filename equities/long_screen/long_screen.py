@@ -33,6 +33,7 @@ from equities.short_screen.short_screen import (
     _build_result_row,
     _report_progress,
     _throttled_yf_call,
+    compute_price_metrics,
     fetch_sec_issuance,
     fetch_yf_data,
 )
@@ -84,6 +85,33 @@ def screen_ticker_long(
     if "error" in data:
         return False, data
 
+    passes = long_fundamentals_pass(
+        data,
+        pb_threshold=pb_threshold,
+        profit_type=profit_type,
+        check_revenue=check_revenue,
+        min_revenue_growth=min_revenue_growth,
+        check_eps=check_eps,
+        min_eps_growth=min_eps_growth,
+        check_ebit_multiple=check_ebit_multiple,
+        max_ebit_multiple=max_ebit_multiple,
+    )
+    return passes, data
+
+
+def long_fundamentals_pass(
+    data: dict,
+    *,
+    pb_threshold: float | None,
+    profit_type: str | None,
+    check_revenue: bool = False,
+    min_revenue_growth: float = 5.0,
+    check_eps: bool = False,
+    min_eps_growth: float = 5.0,
+    check_ebit_multiple: bool = False,
+    max_ebit_multiple: float = 20.0,
+) -> bool:
+    """Phase 1 long criteria over a fetch_yf_data-shaped dict; sets data["ebit_multiple"] when computed."""
     pb = data.get("price_to_book", np.nan)
     gross = data.get("gross_profit", np.nan)
     operating = data.get("operating_income", np.nan)
@@ -134,7 +162,7 @@ def screen_ticker_long(
     else:
         ebit_multiple_ok = True
 
-    return (pb_ok and profit_ok and rev_ok and eps_ok and ebit_multiple_ok), data
+    return bool(pb_ok and profit_ok and rev_ok and eps_ok and ebit_multiple_ok)
 
 
 # ---------------------------------------------------------------------------
@@ -234,69 +262,54 @@ def _apply_price_filters_long(
         if close is None or len(close) < 10:
             continue
 
-        current = float(close.iloc[-1])
-        m: dict[str, float | None] = {}
-
-        # 52-week return
-        ret_52w: float | None = None
-        if len(close) >= 200:
-            price_52w = float(close.iloc[0])
-            ret_52w = (current / price_52w - 1) * 100
-        m["return_52w"] = ret_52w
-
-        # Drawdown from 52-week high
-        peak = float(close.max())
-        dd_pct = (current - peak) / peak * 100 if peak > 0 else None
-        m["drawdown_pct"] = dd_pct
-
-        # 3-month return (~63 trading days)
-        ret_3m: float | None = None
-        if len(close) >= 63:
-            price_3m = float(close.iloc[-63])
-            ret_3m = (current / price_3m - 1) * 100
-        m["return_3m"] = ret_3m
-
-        # 2-month relative return (~42 trading days)
-        rel_ret_2m: float | None = None
-        if len(close) >= 42 and bench_close is not None and len(bench_close) >= 42:
-            price_2m = float(close.iloc[-42])
-            stock_ret = (current / price_2m - 1) * 100
-            bench_current = float(bench_close.iloc[-1])
-            bench_2m = float(bench_close.iloc[-42])
-            bench_ret = (bench_current / bench_2m - 1) * 100
-            rel_ret_2m = stock_ret - bench_ret
-        m["rel_return_2m"] = rel_ret_2m
-
-        # Apply filters
-        passes = True
-
-        if check_52w_positive:
-            if ret_52w is None or ret_52w <= 0:
-                passes = False
-
-        if check_min_drawdown and passes:
-            if dd_pct is None or abs(dd_pct) < min_drawdown_pct:
-                passes = False
-
-        if check_max_drawdown and passes:
-            if dd_pct is None or abs(dd_pct) > max_drawdown_pct:
-                passes = False
-
-        # INVERTED: require positive 3m momentum (short screen requires negative)
-        if check_3m_pos_momentum and passes:
-            if ret_3m is None or ret_3m <= 0:
-                passes = False
-
-        # INVERTED: require positive relative momentum (short screen requires negative)
-        if check_2m_pos_rel_momentum and passes:
-            if rel_ret_2m is None or rel_ret_2m <= 0:
-                passes = False
-
+        m = compute_price_metrics(close, bench_close)
+        passes = long_price_filters_pass(
+            m,
+            check_52w_positive=check_52w_positive,
+            check_min_drawdown=check_min_drawdown,
+            min_drawdown_pct=min_drawdown_pct,
+            check_max_drawdown=check_max_drawdown,
+            max_drawdown_pct=max_drawdown_pct,
+            check_3m_pos_momentum=check_3m_pos_momentum,
+            check_2m_pos_rel_momentum=check_2m_pos_rel_momentum,
+        )
         if passes:
             filtered.append(data)
             metrics[tk] = m
 
     return filtered, metrics
+
+
+def long_price_filters_pass(
+    m: dict[str, float | None],
+    *,
+    check_52w_positive: bool = False,
+    check_min_drawdown: bool = False,
+    min_drawdown_pct: float = 25.0,
+    check_max_drawdown: bool = False,
+    max_drawdown_pct: float = 60.0,
+    check_3m_pos_momentum: bool = False,
+    check_2m_pos_rel_momentum: bool = False,
+) -> bool:
+    """Stock must pass ALL enabled long price filters."""
+    ret_52w = m.get("return_52w")
+    dd_pct = m.get("drawdown_pct")
+    ret_3m = m.get("return_3m")
+    rel_ret_2m = m.get("rel_return_2m")
+
+    if check_52w_positive and (ret_52w is None or ret_52w <= 0):
+        return False
+    if check_min_drawdown and (dd_pct is None or abs(dd_pct) < min_drawdown_pct):
+        return False
+    if check_max_drawdown and (dd_pct is None or abs(dd_pct) > max_drawdown_pct):
+        return False
+    # INVERTED: require positive 3m momentum (short screen requires negative)
+    if check_3m_pos_momentum and (ret_3m is None or ret_3m <= 0):
+        return False
+    # INVERTED: require positive relative momentum (short screen requires negative)
+    if check_2m_pos_rel_momentum and (rel_ret_2m is None or rel_ret_2m <= 0):
+        return False
+    return True
 
 
 # ---------------------------------------------------------------------------

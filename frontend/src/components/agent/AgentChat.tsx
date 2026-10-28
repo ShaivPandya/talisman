@@ -323,11 +323,24 @@ export function AgentChat({
     }
   }, [pendingCommand])
 
+  const resetMemoryDraft = memory.resetDraft
   useEffect(() => {
     if (!open || !pendingCommand?.command?.trim()) return
     const command = pendingCommand.command.trim()
     if (lastConsumedCommandRef.current === command) return
     lastConsumedCommandRef.current = command
+    if (pendingCommand.mode === "draft") {
+      window.setTimeout(() => {
+        resetMemoryDraft()
+        clearChat()
+        setActivePanel("chat")
+        draftRef.current = { value: command, selection: { start: command.length, end: command.length } }
+        composerRef.current?.setInput(command)
+        textareaRef.current?.focus()
+      }, 0)
+      onPendingCommandConsumed?.()
+      return
+    }
     pendingWorkflowInvalidationRef.current = workflowTargetFromCommand(command)
     window.setTimeout(() => {
       setActivePanel("chat")
@@ -343,6 +356,8 @@ export function AgentChat({
     isStreaming,
     sendTurn,
     onPendingCommandConsumed,
+    clearChat,
+    resetMemoryDraft,
   ])
 
   function updateDraftPreferences(updater: (prev: AgentResponsePreferences) => AgentResponsePreferences) {

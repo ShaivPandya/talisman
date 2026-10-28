@@ -13,6 +13,7 @@ _UNIVERSE_MAP = {
     "S&P 500": "sp500",
     "Russell 2000": "russell2000",
     "S&P 400": "sp400",
+    "S&P 600": "sp600",
 }
 
 _SECTOR_PREFIX_MAP = {
