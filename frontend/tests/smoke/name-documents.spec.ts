@@ -167,3 +167,22 @@ test("fresh chat labels private upload citations separately from web sources", a
   await page.getByRole("button", { name: "Open Stan" }).click()
   await expect(privateSources.getByRole("link", { name: /survey.txt/ })).toHaveAttribute("href", url)
 })
+
+test("the source files card collapses, remembers it across names, and reopens on upload", async ({ page }) => {
+  await mockDocuments(page)
+  await page.goto("/dossier/MSFT")
+  const panel = page.getByRole("region", { name: "Source files for MSFT" })
+  await panel.getByLabel("Add source files").setInputFiles({ name: "survey.txt", mimeType: "text/plain", buffer: Buffer.from("731 violet satellites") })
+  const toggle = panel.getByRole("button", { name: /^Source files/ })
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await expect(panel.getByRole("link", { name: "survey.txt", exact: true })).toBeHidden()
+  await expect(panel.getByLabel("Add source files")).toBeAttached()
+
+  await page.goto("/dossier/GC=F")
+  const other = page.getByRole("region", { name: "Source files for GC=F" })
+  await expect(other.getByRole("button", { name: /^Source files/ })).toHaveAttribute("aria-expanded", "false")
+  await other.getByLabel("Add source files").setInputFiles({ name: "gold.txt", mimeType: "text/plain", buffer: Buffer.from("Gold survey") })
+  await expect(other.getByRole("link", { name: "gold.txt", exact: true })).toBeVisible()
+})
