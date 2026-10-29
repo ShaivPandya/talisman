@@ -107,6 +107,65 @@ def test_scheduled_risk_refresh_forces_only_optional_inputs(monkeypatch):
     assert not any(calls[name] for name in position_risk.REQUIRED_MODULES if name != "portfolio")
 
 
+def test_survey_failure_preserves_fresh_volatility_and_degraded_status(tmp_path, monkeypatch):
+    from api import position_risk, snapshot_store
+    from ontology.sources.macro import SentimentAdapter
+
+    monkeypatch.setattr(snapshot_store, "_SQLITE_PATH", tmp_path / "snapshots.db")
+    config = position_risk._MODULES["sentiment"]
+    old = {"put_call": {}, "surveys": {}, "volatility": [{"date": "2026-07-31", "vvix": 90}]}
+    snapshot_store.write_snapshot_success(config.snapshot_key, old, as_of_date="2026-07-31")
+    current = {
+        "put_call": {},
+        "surveys": {"errors": {"naaim": "Current data requires subscription"}},
+        "volatility": [{"date": "2026-10-28", "vvix": 115}],
+    }
+    monkeypatch.setattr(SentimentAdapter, "fetch", lambda _self: current)
+    now = datetime(2026, 10, 29, 14, 0, tzinfo=EASTERN)
+    state, data = position_risk._load_module(config, now=now, force_refresh=True)
+    assert state["accepted"] is True
+    assert state["used"] is True
+    assert state["status"] == "partial"
+    assert state["quality"] == "degraded"
+    assert state["as_of"] == "2026-10-28"
+    assert "naaim" in state["detail"]
+    assert data.latest_vvix == 115
+    saved = snapshot_store.read_snapshot(config.snapshot_key)
+    assert saved.status == "ok"
+    assert saved.payload == current
+    assert saved.as_of_date == "2026-10-28"
+
+    monkeypatch.setattr(
+        SentimentAdapter,
+        "fetch",
+        lambda _self: (_ for _ in ()).throw(AssertionError("fresh partial data should be reused")),
+    )
+    cached_state, cached_data = position_risk._load_module(config, now=now)
+    assert cached_state["status"] == "partial"
+    assert cached_data.latest_vvix == 115
+
+
+def test_survey_failure_without_usable_volatility_does_not_replace_prior_snapshot(tmp_path, monkeypatch):
+    from api import position_risk, snapshot_store
+    from ontology.sources.macro import SentimentAdapter
+
+    monkeypatch.setattr(snapshot_store, "_SQLITE_PATH", tmp_path / "snapshots.db")
+    config = position_risk._MODULES["sentiment"]
+    old = {"put_call": {}, "surveys": {}, "volatility": [{"date": "2026-07-31", "vvix": 90}]}
+    snapshot_store.write_snapshot_success(config.snapshot_key, old, as_of_date="2026-07-31")
+    monkeypatch.setattr(
+        SentimentAdapter,
+        "fetch",
+        lambda _self: {"put_call": {}, "surveys": {"errors": {"naaim": "subscription required"}}, "volatility": []},
+    )
+    state, data = position_risk._load_module(
+        config, now=datetime(2026, 10, 29, 14, 0, tzinfo=EASTERN), force_refresh=True
+    )
+    assert state["accepted"] is False
+    assert data is None
+    assert snapshot_store.read_snapshot(config.snapshot_key).payload == old
+
+
 def test_risk_input_modules_load_concurrently_in_module_order(monkeypatch):
     import threading
 

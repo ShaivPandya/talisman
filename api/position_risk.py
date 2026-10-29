@@ -611,7 +611,9 @@ def _evaluate_record(
         quality = "missing"
         detail = invalid_detail
 
-    accepted = status == "ok" and valid and bool(freshness["fresh"])
+    accepted = _usable_module_status(config, status, valid=valid, schema_drift=result.schema_drift) and bool(
+        freshness["fresh"]
+    )
     state = {
         **result.to_status_dict(),
         "status": status,
@@ -637,6 +639,12 @@ def _evaluate_record(
     return state, result.data
 
 
+def _usable_module_status(config: ModuleConfig, status: str, *, valid: bool, schema_drift: list[Any]) -> bool:
+    # Survey access failures do not invalidate fresh VVIX observations used by
+    # the risk model. Preserve the partial/degraded status and its explanation.
+    return valid and (status == "ok" or (config.name == "sentiment" and status == "partial" and not schema_drift))
+
+
 def _refresh_module(config: ModuleConfig, *, now: datetime) -> tuple[dict[str, Any], Any | None]:
     adapter = config.adapter_factory()
     try:
@@ -644,7 +652,7 @@ def _refresh_module(config: ModuleConfig, *, now: datetime) -> tuple[dict[str, A
         payload = _snapshot_payload(config.name, serialize_value(raw))
         result = adapter.normalize(payload)
         valid, invalid_detail = _valid_for_scoring(config.name, payload, result.data)
-        if result.status == "ok" and valid:
+        if _usable_module_status(config, result.status, valid=valid, schema_drift=result.schema_drift):
             record = write_snapshot_success(
                 config.snapshot_key,
                 payload,
@@ -948,6 +956,9 @@ def _valid_for_scoring(module_name: str, payload: Any, data: Any) -> tuple[bool,
         return _has_growth_return_values(data), "economic growth return fields are missing"
     if module_name == "labor_market":
         return _has_labor_claims_change(data), "labor market claims change is missing"
+    if module_name == "sentiment":
+        vvix = _float_or_none(_get_attr(data, "latest_vvix"))
+        return vvix is not None and 0 < vvix < float("inf"), "sentiment VVIX observation is missing"
     return True, None
 
 

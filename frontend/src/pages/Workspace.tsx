@@ -1327,6 +1327,7 @@ function CollapsibleSourceHealth({ sourceHealth }: { sourceHealth: SourceHealth 
         <span className="text-sm font-semibold text-app">Source health</span>
         <div className="flex flex-wrap gap-1.5">
           <span className="theme-badge theme-badge-success">{counts.ok ?? 0} ok</span>
+          {(counts.historical ?? 0) > 0 && <span className="theme-badge theme-badge-neutral">{counts.historical} historical</span>}
           {(counts.sla_breach ?? 0) > 0 && <span className="theme-badge theme-badge-warning">{counts.sla_breach} SLA breach</span>}
           {(counts.optional_degraded ?? 0) > 0 && <span className="theme-badge theme-badge-neutral">{counts.optional_degraded} degraded</span>}
         </div>
@@ -1354,7 +1355,7 @@ function CollapsibleSourceHealth({ sourceHealth }: { sourceHealth: SourceHealth 
                       <span className="text-[11px] font-semibold text-subtle">
                         {reliabilityTierLabel(source.reliability_tier)} · {source.required ? "required" : "optional"}
                       </span>
-                      <span className={cn("ml-auto text-xs font-semibold", source.status === "ok" ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")}>
+                      <span className={cn("ml-auto text-xs font-semibold", source.status === "ok" ? "text-green-600 dark:text-green-400" : source.status === "historical" ? "text-subtle" : "text-amber-600 dark:text-amber-400")}>
                         {sourceHealthLabel(source.status)}
                       </span>
                     </div>

@@ -83,6 +83,8 @@ def effective_reliability_tier_for_source(source: dict[str, Any]) -> str:
 def gate_action_for_tier(tier: str, status: str) -> str:
     normalized_status = str(status or "missing").strip().lower()
     normalized_tier = str(tier or "standard").strip().lower()
+    if normalized_status == "historical":
+        return "inform"
     if normalized_tier == "critical" and normalized_status in {"stale", "failed", "missing"}:
         return "block"
     if normalized_tier == "ad_hoc":
