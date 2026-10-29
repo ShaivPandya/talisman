@@ -61,6 +61,9 @@ PRICE_FILTER_DAYS = 365
 BETA_DAYS = 3 * 365
 
 FACTOR_COLUMNS = ("quality", "price_momentum", "eps_momentum", "revenue_momentum")
+# Share of the ranking weight a ticker's available factors must carry to get a composite.
+# With the default weights, revenue + EPS momentum alone (34%) or quality alone (33%) isn't enough.
+MIN_COMPOSITE_COVERAGE = 0.5
 
 
 def _num(value: Any) -> float:
@@ -250,10 +253,21 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
 
 
 def composite_scores(frame: pd.DataFrame, weights: dict[str, float]) -> pd.Series:
-    """rank_universe's weighted composite, re-normalised over the factors each ticker has."""
+    """rank_universe's weighted composite, re-normalised over the factors each ticker has.
+
+    Tickers whose factors carry less than ``MIN_COMPOSITE_COVERAGE`` of the weight get no
+    composite (NaN) and are left out of the ranking, so one strong factor can't top it.
+    """
     signals = {name: frame[name] for name in FACTOR_COLUMNS if name in frame.columns}
     active = {k: float(v) for k, v in weights.items() if k in signals and float(v) > 0}
-    return combine_signals({k: signals[k] for k in active}, active, list(frame.index)).clip(-3.0, 3.0)
+    if not active:
+        return pd.Series(np.nan, index=frame.index)
+    coverage = sum(signals[k].notna() * w for k, w in active.items()) / sum(active.values())
+    covered = list(frame.index[coverage >= MIN_COMPOSITE_COVERAGE])
+    if not covered:
+        return pd.Series(np.nan, index=frame.index)
+    combined = combine_signals({k: signals[k] for k in active}, active, covered)
+    return combined.reindex(frame.index).clip(-3.0, 3.0)
 
 
 # ---------------------------------------------------------------------------

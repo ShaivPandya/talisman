@@ -187,6 +187,37 @@ def test_composite_top_decile_uses_preset_weights():
     assert {h["ticker"] for h in result.hits} == {"T00", "T01", "T02"}
 
 
+def test_composite_needs_half_the_weight():
+    nan = float("nan")
+    rows = {f"T{i:02d}": {"quality": float(i), "price_momentum": float(i)} for i in range(20)}
+    # Like ASST and SATS on 2026-10-29: top growth, but no quality or price momentum.
+    rows["GROWTH"] = {"quality": nan, "price_momentum": nan, "revenue_momentum": 99.0, "eps_momentum": 99.0}
+    rows["QUALITY"] = {"quality": 99.0, "price_momentum": nan, "revenue_momentum": nan, "eps_momentum": nan}
+    rows["MOSTLY"] = {"quality": 99.0, "price_momentum": nan, "revenue_momentum": 99.0, "eps_momentum": nan}
+    frame = make_frame(rows)
+    assert np.isnan(frame.loc["GROWTH", "composite"]) and np.isnan(frame.loc["QUALITY", "composite"])
+    assert frame.loc["MOSTLY", "composite_pct"] == pytest.approx(1.0), "quality + revenue is 53% of the weight"
+
+    result = sc.evaluate_preset(preset("long-momentum-quality"), frame)
+    assert "GROWTH" not in {h["ticker"] for h in result.hits}
+    assert "GROWTH" not in {m["ticker"] for m in result.near_misses}
+    assert "MOSTLY" in {h["ticker"] for h in result.hits}
+
+    # Other screens still pass it, ranked after every name that has a composite.
+    cheap = IdeaScanPreset(
+        id="cheap",
+        name="Cheap",
+        direction="long",
+        screen="long_screen",
+        params={"pb_threshold": 3.0, "profit_type": None, "check_revenue": False, "check_eps": False},
+        max_names=100,
+    )
+    cheap.params["require_buybacks"] = False
+    hits = sc.evaluate_preset(cheap, frame).hits
+    assert hits[-1]["ticker"] in {"GROWTH", "QUALITY"} and hits[-1]["preset_score"] is None
+    assert len(hits) == len(rows)
+
+
 def test_breakdown_needs_negative_revisions():
     rows = {f"T{i:02d}": {"price_momentum": float(i)} for i in range(20)}
     frame = make_frame(rows)
