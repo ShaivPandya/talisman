@@ -18,6 +18,9 @@ require_image_exists
 gcloud compute networks subnets describe "${IBKR_FLEX_EGRESS_SUBNET}" \
   --project="${PROJECT_ID}" --region="${REGION}" >/dev/null
 
+# Direct VPC egress can take tens of seconds to become usable at cold start.
+# Give the initial database claim time to connect without widening API deadlines.
+POSTGRES_POOL_TIMEOUT_SECONDS=60
 mapfile -t FLEX_ENV < <(common_env_vars)
 FLEX_ENV+=(
   "ASYNC_JOB_BACKEND=cloud_run_jobs"

@@ -54,6 +54,9 @@ existing durable async job runner. It binds only the database, Flex, and optiona
 Sentry credentials. Its deploy script grants the API permission to execute it
 with the job-ID override. Egress resource names and subnet range can be overridden
 using the `IBKR_FLEX_EGRESS_*` settings in `config.example.sh`.
+The Flex worker allows 60 seconds for a database connection because Direct VPC
+egress can take tens of seconds to initialize at cold start. API deadlines stay
+unchanged.
 
 IBKR can deny Cloud Run's shared outbound IP before validating credentials. An
 HTML HTTP 403 page naming the source IP is distinct from the Flex XML error codes.
