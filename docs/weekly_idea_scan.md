@@ -31,7 +31,9 @@ queue (150-minute timeout).
    long and short screen predicates one criterion at a time, so cards list the
    signals that fired and near-misses name the one check they missed. A name hit
    by several presets is one candidate; agreement = presets hit + the composite
-   percentile (inverted for shorts).
+   percentile (inverted for shorts). A name whose available factors carry less
+   than half the ranking weight gets no composite, so it can't hit the composite
+   preset and ranks after scored names in the others.
 4. **Macro view.** One high-tier call over the latest macro snapshots, last
    week's view and up to 5 web searches scores each yfinance sector from -2 to
    +2. Rows without a snapshot or returned-URL citation, and score changes
