@@ -12,6 +12,8 @@ from tests.test_agent_streaming import (
     _event_text_delta,
     _event_tool_use_start,
     _FakeClient,
+    _FakeStream,
+    _FakeStreamManager,
     _gemini_chunk,
     _gemini_function_call_part,
     _gemini_text_part,
@@ -134,6 +136,59 @@ def test_final_message_without_deltas_is_not_hidden_by_prior_narration(monkeypat
     assert turn.shown == ANSWER
     assert turn.narration == ["Let me pull your book."]
     assert turn.saved["content"] == ANSWER
+
+
+def test_research_with_many_large_reports_writes_and_saves_an_answer_within_input_budget(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    monkeypatch.setenv("AGENT_MAX_INPUT_TOKENS", "200000")
+    monkeypatch.setattr(agent_router, "_select_tool_names", lambda *_args, **_kwargs: ["query_ontology"])
+    monkeypatch.setattr(
+        agent_router,
+        "execute_tool",
+        lambda *_args, **_kwargs: json.dumps(
+            {
+                "ticker": "DAL",
+                "report": "Private research evidence. " * 3000,
+                "sources": [{"url": "/api/names/DAL/documents/" + "a" * 32 + "/content", "title": "Private report"}],
+            }
+        ),
+    )
+    requests = []
+
+    def stream(**kwargs):
+        requests.append(kwargs)
+        if kwargs.get("tool_choice") == "none":
+            events = [_openai_event_text_delta(ANSWER)]
+            output = [{"type": "message", "content": [{"type": "output_text", "text": ANSWER}]}]
+        else:
+            call_id = f"report-{len(requests)}"
+            events = [_openai_event_function_call("query_ontology", call_id)]
+            output = [
+                {
+                    "type": "function_call",
+                    "name": "query_ontology",
+                    "call_id": call_id,
+                    "arguments": json.dumps({"query": f"report {len(requests)}"}),
+                }
+            ]
+        response = SimpleNamespace(output=output, status="completed", usage=None)
+        return _FakeStreamManager(_FakeStream(events, response))
+
+    monkeypatch.setattr(
+        agent_router, "_get_provider_client", lambda *_args: SimpleNamespace(responses=SimpleNamespace(stream=stream))
+    )
+
+    turn = _run_turn(monkeypatch, NORMAL_PROMPT)
+
+    assert turn.error is None
+    assert not any(event == "error" for event, _ in turn.parsed)
+    assert turn.shown == turn.saved["content"] == ANSWER
+    assert turn.saved["status"] == "complete"
+    assert 2 < len(requests) < agent_router.MAX_TOOL_CONTINUATION_ROUNDS
+    assert requests[-1]["tool_choice"] == "none"
+    budget = [payload for event, payload in turn.parsed if event == "budget_update"][-1]
+    assert budget["estimated_input_tokens"] <= budget["max_input_tokens"] == 200_000
 
 
 def test_pause_turn_text_is_separated_from_the_next_round(monkeypatch):

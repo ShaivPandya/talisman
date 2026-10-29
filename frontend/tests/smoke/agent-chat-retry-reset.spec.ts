@@ -63,6 +63,37 @@ test("a reset keeps the text streamed before the failed attempt", async ({ page 
   await expect(page.getByText(/Based on Based on/)).toHaveCount(0)
 })
 
+for (const narrated of [false, true]) {
+  test(`a server budget error survives stream completion${narrated ? " after tool narration" : ""}`, async ({ page }) => {
+    let duplicateJobs = 0
+    await page.route("**/api/agent/chat/async", route => {
+      duplicateJobs += 1
+      return route.fulfill({ status: 500, json: { detail: "Unexpected replay" } })
+    })
+    await streamLiveReply(page, [
+      ...(narrated ? [
+        frame("delta", { text: "Let me read the reports." }),
+        frame("narration", { id: "narration:0", text: "Let me read the reports." }),
+        frame("reset", { text: "" }),
+      ] : []),
+      frame("tool_result", { id: "report-1", name: "read_name_document", status: "ok" }),
+      frame("error", { message: "Input token budget exceeded (200000)" }),
+    ])
+    await openChat(page)
+    await sendMessage(page, "Analyze all the DAL reports")
+
+    await expect(page.getByText("Input token budget exceeded (200000)", { exact: true })).toBeVisible()
+    await expect(page.getByText("Agent returned an empty response.")).toHaveCount(0)
+    await expect(page.getByText("I couldn't generate a response for that request. Please try again.")).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Stop generating" })).toBeHidden()
+    expect(duplicateJobs).toBe(0)
+    await expect.poll(() => page.evaluate(() => {
+      const saved = JSON.parse(localStorage.getItem("agent-chat-current") ?? "{}")
+      return saved.messages?.at(-1)?.messageStatus
+    })).toBe("failed")
+  })
+}
+
 test("a durable job replays a retry's reset and shows the answer once", async ({ page }) => {
   await page.route("**/api/agent/chat/async", route => route.fulfill({ json: {
     job_id: "retry-reset-job", session_id: sessionId, status: "running", next_seq: 1,

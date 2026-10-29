@@ -330,6 +330,24 @@ def strip_inline_files(value: Any) -> tuple[Any, int]:
     return walk(value), tokens
 
 
+def estimate_model_input_tokens(stream_kwargs: Mapping[str, Any]) -> tuple[int, int]:
+    """Use the same prompt estimate for preflight planning and budget enforcement."""
+    config = stream_kwargs.get("config")
+    config = config if isinstance(config, Mapping) else {}
+    conversation, attached_tokens = strip_inline_files(
+        stream_kwargs.get("input") or stream_kwargs.get("messages") or stream_kwargs.get("contents")
+    )
+    return attached_tokens + estimate_tokens(
+        {
+            "instructions": stream_kwargs.get("instructions")
+            or stream_kwargs.get("system")
+            or config.get("system_instruction"),
+            "conversation": conversation,
+            "tools": stream_kwargs.get("tools") or config.get("tools"),
+        }
+    ), attached_tokens
+
+
 def _is_sensitive_key(key: Any) -> bool:
     lowered = str(key or "").lower()
     if lowered in {
@@ -682,15 +700,7 @@ def prepare_model_egress(
         or config.get("max_output_tokens")
         or 0
     )
-    estimated_input_tokens = attached_tokens + estimate_tokens(
-        {
-            "instructions": sanitized_kwargs.get("instructions")
-            or sanitized_kwargs.get("system")
-            or config.get("system_instruction"),
-            "conversation": conversation,
-            "tools": sanitized_kwargs.get("tools") or config.get("tools"),
-        }
-    )
+    estimated_input_tokens, attached_tokens = estimate_model_input_tokens(sanitized_kwargs)
     estimated_cost_usd = _estimate_model_cost_usd(provider, estimated_input_tokens, max_output_tokens)
 
     context = execution_context_for_actor(actor)
