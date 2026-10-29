@@ -12,6 +12,7 @@
 #   agent-model-release-refresh 0 6 * * 1 POST /api/admin/jobs/enqueue-agent-model-release-refresh
 #
 # Optional:
+#   action-item-research       */5 * * * * POST /api/admin/jobs/enqueue-action-item-research
 #   watch-trigger-monitor     30 14-22 * * 1-5 POST /api/admin/jobs/enqueue-watch-trigger-monitor
 #   monitor-mission-runner    35 14-22 * * 1-5 POST /api/admin/jobs/enqueue-monitor-mission-runner
 #   governance-outbox-drain   */5 * * * *   POST  /api/admin/jobs/enqueue-governance-outbox-drain
@@ -164,6 +165,12 @@ if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
   upsert_api_job ibkr-flex-sync "${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}" /api/admin/jobs/enqueue-ibkr-flex-sync "${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
 else
   delete_scheduler_job_if_present ibkr-flex-sync
+fi
+
+if is_truthy "${SCHEDULE_ACTION_ITEM_RESEARCH:-0}"; then
+  upsert_api_job action-item-research "${ACTION_ITEM_RESEARCH_SCHEDULE:-*/5 * * * *}" /api/admin/jobs/enqueue-action-item-research
+else
+  delete_scheduler_job_if_present action-item-research
 fi
 
 if is_truthy "${SCHEDULE_AGENT_MODEL_RELEASE_REFRESH:-0}"; then

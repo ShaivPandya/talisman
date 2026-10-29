@@ -950,6 +950,12 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
   const path = url.pathname
   const method = request.method()
 
+  if (method === "GET" && path === "/api/action-execution/runs") return json(route, { runs: [] })
+  if (method === "GET" && path === "/api/action-execution/settings") return json(route, {
+    enabled: false, automatic: false, enabled_kinds: ["thesis", "kill_conditions", "valuation"],
+    max_cost_usd: 5, daily_budget_usd: 15, max_concurrent: 1,
+  })
+
   if (method === "POST" && path === "/api/auth/logout") {
     state.isAuthenticated = false
     return json(route, { status: "ok" })

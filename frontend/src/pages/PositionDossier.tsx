@@ -49,6 +49,7 @@ import {
 } from "@/lib/approvalQueries"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
 import { RefreshButton } from "@/components/shared/RefreshButton"
+import { ActionItemExecutionControls } from "@/components/shared/ActionItemExecution"
 import { MarkdownRenderer } from "@/components/shared/MarkdownRenderer"
 import { Dialog } from "@/components/shared/Dialog"
 import { formatApprovalDisplayLabel, StagedProposalNotice } from "@/components/shared/StagedProposalNotice"
@@ -838,22 +839,9 @@ export function PositionDossier() {
                           {a.description}
                         </p>
                       </div>
-                      <div className="flex items-center gap-1 mt-2">
-                        <button
-                          onClick={() => handleActionItem(a.id, "complete")}
-                          disabled={processingIds.has(a.id)}
-                          className="rounded px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-950 disabled:opacity-50"
-                        >
-                          Propose Complete
-                        </button>
-                        <button
-                          onClick={() => handleActionItem(a.id, "dismiss")}
-                          disabled={processingIds.has(a.id)}
-                          className="rounded px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 disabled:opacity-50"
-                        >
-                          Propose Dismiss
-                        </button>
-                      </div>
+                      <ActionItemExecutionControls item={{ ...a, ticker }} busy={processingIds.has(a.id)}
+                        onComplete={() => void handleActionItem(a.id, "complete")}
+                        onDismiss={() => void handleActionItem(a.id, "dismiss")} />
                     </div>
                   )
                 })}

@@ -42,6 +42,7 @@ import {
 } from "@/lib/approvalQueries"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
 import { RefreshButton } from "@/components/shared/RefreshButton"
+import { ActionItemExecutionControls, ActionItemExecutionToolbar } from "@/components/shared/ActionItemExecution"
 import { PostMortemReviewDialog } from "@/components/shared/PostMortemReviewDialog"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
 import { useDecisionTrace } from "@/contexts/DecisionTraceContext"
@@ -2236,13 +2237,15 @@ export function Workspace() {
         ) : null}
 
         {/* Open Action Items */}
-        {data.open_actions.count > 0 && (
+        {(
           <section className="theme-surface flex min-h-0 max-h-[min(56rem,calc(100dvh-8rem))] flex-col overflow-hidden rounded-xl p-4 max-md:max-h-[min(40rem,calc(100dvh-12rem))]">
             <h2 className="text-sm font-semibold text-app mb-3 flex items-center gap-2">
               <Play size={14} className="text-purple-500" />
               Internal Action Items
               <span className="ml-auto text-xs text-subtle">{data.open_actions.count} total</span>
             </h2>
+            <ActionItemExecutionToolbar />
+            {data.open_actions.count === 0 && <p className="text-sm text-muted">No open action items.</p>}
             <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {data.open_actions.items.map(a => {
                 const key = `action-${a.id}`
@@ -2262,22 +2265,9 @@ export function Workspace() {
                         {a.description}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 mt-2">
-                      <button
-                        onClick={() => handleActionItem(a.id, "complete")}
-                        disabled={processingIds.has(a.id)}
-                        className="rounded px-2 py-1 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-950 disabled:opacity-50"
-                      >
-                        Propose Complete
-                      </button>
-                      <button
-                        onClick={() => handleActionItem(a.id, "dismiss")}
-                        disabled={processingIds.has(a.id)}
-                        className="rounded px-2 py-1 text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 dark:text-gray-400 dark:bg-gray-800 disabled:opacity-50"
-                      >
-                        Propose Dismiss
-                      </button>
-                    </div>
+                    <ActionItemExecutionControls item={a} busy={processingIds.has(a.id)}
+                      onComplete={() => void handleActionItem(a.id, "complete")}
+                      onDismiss={() => void handleActionItem(a.id, "dismiss")} />
                   </div>
                 )
               })}
