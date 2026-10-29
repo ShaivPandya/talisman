@@ -321,8 +321,9 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
             "observed_as_of_date": freshness_state.observed_as_of_date,
             "reason": historical_query,
         }
-    quality = (record.payload or {}).get("quality", record.quality) if record.quality == "ok" else record.quality
-    payload_detail = _snapshot_quality_detail(record.payload or {})
+    metadata = record.payload or record.health_metadata or {}
+    quality = metadata.get("quality", record.quality) if record.quality == "ok" else record.quality
+    payload_detail = _snapshot_quality_detail(metadata)
     if payload_detail:
         quality = "degraded"
     status = _normalize_status(record.status, stale=stale, quality=quality, required=required)
@@ -365,7 +366,7 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
 def _historical_query_detail(record: SnapshotRecord) -> str | None:
     if not record.snapshot_key.startswith("alternative:latest:"):
         return None
-    payload = record.payload or {}
+    payload = record.payload or record.health_metadata or {}
     parameters = payload.get("parameters")
     if not isinstance(parameters, dict):
         return None
