@@ -37,7 +37,12 @@ def _fetch_daily(ticker: str, years: int = 9) -> pd.Series:
     )
     if raw.empty:
         raise ValueError(f"No data returned for ticker '{ticker}'")
-    close = raw["Close"].squeeze().dropna()
+    close_values = raw["Close"]
+    # Select the ticker column without collapsing a single date to a scalar.
+    close = close_values.iloc[:, 0] if isinstance(close_values, pd.DataFrame) else close_values
+    close = close.dropna()
+    if close.empty:
+        raise ValueError(f"No close prices returned for ticker '{ticker}'")
     close.index = pd.DatetimeIndex(close.index).tz_localize(None)
     close.name = "Close"
     return close
@@ -123,7 +128,8 @@ def _rate_of_change(close: pd.Series) -> pd.DataFrame:
 def _build_summary(price_df: pd.DataFrame, roc_df: pd.DataFrame) -> list[dict]:
     """Generate a list of signal rows for the summary table."""
     latest = price_df.dropna(subset=["Close"]).iloc[-1]
-    latest_roc = roc_df.dropna(how="all").iloc[-1]
+    valid_roc = roc_df.dropna(how="all")
+    latest_roc = valid_roc.iloc[-1] if not valid_roc.empty else pd.Series(dtype=float)
     close = latest["Close"]
 
     rows: list[dict] = []

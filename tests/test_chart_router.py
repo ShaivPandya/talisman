@@ -44,6 +44,66 @@ def test_fetch_full_price_history_formats_close_prices(monkeypatch):
     ]
 
 
+@pytest.mark.parametrize("multi_index", [False, True])
+@pytest.mark.parametrize("observations", [1, 21, 22, 260])
+def test_chart_returns_prices_with_limited_history(auth_client, monkeypatch, multi_index, observations):
+    import portfolio.technical_analysis.technical_analysis as technical
+
+    dates = pd.bdate_range("2025-01-02", periods=observations, tz="America/New_York", name="Date")
+    raw = pd.DataFrame({"Close": [100.0 + i for i in range(observations)]}, index=dates)
+    if multi_index:
+        raw.columns = pd.MultiIndex.from_tuples([("Close", "LPRO")], names=["Price", "Ticker"])
+    monkeypatch.setattr(technical, "yf_download", lambda *args, **kwargs: raw)
+    monkeypatch.setattr(technical, "yf_ticker_info", lambda ticker: {})
+
+    response = auth_client.post("/api/chart", json={"ticker": "LPRO", "lookback": "1Y"})
+
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["ticker"] == "LPRO"
+    assert len(data["price_data"]) == observations
+    assert data["price_data"][-1]["Date"] == dates[-1].tz_localize(None).isoformat()
+    assert data["price_data"][-1]["Close"] == 100.0 + observations - 1
+    assert len(data["roc_data"]) == observations
+    roc_indicators = {row["Indicator"] for row in data["summary"] if row["Indicator"].endswith(" ROC")}
+    expected_roc = {
+        label for label, periods in [("1M ROC", 21), ("3M ROC", 63), ("12M ROC", 252)] if observations > periods
+    }
+    assert roc_indicators == expected_roc
+    if observations <= 21:
+        assert data["summary"] == []
+        assert data["roc_data"][-1]["1M ROC"] is None
+    else:
+        expected_change = ((100.0 + observations - 1) / (100.0 + observations - 22) - 1) * 100
+        assert data["roc_data"][-1]["1M ROC"] == pytest.approx(expected_change)
+    if observations >= 200:
+        assert data["price_data"][-1]["200D SMA"] == pytest.approx(100.0 + observations - 100.5)
+        assert any(row["Indicator"] == "Price vs 200D SMA" for row in data["summary"])
+
+
+def test_fetch_daily_drops_missing_prices_and_preserves_dates(monkeypatch):
+    import portfolio.technical_analysis.technical_analysis as technical
+
+    dates = pd.date_range("2025-01-02", periods=3, tz="America/New_York")
+    raw = pd.DataFrame({"Close": [None, 12.5, None]}, index=dates)
+    monkeypatch.setattr(technical, "yf_download", lambda *args, **kwargs: raw)
+
+    close = technical._fetch_daily("LPRO")
+
+    pd.testing.assert_series_equal(close, pd.Series([12.5], index=dates[1:2].tz_localize(None), name="Close"))
+
+
+@pytest.mark.parametrize("values", [[], [None], [None, None]])
+def test_fetch_daily_rejects_missing_price_history(monkeypatch, values):
+    import portfolio.technical_analysis.technical_analysis as technical
+
+    raw = pd.DataFrame({"Close": values}, index=pd.date_range("2025-01-02", periods=len(values)))
+    monkeypatch.setattr(technical, "yf_download", lambda *args, **kwargs: raw)
+
+    with pytest.raises(ValueError, match="No (data|close prices) returned for ticker 'LPRO'"):
+        technical._fetch_daily("LPRO")
+
+
 def test_download_price_history_csv(auth_client, monkeypatch):
     import portfolio.technical_analysis.technical_analysis as technical_analysis
 
