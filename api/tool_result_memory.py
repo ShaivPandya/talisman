@@ -46,7 +46,9 @@ def _compact(value: Any, *, depth: int, items: int, keys: int, text: int) -> Any
     return value
 
 
-def compact_tool_result(payload: dict[str, Any], *, observed_at: str | None = None) -> dict[str, Any]:
+def compact_tool_result(
+    payload: dict[str, Any], *, observed_at: str | None = None, max_chars: int = TOOL_RESULT_MAX_CHARS
+) -> dict[str, Any]:
     """Keep ordered facts, arguments and source dates without another model call.
 
     Truncation is explicit: absent details must be fetched, never inferred. The
@@ -91,7 +93,7 @@ def compact_tool_result(payload: dict[str, Any], *, observed_at: str | None = No
             "facts": _compact(facts, depth=depth, items=items, keys=keys, text=text),
         }
         candidate["truncated"] = candidate["facts"] != facts or candidate["arguments"] != payload.get("arguments", {})
-        if len(_json(candidate)) <= TOOL_RESULT_MAX_CHARS:
+        if len(_json(candidate)) <= max_chars:
             return candidate
     return {**result, "facts": {"_memory_omitted": "result exceeds memory limit"}, "truncated": True}
 

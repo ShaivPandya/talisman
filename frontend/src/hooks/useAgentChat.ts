@@ -1009,7 +1009,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
               isStreaming: false,
               activeJob: null,
               messages: next.messages.map(m =>
-                m.id === assistantId ? { ...m, isStreaming: false, statusText: undefined } : m,
+                m.id === assistantId ? { ...m, messageStatus: "failed", isStreaming: false, statusText: undefined } : m,
               ),
             }
             activeJobRef.current = null
@@ -1057,7 +1057,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
                       narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
                       thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
                       proposals: Array.isArray(data.proposals) && data.proposals.length ? normalizeProposals(data.proposals) : m.proposals,
-                      messageStatus: "complete",
+                      messageStatus: m.messageStatus === "failed" ? "failed" : "complete",
                       isStreaming: false,
                       statusText: undefined,
                     }
@@ -1408,6 +1408,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
     )
     if (options?.memoryEnabled !== undefined) body.memory_enabled = options.memoryEnabled
     let sawAssistantDelta = false
+    let streamError: string | null = null
 
     const handleAbort = () => {
       setState(prev => ({
@@ -1452,6 +1453,9 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
 
       let directSeq = 0
       const live = await startLiveAgentStream(body, event => {
+        if (event.event_type === "error") {
+          streamError = typeof event.payload.message === "string" ? event.payload.message : "An error occurred"
+        }
         if (event.event_type === "delta" && typeof event.payload.text === "string" && event.payload.text) {
           sawAssistantDelta = true
         }
@@ -1466,6 +1470,11 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
 
       if (live.handoff) {
         await beginDurableResponse(assistantId, clientTurnId, live.handoff, controller)
+        return
+      }
+
+      if (streamError) {
+        handleError(streamError)
         return
       }
 

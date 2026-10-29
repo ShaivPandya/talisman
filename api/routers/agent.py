@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.types import Receive, Scope, Send
 
 from api import chat_rich_parts
+from api.agent_context_budget import reserve_chat_synthesis
 from api.agent_costs import agent_turn_cost
 from api.agent_domain_policy import (
     DOMAIN_BLOCK_RESPONSE,
@@ -5672,6 +5673,13 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
                     disable_tool_use=round_text_only,
                     reasoning_effort=reasoning_effort,
                 )
+
+                if continuation_round > 0:
+                    stream_kwargs, budget_synthesis = reserve_chat_synthesis(provider, stream_kwargs, budget)
+                    if budget_synthesis:
+                        final_synthesis_round = True
+                        round_text_only = True
+                        round_force_tool_use = False
 
                 for attempt in range(MAX_API_RETRIES):
                     model_phase = "model_thinking" if continuation_round == 0 and tool_defs else "model_writing"
