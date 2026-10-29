@@ -31,6 +31,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.types import Receive, Scope, Send
 
 from api import chat_rich_parts
+from api.agent_costs import agent_turn_cost
 from api.agent_domain_policy import (
     DOMAIN_BLOCK_RESPONSE,
     DOMAIN_CLARIFY_RESPONSE,
@@ -407,6 +408,7 @@ def _done_payload(base: dict[str, Any], timings: dict[str, Any], turn_started: f
         "tools": timings.get("tools") or [],
     }
     out["timings"] = compact
+    out["cost"] = agent_turn_cost(compact["models"])
     return out
 
 
@@ -822,6 +824,7 @@ def _domain_guardrail_stream_v2(req: AgentChatRequest, classification: AgentDoma
         "role": "assistant",
         "content": text,
         "timestamp": time.time(),
+        "cost": agent_turn_cost([]),
         **turn_meta,
     }
     finalize_turn_fn = finalize_turn if req.finalize_synchronously else finalize_turn_async
@@ -933,6 +936,7 @@ class _TurnTranscriptGuard:
         self.charts: dict[str, dict[str, Any]] = {}
         self.proposals: dict[str, dict[str, Any]] = {}
         self.stream_lease: DirectStreamLease | None = None
+        self.timings: dict[str, Any] | None = None
 
     def begin(self, session_id: str, session: dict[str, Any]) -> None:
         existing = [
@@ -975,6 +979,7 @@ class _TurnTranscriptGuard:
             "narration": [{"id": key, "text": text} for key, text in self.narration.items()],
             "charts": list(self.charts.values()),
             "proposals": list(self.proposals.values()),
+            **({"cost": agent_turn_cost(self.timings["models"])} if self.timings is not None else {}),
         }
 
     def _rich_part(self, identity: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -3492,12 +3497,12 @@ def _usage_dict(message: object) -> dict:
     input_tokens = _obj_value(
         usage,
         "input_tokens",
-        _obj_value(usage, "prompt_tokens", _obj_value(usage, "prompt_token_count", None)),
+        _obj_value(usage, "prompt_tokens", _obj_value(usage, "prompt_token_count", _obj_value(usage, "promptTokenCount"))),
     )
     output_tokens = _obj_value(
         usage,
         "output_tokens",
-        _obj_value(usage, "completion_tokens", _obj_value(usage, "candidates_token_count", None)),
+        _obj_value(usage, "completion_tokens", _obj_value(usage, "candidates_token_count", _obj_value(usage, "candidatesTokenCount"))),
     )
     out: dict[str, int] = {}
     if isinstance(input_tokens, int):
@@ -3518,6 +3523,19 @@ def _usage_dict(message: object) -> dict:
         out["uncached_input_tokens"] = input_tokens - cached_tokens
     if isinstance(output_tokens, int):
         out["output_tokens"] = output_tokens
+    cache_creation = _obj_value(usage, "cache_creation")
+    long_write = _obj_value(cache_creation, "ephemeral_1h_input_tokens")
+    if isinstance(long_write, int):
+        out["cache_creation_long_input_tokens"] = long_write
+    # Gemini reports cached prompt tokens and billable thinking outside the candidate count.
+    gemini_usage = _obj_value(message, "usage_metadata", _obj_value(message, "usageMetadata"))
+    if gemini_usage:
+        cached = _obj_value(gemini_usage, "cached_content_token_count", _obj_value(gemini_usage, "cachedContentTokenCount"))
+        thoughts = _obj_value(gemini_usage, "thoughts_token_count", _obj_value(gemini_usage, "thoughtsTokenCount"))
+        if isinstance(cached, int):
+            out["cache_read_input_tokens"] = cached
+        if isinstance(thoughts, int) and "output_tokens" in out:
+            out["output_tokens"] += thoughts
     return out
 
 
@@ -3744,7 +3762,7 @@ def _record_model_timing(
     emit_performance("chat_model", provider=provider, model=str(model), **model_timing)
     models = timings.setdefault("models", [])
     if isinstance(models, list):
-        models.append(dict(model_timing))
+        models.append({**model_timing, "provider": provider, "model": str(model or "")})
     logger.info(
         "agent_chat_model_call phase=%s purpose=%s attempt=%s round=%s provider=%s model=%s duration_ms=%.1f first_token_ms=%s status=%s",
         model_timing.get("phase"),
@@ -4233,6 +4251,7 @@ def _agent_chat_impl(req: AgentChatRequest, actor: ActorDep, *, turn_started: fl
     def generate_turn(guard):  # noqa: C901
         nonlocal tool_defs
         timings = _new_agent_timings()
+        guard.timings = timings
         yield _sse_ping()
         if workflow_name and req.allow_workflow_handoff:
             payload, _disposition = _enqueue_agent_chat_turn(req, actor)
