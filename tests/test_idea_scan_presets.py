@@ -6,12 +6,13 @@ from pydantic import ValidationError
 from api.idea_scan import presets as p
 
 
-def test_five_starting_presets_exist_and_validate():
+def test_starting_presets_exist_and_validate():
     settings = p.default_settings()
     assert [preset.id for preset in settings.presets] == [
         "long-cheap-improving",
         "long-momentum-quality",
         "long-quality-fair-price",
+        "long-value-momentum-quality",
         "short-expensive-deteriorating",
         "short-breaking-down",
     ]
@@ -36,6 +37,8 @@ def test_params_are_normalized_with_screen_defaults():
         {"direction": "long", "screen": "breakdown"},
         {"direction": "long", "screen": "long_screen", "params": {"unknown_knob": 1}},
         {"direction": "long", "screen": "quality_value", "params": {"min_quality_pct": 2}},
+        {"direction": "short", "screen": "value_momentum"},
+        {"direction": "long", "screen": "value_momentum", "params": {"min_price_momentum_pct": 1.5}},
         {"direction": "long", "screen": "composite_top", "universes": []},
         {"direction": "long", "screen": "composite_top", "universes": ["nasdaq100"]},
     ],

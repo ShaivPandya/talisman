@@ -151,6 +151,28 @@ def test_quality_value_is_sector_relative():
     assert "PRICEYHQ" not in hits
 
 
+def test_value_momentum_quality_needs_all_three():
+    rows = {
+        f"T{i:02d}": {
+            "quality": float(i),
+            "price_momentum": float(i),
+            "sector": "Industrials",
+            "enterpriseToEbitda": 10.0 + i,
+        }
+        for i in range(20)
+    }
+    rows["VMQ"] = {"quality": 30.0, "price_momentum": 30.0, "sector": "Industrials", "enterpriseToEbitda": 4.0}
+    rows["NOMOM"] = {"quality": 31.0, "price_momentum": -5.0, "sector": "Industrials", "enterpriseToEbitda": 5.0}
+    rows["PRICEY"] = {"quality": 32.0, "price_momentum": 32.0, "sector": "Industrials", "enterpriseToEbitda": 80.0}
+    result = sc.evaluate_preset(preset("long-value-momentum-quality"), make_frame(rows))
+    assert [h["ticker"] for h in result.hits] == ["VMQ"]
+    assert len(result.hits[0]["signals"]) == 3
+    assert result.hits[0]["signals"][2].startswith("Price momentum percentile")
+    misses = {m["ticker"]: m["failed"] for m in result.near_misses}
+    assert misses["NOMOM"][0].startswith("Price momentum percentile")
+    assert misses["PRICEY"][0].startswith("enterpriseToEbitda 80.0")
+
+
 def test_composite_top_decile_uses_preset_weights():
     rows = {f"T{i:02d}": {"quality": float(i), "price_momentum": float(i)} for i in range(20)}
     result = sc.evaluate_preset(preset("long-momentum-quality"), make_frame(rows))

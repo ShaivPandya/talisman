@@ -122,7 +122,7 @@ def test_scheduled_run_publishes_a_digest(env):
     saved = store.get_run(out["run_id"])
     assert saved["status"] == "completed" and saved["source"] == "scheduler" and not saved["limited"]
     assert env.fetches == 1, "one shared fetch per run"
-    assert len(saved["presets"]) == 5
+    assert len(saved["presets"]) == 6
     assert saved["macro_view"]["status"] == "ok"
     assert {r["sector"] for r in saved["macro_view"]["rows"]} == {"Technology", "Energy"}
 

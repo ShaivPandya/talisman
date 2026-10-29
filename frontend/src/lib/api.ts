@@ -3929,7 +3929,7 @@ export const removeAlternativeDataMapping = (mappingId: string) =>
 // Weekly idea scan
 export type IdeaScanDirection = "long" | "short"
 export type IdeaScanUniverse = "sp500" | "sp400" | "sp600" | "russell2000"
-export type IdeaScanScreen = "long_screen" | "short_screen" | "quality_value" | "composite_top" | "breakdown"
+export type IdeaScanScreen = "long_screen" | "short_screen" | "quality_value" | "value_momentum" | "composite_top" | "breakdown"
 export type IdeaScanReviewStatus = "reviewed" | "review_failed" | "not_reviewed_budget" | "not_reviewed_cap"
 
 export interface IdeaScanRunSummary {

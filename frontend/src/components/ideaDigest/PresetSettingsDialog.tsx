@@ -23,6 +23,7 @@ const SCREEN_LABELS: Record<IdeaScanPreset["screen"], string> = {
   long_screen: "Long screen",
   short_screen: "Short screen",
   quality_value: "Quality + valuation",
+  value_momentum: "Value + momentum + quality",
   composite_top: "Composite ranker, top",
   breakdown: "Price momentum + revisions, bottom",
 }

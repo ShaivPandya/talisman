@@ -20,7 +20,7 @@ UNIVERSE_LABELS: dict[str, str] = {
     "russell2000": "Russell 2000",
 }
 
-ScreenKind = Literal["long_screen", "short_screen", "quality_value", "composite_top", "breakdown"]
+ScreenKind = Literal["long_screen", "short_screen", "quality_value", "value_momentum", "composite_top", "breakdown"]
 
 
 class _Params(BaseModel):
@@ -60,6 +60,14 @@ class QualityValueParams(_Params):
     max_sector_valuation_pct: float = Field(default=0.5, gt=0, le=1)
 
 
+class ValueMomentumParams(QualityValueParams):
+    """Top 30% on all three: cheap within its sector, high quality, strong price momentum."""
+
+    min_quality_pct: float = Field(default=0.7, ge=0, le=1)
+    max_sector_valuation_pct: float = Field(default=0.3, gt=0, le=1)
+    min_price_momentum_pct: float = Field(default=0.7, ge=0, le=1)
+
+
 class CompositeTopParams(_Params):
     min_composite_pct: float = Field(default=0.9, ge=0, le=1)
 
@@ -73,6 +81,7 @@ PARAM_MODELS: dict[str, type[_Params]] = {
     "long_screen": LongScreenParams,
     "short_screen": ShortScreenParams,
     "quality_value": QualityValueParams,
+    "value_momentum": ValueMomentumParams,
     "composite_top": CompositeTopParams,
     "breakdown": BreakdownParams,
 }
@@ -81,6 +90,7 @@ SCREEN_DIRECTIONS: dict[str, set[str]] = {
     "long_screen": {"long"},
     "short_screen": {"short"},
     "quality_value": {"long"},
+    "value_momentum": {"long"},
     "composite_top": {"long"},
     "breakdown": {"short"},
 }
@@ -175,6 +185,13 @@ def default_presets() -> list[IdeaScanPreset]:
             direction="long",
             screen="quality_value",
             params=QualityValueParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="long-value-momentum-quality",
+            name="Long · Value + momentum + quality",
+            direction="long",
+            screen="value_momentum",
+            params=ValueMomentumParams().model_dump(),
         ),
         IdeaScanPreset(
             id="short-expensive-deteriorating",
