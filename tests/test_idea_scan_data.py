@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -17,11 +18,14 @@ def sleeps(tmp_path, monkeypatch):
     return calls
 
 
-def _fake_prices(calls):
-    def fetch(tickers):
+BENCHMARKS = tuple(d.UNIVERSE_BENCHMARKS.values())
+
+
+def _fake_prices(calls, benchmarks=BENCHMARKS):
+    def fetch(tickers, **_):
         calls.append(list(tickers))
         idx = pd.bdate_range(end="2026-10-23", periods=10)
-        return pd.DataFrame({t: range(10) for t in [*tickers, "SPY"]}, index=idx, dtype=float), []
+        return pd.DataFrame({t: range(10) for t in [*tickers, *benchmarks]}, index=idx, dtype=float), []
 
     return fetch
 
@@ -102,13 +106,15 @@ def test_eps_revision_from_trend():
     assert d.eps_revision_from_trend(pd.DataFrame()) is None
 
 
-def test_prices_go_in_batches_of_fifty_a_second(monkeypatch, sleeps):
-    batches = []
+def _chunks_failing(batches, fails):
+    """A download_price_chunks stand-in; ``fails(symbol, page_number)`` decides which symbols come back empty."""
 
     def fake_chunks(symbols, **kwargs):
         batches.append((list(symbols), kwargs["chunk_size"], kwargs["max_chunks"]))
         idx = pd.bdate_range(end="2026-10-23", periods=5)
-        good = [s for s in symbols if s != "FLAKY" or len(batches) > 3]
+        good = [s for s in symbols if not fails(s, len(batches))]
+        if not good:
+            return pd.DataFrame(), list(symbols)
         frame = pd.concat(
             {s: pd.DataFrame({"Close": range(5)}, index=idx, dtype=float) for s in good},
             axis=1,
@@ -116,17 +122,77 @@ def test_prices_go_in_batches_of_fifty_a_second(monkeypatch, sleeps):
         )
         return frame.swaplevel(0, 1, axis=1), [s for s in symbols if s not in good]
 
-    monkeypatch.setattr("utils.yf_jobs.download_price_chunks", fake_chunks)
+    return fake_chunks
+
+
+def test_prices_go_in_pages_with_benchmarks_first(monkeypatch, sleeps):
+    batches = []
+    flaky = _chunks_failing(batches, lambda s, page: s == "FLAKY" and page <= 3)
+    monkeypatch.setattr("utils.yf_jobs.download_price_chunks", flaky)
     tickers = [f"T{i:03d}" for i in range(105)] + ["FLAKY"]
     prices, failed = d.fetch_prices(tickers)
     first_pass = [b for b in batches[:3]]
+    assert first_pass[0][0][:4] == ["SPY", "MDY", "IJR", "IWM"]
     assert [len(b[0]) for b in first_pass] == [50, 50, 10]
     assert all(size == 50 and chunks == 1 for _, size, chunks in first_pass)
-    assert len([s for s in sleeps if s <= d.PRICE_BATCH_INTERVAL_S]) == 2, "pause between first-pass batches"
+    assert len([s for s in sleeps if s <= d.PRICE_BATCH_INTERVAL_S]) == 2, "pause between first-pass pages"
+    assert d.PRICE_COOLDOWN_S not in sleeps, "one failure in a page isn't throttling"
     assert d.RATE_LIMIT_BACKOFF_S in sleeps, "failed symbols retried after a backoff"
     assert failed == []
     assert "FLAKY" in prices.columns and "SPY" in prices.columns
     assert prices.columns.is_unique
+
+
+def test_throttled_pages_wait_longer_each_time(monkeypatch, sleeps):
+    batches = []
+    blocked = _chunks_failing(batches, lambda s, page: page in (1, 2, 3))
+    monkeypatch.setattr("utils.yf_jobs.download_price_chunks", blocked)
+    monkeypatch.setattr(d, "PRICE_BATCH", 2)
+    symbols = [f"T{i}" for i in range(10)]
+    prices, failed = d._download_closes(symbols)
+    assert sleeps[:3] == [d.PRICE_COOLDOWN_S, d.PRICE_COOLDOWN_S * 2, d.PRICE_COOLDOWN_S * 4]
+    assert all(s <= d.PRICE_BATCH_INTERVAL_S for s in sleeps[3:]), "back to the normal pace once a page succeeds"
+    assert failed == symbols[:6]
+    assert list(prices.columns) == symbols[6:]
+
+
+def test_price_time_limit_stops_new_pages(monkeypatch, sleeps):
+    batches = []
+    monkeypatch.setattr("utils.yf_jobs.download_price_chunks", _chunks_failing(batches, lambda s, page: False))
+    prices, failed = d.fetch_prices(["AAA", "BBB"], deadline=time.monotonic() - 1)
+    assert batches == []
+    assert prices.empty
+    assert failed == ["SPY", "MDY", "IJR", "IWM", "AAA", "BBB"]
+
+
+def test_price_retries_stop_when_a_round_recovers_nothing(monkeypatch, sleeps):
+    batches = []
+    monkeypatch.setattr("utils.yf_jobs.download_price_chunks", _chunks_failing(batches, lambda s, page: s == "GONE"))
+    prices, failed = d.fetch_prices(["AAA", "GONE"])
+    assert len(batches) == 2, "one retry round, then stop"
+    assert failed == ["GONE"]
+    assert "AAA" in prices.columns
+
+
+def test_resume_refetches_missing_benchmarks(monkeypatch):
+    monkeypatch.setattr(d, "fetch_prices", _fake_prices([], benchmarks=()))
+    monkeypatch.setattr(d, "fetch_ticker_fundamentals", _fake_fundamentals([]))
+    membership = {t: ["sp500"] for t in ["AAA", "BBB"]}
+    now = datetime(2026, 10, 28, tzinfo=UTC)
+    first = d.fetch_dataset(membership, workers=1, now=now)
+    assert "SPY" not in first.prices.columns
+
+    retried = []
+
+    def download(symbols, **_):
+        retried.append(list(symbols))
+        idx = pd.bdate_range(end="2026-10-23", periods=10)
+        return pd.DataFrame({s: range(10) for s in symbols}, index=idx, dtype=float), []
+
+    monkeypatch.setattr(d, "_download_closes", download)
+    second = d.fetch_dataset(membership, workers=1, now=now)
+    assert retried == [["SPY", "MDY", "IJR", "IWM"]]
+    assert "SPY" in second.prices.columns
 
 
 def _limited_then_ok(calls, *, limited_rounds=1, limited=("BBB",)):

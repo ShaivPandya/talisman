@@ -143,7 +143,7 @@ class IdeaScanConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     max_reviews: int = Field(default=15, ge=0, le=50)
-    max_cost_usd: float = Field(default=2.0, ge=0, le=10)
+    max_cost_usd: float = Field(default=4.0, ge=0, le=10)
     review_web_searches: int = Field(default=2, ge=0, le=5)
     macro_web_searches: int = Field(default=5, ge=0, le=10)
     near_miss_limit: int = Field(default=10, ge=0, le=50)

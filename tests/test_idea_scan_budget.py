@@ -59,6 +59,16 @@ def test_unknown_and_dated_models_are_priced():
     assert b.model_price("mystery-model") == b.FALLBACK_PRICE
 
 
+def test_production_review_model_is_priced(caplog):
+    # A gpt-6-luna review from the 2026-10-29 production run: 13,339 in, 850 out, one search.
+    usage = b.Usage(input_tokens=13_339, output_tokens=850, web_searches=1)
+    assert b.cost_usd("gpt-6-luna", usage) == pytest.approx(0.01176, abs=1e-5)
+    with caplog.at_level("WARNING"):
+        b.model_price("gpt-unlisted")
+        b.model_price("gpt-unlisted")
+    assert sum("no price for model" in r.message for r in caplog.records) == 1
+
+
 def test_track_counts_every_observed_response():
     budget = b.RunBudget(2.0)
     with budget.track("review", "AAA"):
