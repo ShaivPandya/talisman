@@ -13,13 +13,18 @@ queue (150-minute timeout).
 1. **Universe.** S&P 500, 400 and 600 (Wikipedia constituent tables, 24-hour
    cache, SPDR ETF holdings as a fallback) plus `equities/universes/russell2000.csv`,
    deduplicated.
-2. **One fetch.** `api/idea_scan/data.py` downloads 3 years of adjusted closes in
-   batches of 50 symbols a second, then a trimmed `.info` and four statements per
-   ticker through the screens' Yahoo throttle. Rate-limited and expired-crumb
-   calls are retried after a backoff. The data set is checkpointed in state
-   storage per ISO week, so a retried or second run that week resumes. Fetching
-   stops starting new tickers after `IDEA_SCAN_FETCH_DEADLINE_SECONDS` (100
-   minutes) so a throttled week still publishes.
+2. **One fetch.** `api/idea_scan/data.py` downloads 3 years of adjusted closes,
+   benchmark ETFs first, in pages of 50 symbols every 8 seconds
+   (`IDEA_SCAN_PRICE_BATCH_INTERVAL_SECONDS`). A page where most symbols fail is
+   treated as Yahoo throttling and the next page waits 1, 2, then up to 5 minutes;
+   prices stop starting pages after 30 minutes (`IDEA_SCAN_PRICE_DEADLINE_SECONDS`).
+   Then a trimmed `.info` and four statements per ticker go through the screens'
+   Yahoo throttle. Rate-limited and expired-crumb calls are retried after a
+   backoff. The data set is checkpointed in state storage per ISO week, so a
+   retried or second run that week resumes and refetches whatever is missing,
+   benchmarks included. Fetching stops starting new tickers after
+   `IDEA_SCAN_FETCH_DEADLINE_SECONDS` (100 minutes) so a throttled week still
+   publishes.
 3. **Presets.** `api/idea_scan/screening.py` builds one factor frame (screen
    fields, price metrics, valuation, the rank_universe quality / momentum
    composite) and applies every enabled preset to it (six to start, including a long value + momentum + quality screen). Screen checks reuse the
@@ -45,10 +50,11 @@ queue (150-minute timeout).
 ## Budget
 
 The run stops starting LLM steps when the next one's estimate would take spend
-past `max_cost_usd` ($2 by default). Every provider response is costed through
+past `max_cost_usd` ($4 by default). Every provider response is costed through
 `llm_utils.observe_llm_responses`, including pause-turn continuations and JSON
-repairs; prices are in `api/idea_scan/budget.py`. Skipped names show as "Not
-reviewed (budget)".
+repairs; prices are in `api/idea_scan/budget.py`. A model missing from that table
+is costed at the highest listed rate (and logged), so add new models there.
+Skipped names show as "Not reviewed (budget)".
 
 ## Measured cost and runtime
 
@@ -63,7 +69,13 @@ From the first local runs (2026-10-28, default presets, all four universes):
 | One review (Sonnet 5.5, 2 searches) | ~$0.08, so 15 reviews ≈ $1.20 |
 | Digest lead | < $0.01 |
 
-A full run should cost about $1.60 against the $2 limit.
+A full run should cost about $1.60 against the $4 limit.
+
+The first production run (2026-10-29) used the OpenAI tiers: the macro view
+(gpt-6.1-sol, 4 searches) cost $0.19 and a review (gpt-6-luna, 1–3 searches)
+about $0.01–0.04, so 15 reviews come to well under $1. At a page of 50 symbols a
+second from Cloud Run, Yahoo blocked prices after ~1,300 symbols for over an
+hour, which is why production paces pages every 8 seconds.
 
 ## Settings
 

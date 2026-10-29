@@ -34,10 +34,17 @@ UNIVERSE_BENCHMARKS = {"sp500": "SPY", "sp400": "MDY", "sp600": "IJR", "russell2
 MARKET_BENCHMARK = "SPY"
 PRICE_PERIOD = "3y"
 CHECKPOINT_CHUNK = 250
-# Yahoo serves price history in pages of about 50 symbols a second; batches stay inside that.
+# Price history goes in pages of 50 symbols. From a home connection Yahoo serves a page a second,
+# but from Cloud Run that pace was blocked after ~1,300 symbols and stayed blocked for an hour
+# (2026-10-29), so the default is a page every 8 seconds, about the rate fundamentals get through.
 PRICE_BATCH = max(1, int(os.getenv("IDEA_SCAN_PRICE_BATCH") or 50))
-PRICE_BATCH_INTERVAL_S = float(os.getenv("IDEA_SCAN_PRICE_BATCH_INTERVAL_SECONDS") or 1.0)
-PRICE_BATCH_WORKERS = 8
+PRICE_BATCH_INTERVAL_S = float(os.getenv("IDEA_SCAN_PRICE_BATCH_INTERVAL_SECONDS") or 8.0)
+PRICE_BATCH_WORKERS = 4
+# A page where most symbols fail is taken as throttling: the next page waits, twice as long each time.
+PRICE_COOLDOWN_S = 60.0
+PRICE_COOLDOWN_MAX_S = 300.0
+# Prices stop starting pages after this, so a blocked run still leaves time for fundamentals.
+PRICE_DEADLINE_S = float(os.getenv("IDEA_SCAN_PRICE_DEADLINE_SECONDS") or 30 * 60)
 DATASET_MAX_AGE_S = 4 * 24 * 60 * 60
 RATE_LIMIT_RETRIES = 3
 RATE_LIMIT_BACKOFF_S = 30.0
@@ -289,19 +296,33 @@ def _is_retryable(error: str | None) -> bool:
     return any(marker in text for marker in ("too many requests", "rate limit", "invalid crumb", "unauthorized"))
 
 
-def _download_closes(symbols: list[str]) -> tuple[pd.DataFrame, list[str]]:
-    """Adjusted closes in Yahoo-sized pages: 50 symbols per batch, at most one batch a second.
+def _price_symbols(tickers: Sequence[str]) -> list[str]:
+    """Benchmarks first: every momentum score and beta is measured against them."""
+    return list(dict.fromkeys([*UNIVERSE_BENCHMARKS.values(), *tickers]))
 
-    Only each batch's Close column is kept, so memory stays flat across ~3,000 symbols.
+
+def _download_closes(symbols: list[str], *, deadline: float | None = None) -> tuple[pd.DataFrame, list[str]]:
+    """Adjusted closes in pages of ``PRICE_BATCH`` symbols, one page every ``PRICE_BATCH_INTERVAL_S``.
+
+    After a page where most symbols fail (Yahoo throttling), the next page waits out a cooldown
+    that doubles each time instead of hitting a blocked endpoint. No page starts after
+    ``deadline``; its symbols come back as failed. Only each page's Close column is kept, so
+    memory stays flat across ~3,000 symbols.
     """
     from utils.yf_jobs import download_price_chunks
 
     frames: list[pd.DataFrame] = []
     failed: list[str] = []
+    cooldown = PRICE_COOLDOWN_S
     for start in range(0, len(symbols), PRICE_BATCH):
+        if deadline is not None and time.monotonic() >= deadline:
+            LOGGER.warning("Idea scan price time limit reached; %d symbols not fetched", len(symbols) - start)
+            failed.extend(symbols[start:])
+            break
+        batch = symbols[start : start + PRICE_BATCH]
         batch_started = time.monotonic()
         raw, batch_failed = download_price_chunks(
-            symbols[start : start + PRICE_BATCH],
+            batch,
             chunk_size=PRICE_BATCH,
             max_chunks=1,
             workers_per_chunk=PRICE_BATCH_WORKERS,
@@ -312,7 +333,19 @@ def _download_closes(symbols: list[str]) -> tuple[pd.DataFrame, list[str]]:
         failed.extend(batch_failed)
         if not raw.empty:
             frames.append(raw["Close"] if isinstance(raw.columns, pd.MultiIndex) else raw[["Close"]])
-        if start + PRICE_BATCH < len(symbols):
+        if start + PRICE_BATCH >= len(symbols):
+            break
+        if len(batch_failed) * 2 > len(batch):
+            LOGGER.warning(
+                "Idea scan price page throttled (%d of %d failed); pausing %.0fs",
+                len(batch_failed),
+                len(batch),
+                cooldown,
+            )
+            _sleep(cooldown)
+            cooldown = min(cooldown * 2, PRICE_COOLDOWN_MAX_S)
+        else:
+            cooldown = PRICE_COOLDOWN_S
             _sleep(max(0.0, PRICE_BATCH_INTERVAL_S - (time.monotonic() - batch_started)))
     if not frames:
         return pd.DataFrame(), failed
@@ -323,21 +356,27 @@ def _download_closes(symbols: list[str]) -> tuple[pd.DataFrame, list[str]]:
     return close, failed
 
 
-def fetch_prices(tickers: list[str]) -> tuple[pd.DataFrame, list[str]]:
-    """Adjusted daily closes for tickers plus benchmarks, one column per ticker.
+def fetch_prices(tickers: list[str], *, deadline: float | None = None) -> tuple[pd.DataFrame, list[str]]:
+    """Adjusted daily closes for benchmarks plus tickers, one column per symbol.
 
-    Failed symbols (mostly Yahoo rate limits on a cold run) are retried after a backoff.
+    Failed symbols (mostly Yahoo rate limits on a cold run) are retried after a backoff, until a
+    round recovers nothing: what's left then is delisted or still blocked, and a rerun the same
+    week tries it again.
     """
-    symbols = list(dict.fromkeys([*tickers, *UNIVERSE_BENCHMARKS.values()]))
-    prices, failed = _download_closes(symbols)
+    prices, failed = _download_closes(_price_symbols(tickers), deadline=deadline)
     for attempt in range(RATE_LIMIT_RETRIES):
-        if not failed:
+        backoff = RATE_LIMIT_BACKOFF_S * (attempt + 1)
+        if not failed or (deadline is not None and time.monotonic() + backoff >= deadline):
             break
         LOGGER.info("Retrying %d price downloads after a backoff", len(failed))
-        _sleep(RATE_LIMIT_BACKOFF_S * (attempt + 1))
-        retried, failed = _download_closes(failed)
+        _sleep(backoff)
+        retried, still_failed = _download_closes(failed, deadline=deadline)
         if not retried.empty:
             prices = retried if prices.empty else pd.concat([prices, retried], axis=1).sort_index()
+        recovered = len(failed) - len(still_failed)
+        failed = still_failed
+        if not recovered:
+            break
     return prices, failed
 
 
@@ -446,13 +485,14 @@ def fetch_dataset(
     tickers = list(membership)
     started = time.monotonic()
     deadline = started + (FETCH_DEADLINE_S if deadline_s is None else deadline_s)
+    price_deadline = min(deadline, started + PRICE_DEADLINE_S)
     prices = _read_prices(key) if resume else None
     price_failed: list[str] = []
     if prices is not None:
-        missing = [t for t in tickers if t not in prices.columns]
+        missing = [s for s in _price_symbols(tickers) if s not in prices.columns]
         if missing:
-            # One attempt only: what's still missing after the first run's backoffs is mostly delisted.
-            retried, price_failed = _download_closes(missing)
+            # One pass only: what's still missing after the first run's backoffs is mostly delisted.
+            retried, price_failed = _download_closes(missing, deadline=price_deadline)
             new_cols = [c for c in retried.columns if c not in prices.columns]
             if new_cols:
                 prices = pd.concat([prices, retried[new_cols]], axis=1).sort_index()
@@ -460,7 +500,7 @@ def fetch_dataset(
     else:
         if progress:
             progress("prices", 0, len(tickers))
-        prices, price_failed = fetch_prices(tickers)
+        prices, price_failed = fetch_prices(tickers, deadline=price_deadline)
         if not prices.empty:
             try:
                 _write_prices(key, prices)

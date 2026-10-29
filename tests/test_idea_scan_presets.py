@@ -19,7 +19,7 @@ def test_starting_presets_exist_and_validate():
     assert {preset.direction for preset in settings.presets} == {"long", "short"}
     assert all(set(preset.universes) == set(p.UNIVERSE_KEYS) for preset in settings.presets)
     assert settings.config.max_reviews == 15
-    assert settings.config.max_cost_usd == 2.0
+    assert settings.config.max_cost_usd == 4.0
 
 
 def test_params_are_normalized_with_screen_defaults():

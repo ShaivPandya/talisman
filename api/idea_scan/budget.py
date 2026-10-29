@@ -9,12 +9,16 @@ skipped and reported instead.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from typing import Any
 
-# USD per million tokens: input, output, cache read, cache write. Anthropic list prices as of 2026-10.
+LOGGER = logging.getLogger(__name__)
+
+# USD per million tokens: input, output, cache read, cache write. List prices as of 2026-10
+# (OpenAI: developers.openai.com/api/docs/models/<model>; OpenAI has no cache-write charge).
 MODEL_PRICES: dict[str, tuple[float, float, float, float]] = {
     "claude-fable-5-1": (10.0, 50.0, 1.0, 12.5),
     "claude-opus-5-5": (4.0, 20.0, 0.20, 5.0),
@@ -24,10 +28,12 @@ MODEL_PRICES: dict[str, tuple[float, float, float, float]] = {
     "claude-haiku-5-5": (0.10, 0.50, 0.01, 0.125),
     "claude-haiku-4-5": (1.0, 5.0, 0.10, 1.25),
     "gpt-6.1-sol": (2.50, 10.0, 0.25, 2.50),
+    "gpt-6-luna": (0.10, 0.50, 0.01, 0.10),
 }
 # Unknown models are costed at the most expensive listed rate so the limit stays safe.
 FALLBACK_PRICE = (10.0, 50.0, 1.0, 12.5)
 WEB_SEARCH_USD = 0.01
+_unpriced_models: set[str] = set()
 
 
 def model_price(model: str) -> tuple[float, float, float, float]:
@@ -36,7 +42,12 @@ def model_price(model: str) -> tuple[float, float, float, float]:
         return MODEL_PRICES[name]
     # Dated or prefixed ids ("anthropic.claude-opus-5-5", "claude-haiku-4-5-2025...") match the longest known prefix.
     matches = [key for key in MODEL_PRICES if key in name]
-    return MODEL_PRICES[max(matches, key=len)] if matches else FALLBACK_PRICE
+    if matches:
+        return MODEL_PRICES[max(matches, key=len)]
+    if name not in _unpriced_models:
+        _unpriced_models.add(name)
+        LOGGER.warning("Idea scan has no price for model %r; costing it at the highest listed rate", model)
+    return FALLBACK_PRICE
 
 
 def _get(obj: Any, key: str, default: Any = None) -> Any:
