@@ -103,6 +103,8 @@ function compactJson(value: Record<string, unknown>): string {
 
 function actionTitle(actionId: string | null | undefined, entityType: string): string {
   switch (actionId) {
+    case "update_portfolio_settings":
+      return "Update portfolio book size"
     case "update_watch_trigger_check":
       return "Record watch trigger check"
     case "fire_watch_trigger":
@@ -400,6 +402,13 @@ function proposedChangeSummary(approval: ApprovalRecord): { title: string; summa
   const change = approval.proposed_change
   const title = actionTitle(actionId, approval.entity_type)
   switch (actionId) {
+    case "update_portfolio_settings":
+      return { title, summary: "The configured book size changes only after this proposal is approved.", rows: [
+        { label: "Proposed book size", value: formatMoney(change.book_size as number, change.base_currency) },
+        { label: "Source", value: formatValue(change.source) },
+        { label: "Statement date", value: formatValue(change.as_of) },
+      ] }
+
     case "update_portfolio_positions":
       return { title, ...positionChangeSummary(change) }
     case "update_watch_trigger_check":

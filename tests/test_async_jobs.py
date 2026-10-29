@@ -5,6 +5,8 @@ import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
+
 
 def test_async_jobs_migration_contract():
     migration = Path("migrations/versions/20260429_0002_async_jobs_rq.py").read_text(encoding="utf-8")
@@ -663,7 +665,8 @@ def test_perform_job_marks_running_before_request_parse(monkeypatch):
     assert get_job(row["job_id"])["status"] == "failed"
 
 
-def test_dispatch_cloud_run_job_invokes_generic_runner(monkeypatch):
+@pytest.mark.parametrize("job_type", ["analyzer", "ibkr_flex_sync"])
+def test_dispatch_cloud_run_job_invokes_generic_runner(monkeypatch, job_type):
     from api import cache
     from api.cloud_run_jobs import dispatch_cloud_run_job
     from api.job_queue import create_or_reuse_job, get_job
@@ -674,7 +677,8 @@ def test_dispatch_cloud_run_job_invokes_generic_runner(monkeypatch):
     monkeypatch.setenv("GOOGLE_CLOUD_PROJECT", "test-project")
     monkeypatch.setenv("CLOUD_RUN_REGION", "us-central1")
     monkeypatch.setenv("ASYNC_CLOUD_RUN_JOB", "talisman-async-job")
-    row, _disposition = create_or_reuse_job("analyzer", payload={}, cache_key="cloud-run-helper")
+    monkeypatch.setenv("CLOUD_RUN_JOB_IBKR_FLEX_SYNC", "talisman-ibkr-flex-sync")
+    row, _disposition = create_or_reuse_job(job_type, payload={}, cache_key="cloud-run-helper")
     calls: list[dict] = []
 
     class FakeResponse:
@@ -692,16 +696,17 @@ def test_dispatch_cloud_run_job_invokes_generic_runner(monkeypatch):
     monkeypatch.setattr("google.auth.default", lambda scopes: ("creds", "ignored-project"))
     monkeypatch.setattr("google.auth.transport.requests.AuthorizedSession", FakeSession)
 
-    job_name = dispatch_cloud_run_job("analyzer", row["job_id"])
+    job_name = dispatch_cloud_run_job(job_type, row["job_id"])
 
-    assert job_name == "talisman-async-job"
-    assert get_job(row["job_id"])["cloud_run_job_name"] == "talisman-async-job"
+    expected_job = "talisman-ibkr-flex-sync" if job_type == "ibkr_flex_sync" else "talisman-async-job"
+    assert job_name == expected_job
+    assert get_job(row["job_id"])["cloud_run_job_name"] == expected_job
     assert calls[0]["url"] == (
-        "https://run.googleapis.com/v2/projects/test-project/locations/us-central1/jobs/talisman-async-job:run"
+        f"https://run.googleapis.com/v2/projects/test-project/locations/us-central1/jobs/{expected_job}:run"
     )
     env = calls[0]["json"]["overrides"]["containerOverrides"][0]["env"]
     assert {"name": "ASYNC_JOB_ID", "value": row["job_id"]} in env
-    assert {"name": "ASYNC_JOB_TYPE", "value": "analyzer"} in env
+    assert {"name": "ASYNC_JOB_TYPE", "value": job_type} in env
 
 
 def test_dispatch_cloud_run_job_uses_adc_project_when_env_unset(monkeypatch):

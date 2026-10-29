@@ -75,6 +75,10 @@ API_ENV_VARS=(
   "SENTRY_PROFILES_SAMPLE_RATE=${SENTRY_PROFILES_SAMPLE_RATE:-0.0}"
 )
 
+if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+  API_ENV_VARS+=("CLOUD_RUN_JOB_IBKR_FLEX_SYNC=${IBKR_FLEX_SYNC_JOB}")
+fi
+
 API_DEPLOY_SECRETS=()
 for secret in "${API_SECRETS[@]}"; do
   [[ "${secret}" == REDIS_URL=* ]] && continue

@@ -26,6 +26,25 @@ for _alternative_binding in "${ALTERNATIVE_DATA_SECRETS[@]:-}"; do
   fi
 done
 
+# Flex credentials are optional; enabling the scheduler also enables bindings.
+if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+  IBKR_FLEX_SYNC_JOB="${IBKR_FLEX_SYNC_JOB:-talisman-ibkr-flex-sync}"
+  IBKR_FLEX_EGRESS_NETWORK="${IBKR_FLEX_EGRESS_NETWORK:-default}"
+  IBKR_FLEX_EGRESS_SUBNET="${IBKR_FLEX_EGRESS_SUBNET:-talisman-ibkr-flex-egress}"
+  IBKR_FLEX_EGRESS_CIDR="${IBKR_FLEX_EGRESS_CIDR:-10.89.177.0/26}"
+  IBKR_FLEX_EGRESS_ROUTER="${IBKR_FLEX_EGRESS_ROUTER:-talisman-ibkr-flex-router}"
+  IBKR_FLEX_EGRESS_NAT="${IBKR_FLEX_EGRESS_NAT:-talisman-ibkr-flex-nat}"
+  IBKR_FLEX_EGRESS_IP="${IBKR_FLEX_EGRESS_IP:-talisman-ibkr-flex-ip}"
+  for _flex_secret in IBKR_FLEX_TOKEN IBKR_FLEX_QUERY_ID; do
+    if [[ " ${API_SECRETS[*]} " != *" ${_flex_secret}="* ]]; then
+      API_SECRETS+=("${_flex_secret}=${_flex_secret}:latest")
+    fi
+    if [[ " ${WORKER_SECRETS[*]} " != *" ${_flex_secret}="* ]]; then
+      WORKER_SECRETS+=("${_flex_secret}=${_flex_secret}:latest")
+    fi
+  done
+fi
+
 # Default IMAGE_TAG to the current short git SHA when the caller didn't set one.
 # config.sh's own default of "latest" is preserved as a fallback for environments
 # without git (e.g. running from a tarball). Setting IMAGE_TAG=<value> beforehand

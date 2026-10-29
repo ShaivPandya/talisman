@@ -49,7 +49,7 @@ def test_import_ibkr_flex_route_stages_replacement_proposal(auth_client, monkeyp
     assert response.status_code == 200
     assert calls[0]["action_id"] == "update_portfolio_positions"
     positions = calls[0]["payload"]["positions"]
-    assert len(positions) == 5
+    assert len(positions) == 6
     mu = next(row for row in positions if row["ticker"] == "MU")
     assert mu["shares"] == 10
     assert mu["conviction"] == 5
@@ -58,7 +58,7 @@ def test_import_ibkr_flex_route_stages_replacement_proposal(auth_client, monkeyp
     meta_call = next(row for row in positions if row.get("option_contract_symbol") == "META270319C00620000")
     assert meta_call["instrument_type"] == "option"
     body = response.json()
-    assert body["import_summary"]["imported_count"] == 5
+    assert body["import_summary"]["imported_count"] == 6
     assert body["import_summary"]["source"] == "ibkr_flex"
 
 

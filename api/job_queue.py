@@ -670,12 +670,12 @@ def sweep_expired_jobs(now: datetime | None = None) -> int:
 
 
 def cloud_run_job_name(job_type: str | None = None) -> str:
-    if value := (os.getenv("ASYNC_CLOUD_RUN_JOB") or os.getenv("ASYNC_JOB_RUNNER_JOB") or "").strip():
-        return value
     if job_type:
         env_key = f"CLOUD_RUN_JOB_{job_type.upper().replace('-', '_')}"
         if value := (os.getenv(env_key) or "").strip():
             return value
+    if value := (os.getenv("ASYNC_CLOUD_RUN_JOB") or os.getenv("ASYNC_JOB_RUNNER_JOB") or "").strip():
+        return value
     return "talisman-async-job"
 
 

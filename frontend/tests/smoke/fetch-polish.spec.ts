@@ -157,7 +157,7 @@ test("approval polling shares Workspace data, uses sixty seconds, and pauses whi
 test("editor and sizer reuse fresh defaults on navigation", async ({ page, apiMocks }) => {
   apiMocks.approvalsDismissed = true
   const reads = { positions: 0, hedges: 0, settings: 0, prefill: 0 }
-  await page.route("**/api/portfolio-positions*", route => { reads.positions++; return route.fulfill({ json: { positions: [] } }) })
+  await page.route("**/api/portfolio-positions", route => { reads.positions++; return route.fulfill({ json: { positions: [] } }) })
   await page.route("**/api/hedge-positions", route => { reads.hedges++; return route.fulfill({ json: { positions: [] } }) })
   await page.route("**/api/portfolio-settings", route => { reads.settings++; return route.fulfill({ json: { book_size: 123456 } }) })
   await page.route("**/api/portfolio-sizer/prefill", route => { reads.prefill++; return route.fulfill({ json: { book_size: 123456, positions: [] } }) })

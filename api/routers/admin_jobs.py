@@ -107,6 +107,17 @@ def requeue_governance_outbox(
     raise HTTPException(status_code=410, detail="Governance outbox has been removed from runtime.")
 
 
+@router.post("/admin/jobs/enqueue-ibkr-flex-sync")
+def enqueue_ibkr_flex_sync(_sub: str = Depends(require_scheduler_or_job_admin)):
+    row, _disposition = enqueue_registered_job(
+        "ibkr_flex_sync",
+        {"source": "scheduler"},
+        cache_key="maintenance:ibkr_flex_sync:v1",
+        reuse_completed=False,
+    )
+    return enqueue_response(row, "/api/admin/jobs/{job_id}")
+
+
 @router.post("/admin/jobs/enqueue-market-snapshot-refresh")
 def enqueue_market_snapshot_refresh(_sub: str = Depends(require_scheduler_or_job_admin)):
     row, _disposition = enqueue_registered_job(

@@ -22,6 +22,7 @@ POLICY_MATRIX_REQUEST_MODES = ("proposal", "self_apply", "break_glass")
 POLICY_MATRIX_RISK_LEVELS = ("low", "medium", "high", "unknown")
 POLICY_MATRIX_DATA_FRESHNESS = ("ok", "degraded", "stale", "failed", "missing")
 POLICY_MATRIX_ACTION_IDS = (
+    "update_portfolio_settings",
     "create_recommendation",
     "create_action_item",
     "update_portfolio_positions",

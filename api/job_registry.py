@@ -361,6 +361,17 @@ JOB_SPECS: dict[str, JobSpec] = {
         failed_ttl_s=DEFAULT_FAILED_TTL_S,
         error_message="Cache warm failed",
     ),
+    "ibkr_flex_sync": JobSpec(
+        job_type="ibkr_flex_sync",
+        request_model=None,
+        compute_func="api.ibkr_flex_sync.sync_ibkr_flex",
+        cache_key_func=None,
+        queue_name=_env_queue("ASYNC_QUEUE_MAINTENANCE", "default"),
+        timeout_s=15 * 60,
+        completed_ttl_s=60 * 60,
+        failed_ttl_s=DEFAULT_FAILED_TTL_S,
+        error_message="IBKR Flex sync failed",
+    ),
     "market_snapshot_refresh": JobSpec(
         job_type="market_snapshot_refresh",
         request_model=None,
