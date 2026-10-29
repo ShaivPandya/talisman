@@ -201,6 +201,10 @@ if [[ "${PARALLEL_JOB_DEPLOYS}" == "1" ]]; then
     "${_repo_root}/infra/gcp/deploy-top50-refresh-job.sh"
   start_parallel_step "async job runner deploy" \
     "${_repo_root}/infra/gcp/deploy-async-job.sh"
+  if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+    start_parallel_step "IBKR Flex job deploy" \
+      "${_repo_root}/infra/gcp/deploy-ibkr-flex-job.sh"
+  fi
   start_parallel_step "agent worker pool deploy" \
     "${_repo_root}/infra/gcp/deploy-agent-worker.sh"
   start_parallel_step "analyzer worker pool deploy" \
@@ -213,6 +217,11 @@ else
 
   log "Deploying async job runner"
   "${_repo_root}/infra/gcp/deploy-async-job.sh"
+
+  if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
+    log "Deploying IBKR Flex job"
+    "${_repo_root}/infra/gcp/deploy-ibkr-flex-job.sh"
+  fi
 
   log "Deploying agent worker pool"
   "${_repo_root}/infra/gcp/deploy-agent-worker.sh"

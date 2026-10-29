@@ -108,6 +108,15 @@ export WORKER_SECRETS=(
 export SCHEDULE_IBKR_FLEX_SYNC="${SCHEDULE_IBKR_FLEX_SYNC:-0}"
 export IBKR_FLEX_SYNC_SCHEDULE="${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}"
 export IBKR_FLEX_SYNC_TIME_ZONE="${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
+# Flex uses its own worker and static Cloud NAT egress because IBKR can reject
+# Cloud Run's shared outbound IPs. Run setup-ibkr-flex-egress.sh once first.
+export IBKR_FLEX_SYNC_JOB="${IBKR_FLEX_SYNC_JOB:-talisman-ibkr-flex-sync}"
+export IBKR_FLEX_EGRESS_NETWORK="${IBKR_FLEX_EGRESS_NETWORK:-default}"
+export IBKR_FLEX_EGRESS_SUBNET="${IBKR_FLEX_EGRESS_SUBNET:-talisman-ibkr-flex-egress}"
+export IBKR_FLEX_EGRESS_CIDR="${IBKR_FLEX_EGRESS_CIDR:-10.89.177.0/26}"
+export IBKR_FLEX_EGRESS_ROUTER="${IBKR_FLEX_EGRESS_ROUTER:-talisman-ibkr-flex-router}"
+export IBKR_FLEX_EGRESS_NAT="${IBKR_FLEX_EGRESS_NAT:-talisman-ibkr-flex-nat}"
+export IBKR_FLEX_EGRESS_IP="${IBKR_FLEX_EGRESS_IP:-talisman-ibkr-flex-ip}"
 
 # Optional alternative-data credentials, bound to both API and workers only
 # when supplied. Example: ("FIRMS_MAP_KEY=FIRMS_MAP_KEY:latest").

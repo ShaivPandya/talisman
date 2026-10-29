@@ -36,10 +36,35 @@ credentials, not the account password. Never commit them or paste them into logs
 2. Run `infra/gcp/setup-secrets.sh`. It prompts silently for `IBKR_FLEX_TOKEN`
    and `IBKR_FLEX_QUERY_ID`, stores both in Secret Manager, and grants API/worker
    secret access. Existing credentials are preserved.
-3. Deploy the API and generic async job using the normal release process.
-   Enabled Flex bindings are automatically included for both.
-4. Run `infra/gcp/setup-scheduler.sh`. It creates `ibkr-flex-sync` with the same
+3. Run `infra/gcp/setup-ibkr-flex-egress.sh` once. It provisions a dedicated
+   subnet, Cloud NAT router, and reserved outbound IP in the existing GCP project.
+   The reserved IP costs about $3.60/month, plus NAT usage and data transfer.
+   It is retained across deploys; do not delete or rotate it during releases.
+4. Deploy the backend using the normal release process. When Flex is enabled,
+   it also deploys `talisman-ibkr-flex-sync`, a dedicated async executor using
+   Direct VPC egress through that NAT. The API routes only `ibkr_flex_sync` jobs
+   to this executor through `CLOUD_RUN_JOB_IBKR_FLEX_SYNC`; other job types keep
+   their existing dispatch. For a component release, deploy
+   `infra/gcp/deploy-ibkr-flex-job.sh` before `infra/gcp/deploy-api.sh`.
+5. Run `infra/gcp/setup-scheduler.sh`. It creates `ibkr-flex-sync` with the same
    scheduler/proxy-secret authentication as other maintenance jobs.
+
+The dedicated executor uses the worker service account, Cloud SQL, and the
+existing durable async job runner. It binds only the database, Flex, and optional
+Sentry credentials. Its deploy script grants the API permission to execute it
+with the job-ID override. Egress resource names and subnet range can be overridden
+using the `IBKR_FLEX_EGRESS_*` settings in `config.example.sh`.
+
+IBKR can deny Cloud Run's shared outbound IP before validating credentials. An
+HTML HTTP 403 page naming the source IP is distinct from the Flex XML error codes.
+If a cloud request fails while an identical local request succeeds, inspect a
+redacted denial page and the configured NAT route before replacing credentials.
+On October 29, 2026, shared IP `34.96.60.179` received HTTP 403 even without a
+token; the identical request succeeded through reserved IP `35.223.87.162`.
+No alternate broker host, third-party proxy, or TLS verification bypass is used.
+
+[Google's static egress guide](https://docs.cloud.google.com/run/docs/configuring/static-outbound-ip)
+and [Cloud NAT pricing](https://cloud.google.com/nat/pricing) describe this setup.
 
 Default: weekdays at **16:35 America/New_York**. Override with
 `IBKR_FLEX_SYNC_SCHEDULE` and `IBKR_FLEX_SYNC_TIME_ZONE`. Activity data normally
