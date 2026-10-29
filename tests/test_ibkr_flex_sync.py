@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
@@ -202,6 +202,33 @@ def test_scheduled_pull_records_snapshot_and_stages_approvals(scheduled):
     assert status["as_of"] == AS_OF
     assert len(status["positions"]) == 3
     assert "test-token" not in str(status)
+
+
+@pytest.mark.parametrize("day_offset", [0, 1])
+def test_postgres_snapshot_roundtrip_compares_report_days(scheduled, monkeypatch, day_offset):
+    from api.snapshot_store import _row_to_record
+
+    sync.sync_ibkr_flex()
+    record = sync.read_snapshot(sync.SNAPSHOT_KEY)
+    postgres_record = _row_to_record(
+        {
+            "snapshot_key": record.snapshot_key,
+            "payload_json": record.payload,
+            "as_of": (datetime.fromisoformat(AS_OF) + timedelta(days=day_offset)).replace(tzinfo=UTC),
+            "load_time": datetime.fromisoformat(record.fetched_at),
+            "status": "ok",
+        }
+    )
+    monkeypatch.setattr(sync, "read_snapshot", lambda key: postgres_record)
+    scheduled.clear()
+    if day_offset:
+        with pytest.raises(RuntimeError, match="older than the last successful sync"):
+            sync.sync_ibkr_flex()
+        assert not scheduled
+    else:
+        sync.sync_ibkr_flex()
+        assert sync.ibkr_flex_status()["status"] == "ok"
+        assert sync.ibkr_flex_status()["stale"] is False
 
 
 @pytest.mark.parametrize("failure", ["empty", "network", "stale"])

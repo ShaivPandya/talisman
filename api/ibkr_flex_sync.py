@@ -155,6 +155,13 @@ def stage_flex_statement(
     }
 
 
+def _snapshot_report_date(record) -> str | None:
+    if not record or not record.as_of_date:
+        return None
+    # Postgres temporal snapshots return midnight timestamps, SQLite returns dates.
+    return datetime.fromisoformat(record.as_of_date).date().isoformat()
+
+
 def sync_ibkr_flex(_payload=None) -> dict[str, Any]:
     from api.action_execution import stage_api_action
     from ontology.command_service import OntologyCommandService
@@ -169,11 +176,11 @@ def sync_ibkr_flex(_payload=None) -> dict[str, Any]:
         )
         if not statement.as_of:
             raise ValueError("Flex statement is missing its report date.")
-        previous = read_snapshot(SNAPSHOT_KEY)
+        previous_date = _snapshot_report_date(read_snapshot(SNAPSHOT_KEY))
         today = datetime.now(MARKET_TIMEZONE).date()
         if statement.as_of > today.isoformat():
             raise ValueError("Flex statement report date is in the future.")
-        if previous and previous.as_of_date and statement.as_of < previous.as_of_date:
+        if previous_date and statement.as_of < previous_date:
             raise ValueError("Flex statement is older than the last successful sync.")
         expected = previous_market_session(today - timedelta(days=1)).isoformat()
         if statement.as_of < expected:
@@ -219,7 +226,8 @@ def ibkr_flex_status() -> dict[str, Any]:
     record = read_snapshot(SNAPSHOT_KEY)
     payload = dict(record.payload or {}) if record else {}
     expected = previous_market_session(datetime.now(MARKET_TIMEZONE).date() - timedelta(days=1)).isoformat()
-    stale = bool(record and (not record.as_of_date or record.as_of_date < expected))
+    report_date = _snapshot_report_date(record)
+    stale = bool(record and (not report_date or report_date < expected))
     return {
         **payload,
         "configured": bool(os.getenv("IBKR_FLEX_TOKEN") and os.getenv("IBKR_FLEX_QUERY_ID")),
