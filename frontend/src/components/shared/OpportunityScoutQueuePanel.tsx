@@ -1,10 +1,11 @@
-import { useState } from "react"
+import { useId, useState } from "react"
 import { Link } from "react-router-dom"
-import { Eye, FlaskConical, Radar, Search, Sparkles, X } from "lucide-react"
+import { ChevronDown, Eye, FlaskConical, Radar, Search, Sparkles, X } from "lucide-react"
 
 import { StagedProposalNotice, type StagedProposal } from "@/components/shared/StagedProposalNotice"
 import { DecisionStateBadge } from "@/components/shared/DecisionStateBadge"
 import { TraceTriggerButton } from "@/components/shared/TraceTriggerButton"
+import { cn } from "@/lib/utils"
 import {
   createMonitorForOpportunityCandidate,
   dismissOpportunityCandidate,
@@ -23,6 +24,8 @@ function formatTime(iso: string | null | undefined): string {
 
 interface OpportunityScoutQueuePanelProps {
   items: OpportunityCandidateRecord[]
+  className?: string
+  defaultExpanded?: boolean
   onUpdated?: () => void
   onOpenTrace?: (candidate: OpportunityCandidateRecord) => void
 }
@@ -32,7 +35,9 @@ type FeedbackResult = {
   approval?: StagedProposal
 }
 
-export function OpportunityScoutQueuePanel({ items, onUpdated, onOpenTrace }: OpportunityScoutQueuePanelProps) {
+export function OpportunityScoutQueuePanel({ items, className, defaultExpanded = true, onUpdated, onOpenTrace }: OpportunityScoutQueuePanelProps) {
+  const [open, setOpen] = useState(defaultExpanded)
+  const contentId = useId()
   const [pendingId, setPendingId] = useState<string | null>(null)
   const [feedback, setFeedback] = useState<Record<string, FeedbackResult>>({})
 
@@ -64,13 +69,24 @@ export function OpportunityScoutQueuePanel({ items, onUpdated, onOpenTrace }: Op
   if (!items.length) return null
 
   return (
-    <section className="theme-surface flex min-h-0 max-h-[min(56rem,calc(100dvh-8rem))] flex-col overflow-hidden rounded-xl p-4 max-md:max-h-[min(40rem,calc(100dvh-12rem))] lg:col-span-2">
-      <h2 className="text-sm font-semibold text-app mb-3 flex items-center gap-2">
-        <Radar size={14} className="text-violet-500" />
-        OpportunityScout
-        <span className="ml-auto text-xs text-subtle">{items.length} candidate{items.length !== 1 ? "s" : ""}</span>
-      </h2>
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+    <section className={cn("theme-surface flex min-h-0 min-w-0 max-h-[min(56rem,calc(100dvh-8rem))] flex-col overflow-hidden rounded-xl max-md:max-h-[min(40rem,calc(100dvh-12rem))]", className)}>
+      <button
+        type="button"
+        onClick={() => setOpen(current => !current)}
+        aria-expanded={open}
+        aria-controls={contentId}
+        className="flex w-full shrink-0 flex-wrap items-center gap-2 px-4 py-3.5 text-left"
+      >
+        <h2 className="flex items-center gap-2 text-sm font-semibold text-app">
+          <Radar size={14} className="text-violet-500" />
+          OpportunityScout
+        </h2>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-xs text-subtle">{items.length} candidate{items.length !== 1 ? "s" : ""}</span>
+          <ChevronDown size={18} className={cn("shrink-0 text-subtle transition-transform", open && "rotate-180")} />
+        </div>
+      </button>
+      <div id={contentId} hidden={!open} className="min-h-0 min-w-0 flex-1 space-y-3 overflow-y-auto border-t border-app px-4 pb-4 pt-3 [overflow-wrap:anywhere]">
         {items.map(candidate => {
           const candidateId = candidate.candidate_id || candidate.id
           const isPending = pendingId === candidateId

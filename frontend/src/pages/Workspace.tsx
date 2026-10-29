@@ -1941,6 +1941,7 @@ export function Workspace() {
       {(data.opportunity_candidates?.count ?? 0) > 0 && (
         <OpportunityScoutQueuePanel
           items={data.opportunity_candidates?.items ?? []}
+          className="mb-6"
           onUpdated={() => void qc.invalidateQueries({ queryKey: ["workspace"] })}
           onOpenTrace={candidate =>
             openDecisionTrace({
