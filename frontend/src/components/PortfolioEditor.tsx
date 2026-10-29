@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "react"
-import { portfolioPositionsQuery, hedgePositionsQuery, portfolioSettingsQuery } from "@/lib/routeData"
+import { portfolioPositionsQuery, hedgePositionsQuery, portfolioSettingsQuery, sizerPrefillQuery } from "@/lib/routeData"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Layers, Plus, Trash2, Upload } from "lucide-react"
 import { IbkrFlexStatusPanel } from "@/components/IbkrFlexStatus"
@@ -1352,7 +1352,8 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
     mutationFn: (bookSize: number) => updatePortfolioSettings({ book_size: bookSize }),
     onSuccess: settings => {
       queryClient.setQueryData(portfolioSettingsQuery.queryKey, settings)
-      void queryClient.invalidateQueries({ queryKey: ["portfolio", "sizer-prefill"] })
+      // The sizer hydrates once. Remove old defaults so it waits for the saved size.
+      queryClient.removeQueries({ queryKey: sizerPrefillQuery.queryKey })
       setBookSizeInput(String(settings.book_size))
       setSettingsValidationError(null)
       setSettingsSavedMessage(`Book size saved at ${formatBaseCurrency(settings.book_size)}.`)

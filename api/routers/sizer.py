@@ -12,7 +12,7 @@ from api.exceptions import DataFetchError
 from api.portfolio_settings import get_portfolio_book_size
 from api.serializers import serialize_dataframe, serialize_value
 from ontology.runtime_read_service import OntologyRuntimeReadService
-from portfolio.economic_exposure import exposure_group_key
+from portfolio.economic_exposure import exposure_group_key, exposure_holdings_summaries
 from portfolio.instruments import infer_underlying_direction
 from portfolio.position_groups import (
     canonicalize_position_group_rows,
@@ -142,7 +142,7 @@ def _canonical_positions(req: SizerRequest) -> list[tuple[str, int, str, int]]:
 
 
 def _cache_key(req: SizerRequest) -> str:
-    strategy_version = "v3_conviction_sizing_custom_equity_beta"
+    strategy_version = "v4_exposure_rollups_and_signed_hedges"
     canonical = _canonical_positions(req)
     token = (
         "|".join(
@@ -251,8 +251,7 @@ def get_sizer_prefill():
         if "ticker" not in df.columns:
             raise ValueError("Ontology positions are missing required 'ticker' column.")
 
-        # Group equity-underlying legs (options net by underlying ticker) so each
-        # underlying produces a single prefill row with an inferred net direction.
+        # Group economic exposure by underlying, including leveraged ETFs.
         groups: dict[str, list[dict[str, Any]]] = {}
         order: list[str] = []
         for record in df.to_dict("records"):
@@ -296,6 +295,7 @@ def get_sizer_prefill():
                     "instrument_type": instrument_type,
                     "group_name": group_name,
                     "group_conviction": group_conviction,
+                    "included_holdings": exposure_holdings_summaries(legs).get(key),
                 }
             )
 

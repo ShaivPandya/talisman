@@ -23,7 +23,12 @@ import pandas as pd
 
 from ontology.runtime_read_service import get_hedge_positions as _get_hedge_positions
 from ontology.runtime_read_service import get_positions_df as _get_positions_df
-from portfolio.economic_exposure import exposure_group_key, scale_signed_notional_for_exposure
+from portfolio.economic_exposure import (
+    exposure_group_key,
+    exposure_holdings_summaries,
+    resolve_economic_exposure,
+    scale_signed_notional_for_exposure,
+)
 from portfolio.instruments import (
     chart_price_symbol,
     direction_sign,
@@ -349,6 +354,18 @@ def _collapse_positions_to_underlyings(meta: pd.DataFrame) -> tuple[pd.DataFrame
                 non_option[0],
             )
             base = dict(preferred)
+            if str(preferred.get("ticker") or "").strip().upper() != key:
+                # A mapped ETF's price and units cannot price the underlying row.
+                sign = direction_sign(preferred) * resolve_economic_exposure(preferred).factor
+                base.update(
+                    instrument_type="security",
+                    price_symbol=key,
+                    contract_multiplier=1.0,
+                    quantity=None,
+                    shares=None,
+                    cost_basis=None,
+                    direction="short" if sign < 0 else "long",
+                )
             base["ticker"] = key
             collapsed.append(base)
             continue
@@ -996,6 +1013,7 @@ def size_portfolio(
         if not underlying_price_map:
             underlying_price_map = {str(t).strip().upper(): float(latest_prices[t]) for t in tickers}
         current_dollar_by_ticker = _compute_current_underlying_dollar_exposure(meta_raw, underlying_price_map)
+        holdings_summaries = exposure_holdings_summaries(meta_raw.to_dict("records"))
         weights_df = pd.DataFrame(
             {
                 "ticker": tickers,
@@ -1032,6 +1050,8 @@ def size_portfolio(
             weights_df["shares"] = weights_df["quantity"]
             weights_df = _attach_sizing_delta_columns(weights_df, current_dollar_by_ticker)
         weights_df = weights_df.sort_values("weight", ascending=False)
+        if holdings_summaries:
+            weights_df["included_holdings"] = weights_df["ticker"].map(lambda t: holdings_summaries.get(t, t))
 
         # Build hedges DataFrame
         hedge_direction_issues: list[str] = []
@@ -1073,8 +1093,10 @@ def size_portfolio(
         hedges_df = pd.DataFrame(hedges_data)
 
         # Load existing hedge positions for delta computation
-        existing_hedges = {h["ticker"]: h for h in _get_hedge_positions()}
-        hedges_df["current_shares"] = hedges_df["ticker"].map(lambda t: existing_hedges.get(t, {}).get("shares") or 0)
+        existing_hedges = {str(h["ticker"]).strip().upper(): h for h in _get_hedge_positions()}
+        hedges_df["current_shares"] = hedges_df["ticker"].map(
+            lambda t: (_leg_quantity(existing_hedges.get(t, {})) or 0) * direction_sign(existing_hedges.get(t, {}))
+        )
         hedges_df["current_cost_basis"] = hedges_df["ticker"].map(
             lambda t: existing_hedges.get(t, {}).get("cost_basis")
         )
@@ -1123,6 +1145,10 @@ def size_portfolio(
             max_scaled_weights_df["shares"] = max_scaled_weights_df["quantity"]
             max_scaled_weights_df = _attach_sizing_delta_columns(max_scaled_weights_df, current_dollar_by_ticker)
         max_scaled_weights_df = max_scaled_weights_df.sort_values("weight", ascending=False)
+        if holdings_summaries:
+            max_scaled_weights_df["included_holdings"] = max_scaled_weights_df["ticker"].map(
+                lambda t: holdings_summaries.get(t, t)
+            )
 
         benchmark_metrics: dict[str, Any] = {}
         net_betas: dict[str, float] = {}

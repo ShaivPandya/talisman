@@ -2355,6 +2355,7 @@ export interface SizerPrefillResponse {
     instrument_type?: InstrumentType | null
     group_name?: string | null
     group_conviction?: number | null
+    included_holdings?: string | null
   }[]
   book_size?: number
   source?: string
