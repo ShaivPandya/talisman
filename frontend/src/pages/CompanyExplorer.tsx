@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { NameDocumentsPanel } from "@/components/NameDocumentsPanel"
 
 import { EquityOverviewReadView, FinancialsSnapshot } from "@/components/overview/EquityOverviewReadView"
-import { ActionButton, TextInput } from "@/components/shared/FormControls"
+import { ActionButton, SegmentedControl, TextInput } from "@/components/shared/FormControls"
 import { LoadingSpinner } from "@/components/shared/LoadingSpinner"
 import { PageHeader } from "@/components/shared/PageHeader"
 import { SurfaceCard } from "@/components/shared/SurfaceCard"
@@ -13,6 +13,8 @@ import { fetchDossier, runChart } from "@/lib/api"
 import type { ParsedOverview } from "@/lib/overviewTypes"
 
 const formatPrice = (value: number) => PRICE_FORMATTER.format(value)
+const LOOKBACKS = ["3M", "1Y", "2Y", "5Y"] as const
+type Lookback = (typeof LOOKBACKS)[number]
 
 const CLOSE_SERIES: SeriesDef[] = [
   { key: "Close", name: "Close", color: "hsl(var(--accent))", strokeWidth: 2 },
@@ -86,10 +88,14 @@ function chartClose(row: Record<string, unknown>) {
 function TickerForm({
   value,
   onChange,
+  lookback,
+  onLookbackChange,
   onSubmit,
 }: {
   value: string
   onChange: (value: string) => void
+  lookback: Lookback
+  onLookbackChange: (value: Lookback) => void
   onSubmit: (event: FormEvent) => void
 }) {
   return (
@@ -103,6 +109,14 @@ function TickerForm({
         className="w-40"
         uppercase
       />
+      <fieldset className="min-w-0">
+        <legend className="mb-1.5 text-sm text-muted">Lookback</legend>
+        <SegmentedControl
+          options={LOOKBACKS.map(value => ({ value, label: value }))}
+          value={lookback}
+          onChange={onLookbackChange}
+        />
+      </fieldset>
       <ActionButton type="submit" disabled={!value.trim()} className="w-auto px-6">
         Open
       </ActionButton>
@@ -110,10 +124,10 @@ function TickerForm({
   )
 }
 
-function PriceChart({ ticker }: { ticker: string }) {
+function PriceChart({ ticker, lookback }: { ticker: string; lookback: Lookback }) {
   const chartQuery = useQuery({
-    queryKey: ["explore", "chart", ticker],
-    queryFn: () => runChart({ ticker, lookback: "1Y" }) as Promise<ChartPayload>,
+    queryKey: ["explore", "chart", ticker, lookback],
+    queryFn: () => runChart({ ticker, lookback }) as Promise<ChartPayload>,
     staleTime: 300_000,
   })
   const points = useMemo(() => {
@@ -151,10 +165,10 @@ function PriceChart({ ticker }: { ticker: string }) {
   )
 }
 
-function ExplorerDashboard({ ticker }: { ticker: string }) {
+function ExplorerDashboard({ ticker, lookback }: { ticker: string; lookback: Lookback }) {
   const chartQuery = useQuery({
-    queryKey: ["explore", "chart", ticker],
-    queryFn: () => runChart({ ticker, lookback: "1Y" }) as Promise<ChartPayload>,
+    queryKey: ["explore", "chart", ticker, lookback],
+    queryFn: () => runChart({ ticker, lookback }) as Promise<ChartPayload>,
     staleTime: 300_000,
   })
   const dossierQuery = useQuery({
@@ -189,7 +203,7 @@ function ExplorerDashboard({ ticker }: { ticker: string }) {
         )}
       </div>
 
-      <PriceChart ticker={ticker} />
+      <PriceChart ticker={ticker} lookback={lookback} />
       <NameDocumentsPanel key={ticker} ticker={ticker} />
 
       <SurfaceCard className="min-w-0 p-4 sm:p-5">
@@ -224,6 +238,7 @@ export function CompanyExplorer() {
   const navigate = useNavigate()
   const routeTicker = (tickerParam ?? "").trim().toUpperCase()
   const [draft, setDraft] = useState(routeTicker)
+  const [lookback, setLookback] = useState<Lookback>("2Y")
 
   useEffect(() => {
     setDraft(routeTicker)
@@ -243,9 +258,15 @@ export function CompanyExplorer() {
         title="Company Explorer"
         subtitle={routeTicker ? undefined : "Open any ticker, including names that are not in the book."}
       />
-      <TickerForm value={draft} onChange={setDraft} onSubmit={openTicker} />
+      <TickerForm
+        value={draft}
+        onChange={setDraft}
+        lookback={lookback}
+        onLookbackChange={setLookback}
+        onSubmit={openTicker}
+      />
       {routeTicker ? (
-        <ExplorerDashboard ticker={routeTicker} />
+        <ExplorerDashboard ticker={routeTicker} lookback={lookback} />
       ) : (
         <p className="text-sm text-muted">Enter a ticker to open the company summary.</p>
       )}
