@@ -1216,6 +1216,12 @@ export interface PortfolioPosition {
   group_name?: string | null
   group_conviction?: number | null
   role?: "position" | "hedge"
+  source?: string | null
+  as_of?: string | null
+  broker_mark_price?: number | null
+  broker_unrealized_pnl_base?: number | null
+  ibkr_lots?: { open_date?: string | null; quantity: number; cost_basis?: number | null; lot_id?: string | null }[]
+
 }
 
 export const fetchPortfolioPositions = (includeHedges = false) =>
@@ -1225,6 +1231,25 @@ export const fetchPortfolioPositions = (includeHedges = false) =>
 
 export const savePortfolioPositions = (positions: PortfolioPosition[], options?: StagedMutationOptions) =>
   client.put("/portfolio-positions", { positions, ...options }).then(r => r.data as StagedMutationResponse)
+
+export interface IbkrFlexStatus {
+  configured: boolean
+  status: "ok" | "failed" | "stale" | "never_synced"
+  stale: boolean
+  source?: string
+  as_of?: string | null
+  base_currency?: string | null
+  last_success_at?: string | null
+  last_attempt_at?: string | null
+  error?: string | null
+  net_liquidation?: number | null
+  positions?: PortfolioPosition[]
+  cash_balances?: { currency: string; balance: number; settled_cash?: number | null }[]
+  staged_proposals?: StagedMutationResponse[]
+}
+
+export const fetchIbkrFlexStatus = () =>
+  client.get("/portfolio-positions/ibkr-flex-status").then(r => r.data as IbkrFlexStatus)
 
 export interface IbkrFlexImportSummary {
   source: string
@@ -1337,6 +1362,12 @@ export interface HedgePosition {
   cost_basis_base?: number | null
   notional_base?: number | null
   valuation_status?: string | null
+  source?: string | null
+  as_of?: string | null
+  broker_mark_price?: number | null
+  broker_unrealized_pnl_base?: number | null
+  ibkr_lots?: { open_date?: string | null; quantity: number; cost_basis?: number | null; lot_id?: string | null }[]
+
 }
 
 export const fetchHedgePositions = () =>

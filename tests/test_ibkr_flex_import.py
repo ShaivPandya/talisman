@@ -70,9 +70,12 @@ def test_parse_short_call_and_put_option_rows():
     assert short_put["ticker"] == "NVDA"
 
 
-def test_parser_ignores_unsupported_asset_categories():
+def test_parser_imports_dated_futures_using_existing_instrument_model():
     rows = parse_ibkr_flex_open_positions_xml(SAMPLE_FLEX_XML)
-    assert all(row.get("ticker") != "ESZ5" for row in rows)
+    future = next(row for row in rows if row["ticker"] == "ESZ5")
+    assert future["instrument_type"] == "future"
+    assert future["price_symbol"] == "ES=F"
+    assert future["contract_multiplier"] == 50
 
 
 def test_merge_preserved_portfolio_metadata():

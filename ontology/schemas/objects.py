@@ -120,6 +120,10 @@ class Position(OntologySchemaBase):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
     valuation_status: str | None = None
     group_name: str | None = None
     group_conviction: int | None = Field(default=None, ge=1, le=5)
@@ -984,6 +988,11 @@ class HedgePosition(OntologySchemaBase):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
+    as_of: str | None = None
     valuation_status: str | None = None
     ontology_run_id: NonBlankStr = "operational"
     position_id: str | None = None

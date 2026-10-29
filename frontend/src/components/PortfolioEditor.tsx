@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type ReactNode } from "r
 import { portfolioPositionsQuery, hedgePositionsQuery, portfolioSettingsQuery } from "@/lib/routeData"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, Layers, Plus, Trash2, Upload } from "lucide-react"
+import { IbkrFlexStatusPanel } from "@/components/IbkrFlexStatus"
 import { Dialog } from "@/components/shared/Dialog"
 import { ActionButton, SegmentedControl, SelectInput } from "@/components/shared/FormControls"
 import { StagedProposalNotice } from "@/components/shared/StagedProposalNotice"
@@ -189,6 +190,11 @@ function optionContractSymbolForRow(row: {
   return buildOptionContractSymbol(underlying, row.option_expiration, row.option_type, row.option_strike)
 }
 
+function brokerStatementFields(row: PortfolioPosition | HedgePosition) {
+  return { source: row.source, as_of: row.as_of, broker_mark_price: row.broker_mark_price,
+    broker_unrealized_pnl_base: row.broker_unrealized_pnl_base, ibkr_lots: row.ibkr_lots }
+}
+
 function serializeInstrumentRow<T extends PortfolioPosition | HedgePosition>(
   row: EditorRow | HedgeEditorRow,
   extras?: Partial<PortfolioPosition>,
@@ -233,6 +239,7 @@ function serializeInstrumentRow<T extends PortfolioPosition | HedgePosition>(
       fx_rate_as_of: row.fx_rate_as_of ?? null,
       cost_basis_base: row.cost_basis_base ?? null,
       notional_base: row.notional_base ?? null,
+      ...brokerStatementFields(row),
       valuation_status: row.valuation_status ?? null,
       ...extras,
     } as T
@@ -267,6 +274,7 @@ function serializeInstrumentRow<T extends PortfolioPosition | HedgePosition>(
     fx_rate_as_of: row.fx_rate_as_of ?? null,
     cost_basis_base: row.cost_basis_base ?? null,
     notional_base: row.notional_base ?? null,
+    ...brokerStatementFields(row),
     valuation_status: row.valuation_status ?? null,
     ...extras,
   } as T
@@ -1591,6 +1599,7 @@ export function PortfolioEditorPanel({ onCancel }: PortfolioEditorPanelProps = {
 
   return (
     <div className="tal-root">
+      <IbkrFlexStatusPanel />
       {/* Action header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 18, flexWrap: "wrap" }}>
         <SegmentedControl

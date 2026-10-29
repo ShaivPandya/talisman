@@ -23,12 +23,7 @@ from api.request_limits import read_upload_file_bytes
 from api.routers.auth import require_actor
 from ontology.policy import Actor
 from ontology.runtime_read_service import OntologyRuntimeReadService
-from portfolio.ibkr_flex_import import (
-    merge_ibkr_flex_hedge_replacement,
-    merge_preserved_portfolio_metadata,
-    parse_ibkr_flex_open_positions_xml,
-    split_ibkr_flex_import_rows,
-)
+from portfolio.ibkr_flex_import import parse_ibkr_flex_statement
 from portfolio.instruments import (
     normalize_portfolio_instrument_row,
     position_row_id,
@@ -126,6 +121,11 @@ class PortfolioPosition(BaseModel):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
+    as_of: str | None = None
     valuation_status: str | None = None
     group_name: str | None = None
     group_conviction: int | None = Field(default=None, ge=1, le=5)
@@ -215,75 +215,31 @@ async def import_ibkr_flex_portfolio_positions(
 
 
 def _import_ibkr_flex_positions(payload: bytes, *, filename: str | None, actor: Actor, reason: str | None) -> dict:
+    from api.ibkr_flex_sync import stage_flex_statement
+
     try:
-        read_service = OntologyRuntimeReadService()
-        imported_rows = parse_ibkr_flex_open_positions_xml(payload)
-        portfolio_imported, hedge_imported = split_ibkr_flex_import_rows(imported_rows)
-        existing_rows = read_service.positions(include_hedges=False)
-        merged_portfolio = merge_preserved_portfolio_metadata(portfolio_imported, existing_rows)
-        portfolio_positions = [PortfolioPosition(**row) for row in merged_portfolio]
-
-        import_reason = reason or f"Import IBKR Flex open positions from {filename or 'upload.xml'}"
-        staged_proposals: list[dict] = []
-        primary_result: dict | None = None
-
-        portfolio_result = stage_api_action(
-            "update_portfolio_positions",
-            {"positions": [position.model_dump() for position in portfolio_positions]},
-            source_id="portfolio_edit.import_ibkr_flex_portfolio_positions",
+        statement = parse_ibkr_flex_statement(payload)
+        return stage_flex_statement(
+            statement,
             actor=actor,
-            reason=import_reason,
-            apply=False,
-            validation_status_code=400,
-        )
-        staged_proposals.append(portfolio_result)
-        primary_result = portfolio_result
-
-        hedge_result: dict | None = None
-        if hedge_imported:
-            existing_hedges = read_service.list_objects("HedgePosition", limit=1000)
-            merged_hedges = merge_ibkr_flex_hedge_replacement(hedge_imported, existing_hedges)
-            hedge_positions = [HedgePosition(**row) for row in merged_hedges]
-            hedge_result = stage_api_action(
-                "update_hedge_positions",
-                {"positions": [position.model_dump() for position in hedge_positions]},
-                source_id="portfolio_edit.import_ibkr_flex_hedge_positions",
-                actor=actor,
-                reason=import_reason,
-                apply=False,
-                validation_status_code=400,
-            )
-            staged_proposals.append(hedge_result)
-
-        preserved_metadata_count = sum(
-            1
-            for imported, merged in zip(portfolio_imported, merged_portfolio, strict=False)
-            if any(
-                merged.get(field) != imported.get(field)
-                for field in ("conviction", "contrarian", "group_name", "group_conviction")
-            )
+            read_service=OntologyRuntimeReadService(),
+            stage=stage_api_action,
+            filename=filename,
+            reason=reason,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except (HTTPException, AppError):
         raise
-    except Exception as e:
-        raise DataFetchError(source="portfolio_positions", detail=str(e)) from e
+    except Exception as exc:
+        raise DataFetchError(source="portfolio_positions", detail="Unable to stage Flex statement.") from exc
 
-    hedge_tickers = sorted({str(row.get("ticker") or "").upper() for row in hedge_imported if row.get("ticker")})
-    return {
-        **(primary_result or {}),
-        "staged_proposals": staged_proposals,
-        "import_summary": {
-            "source": "ibkr_flex",
-            "filename": filename,
-            "imported_count": len(imported_rows),
-            "portfolio_imported_count": len(portfolio_imported),
-            "hedge_imported_count": len(hedge_imported),
-            "hedge_tickers": hedge_tickers,
-            "preserved_metadata_count": preserved_metadata_count,
-        },
-    }
+
+@router.get("/portfolio-positions/ibkr-flex-status")
+def get_ibkr_flex_status():
+    from api.ibkr_flex_sync import ibkr_flex_status
+
+    return ibkr_flex_status()
 
 
 def _flatten_object(row: dict) -> dict:
@@ -324,6 +280,11 @@ class HedgePosition(BaseModel):
     fx_rate_as_of: str | None = None
     cost_basis_base: float | None = None
     notional_base: float | None = None
+    source: str | None = None
+    broker_mark_price: float | None = None
+    broker_unrealized_pnl_base: float | None = None
+    ibkr_lots: list[dict] = Field(default_factory=list)
+    as_of: str | None = None
     valuation_status: str | None = None
 
     @model_validator(mode="after")

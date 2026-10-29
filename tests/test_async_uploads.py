@@ -82,13 +82,15 @@ def test_upload_processing_allows_concurrent_request(monkeypatch, module_name, p
         def parse(payload):
             assert len(payload) == size
             block()
-            return []
+            from portfolio.ibkr_flex_import import FlexStatement
+
+            return FlexStatement([], None, None, None, [])
 
         def service():
             check_worker()
             return SimpleNamespace(positions=lambda **_kwargs: [])
 
-        monkeypatch.setattr(router, "parse_ibkr_flex_open_positions_xml", parse)
+        monkeypatch.setattr(router, "parse_ibkr_flex_statement", parse)
         monkeypatch.setattr(router, "OntologyRuntimeReadService", service)
         monkeypatch.setattr(router, "stage_api_action", lambda *_args, **_kwargs: {"status": "ok"})
     elif module_name == "economic_growth":
