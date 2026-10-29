@@ -22,7 +22,7 @@ queue (150-minute timeout).
    minutes) so a throttled week still publishes.
 3. **Presets.** `api/idea_scan/screening.py` builds one factor frame (screen
    fields, price metrics, valuation, the rank_universe quality / momentum
-   composite) and applies every enabled preset to it. Screen checks reuse the
+   composite) and applies every enabled preset to it (six to start, including a long value + momentum + quality screen). Screen checks reuse the
    long and short screen predicates one criterion at a time, so cards list the
    signals that fired and near-misses name the one check they missed. A name hit
    by several presets is one candidate; agreement = presets hit + the composite

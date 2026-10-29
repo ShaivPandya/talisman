@@ -49,6 +49,7 @@ FORM_8K_ITEMS = {
 PRESET_OPPORTUNITY_TYPES = {
     "long_screen": "undervalued_asset",
     "quality_value": "quality_compounder",
+    "value_momentum": "undervalued_asset",
     "composite_top": "quality_compounder",
     "short_screen": "unsustainable_process",
     "breakdown": "unsustainable_process",

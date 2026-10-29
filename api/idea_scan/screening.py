@@ -17,12 +17,14 @@ import pandas as pd
 
 from api.idea_scan.data import MARKET_BENCHMARK, STATEMENTS, ScanDataset
 from api.idea_scan.presets import (
+    PARAM_MODELS,
     BreakdownParams,
     CompositeTopParams,
     IdeaScanPreset,
     LongScreenParams,
     QualityValueParams,
     ShortScreenParams,
+    ValueMomentumParams,
 )
 from equities.long_screen.long_screen import long_fundamentals_pass, long_price_filters_pass
 from equities.quality.quality_single import beta_from_prices, raw_metrics_from_statements
@@ -435,6 +437,18 @@ def _quality_value_checks(row: pd.Series, p: QualityValueParams, valuation_pct: 
     ]
 
 
+def _value_momentum_checks(row: pd.Series, p: ValueMomentumParams, valuation_pct: float) -> list[Check]:
+    pm_pct = row.get("price_momentum_pct")
+    return [
+        *_quality_value_checks(row, p, valuation_pct),
+        Check(
+            f"Price momentum percentile {_fmt(pm_pct * 100 if _present(pm_pct) else None, 0)} (≥ {p.min_price_momentum_pct * 100:g})",
+            _present(pm_pct) and float(pm_pct) >= p.min_price_momentum_pct,
+            _present(pm_pct),
+        ),
+    ]
+
+
 def _composite_checks(composite_pct: float, p: CompositeTopParams) -> list[Check]:
     return [
         Check(
@@ -520,8 +534,8 @@ def evaluate_preset(
 
     composite = composite_scores(frame, preset.weights.model_dump()).rank(pct=True)
     valuation_pct = (
-        sector_valuation_pct(frame, QualityValueParams.model_validate(preset.params).valuation_metric)
-        if preset.screen == "quality_value"
+        sector_valuation_pct(frame, PARAM_MODELS[preset.screen].model_validate(preset.params).valuation_metric)  # type: ignore[attr-defined]
+        if preset.screen in {"quality_value", "value_momentum"}
         else None
     )
 
@@ -537,6 +551,11 @@ def evaluate_preset(
             assert valuation_pct is not None
             checks = _quality_value_checks(
                 row, QualityValueParams.model_validate(preset.params), float(valuation_pct.get(ticker, np.nan))
+            )
+        elif preset.screen == "value_momentum":
+            assert valuation_pct is not None
+            checks = _value_momentum_checks(
+                row, ValueMomentumParams.model_validate(preset.params), float(valuation_pct.get(ticker, np.nan))
             )
         elif preset.screen == "composite_top":
             checks = _composite_checks(composite_pct, CompositeTopParams.model_validate(preset.params))
