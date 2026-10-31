@@ -20,18 +20,59 @@ class _FakeConnection:
         self.execute_calls.append((sql, params))
         return self
 
+    def fetchall(self):
+        return [{"refreshed_view": OPERATIONAL_READ_MODEL_VIEW, "refresh_ms": 12.5}]
+
     def commit(self):
         self.commits += 1
 
 
-def test_refresh_uses_security_definer_function():
+REFRESH_CHANGED_SQL = "SELECT * FROM refresh_changed_ontology_read_models()"
+
+
+def test_refresh_rebuilds_changed_read_models_and_reports_each_one(monkeypatch, caplog):
+    import logging
+
+    monkeypatch.setenv("PERFORMANCE_BASELINES_ENABLED", "true")
+    caplog.set_level(logging.INFO, logger="api.performance")
     conn = _FakeConnection()
     repo = TemporalReadModelRepository(connection_factory=lambda: conn)
 
     repo.refresh()
 
-    assert conn.execute_calls == [("SELECT refresh_ontology_temporal_read_models()", None)]
+    assert conn.execute_calls == [(REFRESH_CHANGED_SQL, None)]
     assert conn.commits == 1
+    (event,) = [
+        r.performance for r in caplog.records if getattr(r, "performance", {}).get("event") == "read_model_refresh"
+    ]
+    assert event["view"] == OPERATIONAL_READ_MODEL_VIEW
+    assert event["duration_ms"] == 12.5
+
+
+def test_refreshes_in_a_request_scope_run_once_before_the_first_read():
+    from ontology.read_model_scope import begin_deferred_refresh, end_deferred_refresh
+
+    conn = _FakeConnection()
+    repo = TemporalReadModelRepository(connection_factory=lambda: conn)
+    deferred, token = begin_deferred_refresh()
+    try:
+        repo.refresh()
+        repo.refresh()
+        assert conn.execute_calls == []
+        assert deferred.pending
+
+        with repo._connect(read_only=True):
+            pass
+        with repo._connect(read_only=True):
+            pass
+
+        assert conn.execute_calls == [(REFRESH_CHANGED_SQL, None)]
+        assert not deferred.pending
+    finally:
+        end_deferred_refresh(token)
+
+    repo.refresh()
+    assert conn.execute_calls == [(REFRESH_CHANGED_SQL, None)] * 2
 
 
 def test_temporal_read_model_migration_grants_runtime_roles():

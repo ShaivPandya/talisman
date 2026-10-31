@@ -34,6 +34,7 @@ from api.performance import PerformanceMiddleware
 from api.request_limits import MULTIPART_FORM_DATA_OVERHEAD_BYTES, BodySizeLimitMiddleware
 from api.request_schema import validate_and_upgrade_request_schema
 from api.safe_import import get_degraded_modules, safe_import_router
+from ontology.read_model_scope import DeferredReadModelRefreshMiddleware
 
 # ---------------------------------------------------------------------------
 # Logging
@@ -453,6 +454,8 @@ class ApiMiddleware:
         await self.app(scope, request.receive, send)
 
 
+# Innermost of the API middleware: refresh ontology read models once per request, before the response starts.
+app.add_middleware(DeferredReadModelRefreshMiddleware)
 app.add_middleware(ApiMiddleware, schema_app=app)
 
 
