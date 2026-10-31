@@ -115,6 +115,53 @@ def test_metadata_listing_omits_payload_and_preserves_embedded_quality(monkeypat
     assert missing.status == "error"
 
 
+def test_health_metadata_listing_keeps_query_scope_and_reasons_without_full_payload(monkeypatch, tmp_path):
+    from api.source_health import build_workspace_source_health
+
+    monkeypatch.setattr(store, "_SQLITE_PATH", tmp_path / "snapshots.sqlite3")
+    fetched = "2026-10-25T17:00:00+00:00"
+    store.write_snapshot_success(
+        "alternative:latest:alternative_noaa_cdo",
+        {
+            "parameters": {"start_date": "2026-10-01", "end_date": "2026-10-03"},
+            "fetched_at": fetched,
+            "observations": ["large"] * 10000,
+        },
+        as_of_date="2026-10-03",
+        fetched_at=fetched,
+    )
+    store.write_snapshot_success(
+        "portfolio_risk_dashboard:current:v1",
+        {
+            "quality": "degraded",
+            "positions": [{"issues": ["missing_sector"], "private_unused_data": ["large"] * 10000}],
+            "stress": {"degraded_modules": [{"module": "sentiment", "reason": "NAAIM requires subscription"}]},
+            "large": ["x"] * 10000,
+        },
+        as_of_date="2026-10-28",
+        fetched_at="2026-10-29T17:00:00+00:00",
+    )
+    store.write_snapshot_success(
+        "sentiment:current:v1",
+        {"surveys": {"errors": {"naaim": "Current data requires subscription"}}, "volatility": ["large"] * 10000},
+        as_of_date="2026-10-28",
+        fetched_at="2026-10-29T17:00:00+00:00",
+    )
+    records = store.list_snapshot_records()
+    assert all(record.payload is None for record in records)
+    assert all("large" not in str(record.health_metadata) for record in records)
+    health = build_workspace_source_health(
+        now=datetime.fromisoformat("2026-10-29T18:00:00+00:00"), snapshot_records=records
+    )
+    sources = {source["source_name"]: source for domain in health["domains"] for source in domain["sources"]}
+    assert sources["alternative_noaa_cdo"]["status"] == "historical"
+    assert sources["alternative_noaa_cdo"]["sla_breach"] is False
+    assert "missing sector (1 holdings)" in sources["portfolio_risk_dashboard"]["detail"]
+    assert "sentiment: NAAIM requires subscription" in sources["portfolio_risk_dashboard"]["detail"]
+    assert sources["sentiment"]["status"] == "degraded"
+    assert "Current data requires subscription" in sources["sentiment"]["detail"]
+
+
 def test_signal_projection_excludes_raw_before_decoding_and_copies_once(monkeypatch, tmp_path):
     from api.signal_snapshot import get_signal_aggregator_snapshot_response
     from api.snapshot_keys import SNAPSHOT_SIGNAL_AGGREGATOR

@@ -85,6 +85,22 @@ def completed_ttl_for_request(spec: JobSpec, req: Any) -> int:
 
 
 JOB_SPECS: dict[str, JobSpec] = {
+    "action_item_execution": JobSpec(
+        job_type="action_item_execution",
+        request_model=None,
+        compute_func="api.action_item_execution.run",
+        cache_key_func=None,
+        timeout_s=21 * 60,
+        error_message="Action-item research failed",
+    ),
+    "action_item_automatic": JobSpec(
+        job_type="action_item_automatic",
+        request_model=None,
+        compute_func="api.action_item_execution.automatic_tick",
+        cache_key_func=None,
+        timeout_s=120,
+        error_message="Automatic action-item dispatch failed",
+    ),
     "alternative_data_fetch": JobSpec(
         job_type="alternative_data_fetch",
         request_model="api.alternative_data.FetchRequest",

@@ -155,6 +155,21 @@ def _slow_deltas(texts: list[str], gap_s: float):
         time.sleep(gap_s)
 
 
+def test_response_cost_matches_completed_message_in_history(auth_client, monkeypatch, agent_env):
+    monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_MODEL_MID", "claude-sonnet-5-5")
+    _install_fake_anthropic(monkeypatch, [([_event_text_delta("Liquidity answer")], _final_message("Liquidity answer"))])
+    session_id, turn_id = _new_turn()
+    response = auth_client.post("/api/agent/chat", json={
+        "session_id": session_id, "client_turn_id": turn_id, "message": NORMAL_PROMPT,
+        "finalize_synchronously": True,
+    })
+    done = next(payload for event, payload in _parse_sse(response.text) if event == "done")
+    assert done["cost"]["estimated_usd"] == pytest.approx(0.000022)
+    assert done["cost"]["complete"] is True
+    assert _assistant(session_id, turn_id)["cost"] == done["cost"]
+
+
 def test_asgi_disconnect_closes_the_stream_and_saves_partial_text(monkeypatch, agent_env):
     _install_fake_anthropic(monkeypatch, [(_slow_deltas(["Hello ", "wor", "ld"], 0.2), _final_message("Hello world"))])
     session_id, turn_id = _new_turn()

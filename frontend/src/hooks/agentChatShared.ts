@@ -2,6 +2,7 @@ import type { ScreenContext } from "@/contexts/ScreenContext"
 import type { AgentResponseFeedbackRecord, AgentResponsePreferences } from "@/lib/api"
 import type { MemoryContext } from "./agentMemory"
 import type { AgentAttachment } from "@/lib/chatAttachments"
+import type { AgentMessageCost } from "./agentMessageCost"
 
 import type { AgentTraceSnapshot } from "@/lib/decisionTrace"
 
@@ -97,6 +98,7 @@ export interface AgentMessage {
   traceSnapshot?: AgentTraceSnapshot | null
   feedback?: AgentResponseFeedbackRecord | null
   memoryContext?: MemoryContext
+  cost?: AgentMessageCost
 }
 
 export interface ActiveAgentJob {

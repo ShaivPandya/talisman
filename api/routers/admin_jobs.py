@@ -162,6 +162,21 @@ def enqueue_watch_trigger_monitor(_sub: str = Depends(require_scheduler_or_job_a
     return enqueue_response(row, "/api/admin/jobs/{job_id}")
 
 
+@router.post("/admin/jobs/enqueue-action-item-research")
+def enqueue_action_item_research(_sub: str = Depends(require_scheduler_or_job_admin)):
+    from api.action_item_execution import automatic_enabled
+
+    if not automatic_enabled():
+        return {"status": "idle", "started": 0}
+    row, _ = enqueue_registered_job(
+        "action_item_automatic",
+        {},
+        cache_key="maintenance:action_item_automatic:v1",
+        reuse_completed=False,
+    )
+    return enqueue_response(row, "/api/admin/jobs/{job_id}")
+
+
 @router.post("/admin/jobs/enqueue-monitor-mission-runner")
 def enqueue_monitor_mission_runner(_sub: str = Depends(require_scheduler_or_job_admin)):
     row, _disposition = enqueue_registered_job(

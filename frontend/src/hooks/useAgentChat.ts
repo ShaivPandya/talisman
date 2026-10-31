@@ -39,6 +39,7 @@ import {
 import { extractAgentTraceSnapshot } from "@/lib/decisionTrace"
 import { csrfHeaders } from "@/lib/csrfToken"
 import { agentFeedbackQueryOptions } from "./agentFeedbackQuery"
+import { normalizeMessageCost } from "./agentMessageCost"
 
 export type {
   ActiveAgentJob,
@@ -527,6 +528,7 @@ export async function fetchSession(sessionId: string): Promise<{
           : undefined,
       parentId: typeof m.parent_id === "string" ? m.parent_id : null,
       messageStatus: m.status as AgentMessage["messageStatus"],
+      cost: normalizeMessageCost(m.cost),
       contentParts: Array.isArray(m.content_parts) ? m.content_parts as Record<string, unknown>[] : [],
       sources: Array.isArray(m.sources) ? m.sources as Record<string, unknown>[] : [],
       attachments: normalizeAttachments(m.attachments),
@@ -1051,6 +1053,7 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
                       traceSnapshot: extractAgentTraceSnapshot(data),
                       memoryContext: data.memory_context as AgentMessage["memoryContext"] ?? m.memoryContext,
                       sources: Array.isArray(data.sources) ? data.sources as Record<string, unknown>[] : m.sources,
+                      cost: normalizeMessageCost(data.cost) ?? m.cost,
                       narration: Array.isArray(data.narration) ? normalizeNotes(data.narration) : m.narration,
                       thinking: Array.isArray(data.thinking) ? normalizeNotes(data.thinking) : m.thinking,
                       proposals: Array.isArray(data.proposals) && data.proposals.length ? normalizeProposals(data.proposals) : m.proposals,

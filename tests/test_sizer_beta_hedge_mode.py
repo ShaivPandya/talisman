@@ -205,6 +205,40 @@ def test_sizer_prefill_only_returns_equity_positions(monkeypatch):
     assert result["count"] == 1
 
 
+@pytest.mark.parametrize("underlying,etf", [("NVDA", "NVDL"), ("NFLX", "NFXL"), ("UBER", "UBRL")])
+def test_sizer_prefill_labels_leveraged_etf_rollups(monkeypatch, underlying, etf):
+    rows = [
+        {"ticker": underlying, "asset": "equity", "direction": "long", "conviction": 3},
+        {"ticker": etf, "asset": "equity", "direction": "long", "conviction": 4},
+    ]
+    monkeypatch.setattr(sizer.OntologyRuntimeReadService, "positions_df", lambda self: pd.DataFrame(rows))
+    monkeypatch.setattr(sizer, "get_portfolio_book_size", lambda: 135000.0)
+
+    result = sizer.get_sizer_prefill()
+
+    assert [(row["ticker"], row["conviction"]) for row in result["positions"]] == [(underlying, 4)]
+    assert result["positions"][0]["included_holdings"] == f"{underlying} + {etf} (2×)"
+    assert result["book_size"] == 135000.0
+
+
+def test_saved_book_size_is_used_by_sizer_prefill(auth_client, monkeypatch):
+    monkeypatch.setattr(
+        sizer.OntologyRuntimeReadService,
+        "positions_df",
+        lambda self: pd.DataFrame(
+            [
+                {"ticker": "NVDA", "asset": "equity", "direction": "long", "conviction": 3},
+            ]
+        ),
+    )
+
+    saved = auth_client.put("/api/portfolio-settings", json={"book_size": 135000})
+    assert saved.status_code == 200
+    assert saved.json()["book_size"] == 135000
+    assert auth_client.get("/api/portfolio-settings").json()["book_size"] == 135000
+    assert auth_client.get("/api/portfolio-sizer/prefill").json()["book_size"] == 135000
+
+
 def test_sizer_prefill_nets_option_legs_into_one_directional_row(monkeypatch):
     class FakeRuntimeReadService:
         def positions_df(self):

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Any
 
@@ -242,6 +242,11 @@ def build_approval_source_health_review(
         required = bool(enriched.get("required"))
         explicit = _source_matches_dependency(enriched, explicit_dependencies)
 
+        if status == "historical" and (required or explicit):
+            blockers.append(
+                _approval_source_issue(enriched, reason="historical query does not establish current source health")
+            )
+            continue
         if tier == "critical" and status in {"stale", "failed", "missing"}:
             blockers.append(_approval_source_issue(enriched, reason=f"critical source is {status}"))
             continue
@@ -304,8 +309,26 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
     freshness_state = _snapshot_freshness_state(record, registry=registry, now=now, sla_seconds=sla_seconds)
     freshness = freshness_state.to_dict()
     stale = not freshness_state.fresh
-    quality = (record.payload or {}).get("quality", record.quality) if record.quality == "ok" else record.quality
+    historical_query = _historical_query_detail(record)
+    if historical_query:
+        # Research queries with a past end date are not subscriptions to a live
+        # feed. Keep them visible without asserting that today's data is fresh.
+        stale = False
+        freshness = {
+            "policy": "historical_query",
+            "basis": "requested_date_range",
+            "fresh": None,
+            "observed_as_of_date": freshness_state.observed_as_of_date,
+            "reason": historical_query,
+        }
+    metadata = record.payload or record.health_metadata or {}
+    quality = metadata.get("quality", record.quality) if record.quality == "ok" else record.quality
+    payload_detail = _snapshot_quality_detail(metadata)
+    if payload_detail:
+        quality = "degraded"
     status = _normalize_status(record.status, stale=stale, quality=quality, required=required)
+    if historical_query and status == "ok":
+        status = "historical"
     source_name = str(
         (registry or {}).get("source_id")
         or _SNAPSHOT_SOURCE_NAMES.get(record.snapshot_key)
@@ -327,7 +350,7 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
         "freshness_timestamp": record.as_of_date or record.fetched_at,
         "stale": stale,
         "error": record.error,
-        "detail": record.error or (freshness_state.reason if stale else None),
+        "detail": record.error or payload_detail or historical_query or (freshness_state.reason if stale else None),
         "freshness": freshness,
         "freshness_policy": freshness.get("policy"),
         "expected_as_of_date": freshness.get("expected_as_of_date") or freshness.get("oldest_acceptable_date"),
@@ -338,6 +361,62 @@ def _source_from_snapshot(record: SnapshotRecord, *, required: bool, now: dateti
         "record_source": "snapshot_store",
         "source_registry": registry,
     }
+
+
+def _historical_query_detail(record: SnapshotRecord) -> str | None:
+    if not record.snapshot_key.startswith("alternative:latest:"):
+        return None
+    payload = record.payload or record.health_metadata or {}
+    parameters = payload.get("parameters")
+    if not isinstance(parameters, dict):
+        return None
+    end = parse_market_date(parameters.get("end_date"))
+    fetched = parse_market_date(payload.get("fetched_at") or record.fetched_at)
+    if end is None or fetched is None or end >= fetched:
+        return None
+    start = parse_market_date(parameters.get("start_date"))
+    window = f"{start} to {end}" if start else f"through {end}"
+    return f"Historical query ({window}); this result does not monitor current data."
+
+
+def _snapshot_quality_detail(payload: dict[str, Any]) -> str | None:
+    details: list[str] = []
+    surveys = payload.get("surveys")
+    survey_errors = surveys.get("errors") if isinstance(surveys, dict) else None
+    if isinstance(survey_errors, dict):
+        details.extend(f"{name}: {error}" for name, error in survey_errors.items() if error)
+
+    # Computed dashboards retain the underlying reasons in their payload; a
+    # successful snapshot write alone does not imply complete input coverage.
+    positions = payload.get("positions")
+    if isinstance(positions, list):
+        issues = Counter(
+            str(issue) for row in positions if isinstance(row, dict) for issue in (row.get("issues") or [])
+        )
+        details.extend(f"{issue.replace('_', ' ')} ({count} holdings)" for issue, count in sorted(issues.items()))
+        missing_betas = sum(
+            bool(row.get("beta_eligible")) and (row.get("beta_spy") is None or row.get("beta_iwm") is None)
+            for row in positions
+            if isinstance(row, dict)
+        )
+        if missing_betas:
+            details.append(f"Missing benchmark betas ({missing_betas} holdings)")
+    stress = payload.get("stress")
+    degraded_modules = payload.get("degraded_modules") or (
+        stress.get("degraded_modules") if isinstance(stress, dict) else None
+    )
+    if isinstance(degraded_modules, list):
+        for module in degraded_modules:
+            if isinstance(module, dict):
+                reason = module.get("reason") or module.get("detail") or module.get("status")
+                if reason:
+                    details.append(f"{module.get('module') or 'Stress input'}: {reason}")
+    source_status = payload.get("source_status")
+    if isinstance(source_status, dict):
+        for name, state in source_status.items():
+            if isinstance(state, dict) and state.get("error"):
+                details.append(f"{name}: {state['error']}")
+    return "; ".join(dict.fromkeys(details)) or None
 
 
 def _source_from_risk_status(module: str, state: dict[str, Any], *, required: bool) -> dict[str, Any]:
@@ -676,7 +755,7 @@ def _normalize_status(raw_status: Any, *, stale: bool, quality: Any, required: b
 
 
 def _quality_state(status: str, *, required: bool) -> str:
-    if status in {"ok", "stale", "degraded", "missing"}:
+    if status in {"ok", "stale", "degraded", "missing", "historical"}:
         return status
     if status == "failed":
         return "failed" if required else "degraded"
@@ -684,6 +763,8 @@ def _quality_state(status: str, *, required: bool) -> str:
 
 
 def _overall_quality(sources: list[dict[str, Any]]) -> str:
+    if sources and all(source.get("status") == "historical" for source in sources):
+        return "historical"
     required = [source for source in sources if source.get("required")]
     if any(source.get("status") in {"failed", "missing"} for source in required):
         return "failed"
@@ -698,6 +779,7 @@ def _counts(sources: list[dict[str, Any]]) -> dict[str, Any]:
     counts = {
         "total": len(sources),
         "ok": 0,
+        "historical": 0,
         "stale": 0,
         "degraded": 0,
         "failed": 0,

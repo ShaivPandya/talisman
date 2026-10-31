@@ -36,6 +36,7 @@ class SnapshotRecord:
     artifact_uri: str | None
     quality: str = "ok"
     payload_hash: str | None = None
+    health_metadata: dict[str, Any] | None = None
 
 
 def snapshots_required() -> bool:
@@ -95,6 +96,9 @@ def _row_to_record(row: Any) -> SnapshotRecord | None:
         payload = dict(payload_raw)
     as_of_raw = _row_get(row, "as_of_date", _row_get(row, "as_of"))
     fetched_raw = _row_get(row, "fetched_at", _row_get(row, "load_time"))
+    health_metadata = _row_get(row, "health_metadata")
+    if isinstance(health_metadata, str):
+        health_metadata = json.loads(health_metadata)
     return SnapshotRecord(
         snapshot_key=str(_row_get(row, "snapshot_key")),
         payload=payload,
@@ -106,6 +110,7 @@ def _row_to_record(row: Any) -> SnapshotRecord | None:
         artifact_uri=_row_get(row, "artifact_uri"),
         quality=str(_row_get(row, "quality", "ok") or "ok"),
         payload_hash=_row_get(row, "payload_hash"),
+        health_metadata=health_metadata if isinstance(health_metadata, dict) else None,
     )
 
 
@@ -244,7 +249,28 @@ def list_snapshot_records() -> list[SnapshotRecord]:
                     snapshot_key, as_of, load_time, status, error, artifact_uri, payload_hash,
                     CASE WHEN quality = 'ok'
                         THEN COALESCE(payload_json->>'quality', quality)
-                        ELSE quality END AS quality
+                        ELSE quality END AS quality,
+                    jsonb_build_object(
+                        'parameters', payload_json->'parameters',
+                        'fetched_at', payload_json->'fetched_at',
+                        'surveys', jsonb_build_object('errors', payload_json#>'{surveys,errors}'),
+                        'degraded_modules', COALESCE(
+                            payload_json->'degraded_modules', payload_json#>'{stress,degraded_modules}'
+                        ),
+                        'source_status', payload_json->'source_status',
+                        'positions', (
+                            SELECT jsonb_agg(jsonb_build_object(
+                                'issues', position_row->'issues',
+                                'beta_eligible', position_row->'beta_eligible',
+                                'beta_spy', position_row->'beta_spy',
+                                'beta_iwm', position_row->'beta_iwm'
+                            ))
+                            FROM jsonb_array_elements(CASE
+                                WHEN jsonb_typeof(payload_json->'positions') = 'array'
+                                THEN payload_json->'positions' ELSE '[]'::jsonb
+                            END) AS position_row
+                        )
+                    ) AS health_metadata
                 FROM computed_snapshot_versions
                 WHERE tx_to IS NULL
                   AND valid_from <= clock_timestamp()
@@ -258,7 +284,29 @@ def list_snapshot_records() -> list[SnapshotRecord]:
         rows = conn.execute(
             """
             SELECT snapshot_key, as_of_date, fetched_at, status, error, version, artifact_uri,
-                COALESCE(json_extract(payload_json, '$.quality'), 'ok') AS quality
+                COALESCE(json_extract(payload_json, '$.quality'), 'ok') AS quality,
+                json_object(
+                    'parameters', json_extract(payload_json, '$.parameters'),
+                    'fetched_at', json_extract(payload_json, '$.fetched_at'),
+                    'surveys', json_object('errors', json_extract(payload_json, '$.surveys.errors')),
+                    'degraded_modules', COALESCE(
+                        json_extract(payload_json, '$.degraded_modules'),
+                        json_extract(payload_json, '$.stress.degraded_modules')
+                    ),
+                    'source_status', json_extract(payload_json, '$.source_status'),
+                    'positions', json((
+                        SELECT json_group_array(json_object(
+                            'issues', json_extract(position_row.value, '$.issues'),
+                            'beta_eligible', json_extract(position_row.value, '$.beta_eligible'),
+                            'beta_spy', json_extract(position_row.value, '$.beta_spy'),
+                            'beta_iwm', json_extract(position_row.value, '$.beta_iwm')
+                        ))
+                        FROM json_each(CASE
+                            WHEN json_type(payload_json, '$.positions') = 'array'
+                            THEN json_extract(payload_json, '$.positions') ELSE '[]'
+                        END) AS position_row
+                    ))
+                ) AS health_metadata
             FROM computed_snapshots ORDER BY snapshot_key
             """
         ).fetchall()
