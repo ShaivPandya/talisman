@@ -6,7 +6,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
 from api.action_execution import stage_api_action
-from api.action_item_execution import ExecutionSettings
+from api.action_item_execution_models import ExecutionSettings
 from api.exceptions import NotFoundError
 from api.routers.auth import ActorDep
 from ontology.object_service import OntologyObjectService
