@@ -90,8 +90,7 @@ def get_hedge_positions() -> list[dict[str, Any]]:
     cached_positions = _cached_report_positions(include_hedges=True)
     if cached_positions is not None:
         return [row for row in cached_positions if str(row.get("role") or "").lower() == "hedge"]
-    rows = OntologyRuntimeReadService().positions(include_hedges=True)
-    return [row for row in rows if str(row.get("role") or "").lower() == "hedge"]
+    return OntologyRuntimeReadService().list_objects("HedgePosition", limit=1000)
 
 
 class OntologyRuntimeReadService:

@@ -13,6 +13,7 @@ import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./A
 import { AgentProposalCard } from "./AgentProposalCard"
 import { AgentSources } from "./AgentSources"
 import { toolEffectScope } from "./agentToolDisplay"
+import { messageCostDetail, messageCostLabel } from "@/hooks/agentMessageCost"
 
 const MARKDOWN_COMPONENTS: Components = {
   table({ children, ...props }) {
@@ -284,6 +285,19 @@ export const AgentMessage = memo(function AgentMessage({
         )}
 
         <AgentSources sources={message.sources} />
+        {!message.isStreaming && message.cost && (
+          <div className="mt-2 flex justify-end">
+            <span
+              className="cursor-help rounded text-[10px] leading-4 tabular-nums text-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2"
+              tabIndex={0}
+              title={messageCostDetail(message.cost)}
+              aria-label={`${messageCostLabel(message.cost)}. ${messageCostDetail(message.cost)}`}
+              data-testid="agent-message-cost"
+            >
+              {messageCostLabel(message.cost)}
+            </span>
+          </div>
+        )}
       </div>
       {!message.isStreaming && (
         <MessageActionRow align="start" version={version} disabled={actionsDisabled} onSwitchVersion={switchVersion}>

@@ -319,7 +319,8 @@ def test_placeholder_group_name_does_not_group_position():
     assert weights["MU"] == pytest.approx(portfolio_sizer.LONG_MAX)
 
 
-def test_sizer_accepts_leveraged_etf_position_after_underlying_collapse(monkeypatch):
+@pytest.mark.parametrize("quantity_field,quantity", [("shares", 50), ("quantity", 50), ("quantity", -50)])
+def test_sizer_rolls_up_etfs_and_loads_existing_short_hedges(monkeypatch, quantity_field, quantity):
     monkeypatch.setattr(
         portfolio_sizer,
         "_get_positions_df",
@@ -341,6 +342,22 @@ def test_sizer_accepts_leveraged_etf_position_after_underlying_collapse(monkeypa
                     "quantity": 20,
                     "conviction": 3,
                 },
+                {
+                    "ticker": "NVDA",
+                    "asset": "equity",
+                    "direction": "long",
+                    "instrument_type": "security",
+                    "quantity": 100,
+                    "conviction": 3,
+                },
+                {
+                    "ticker": "NVDL",
+                    "asset": "equity",
+                    "direction": "long",
+                    "instrument_type": "security",
+                    "quantity": 10,
+                    "conviction": 4,
+                },
             ]
         ),
     )
@@ -355,21 +372,80 @@ def test_sizer_accepts_leveraged_etf_position_after_underlying_collapse(monkeypa
         return prices, {ticker: "USD" for ticker in columns}, {ticker: ticker for ticker in tickers}
 
     monkeypatch.setattr(portfolio_sizer, "fetch_prices_for_portfolio_symbols", fake_prices)
-    monkeypatch.setattr(portfolio_sizer, "_get_hedge_positions", lambda: [])
+    monkeypatch.setattr(
+        portfolio_sizer,
+        "_get_hedge_positions",
+        lambda: [{"ticker": "QQQ", "direction": "short", quantity_field: quantity, "cost_basis": 707.68}],
+    )
 
     result = portfolio_sizer.size_portfolio(
         positions=[
             {"ticker": "METU", "conviction": 4},
             {"ticker": "MU", "conviction": 3},
+            {"ticker": "NVDA", "conviction": 3},
+            {"ticker": "NVDL", "conviction": 4},
         ],
         book=100_000,
         target_leverage=1.5,
+        hedge_tickers=["QQQ"],
     )
 
     assert result.get("error") is None
     weights = result["weights_df"].set_index("ticker")
-    assert "META" in weights.index
+    assert set(weights.index) == {"META", "MU", "NVDA"}
     assert weights.loc["META", "conviction"] == 4
+    assert weights.loc["META", "price_symbol"] == "META"
+    assert weights.loc["NVDA", "current_quantity"] == round(100 + 10 * 2 * 122 / 122)
+    assert weights.loc["NVDA", "price"] == pytest.approx(122.0)
+    assert weights.loc["NVDA", "included_holdings"] == "NVDA + NVDL (2×)"
+    for ticker in ("META", "NVDA"):
+        row = weights.loc[ticker]
+        assert row["delta_quantity"] == row["target_quantity"] - row["current_quantity"]
+    hedge = result["hedges_df"].set_index("ticker").loc["QQQ"]
+    assert hedge["current_shares"] == -50
+    assert hedge["current_cost_basis"] == pytest.approx(707.68)
+    assert hedge["delta_shares"] == hedge["shares"] + 50
+
+
+@pytest.mark.parametrize("underlying,etf", [("NVDA", "NVDL"), ("NFLX", "NFXL"), ("UBER", "UBRL")])
+def test_etf_only_rollup_uses_underlying_price_and_equivalent_quantity(underlying, etf):
+    raw = pd.DataFrame(
+        [
+            {
+                "ticker": etf,
+                "price_symbol": etf,
+                "instrument_type": "security",
+                "asset": "equity",
+                "direction": "long",
+                "quantity": 10,
+                "shares": 10,
+                "contract_multiplier": 1.0,
+            }
+        ]
+    )
+
+    collapsed, skipped = portfolio_sizer._collapse_positions_to_underlyings(raw)
+    assert skipped == []
+    assert collapsed.iloc[0]["ticker"] == underlying
+    assert collapsed.iloc[0]["price_symbol"] == underlying
+    current = portfolio_sizer._compute_current_underlying_dollar_exposure(raw, {etf: 25.0})
+    output = portfolio_sizer._attach_sizing_delta_columns(
+        pd.DataFrame(
+            [
+                {
+                    "ticker": underlying,
+                    "instrument_type": "security",
+                    "price": 100.0,
+                    "contract_multiplier": 1.0,
+                    "dollar_weight": 1500.0,
+                    "target_quantity": 15,
+                }
+            ]
+        ),
+        current,
+    )
+    assert output.iloc[0]["current_quantity"] == 5  # 10 ETF shares × $25 × 2 / $100
+    assert output.iloc[0]["delta_quantity"] == 10
 
 
 def test_grouped_convictions_reject_mixed_direction():

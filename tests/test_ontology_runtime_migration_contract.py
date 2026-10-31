@@ -4,6 +4,32 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+def test_runtime_hedges_do_not_require_a_legacy_role_field(monkeypatch):
+    from ontology import runtime_read_service
+
+    hedge = {"ticker": "QQQ", "direction": "short", "quantity": 50, "cost_basis": 707.68}
+    monkeypatch.setattr(runtime_read_service, "_cached_report_positions", lambda **kwargs: None)
+
+    def list_objects(self, object_type, *, limit):
+        return [hedge] if object_type == "HedgePosition" else [{"ticker": "NVDA"}]
+
+    monkeypatch.setattr(runtime_read_service.OntologyRuntimeReadService, "list_objects", list_objects)
+
+    assert runtime_read_service.get_hedge_positions() == [hedge]
+
+
+def test_runtime_hedges_preserve_report_snapshot_reads(monkeypatch):
+    from ontology import runtime_read_service
+
+    hedge = {"ticker": "QQQ", "role": "hedge", "shares": 50, "direction": "short"}
+    monkeypatch.setattr(
+        runtime_read_service,
+        "_cached_report_positions",
+        lambda **kwargs: [{"ticker": "NVDA", "role": "position"}, hedge],
+    )
+    assert runtime_read_service.get_hedge_positions() == [hedge]
+
+
 class _FakeObjectService:
     def write_object(self, object_type: str, business_key: str, properties: dict[str, Any], valid_from: str, **kwargs):
         return {

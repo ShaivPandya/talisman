@@ -790,6 +790,22 @@ def test_financial_action_item_approval_gets_policy_gate():
     assert approval["policy_gate_result"]["approval_required"] is True
 
 
+def test_workflow_retry_preserves_resolved_identical_approval():
+    objects = FakeObjectService()
+    service = OntologyCommandService(objects)  # type: ignore[arg-type]
+    context = OntologyCommandContext(actor=admin_actor(source="test"), source_type="test", source_id="unit")
+    payload = {"description": "Research META capex", "action_type": "research", "ticker": "META"}
+    approval = service.propose_action("create_action_item", payload, context)
+    resolved = objects.objects[approval["id"]]["properties"]
+    resolved.update(status="rejected", application_status="not_applicable")
+
+    repeated = service.propose_action("create_action_item", payload, context, reuse_existing=True)
+
+    assert repeated["id"] == approval["id"]
+    assert repeated["status"] == "rejected"
+    assert repeated["application_status"] == "not_applicable"
+
+
 def test_create_recommendation_approval_applies_with_real_schema_normalization():
     repo = NormalizingTemporalRepo()
     service = OntologyCommandService(OntologyObjectService(repository=repo))  # type: ignore[arg-type]

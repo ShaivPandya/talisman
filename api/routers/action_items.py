@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from fastapi import APIRouter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from api.action_execution import stage_api_action
+from api.action_item_execution_models import ExecutionSettings
 from api.exceptions import NotFoundError
 from api.routers.auth import ActorDep
 from ontology.object_service import OntologyObjectService
@@ -34,6 +35,91 @@ class DismissActionRequest(BaseModel):
     reason: str | None = None
     apply: bool = False
     approval_note: str | None = None
+
+
+class ReviseExecutionRequest(BaseModel):
+    instructions: str = Field(min_length=1, max_length=4000)
+
+
+@router.get("/action-execution/settings")
+def execution_settings(actor: ActorDep):
+    from api.action_item_execution import settings
+
+    return settings(actor)
+
+
+@router.put("/action-execution/settings")
+def update_execution_settings(body: ExecutionSettings, actor: ActorDep):
+    from api.action_item_execution import save_settings
+
+    return save_settings(actor, body)
+
+
+@router.get("/action-execution/runs")
+def execution_runs(actor: ActorDep):
+    from api.action_item_execution import public_state, refresh
+    from api.action_item_execution_store import runs
+
+    return {"runs": [public_state(refresh(state), details=False) for state in runs(actor.actor_id)]}
+
+
+@router.get("/action-execution/runs/{run_id}")
+def execution_run(run_id: str, actor: ActorDep):
+    from api.action_item_execution import owned_run, public_state, refresh
+
+    return public_state(refresh(owned_run(run_id, actor)))
+
+
+@router.post("/actions/{item_id}/execute", status_code=202)
+def execute_action_item(item_id: str, actor: ActorDep):
+    from api.action_item_execution import start
+
+    return start(item_id, actor)
+
+
+@router.post("/action-execution/runs/{run_id}/retry", status_code=202)
+def retry_execution(run_id: str, actor: ActorDep):
+    from api.action_item_execution import retry
+
+    return retry(run_id, actor)
+
+
+@router.post("/action-execution/runs/{run_id}/cancel")
+def cancel_execution(run_id: str, actor: ActorDep):
+    from api.action_item_execution import cancel
+
+    return cancel(run_id, actor)
+
+
+@router.post("/action-execution/runs/{run_id}/revise", status_code=202)
+def revise_execution(run_id: str, body: ReviseExecutionRequest, actor: ActorDep):
+    from api.action_item_execution import revise
+
+    return revise(run_id, actor, body.instructions)
+
+
+@router.post("/action-execution/runs/{run_id}/completion")
+def propose_execution_completion(run_id: str, actor: ActorDep):
+    from api.action_item_execution import propose_completion
+
+    return propose_completion(run_id, actor)
+
+
+@router.post("/action-execution/batch", status_code=202)
+def execute_action_item_batch(actor: ActorDep):
+    from api.action_item_execution import execution_kind, start
+    from api.exceptions import AppError
+
+    results = []
+    for row in OntologyObjectService().query_objects("ActionItem", filters={"status": "open"}, limit=500):
+        item = dict(row.get("properties") or row.get("properties_json") or {})
+        if not execution_kind(item):
+            continue
+        try:
+            results.append(start(str(row["object_uid"]), actor))
+        except AppError as exc:
+            return {"runs": results, "message": str(exc)}
+    return {"runs": results}
 
 
 @router.get("/actions")

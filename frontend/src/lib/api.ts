@@ -2373,6 +2373,7 @@ export interface SizerPrefillResponse {
     instrument_type?: InstrumentType | null
     group_name?: string | null
     group_conviction?: number | null
+    included_holdings?: string | null
   }[]
   book_size?: number
   source?: string
@@ -3653,6 +3654,46 @@ export const bulkReject = (ids: string[], note?: string) =>
   client.post("/approvals/bulk-reject", { ids, note }).then(r => r.data as BulkResolveResponse)
 
 // Action Items
+export interface ActionExecutionSettings {
+  automatic: boolean
+  enabled_kinds: Array<"thesis" | "kill_conditions" | "valuation">
+  max_cost_usd: number
+  daily_budget_usd: number
+  max_concurrent: number
+  enabled?: boolean
+  model?: string
+  automatic_since?: string | null
+}
+export interface ActionExecution {
+  run_id: string
+  item_id: string
+  kind: string
+  description: string
+  status: string
+  phase: string
+  error: string | null
+  charged_usd: number
+  max_cost_usd: number
+  approval_ids: string[]
+  completion_approval_id: string | null
+  has_result: boolean
+  can_propose_completion?: boolean
+  dependencies?: Array<{ id: string; status: string; application_status: string }>
+  plan?: { scope: string; requirements: string[]; needs_input: string[] } | null
+  evidence?: { findings: string; sources: Array<{ title: string; url: string; passage: string; location: string; published_on: string | null }>; gaps: string[] } | null
+  result?: { report: string; checks: Array<{ requirement_index: number; satisfied: boolean; evidence: string; source_urls: string[] }>; gaps: string[]; thesis_content: string | null; kill_conditions: Array<{ condition: string; metric: string; threshold: string; cadence: string; source_url: string }>; valuation_inputs: Array<{ name: string; value: number; unit: string; kind: string; as_of: string; source_url: string | null }>; calculations: Array<{ name: string; operation: string; inputs: string[]; result: number }> } | null
+}
+export const fetchActionExecutionSettings = () => client.get("/action-execution/settings").then(r => r.data as ActionExecutionSettings)
+export const saveActionExecutionSettings = (body: ActionExecutionSettings) =>
+  client.put("/action-execution/settings", body).then(r => r.data as ActionExecutionSettings)
+export const fetchActionExecutions = () => client.get("/action-execution/runs").then(r => r.data as { runs: ActionExecution[] })
+export const fetchActionExecution = (id: string) => client.get(`/action-execution/runs/${encodeURIComponent(id)}`).then(r => r.data as ActionExecution)
+export const runActionItem = (id: number | string) => client.post(`/actions/${encodeURIComponent(String(id))}/execute`).then(r => r.data as ActionExecution)
+export const retryActionExecution = (id: string) => client.post(`/action-execution/runs/${encodeURIComponent(id)}/retry`).then(r => r.data as ActionExecution)
+export const reviseActionExecution = (id: string, instructions: string) => client.post(`/action-execution/runs/${encodeURIComponent(id)}/revise`, { instructions }).then(r => r.data as ActionExecution)
+export const cancelActionExecution = (id: string) => client.post(`/action-execution/runs/${encodeURIComponent(id)}/cancel`).then(r => r.data as ActionExecution)
+export const proposeActionExecutionCompletion = (id: string) => client.post(`/action-execution/runs/${encodeURIComponent(id)}/completion`).then(r => r.data as ActionExecution)
+export const runActionItemBatch = () => client.post("/action-execution/batch").then(r => r.data as { runs: ActionExecution[]; message?: string })
 export const fetchActions = (params?: { status?: string; ticker?: string }) =>
   client.get("/actions", { params }).then(r => r.data)
 export const createAction = (body: { description: string; action_type?: string; ticker?: string; urgency?: string } & StagedMutationOptions) =>

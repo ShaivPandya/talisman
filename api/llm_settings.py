@@ -211,6 +211,17 @@ def get_settings(keys: list[str] | tuple[str, ...]) -> dict[str, dict[str, Any]]
     return {str(row["key"]): _row_to_dict(row) for row in rows}
 
 
+def settings_with_prefix(prefix: str) -> list[dict[str, Any]]:
+    """Read stored delegations for internal scheduled jobs."""
+    if not use_postgres_state() and not DB_PATH.exists():
+        return []
+    with _get_conn(read_only=True) as conn:
+        rows = conn.execute(
+            "SELECT key, value, updated_at FROM app_settings WHERE key LIKE ?", (prefix + "%",)
+        ).fetchall()
+    return [_row_to_dict(row) for row in rows]
+
+
 def set_setting(key: str, value: str) -> dict[str, Any]:
     updated_at = _now()
     with _lock:

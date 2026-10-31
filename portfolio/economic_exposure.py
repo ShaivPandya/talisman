@@ -7,7 +7,7 @@ the underlying ticker with a signed leverage factor (e.g. METU -> META x2).
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
@@ -22,6 +22,8 @@ STATIC_ECONOMIC_EXPOSURE: dict[str, tuple[str, float]] = {
     "METD": ("META", -1.0),
     "NVDU": ("NVDA", 2.0),
     "NVDL": ("NVDA", 2.0),
+    "NFXL": ("NFLX", 2.0),
+    "UBRL": ("UBER", 2.0),
     "NVDD": ("NVDA", -1.0),
     "AMZU": ("AMZN", 2.0),
     "AMZD": ("AMZN", -1.0),
@@ -190,6 +192,26 @@ def exposure_group_key(row: Mapping[str, Any], *, metadata: Mapping[str, Any] | 
         return display_ticker(row)
     exposure = resolve_economic_exposure(row, metadata=metadata)
     return exposure.exposure_key()
+
+
+def exposure_holdings_summaries(rows: Sequence[Mapping[str, Any]]) -> dict[str, str]:
+    """Describe the traded holdings included in each leveraged-ETF rollup."""
+    labels: dict[str, list[str]] = {}
+    mapped: set[str] = set()
+    for row in rows:
+        key = exposure_group_key(row)
+        ticker = display_ticker(row)
+        if not key or not ticker:
+            continue
+        exposure = resolve_economic_exposure(row)
+        label = ticker
+        if exposure.is_mapped:
+            mapped.add(key)
+            label = f"{ticker} ({exposure.factor:g}×)"
+        included = labels.setdefault(key, [])
+        if label not in included:
+            included.append(label)
+    return {key: " + ".join(included) for key, included in labels.items() if key in mapped}
 
 
 def economic_exposure_fields(

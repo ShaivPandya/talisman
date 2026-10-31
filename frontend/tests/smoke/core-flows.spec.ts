@@ -89,6 +89,39 @@ test("renders workspace common operating picture and enforces approval note gati
   await expect(approveButton).toBeEnabled()
 })
 
+test("source health distinguishes historical research from current feed failures", async ({ page }) => {
+  const workspaceResponse = page.waitForResponse(response => new URL(response.url()).pathname === "/api/workspace")
+  await page.goto("/workspace")
+  const workspace = await (await workspaceResponse).json()
+  workspace.source_health = {
+    generated_at: "2026-10-29T18:00:00Z",
+    overall_quality: "degraded",
+    counts: { total: 2, ok: 0, historical: 1, optional_degraded: 1, sla_breach: 0 },
+    domains: [{
+      domain: "alternative", label: "Alternative data", overall_quality: "degraded", counts: {},
+      sources: [
+        { id: "noaa", source_name: "alternative_noaa_cdo", display_name: "NOAA station history", status: "historical",
+          required: false, quality_state: "historical", as_of: "2026-10-03", fetched_at: "2026-10-25T17:00:00Z",
+          detail: "Historical query (2026-10-01 to 2026-10-03); this result does not monitor current data." },
+        { id: "rigs", source_name: "alternative_rig_count", display_name: "Baker Hughes weekly rig count", status: "degraded",
+          required: false, quality_state: "degraded", detail: "Provider unavailable (HTTP 403)" },
+      ],
+    }],
+  }
+  await page.route("**/api/workspace", route => route.fulfill({ json: workspace }))
+  await page.reload()
+  const panel = page.locator("section").filter({ has: page.getByText("Source health", { exact: true }) })
+  await expect(panel.getByText("1 historical", { exact: true })).toBeVisible()
+  await expect(panel.getByText("1 degraded", { exact: true })).toBeVisible()
+  await expect(panel.getByText(/SLA breach/)).toHaveCount(0)
+  await panel.getByRole("button", { name: /^Source health/ }).click()
+  await expect(panel.getByText("Historical", { exact: true })).toBeVisible()
+  await expect(panel.getByText(/this result does not monitor current data/)).toBeVisible()
+  await expect(panel.getByText("Provider unavailable (HTTP 403)", { exact: true })).toBeVisible()
+  await expect(panel.getByText(/Expected since/)).toHaveCount(0)
+  await panel.screenshot({ path: test.info().outputPath("historical-source-health.png") })
+})
+
 test("opens approval review from workspace approval_id deep link", async ({ page }) => {
   await authenticate(page)
   await page.goto("/workspace?approval_id=smoke-approval")

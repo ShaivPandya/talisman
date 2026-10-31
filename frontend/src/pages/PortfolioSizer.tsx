@@ -88,9 +88,10 @@ interface SizerRow {
   conviction: number
   groupName: string | null
   groupConviction: number | null
+  includedHoldings?: string | null
 }
 
-const SIZER_STATE_KEY = ["portfolio-sizer", "state", "equity-beta-v5"] as const
+const SIZER_STATE_KEY = ["portfolio-sizer", "state", "equity-beta-v6"] as const
 const DEFAULT_BOOK_SIZE = 100_000
 const DEFAULT_BETA_HEDGE_MODE: BetaHedgeMode = "spy_iwm"
 const DEFAULT_HEDGE_TICKERS = ["SPY", "IWM"]
@@ -119,6 +120,7 @@ const HEDGE_MODE_TO_TICKERS: Record<BetaHedgeMode, string[]> = {
 const ALWAYS_HIDDEN_COLUMNS = ["direction_intended", "days_since_new_low"] as const
 const BASIC_WEIGHT_COLUMN_ORDER = [
   "ticker",
+  "included_holdings",
   "asset",
   "price",
   "quantity",
@@ -161,6 +163,7 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
 const COLUMN_LABELS: Record<string, string> = {
   index: "#",
   ticker: "Ticker",
+  included_holdings: "Included Holdings",
   asset: "Asset",
   direction: "Direction",
   contrarian: "Contrarian",
@@ -186,6 +189,9 @@ const COLUMN_LABELS: Record<string, string> = {
   contracts: "Contracts",
   shares: "Quantity",
   type: "Type",
+  current_shares: "Current Quantity",
+  current_cost_basis: "Current Cost Basis",
+  delta_shares: "Quantity Delta",
 }
 const TICKER_SOURCE_KEYS = ["ticker", "Ticker", "symbol", "Symbol"] as const
 
@@ -340,6 +346,8 @@ function isIntegerColumn(key: string) {
   const normalized = key.toLowerCase()
   return (
     normalized === "shares" ||
+    normalized === "current_shares" ||
+    normalized === "delta_shares" ||
     normalized === "quantity" ||
     normalized === "target_quantity" ||
     normalized === "contracts" ||
@@ -355,6 +363,7 @@ function isCurrencyColumn(key: string) {
     normalized.includes("usd") ||
     normalized.includes("dollar") ||
     normalized.includes("notional") ||
+    normalized.includes("cost_basis") ||
     normalized.includes("amount") ||
     normalized.includes("value") ||
     normalized.includes("book")
@@ -403,7 +412,7 @@ function buildCols(rows: Record<string, unknown>[], hiddenKeys?: readonly string
       if (typeof v !== "number") return String(v ?? "N/A")
       if (k === "weight") return formatRatioPercent(v, true, 2)
       if (isPercentColumn(k)) return formatPercent(v)
-      if (k === "price") return priceFormatter.format(v)
+      if (k === "price" || k.includes("cost_basis")) return priceFormatter.format(v)
       if (isCurrencyColumn(k)) return currencyFormatter.format(v)
       if (isIntegerColumn(k)) return Math.round(v).toLocaleString("en-US")
       return `${v >= 0 ? "+" : ""}${numberFormatter.format(v)}`
@@ -518,6 +527,7 @@ function SizerRowView({ row, spine, groups, onConviction, onAssignGroup }: Sizer
 
         <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
           <span className="mono-text" style={{ fontWeight: 700, fontSize: "0.92rem" }}>{row.ticker}</span>
+          {row.includedHoldings && <span className="text-xs text-muted">Includes {row.includedHoldings}</span>}
         </div>
 
         <div><DirectionTag direction={row.direction} /></div>
@@ -704,9 +714,10 @@ export function PortfolioSizer() {
           conviction: typeof p?.conviction === "number" ? p.conviction : 3,
           groupName: normalizeGroupName(p?.group_name),
           groupConviction: normalizeGroupConviction(p?.group_conviction),
+          includedHoldings: p.included_holdings,
         }))
         .filter(p => p.ticker.length > 0)
-        .map(p => makeRow(p.ticker, p.direction, p.conviction, p.groupName, p.groupConviction))
+        .map(p => ({ ...makeRow(p.ticker, p.direction, p.conviction, p.groupName, p.groupConviction), includedHoldings: p.includedHoldings }))
       if (prefilled.length > 0) setRows(prefilled)
     }
   }, [prefill.data, hasCachedBookSize, hasCachedRows])
@@ -985,6 +996,7 @@ export function PortfolioSizer() {
 
     const deltaList: {
       ticker: string
+      includedHoldings: string | null
       type: string
       direction: string
       currentShares: number
@@ -1022,6 +1034,7 @@ export function PortfolioSizer() {
 
       deltaList.push({
         ticker,
+        includedHoldings: typeof row.included_holdings === "string" && row.included_holdings !== ticker ? row.included_holdings : null,
         type,
         direction,
         currentShares: Math.round(currentShares),
@@ -1306,6 +1319,12 @@ export function PortfolioSizer() {
                 />
               </div>
 
+              {weightsRows.some(row => row.included_holdings && row.included_holdings !== row.ticker) && (
+                <p className="text-sm text-muted">
+                  Leveraged ETFs are combined with their underlying at the shown exposure multiple. Quantities are underlying-equivalent shares, priced using the underlying stock.
+                </p>
+              )}
+
               {weightsRows.length > 0 && (
                 <DataTable
                   label="Portfolio Weights"
@@ -1488,6 +1507,9 @@ export function PortfolioSizer() {
                 <p className="mt-1 text-xs text-gray-500">
                   Analysis only. These deltas compare current quantity with computed target quantity; they are not executable orders.
                 </p>
+                {sizingDeltas.some(row => row.includedHoldings) && (
+                  <p className="mt-1 text-xs text-muted">For combined holdings, current, target, and delta are underlying-equivalent shares.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-4">
@@ -1524,7 +1546,10 @@ export function PortfolioSizer() {
 
                       return (
                         <tr key={t.ticker} className="border-b border-gray-50 last:border-0">
-                          <td className="px-3 py-2 font-mono font-medium text-gray-900">{t.ticker}</td>
+                          <td className="px-3 py-2 font-medium text-gray-900">
+                            <span className="font-mono">{t.ticker}</span>
+                            {t.includedHoldings && <span className="mt-1 block text-xs font-normal text-muted">Includes {t.includedHoldings}</span>}
+                          </td>
                           <td className="px-3 py-2 text-gray-500">{t.type}</td>
                           <td className="px-3 py-2 text-gray-500 capitalize">{t.direction}</td>
                           <td className="px-3 py-2 text-right font-mono text-gray-600">

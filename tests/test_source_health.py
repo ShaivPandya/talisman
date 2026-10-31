@@ -104,6 +104,85 @@ def test_alternative_health_keeps_real_staleness_even_after_a_recent_fetch():
     assert "2026-09-01" in source["detail"]
 
 
+def test_historical_research_queries_do_not_claim_current_provider_health():
+    now = datetime(2026, 10, 29, 14, 0, tzinfo=ZoneInfo("America/New_York"))
+    for provider, start, end, as_of in (
+        ("noaa_cdo", "2026-10-01", "2026-10-03", "2026-10-03"),
+        ("census", "2026-08-01", "2026-08-31", "2026-08-01"),
+    ):
+        record = replace(
+            _snapshot(f"alternative:latest:alternative_{provider}", fetched_at=now, as_of_date=as_of),
+            payload={"parameters": {"start_date": start, "end_date": end}},
+        )
+        health = build_workspace_source_health(now=now, snapshot_records=[record])
+        source = _sources(health)[record.snapshot_key]
+        assert source["status"] == "historical"
+        assert source["stale"] is False
+        assert source["sla_breach"] is False
+        assert source["gate_action"] == "inform"
+        assert source["expected_as_of_date"] is None
+        assert source["freshness"]["fresh"] is None
+        assert "does not monitor current data" in source["detail"]
+        assert health["counts"]["historical"] == 1
+        assert health["counts"]["optional_degraded"] == 0
+        assert (
+            next(domain for domain in health["domains"] if domain["domain"] == "alternative")["overall_quality"]
+            == "historical"
+        )
+
+        approval = build_approval_source_health_review({"source_dependencies": [record.snapshot_key]}, health)
+        assert any(issue["id"] == record.snapshot_key for issue in approval["blockers"])
+
+
+def test_current_query_still_becomes_stale_and_historical_failure_stays_visible():
+    now = datetime(2026, 10, 29, 14, 0, tzinfo=ZoneInfo("America/New_York"))
+    record = replace(
+        _snapshot("alternative:latest:alternative_noaa_cdo", fetched_at=now - timedelta(days=20)),
+        payload={"parameters": {"end_date": "2026-10-09"}, "fetched_at": "2026-10-09T18:00:00+00:00"},
+    )
+    health = build_workspace_source_health(now=now, snapshot_records=[record])
+    assert _sources(health)[record.snapshot_key]["status"] == "stale"
+    assert _sources(health)[record.snapshot_key]["sla_breach"] is True
+
+    record = replace(
+        record,
+        payload={"parameters": {"end_date": "2026-10-03"}},
+        status="error",
+        error="Provider denied access (HTTP 403)",
+    )
+    health = build_workspace_source_health(now=now, snapshot_records=[record])
+    assert _sources(health)[record.snapshot_key]["status"] == "degraded"
+    assert "HTTP 403" in _sources(health)[record.snapshot_key]["detail"]
+
+
+def test_dashboard_health_explains_missing_fields_and_degraded_dependencies():
+    now = datetime(2026, 10, 29, 14, 0, tzinfo=ZoneInfo("America/New_York"))
+    record = replace(
+        _snapshot("portfolio_risk_dashboard:current:v1", fetched_at=now),
+        payload={
+            "quality": "degraded",
+            "positions": [{"issues": ["missing_sector"]}] * 3,
+            "stress": {"degraded_modules": [{"module": "sentiment", "reason": "NAAIM requires subscription"}]},
+        },
+    )
+    health = build_workspace_source_health(now=now, snapshot_records=[record])
+    source = _sources(health)[record.snapshot_key]
+    assert source["status"] == "degraded"
+    assert "missing sector (3 holdings)" in source["detail"]
+    assert "sentiment: NAAIM requires subscription" in source["detail"]
+
+
+def test_partial_sentiment_snapshot_remains_degraded_without_a_storage_failure():
+    now = datetime(2026, 10, 29, 14, 0, tzinfo=ZoneInfo("America/New_York"))
+    record = replace(
+        _snapshot("sentiment:current:v1", fetched_at=now),
+        payload={"surveys": {"errors": {"naaim": "Current data requires subscription"}}},
+    )
+    source = _sources(build_workspace_source_health(now=now, snapshot_records=[record]))[record.snapshot_key]
+    assert source["status"] == "degraded"
+    assert source["detail"] == "naaim: Current data requires subscription"
+
+
 def test_sentiment_weekend_freshness_preserves_real_provider_errors():
     now = datetime(2026, 10, 18, 19, 0, tzinfo=ZoneInfo("America/New_York"))
     fetched = now - timedelta(days=2)

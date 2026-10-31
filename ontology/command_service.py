@@ -269,6 +269,7 @@ class OntologyCommandService:
         reason: str | None = None,
         entity_id: str | None = None,
         supersedes_approval_id: str | None = None,
+        reuse_existing: bool = False,
     ) -> dict[str, Any]:
         action_id = _non_blank(action_id, "action_id")
         payload_dict = dict(payload)
@@ -338,6 +339,10 @@ class OntologyCommandService:
                 }
             )
         approval_uid = approval_id(f"{entity_type}:{uid_hash}")
+        if reuse_existing and self.objects.get_object(approval_uid):
+            # Durable workflow retries must preserve recorded decisions rather
+            # than rewriting an identical, already resolved proposal as pending.
+            return self.get_approval(approval_uid, actor=context.actor)
         provenance_id = _provenance_id("approval", approval_uid, input_hash)
         ticker = _ticker_from_payload(payload_dict)
         target_uid, target_type = _target_for_action(action_id, payload_dict)
