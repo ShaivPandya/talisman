@@ -445,7 +445,7 @@ def verify_request_csrf(request: Request) -> bool:
 
 
 def is_machine_authenticated_request(request: Request) -> bool:
-    """True when scheduler or report-sync shared secrets authenticate the request."""
+    """True when scheduler, report-sync or news-digest-sync shared secrets authenticate the request."""
     import hmac
 
     scheduler_expected = (os.getenv("SCHEDULER_SECRET") or "").strip()
@@ -457,5 +457,10 @@ def is_machine_authenticated_request(request: Request) -> bool:
     if report_expected:
         provided = request.headers.get("x-report-sync-secret")
         if provided and hmac.compare_digest(provided, report_expected):
+            return True
+    digest_expected = (os.getenv("NEWS_DIGEST_SYNC_SECRET") or "").strip()
+    if digest_expected:
+        provided = request.headers.get("x-news-digest-sync-secret")
+        if provided and hmac.compare_digest(provided, digest_expected):
             return True
     return False

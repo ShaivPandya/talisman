@@ -503,6 +503,7 @@ from api.routers import (
     idea_scan,
     ideas,
     monitor_builder,
+    news_digest_sync,
     optimization,
     policy_gate,
     process_entities,
@@ -534,6 +535,7 @@ app.include_router(scenario_simulator.router, prefix=_API_PREFIX, dependencies=_
 app.include_router(workflow_runs.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["workflows"])
 app.include_router(admin_jobs.router, prefix=_API_PREFIX, tags=["admin"])
 app.include_router(report_sync.router, prefix=_API_PREFIX, tags=["reports"])
+app.include_router(news_digest_sync.router, prefix=_API_PREFIX, tags=["portfolio"])
 
 # Optional routers (gracefully degraded if import failed)
 for _name, (_router, _tag, _healthy) in _optional_routers.items():

@@ -134,19 +134,104 @@ def _strip_bullet(line: str) -> tuple[int, str] | None:
     return indent, match.group(2).strip()
 
 
+_MULTI_SIGNAL_RE = re.compile(r"`?\[MULTI-SIGNAL\]`?", flags=re.IGNORECASE)
+_BOLD_LEAD_RE = re.compile(r"^\*\*(.+?)\*\*")
+_SOURCE_RE = re.compile(r"\s[—–-]\s*\*?\((.+?)\)\*?(?=\s*(?:[—–-]|$))")
+_TRAILING_SOURCE_RE = re.compile(r"\s\*?\(([^()]+(?:\([^()]*\))?)\)\*?\s*$")
+_MARKDOWN_LINK_RE = re.compile(r"\[[^\]]*\]\((https?://[^)\s]+)\)")
+_RAW_URL_RE = re.compile(r"(?<![(\w])(https?://[^\s)>]+)")
+_CONFIDENCE_RE = re.compile(r"confidence:?\**\s*([01](?:\.\d+)?)", flags=re.IGNORECASE)
+_ALSO_RE = re.compile(r"\balso:\s*(.+)$", flags=re.IGNORECASE)
+_NUMBERED_RE = re.compile(r"^\s*(\d{1,2})[.)]\s+(.+?)\s*$")
+_TOP_SECTION_RE = re.compile(r"^top\s+\d+\b", flags=re.IGNORECASE)
+_IMPLICATIONS_SECTION_RE = re.compile(r"^second[- ]order", flags=re.IGNORECASE)
+
+
+def _plain_text(value: str) -> str:
+    text = _MULTI_SIGNAL_RE.sub("", value)
+    text = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", text)
+    text = text.replace("**", "").replace("`", "")
+    text = re.sub(r"(?<!\w)\*(?!\s)([^*]+?)\*(?!\w)", r"\1", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _headline_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", _plain_text(value).lower())
+
+
+def _split_headline(text: str) -> tuple[str, str]:
+    """Split a story line into its headline and the remainder after it."""
+    body = _MULTI_SIGNAL_RE.sub("", text).strip()
+    bold = _BOLD_LEAD_RE.match(body)
+    if bold:
+        return _plain_text(bold.group(1)), body[bold.end() :]
+    source = _SOURCE_RE.search(body) or _TRAILING_SOURCE_RE.search(body)
+    if source:
+        return _plain_text(body[: source.start()]), body[source.start() :]
+    return _plain_text(body), ""
+
+
+def _parse_story_line(text: str) -> dict[str, Any]:
+    headline, rest = _split_headline(text)
+    source_match = _SOURCE_RE.search(rest) or _TRAILING_SOURCE_RE.search(rest)
+    url_match = _MARKDOWN_LINK_RE.search(rest) or _RAW_URL_RE.search(rest)
+    return {
+        "headline": headline or _plain_text(text),
+        "source": source_match.group(1).strip() if source_match else None,
+        "url": url_match.group(1) if url_match else None,
+        "multi_signal": bool(_MULTI_SIGNAL_RE.search(text)),
+    }
+
+
+def _parse_meta_note(text: str) -> dict[str, Any] | None:
+    """Parse the tags/confidence line written under each story, if this is one."""
+    confidence = _CONFIDENCE_RE.search(text)
+    tag_chunks = re.findall(r"`([^`]+)`", text)
+    if not confidence or not tag_chunks:
+        return None
+    tags = [
+        tag.strip()
+        for chunk in tag_chunks
+        for tag in re.split(r"[,·]", chunk)
+        if re.fullmatch(r"[a-z][a-z0-9_]*", tag.strip())
+    ]
+    also = _ALSO_RE.search(text)
+    return {
+        "tags": list(dict.fromkeys(tags)),
+        "confidence": float(confidence.group(1)),
+        "also_sources": [item.strip() for item in also.group(1).split(",") if item.strip()] if also else [],
+    }
+
+
+def _implication_text(text: str) -> str:
+    _, rest = _split_headline(text)
+    if not rest:
+        return ""
+    return _plain_text(re.sub(r"^\s*[—–-]\s*", "", rest))
+
+
 def parse_digest_markdown(
     markdown: str,
     *,
     filename: str | None = None,
     uploaded_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """Parse digest markdown into stable metadata and story sections."""
+    """Parse digest markdown into stable metadata and story sections.
+
+    Story sections are ``##`` headings with one top-level bullet per story. A
+    "Top N" section ranks stories by headline, and a "Second-Order
+    Implications" section attaches an implication to each story by headline;
+    neither adds stories of its own.
+    """
     title = _extract_title(markdown, filename)
     generated = _extract_generated_date(markdown, filename, uploaded_at)
 
     sections: list[dict[str, Any]] = []
     current_section: dict[str, Any] | None = None
     current_story: dict[str, Any] | None = None
+    section_kind = "stories"
+    top_lines: list[tuple[int, str]] = []
+    implication_lines: list[tuple[str, list[str]]] = []
     story_index = 0
 
     def ensure_section() -> dict[str, Any]:
@@ -159,31 +244,95 @@ def parse_digest_markdown(
     for raw_line in markdown.replace("\r\n", "\n").split("\n"):
         h2 = re.match(r"^\s*##\s+(.+?)\s*#*\s*$", raw_line)
         if h2:
-            current_section = {"name": _safe_title(h2.group(1), fallback="Untitled Section"), "stories": []}
-            sections.append(current_section)
+            name = _safe_title(h2.group(1), fallback="Untitled Section")
             current_story = None
+            if _TOP_SECTION_RE.match(name):
+                section_kind = "top"
+            elif _IMPLICATIONS_SECTION_RE.match(name):
+                section_kind = "implications"
+            else:
+                section_kind = "stories"
+                current_section = {"name": name, "stories": []}
+                sections.append(current_section)
+            continue
+
+        if section_kind == "top":
+            numbered = _NUMBERED_RE.match(raw_line)
+            if numbered:
+                top_lines.append((int(numbered.group(1)), numbered.group(2)))
             continue
 
         bullet = _strip_bullet(raw_line)
         if bullet is None:
             continue
-
         indent, text = bullet
+
+        if section_kind == "implications":
+            if indent <= 1:
+                implication_lines.append((text, []))
+            elif implication_lines:
+                implication_lines[-1][1].append(text)
+            continue
+
         if indent <= 1:
             section = ensure_section()
             story_index += 1
             current_story = {
                 "id": f"story-{story_index}",
                 "section": section["name"],
-                "headline": text,
+                **_parse_story_line(text),
+                "tags": [],
+                "confidence": None,
+                "also_sources": [],
                 "notes": [],
+                "top_rank": None,
+                "implication": None,
             }
             section["stories"].append(current_story)
         elif current_story is not None:
-            current_story["notes"].append(text)
+            meta = _parse_meta_note(text) if current_story["confidence"] is None else None
+            if meta:
+                current_story.update(meta)
+            else:
+                current_story["notes"].append(_plain_text(text))
 
     sections = [section for section in sections if section.get("stories")]
     stories = [story for section in sections for story in section.get("stories", [])]
+
+    by_key: dict[str, dict[str, Any]] = {}
+    for story in stories:
+        by_key.setdefault(_headline_key(story["headline"]), story)
+
+    def find_story(text: str) -> dict[str, Any] | None:
+        headline, _ = _split_headline(text)
+        key = _headline_key(headline)
+        if not key:
+            return None
+        if key in by_key:
+            return by_key[key]
+        prefix = key[:60]
+        matches = [story for story_key, story in by_key.items() if story_key.startswith(prefix)]
+        return matches[0] if len(matches) == 1 else None
+
+    top_stories: list[dict[str, Any]] = []
+    for rank, text in top_lines:
+        story = find_story(text)
+        if story is not None and story["top_rank"] is None:
+            story["top_rank"] = rank
+        top_stories.append(
+            {
+                "rank": rank,
+                "headline": story["headline"] if story else _split_headline(text)[0],
+                "story_id": story["id"] if story else None,
+                "source": story["source"] if story else None,
+            }
+        )
+
+    for text, sub_notes in implication_lines:
+        story = find_story(text)
+        implication = _implication_text(text) or _plain_text(" ".join(sub_notes))
+        if story is not None and implication:
+            story["implication"] = implication
 
     return {
         "title": title,
@@ -191,8 +340,10 @@ def parse_digest_markdown(
         "generated_date": generated.isoformat(),
         "sections": sections,
         "stories": stories,
+        "top_stories": top_stories,
         "story_count": len(stories),
         "section_count": len(sections),
+        "multi_signal_count": sum(1 for story in stories if story["multi_signal"]),
     }
 
 
@@ -266,6 +417,7 @@ def _summary_from_parsed(
         "content_hash": content_hash,
         "story_count": parsed["story_count"],
         "section_count": parsed["section_count"],
+        "multi_signal_count": parsed["multi_signal_count"],
         "sections": [
             {"name": section["name"], "story_count": len(section.get("stories", []))}
             for section in parsed.get("sections", [])
@@ -334,6 +486,32 @@ def save_digest(markdown: str, *, filename: str | None = None) -> dict[str, Any]
     _write_manifest(manifest)
 
     return {**summary, "content": markdown, "parsed": parsed}
+
+
+def list_digest_summaries() -> list[dict[str, Any]]:
+    """Return stored digest summaries, newest first, without reading digest files."""
+    return _sort_summaries(
+        [
+            item
+            for item in _load_manifest().get("digests", [])
+            if isinstance(item, dict) and _is_manifest_digest_id(str(item.get("id") or ""))
+        ]
+    )
+
+
+def find_existing_digest(markdown: str, *, filename: str | None = None) -> dict[str, Any] | None:
+    """Return the stored summary an upload of this exact markdown would duplicate, if any."""
+    parsed = parse_digest_markdown(markdown, filename=filename)
+    digest_id = _digest_id(parsed["generated_date"], parsed["slug"])
+    content_hash = hashlib.sha256(markdown.encode("utf-8")).hexdigest()
+    return next(
+        (
+            item
+            for item in _load_manifest().get("digests", [])
+            if isinstance(item, dict) and item.get("id") == digest_id and item.get("content_hash") == content_hash
+        ),
+        None,
+    )
 
 
 def _read_digest_content(digest_id: str) -> str:
@@ -424,6 +602,17 @@ def _truncate(text: str, max_chars: int) -> str:
     return value[: max_chars - 1].rstrip() + "..."
 
 
+def _story_priority(story: dict[str, Any]) -> tuple[int, int, int, float]:
+    rank = story.get("top_rank")
+    confidence = story.get("confidence")
+    return (
+        0 if rank is not None else 1,
+        int(rank or 0),
+        0 if story.get("multi_signal") else 1,
+        -float(confidence if confidence is not None else 0.0),
+    )
+
+
 def get_report_context(
     *,
     days: int,
@@ -470,23 +659,37 @@ def get_report_context(
             continue
 
         parsed = detail.get("parsed", {})
+        # Share the story budget across the remaining digests, and within each
+        # digest keep the Top N, then multi-signal, then highest-confidence stories.
+        digests_left = len(selected) - selected.index(summary)
+        budget = min(remaining, -(-remaining // digests_left))
+        ranked = sorted(
+            (story for section in parsed.get("sections", []) for story in section.get("stories", [])),
+            key=_story_priority,
+        )
+        kept = {id(story) for story in ranked[:budget]}
         sections_payload: list[dict[str, Any]] = []
         for section in parsed.get("sections", []):
-            if remaining <= 0:
-                break
             stories_payload: list[dict[str, Any]] = []
             for story in section.get("stories", []):
-                if remaining <= 0:
-                    break
-                stories_payload.append(
-                    {
-                        "headline": _truncate(str(story.get("headline") or ""), max_text_chars),
-                        "notes": [
-                            _truncate(str(note), max_text_chars)
-                            for note in (story.get("notes") or [])[:notes_per_story]
-                        ],
-                    }
-                )
+                if id(story) not in kept:
+                    continue
+                payload: dict[str, Any] = {
+                    "headline": _truncate(str(story.get("headline") or ""), max_text_chars),
+                    "notes": [
+                        _truncate(str(note), max_text_chars) for note in (story.get("notes") or [])[:notes_per_story]
+                    ],
+                }
+                for key in ("source", "confidence", "top_rank"):
+                    if story.get(key) is not None:
+                        payload[key] = story[key]
+                if story.get("multi_signal"):
+                    payload["multi_signal"] = True
+                if story.get("tags"):
+                    payload["tags"] = story["tags"]
+                if story.get("implication"):
+                    payload["implication"] = _truncate(str(story["implication"]), max_text_chars)
+                stories_payload.append(payload)
                 remaining -= 1
                 included_stories += 1
             if stories_payload:
