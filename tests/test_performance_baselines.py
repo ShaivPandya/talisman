@@ -203,6 +203,44 @@ def test_timing_cursor_measures_success_and_failure_without_sql(monkeypatch):
         timing_cursor_class.cache_clear()
 
 
+def test_slow_statements_report_caller_without_sql(monkeypatch, caplog):
+    import psycopg
+
+    from api.performance_postgres import timing_cursor_class
+
+    class Cursor:
+        def execute(self, sql, params=None):
+            return self
+
+        def executemany(self, sql, params):
+            return self
+
+    timing_cursor_class.cache_clear()
+    monkeypatch.setattr(psycopg, "Cursor", Cursor)
+    try:
+        cursor = timing_cursor_class()()
+        monkeypatch.setenv("DB_SLOW_STATEMENT_MS", "1000000")
+        cursor.execute("select private_column from secrets where id = %s", ("secret",))
+        assert observations(caplog, "db_slow_statement") == []
+
+        monkeypatch.setenv("DB_SLOW_STATEMENT_MS", "0")
+        cursor.execute("  select private_column from secrets where id = %s", ("secret",))
+        cursor.executemany("insert into secrets values (%s)", [("secret",)])
+    finally:
+        timing_cursor_class.cache_clear()
+
+    single, batch = observations(caplog, "db_slow_statement")
+    assert single["statement_kind"] == "SELECT"
+    assert single["caller"].startswith("tests/test_performance_baselines.py:")
+    assert single["caller"].endswith(" test_slow_statements_report_caller_without_sql")
+    assert single["batch"] is False and batch["batch"] is True
+    assert batch["statement_kind"] == "INSERT"
+    assert len(single["statement_hash"]) == 12 and single["statement_hash"] != batch["statement_hash"]
+    logged = json.dumps([record.performance for record in caplog.records if hasattr(record, "performance")])
+    assert "private_column" not in logged
+    assert "secret" not in logged
+
+
 def test_direct_and_pooled_connections_install_timing_cursor(monkeypatch):
     import psycopg
     import psycopg_pool
