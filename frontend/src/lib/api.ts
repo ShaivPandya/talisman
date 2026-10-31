@@ -2203,9 +2203,24 @@ export interface NewsDigestStory {
   section: string
   headline: string
   notes: string[]
+  source?: string | null
+  url?: string | null
+  multi_signal?: boolean
+  tags?: string[]
+  confidence?: number | null
+  also_sources?: string[]
+  top_rank?: number | null
+  implication?: string | null
   digest_id?: string
   digest_title?: string
   generated_date?: string
+}
+
+export interface NewsDigestTopStory {
+  rank: number
+  headline: string
+  story_id: string | null
+  source: string | null
 }
 
 export interface NewsDigestSummary {
@@ -2219,6 +2234,7 @@ export interface NewsDigestSummary {
   content_hash: string
   story_count: number
   section_count: number
+  multi_signal_count?: number
   sections: Array<{ name: string; story_count: number }>
 }
 
@@ -2238,6 +2254,8 @@ export interface NewsDigestDetail extends NewsDigestSummary {
     section_count: number
     sections: Array<{ name: string; stories: NewsDigestStory[] }>
     stories: NewsDigestStory[]
+    top_stories?: NewsDigestTopStory[]
+    multi_signal_count?: number
   }
 }
 

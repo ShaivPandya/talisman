@@ -19,6 +19,7 @@ REVIEWED_SAFE_CALLS = {
     "portfolio_edit.py": {"_is_ibkr_flex_xml_upload"},
     "economic_growth.py": {"_is_excel_upload"},
     "portfolio_news.py": {"_is_markdown_upload"},
+    "news_digest_sync.py": {"require_news_digest_sync_secret", "_is_markdown_upload"},
 }
 
 

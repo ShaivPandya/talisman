@@ -40,8 +40,11 @@ function matchText(story: NewsDigestStory, query: string) {
     const haystack = [
         story.headline,
         story.section,
+        story.source,
         story.digest_title,
         story.generated_date,
+        story.implication,
+        ...(story.tags ?? []),
         ...(story.notes ?? []),
     ]
         .filter(Boolean)
@@ -276,6 +279,9 @@ export function PortfolioNews() {
                                                                 {formatDate(digest.generated_date)}
                                                             </span>
                                                             <span>{digest.story_count} stories</span>
+                                                            {Boolean(digest.multi_signal_count) && (
+                                                                <span className="text-negative">{digest.multi_signal_count} multi-signal</span>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
@@ -310,9 +316,16 @@ export function PortfolioNews() {
                                                     <div className="mt-1 text-sm font-medium leading-5 text-app">
                                                         {story.headline}
                                                     </div>
-                                                    {story.digest_title && (
-                                                        <div className="mt-1 text-xs text-subtle">{story.digest_title}</div>
-                                                    )}
+                                                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-subtle">
+                                                        {story.multi_signal && (
+                                                            <span className="font-semibold text-negative">Multi-signal</span>
+                                                        )}
+                                                        {story.source && <span>{story.source}</span>}
+                                                        {typeof story.confidence === "number" && (
+                                                            <span className="tabular-nums">{story.confidence.toFixed(2)}</span>
+                                                        )}
+                                                        {story.generated_date && <span>{formatDate(story.generated_date)}</span>}
+                                                    </div>
                                                 </button>
                                             ))}
                                         </div>
