@@ -8,6 +8,7 @@ from typing import Any
 
 from api import provenance
 from api.postgres import connect, retry_read, use_postgres_state
+from ontology.read_model_scope import flush_deferred_refresh
 from ontology.runtime_read_service import OntologyRuntimeReadService
 from ontology.schemas.relations import PROVENANCE_RELATION_TYPES
 
@@ -211,6 +212,8 @@ class ProvenanceGraphService:
             with self.connection_factory() if self.connection_factory is not None else connect(read_only=True) as conn:
                 rows = conn.execute(sql, tuple(params)).fetchall()
             return rows
+
+        flush_deferred_refresh()
 
         rows = retry_read(_read)
         return [dict(row) for row in rows]

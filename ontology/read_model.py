@@ -7,7 +7,9 @@ from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 
+from api.performance import emit
 from api.postgres import connect, retry_read
+from ontology.read_model_scope import current_deferred_refresh, flush_deferred_refresh
 
 ConnectionFactory = Callable[[], Any]
 
@@ -27,17 +29,34 @@ class TemporalReadModelRepository:
 
     @contextmanager
     def _connect(self, *, read_only: bool = False) -> Iterator[Any]:
+        if read_only:
+            flush_deferred_refresh()
         factory = self._connection_factory
         with factory() if factory is not None else connect(read_only=read_only) as conn:
             yield conn
 
     def refresh(self) -> None:
-        """Refresh the current temporal read models after ontology object/relation writes."""
+        """Bring the read models up to date after ontology writes.
+
+        Inside an HTTP request this is deferred to one refresh per request
+        (see ``ontology.read_model_scope``); elsewhere it runs immediately.
+        """
+        deferred = current_deferred_refresh()
+        if deferred is not None:
+            deferred.request(self._refresh_changed)
+            return
+        self._refresh_changed()
+
+    def _refresh_changed(self) -> None:
+        # Rebuilds only the read models whose source rows changed since their last refresh.
         with self._connect() as conn:
-            conn.execute("SELECT refresh_ontology_temporal_read_models()")
+            rows = conn.execute("SELECT * FROM refresh_changed_ontology_read_models()").fetchall()
             commit = getattr(conn, "commit", None)
             if callable(commit):
                 commit()
+        for row in rows or []:
+            view, duration_ms = (row["refreshed_view"], row["refresh_ms"]) if isinstance(row, Mapping) else row
+            emit("read_model_refresh", view=str(view), duration_ms=float(duration_ms))
 
     def fetch_ideas_list(
         self, *, status: str | None = None, include_archived: bool = False, limit: int = 200
