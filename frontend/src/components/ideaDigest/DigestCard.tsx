@@ -3,7 +3,7 @@ import { ArrowDownRight, ArrowUpRight, ExternalLink, Lightbulb, MessageCircle, X
 
 import { StatusBadge, type StatusTone } from "@/components/shared/StatusBadge"
 import type { IdeaScanCandidate } from "@/lib/api"
-import { formatPct, formatSigned } from "@/lib/ideaDigest"
+import { formatPct, formatSigned, momentumLines } from "@/lib/ideaDigest"
 import { cn } from "@/lib/utils"
 
 const REVIEW_STATUS: Record<IdeaScanCandidate["review_status"], { label: string; tone: StatusTone }> = {
@@ -79,9 +79,16 @@ export function DigestCard({ card, busy, onPromote, onDiscuss, onDismiss }: Dige
         </span>
         <span>Composite pct {percentile(card.factor_ranks?.composite_pct)}</span>
         <span>Quality {percentile(card.factor_ranks?.quality_pct)}</span>
-        <span>Price mom. {percentile(card.factor_ranks?.price_momentum_pct)}</span>
+        {!card.momentum && <span>Legacy price mom. percentile {percentile(card.factor_ranks?.price_momentum_pct)}</span>}
+        {card.momentum && <span>Momentum credit {card.momentum.credit * 100}%</span>}
       </div>
 
+      {card.momentum && (
+        <div className="mt-3 space-y-1 text-xs text-muted" aria-label="Momentum signals">
+          {momentumLines(card.momentum, card.direction).map(line => <p key={line}>{line}</p>)}
+          <p className="text-subtle">{card.momentum.lookback_sessions} trading sessions · {card.momentum.start_date} – {card.momentum.end_date}</p>
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap gap-1.5">
         {card.presets.map(preset => (
           <span key={preset.id} className="rounded-full bg-card-muted px-2 py-0.5 text-xs font-medium text-app">

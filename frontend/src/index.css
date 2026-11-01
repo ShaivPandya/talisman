@@ -1145,3 +1145,8 @@
     grid-template-columns: minmax(0, 1fr) !important;
   }
 }
+
+/* User messages keep white lettering on the accent bubble in dark mode. */
+:root[data-theme="dark"] .agent-user-bubble {
+  color: #fff;
+}

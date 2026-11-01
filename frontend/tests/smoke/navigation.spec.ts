@@ -218,3 +218,42 @@ test("legacy screener paths redirect to screeners", async ({ page }) => {
   await expect(page).toHaveURL(/\/screeners$/)
   await expect(page.getByRole("heading", { name: "Screeners" })).toBeVisible()
 })
+
+
+for (const route of ["/chart", "/explore/NVDA"]) {
+  test(`${route} shows the price change for the selected range`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-11-01T12:00:00Z"))
+    await mockCompanyExplorer(page)
+    await page.route("**/api/chart", async request => {
+      const { lookback } = request.request().postDataJSON()
+      const rows = [
+        { Date: "2025-01-02", Close: 100 },
+        { Date: "2026-08-03", Close: 150 },
+        { Date: "2026-10-29", Close: null },
+        { Date: "2026-10-30", Close: 120 },
+      ]
+      await request.fulfill({ json: { ticker: "NVDA", name: "NVIDIA Corporation", price_data: lookback === "3M" ? rows.slice(1) : rows } })
+    })
+    await authenticate(page)
+    await page.goto(route)
+    if (route === "/chart") {
+      await page.getByLabel("Ticker", { exact: true }).fill("NVDA")
+      await page.getByRole("button", { name: "Analyze", exact: true }).click()
+    }
+    await expect(page.getByTestId("price-range-change")).toHaveText("2Y change: +20.00%")
+    await page.getByRole("button", { name: "3M", exact: true }).click()
+    await expect(page.getByTestId("price-range-change")).toHaveText("3M change: -20.00%")
+    await expect(page.getByTestId("price-range-change")).toHaveAttribute("title", /2026-08-03 to 2026-10-30/)
+    await page.screenshot({ path: test.info().outputPath("range-change.png"), fullPage: true })
+  })
+}
+
+test("company explorer shows unavailable change for one valid price", async ({ page }) => {
+  await mockCompanyExplorer(page)
+  await page.route("**/api/chart", request => request.fulfill({ json: { ticker: "NVDA", price_data: [
+    { Date: "2026-10-29", Close: null }, { Date: "2026-10-30", Close: 120 },
+  ] } }))
+  await authenticate(page)
+  await page.goto("/explore/NVDA")
+  await expect(page.getByTestId("price-range-change")).toHaveText("2Y change: N/A")
+})

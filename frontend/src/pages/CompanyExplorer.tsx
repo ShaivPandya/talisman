@@ -1,3 +1,4 @@
+import { PriceRangeChange } from "@/components/shared/PriceRangeChange"
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { Link, useNavigate, useParams } from "react-router-dom"
 import { useQuery } from "@tanstack/react-query"
@@ -142,7 +143,10 @@ function PriceChart({ ticker, lookback }: { ticker: string; lookback: Lookback }
 
   return (
     <SurfaceCard className="min-w-0 p-4 sm:p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-wide text-app">Price</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-app">Price</h2>
+        {!chartQuery.isLoading && !chartQuery.error && <PriceRangeChange rows={points} lookback={lookback} />}
+      </div>
       {chartQuery.isLoading && <LoadingSpinner message="Loading price chart..." />}
       {chartQuery.error && (
         <p className="mt-3 text-sm text-red-500">Price chart unavailable: {errorMessage(chartQuery.error)}</p>

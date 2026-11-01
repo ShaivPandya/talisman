@@ -215,7 +215,7 @@ def enqueue_weekly_idea_scan(_sub: str = Depends(require_scheduler_or_job_admin)
     row, _disposition = enqueue_registered_job(
         "weekly_idea_scan",
         {"source": "scheduler"},
-        cache_key="maintenance:weekly_idea_scan:v1",
+        cache_key="maintenance:weekly_idea_scan:v2",
         reuse_completed=False,
     )
     return enqueue_response(row, "/api/admin/jobs/{job_id}")

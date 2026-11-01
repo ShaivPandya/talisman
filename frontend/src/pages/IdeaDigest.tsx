@@ -516,6 +516,9 @@ export function IdeaDigest() {
         </Notice>
       )}
       {actionError && <Notice tone="error">{actionError}</Notice>}
+      {run?.status === "completed" && run.momentum_version !== 2 && <Notice tone="info">Historical digest: momentum uses the previous percentile method. Run a new scan to use absolute and benchmark-relative signals.</Notice>}
+      {run?.warnings?.map(warning => <Notice key={warning} tone="warning">{warning}</Notice>)}
+      {run?.presets?.filter(p => p.skipped_reason).map(p => <Notice key={p.id} tone="warning">{p.name}: {p.skipped_reason}</Notice>)}
 
       {runsQuery.isLoading && <LoadingSpinner message="Loading idea scans…" />}
       {runsQuery.error && <ErrorMessage message={(runsQuery.error as Error).message} />}

@@ -2,7 +2,7 @@ import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import { Dialog } from "@/components/shared/Dialog"
-import { TextInput, Toggle } from "@/components/shared/FormControls"
+import { SelectInput, TextInput, Toggle } from "@/components/shared/FormControls"
 import { Notice } from "@/components/shared/Notice"
 import {
   resetIdeaScanSettings,
@@ -26,7 +26,7 @@ const SCREEN_LABELS: Record<IdeaScanPreset["screen"], string> = {
   quality_value: "Quality + valuation",
   value_momentum: "Value + momentum + quality",
   composite_top: "Composite ranker, top",
-  breakdown: "Price momentum + revisions, bottom",
+  breakdown: "Negative momentum + revisions",
   liquid_covered: "Liquidity + analyst coverage",
   percentile_rules: "Percentile rules within its universes",
 }
@@ -94,6 +94,20 @@ export function PresetSettingsDialog({ open, onOpenChange, settings }: PresetSet
         presets: current.settings.presets.map(p => (p.id === id ? { ...p, ...change } : p)),
       },
     }))
+  }
+
+  function chooseMomentum(preset: IdeaScanPreset, requirement: string) {
+    try {
+      const advanced = JSON.parse(draft.advanced[preset.id] ?? "{}") as Partial<IdeaScanPreset>
+      advanced.params = { ...(advanced.params ?? preset.params), momentum_requirement: requirement }
+      setDraft(current => ({
+        settings: { ...current.settings, presets: current.settings.presets.map(p => p.id === preset.id ? { ...p, params: advanced.params!, legacy_momentum_params: null } : p) },
+        advanced: { ...current.advanced, [preset.id]: JSON.stringify(advanced, null, 2) },
+      }))
+      setJsonError(null)
+    } catch {
+      setJsonError(`Fix the JSON for ${preset.name} before choosing its momentum condition.`)
+    }
   }
 
   function submit() {
@@ -208,6 +222,28 @@ export function PresetSettingsDialog({ open, onOpenChange, settings }: PresetSet
                       }
                     />
                   )}
+                </div>
+              )}
+              {(preset.params.momentum_requirement || preset.legacy_momentum_params) && (
+                <div className="mt-3 space-y-2">
+                  <SelectInput
+                    id={`preset-momentum-${preset.id}`}
+                    label="Momentum condition"
+                    value={String(preset.params.momentum_requirement ?? "either")}
+                    onChange={value => chooseMomentum(preset, value)}
+                    options={[
+                      { value: "either", label: "Either absolute or relative" },
+                      { value: "both", label: "Both absolute and relative" },
+                      { value: "absolute", label: "Absolute only" },
+                      { value: "relative", label: "Relative only" },
+                    ]}
+                  />
+                  <p className="text-xs text-muted">Each passing signal earns half credit over 63 trading sessions. Larger moves earn no extra credit.</p>
+                  {preset.legacy_momentum_params && <>
+                    <Notice tone="warning">This preset is skipped until you replace its saved momentum percentile with a condition.</Notice>
+                    <details><summary className="text-xs text-muted cursor-pointer">Original parameters</summary><pre className="overflow-auto text-xs">{JSON.stringify(preset.legacy_momentum_params, null, 2)}</pre></details>
+                    <button type="button" className="theme-button-base theme-button-secondary px-3" onClick={() => chooseMomentum(preset, String(preset.params.momentum_requirement ?? "either"))}>Use this momentum condition</button>
+                  </>}
                 </div>
               )}
               <fieldset className="mt-3">

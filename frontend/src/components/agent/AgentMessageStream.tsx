@@ -64,7 +64,7 @@ export function AgentMessageStream({
 
   return (
     <div className="relative min-h-0 flex-1">
-      <div ref={scrollContainerRef} onScroll={onScroll} className="h-full overflow-y-auto bg-app px-4 py-4">
+      <div ref={scrollContainerRef} onScroll={onScroll} className="h-full overflow-y-auto bg-app px-3 py-4">
         {isEmpty ? (
           <div className="flex min-h-full flex-col items-center justify-center text-center">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-app bg-card text-link shadow-sm">
@@ -88,7 +88,7 @@ export function AgentMessageStream({
             </div>
           </div>
         ) : (
-          <div className="mx-auto flex w-full max-w-[54rem] flex-col">
+          <div className="mx-auto flex w-full max-w-[58rem] flex-col">
             {messages.map((message, index) => {
               const version = messageVersions?.get(message.id)
               return (

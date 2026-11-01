@@ -26,10 +26,11 @@ import pandas as pd
 
 from api import state_storage
 from paths import PROJECT_ROOT
+from utils.market_freshness import expected_market_date
 
 LOGGER = logging.getLogger(__name__)
 
-# The S&P index ETFs are each universe's relative-momentum benchmark; SPY also anchors beta and the ranker.
+# Each universe uses its index ETF for relative momentum; SPY anchors beta only.
 UNIVERSE_BENCHMARKS = {"sp500": "SPY", "sp400": "MDY", "sp600": "IJR", "russell2000": "IWM"}
 MARKET_BENCHMARK = "SPY"
 PRICE_PERIOD = "3y"
@@ -489,6 +490,14 @@ def fetch_dataset(
     price_deadline = min(deadline, started + PRICE_DEADLINE_S)
     prices = _read_prices(key) if resume else None
     price_failed: list[str] = []
+    market_date = expected_market_date(now).isoformat()
+    # A late retry can append a current ETF bar to otherwise stale stock data. The
+    # frame's maximum date alone therefore cannot establish checkpoint freshness.
+    prices_market_date = manifest.get("prices_market_date")
+    if not prices_market_date and manifest.get("started_at"):
+        prices_market_date = expected_market_date(datetime.fromisoformat(manifest["started_at"])).isoformat()
+    if prices is not None and (prices.empty or prices_market_date != market_date):
+        prices = None
     if prices is not None:
         missing = [s for s in _price_symbols(tickers) if s not in prices.columns]
         if missing:
@@ -505,6 +514,8 @@ def fetch_dataset(
         if not prices.empty:
             try:
                 _write_prices(key, prices)
+                manifest["prices_market_date"] = market_date
+                _write_gz(key, "manifest.json.gz", json.dumps(manifest))
             except Exception:
                 LOGGER.warning("Idea scan price checkpoint write failed", exc_info=True)
         if progress:

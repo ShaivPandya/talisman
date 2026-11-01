@@ -4122,7 +4122,27 @@ export interface IdeaScanReview {
   }
 }
 
+export interface IdeaScanMomentumSignal {
+  state: "positive" | "negative" | "flat" | "unavailable"
+  passes: boolean | null
+  value: number | null
+  reason: string | null
+}
+export interface IdeaScanMomentum {
+  version: number
+  lookback_sessions: number
+  start_date: string | null
+  end_date: string | null
+  benchmark: string | null
+  benchmark_return: number | null
+  absolute: IdeaScanMomentumSignal
+  relative: IdeaScanMomentumSignal
+  credit: number
+  coverage: number
+}
+
 export interface IdeaScanCandidate {
+  momentum?: IdeaScanMomentum
   ticker: string
   direction: IdeaScanDirection
   company: string
@@ -4180,6 +4200,8 @@ export interface IdeaScanCostEntry {
 }
 
 export interface IdeaScanRun {
+  momentum_version?: number
+  warnings?: string[]
   run_id: string
   week: string
   status: "running" | "completed" | "failed"
@@ -4196,7 +4218,7 @@ export interface IdeaScanRun {
   changes?: Record<"new" | "still" | "dropped", { ticker: string; direction: IdeaScanDirection; company: string | null }[]>
   compared_with_run_id?: string | null
   summary?: { text: string; origin: "llm" | "rule" }
-  presets?: { id: string; name: string; direction: IdeaScanDirection; evaluated: number; hits: number; kept: number; near_misses: number }[]
+  presets?: { id: string; name: string; direction: IdeaScanDirection; evaluated: number; hits: number; kept: number; near_misses: number; skipped_reason?: string | null }[]
   stats?: {
     universe?: number
     with_data?: number
@@ -4222,6 +4244,7 @@ export interface IdeaScanRun {
 }
 
 export interface IdeaScanPreset {
+  legacy_momentum_params?: Record<string, unknown> | null
   id: string
   name: string
   direction: IdeaScanDirection
@@ -4235,6 +4258,7 @@ export interface IdeaScanPreset {
 }
 
 export interface IdeaScanSettings {
+  momentum_version?: number
   presets: IdeaScanPreset[]
   known_defaults: string[]
   config: {
@@ -4275,6 +4299,7 @@ export const resetIdeaScanSettings = () =>
   client.post("/idea-scan/settings/reset").then(r => r.data as { settings: IdeaScanSettings })
 
 export interface IdeaScanScreenRow {
+  momentum?: IdeaScanMomentum
   ticker: string
   company: string | null
   sector: string | null

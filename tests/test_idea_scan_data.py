@@ -46,7 +46,7 @@ def test_prices_and_fundamentals_fetched_once_and_resumed(monkeypatch):
     monkeypatch.setattr(d, "fetch_prices", _fake_prices(price_calls))
     monkeypatch.setattr(d, "fetch_ticker_fundamentals", _fake_fundamentals(fundamental_calls, fail={"EEE"}))
     membership = {t: ["sp500"] for t in ["AAA", "BBB", "CCC", "DDD", "EEE"]}
-    now = datetime(2026, 10, 28, tzinfo=UTC)
+    now = datetime(2026, 10, 24, tzinfo=UTC)
 
     first = d.fetch_dataset(membership, workers=2, now=now)
     assert len(price_calls) == 1
@@ -178,7 +178,7 @@ def test_resume_refetches_missing_benchmarks(monkeypatch):
     monkeypatch.setattr(d, "fetch_prices", _fake_prices([], benchmarks=()))
     monkeypatch.setattr(d, "fetch_ticker_fundamentals", _fake_fundamentals([]))
     membership = {t: ["sp500"] for t in ["AAA", "BBB"]}
-    now = datetime(2026, 10, 28, tzinfo=UTC)
+    now = datetime(2026, 10, 24, tzinfo=UTC)
     first = d.fetch_dataset(membership, workers=1, now=now)
     assert "SPY" not in first.prices.columns
 
@@ -226,7 +226,7 @@ def test_resume_refetches_names_that_stayed_rate_limited(monkeypatch):
     monkeypatch.setattr(d, "fetch_prices", _fake_prices([]))
     monkeypatch.setattr(d, "fetch_ticker_fundamentals", _limited_then_ok(calls))
     membership = {t: ["sp500"] for t in ["AAA", "BBB", "CCC"]}
-    now = datetime(2026, 10, 28, tzinfo=UTC)
+    now = datetime(2026, 10, 24, tzinfo=UTC)
     first = d.fetch_dataset(membership, workers=1, now=now)
     assert "BBB" in first.failed
     second = d.fetch_dataset(membership, workers=1, now=now)
@@ -239,7 +239,7 @@ def test_deadline_stops_new_fetches(monkeypatch):
     monkeypatch.setattr(d, "fetch_prices", _fake_prices([]))
     monkeypatch.setattr(d, "fetch_ticker_fundamentals", _limited_then_ok(calls, limited=()))
     membership = {t: ["sp500"] for t in ["AAA", "BBB", "CCC", "DDD", "EEE"]}
-    now = datetime(2026, 10, 28, tzinfo=UTC)
+    now = datetime(2026, 10, 24, tzinfo=UTC)
     stopped = d.fetch_dataset(membership, workers=1, now=now, deadline_s=0)
     assert calls == []
     assert set(stopped.failed.values()) == {d.NOT_FETCHED}
@@ -263,3 +263,38 @@ def test_expired_crumb_is_retried(monkeypatch, sleeps):
     monkeypatch.setattr(d, "fetch_ticker_fundamentals", fetch)
     dataset = d.fetch_dataset({t: ["sp500"] for t in ["AAA", "BBB"]}, workers=1, now=datetime(2026, 10, 28, tzinfo=UTC))
     assert calls.count("BBB") == 2 and dataset.failed == {}
+
+
+def test_stale_price_checkpoint_refreshes_without_refetching_fundamentals(monkeypatch):
+    from datetime import date
+
+    price_calls, fundamental_calls = [], []
+    monkeypatch.setattr(d, "fetch_prices", _fake_prices(price_calls))
+    monkeypatch.setattr(d, "fetch_ticker_fundamentals", _fake_fundamentals(fundamental_calls))
+    monkeypatch.setattr(d, "expected_market_date", lambda now: date(2026, 10, 23))
+    now = datetime(2026, 10, 24, tzinfo=UTC)
+    d.fetch_dataset({"AAA": ["sp500"]}, now=now)
+    monkeypatch.setattr(d, "expected_market_date", lambda now: date(2026, 10, 26))
+    d.fetch_dataset({"AAA": ["sp500"]}, now=now)
+    assert price_calls == [["AAA"], ["AAA"]]
+    assert fundamental_calls == ["AAA"]
+
+
+def test_current_etf_retry_does_not_hide_a_stale_stock_checkpoint(monkeypatch):
+    import json
+
+    price_calls = []
+    now = datetime(2026, 10, 29, 12, tzinfo=UTC)
+    membership = {"AAA": ["sp500"]}
+    key = d.dataset_key(membership, now=now)
+    d._write_gz(key, "manifest.json.gz", json.dumps({"started_at": "2026-10-27T12:00:00+00:00", "tickers": 1}))
+    prices, _ = _fake_prices([])(["AAA"])
+    prices.loc[pd.Timestamp("2026-10-28"), "IWM"] = 150
+    d._write_prices(key, prices)
+    monkeypatch.setattr(d, "_fresh", lambda manifest: True)
+    monkeypatch.setattr(d, "fetch_prices", _fake_prices(price_calls))
+    monkeypatch.setattr(d, "fetch_ticker_fundamentals", _fake_fundamentals([]))
+    d.fetch_dataset(membership, now=now)
+    d.fetch_dataset(membership, now=now)
+    assert price_calls == [["AAA"]], "refresh old stocks once, then resume this session's checkpoint"
+    assert d._manifest(key)["prices_market_date"] == "2026-10-28"

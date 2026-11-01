@@ -11,6 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api.async_job_runner import enqueue_registered_job, enqueue_response, poll_registered_job
 from api.idea_scan import store
+from api.idea_scan.momentum import MOMENTUM_VERSION, compatible_frame, evidence_lines
 from api.idea_scan.presets import (
     IdeaScanPreset,
     IdeaScanSettings,
@@ -76,7 +77,7 @@ def start_idea_scan_run(body: ManualRunRequest | None = None):
     row, _disposition = enqueue_registered_job(
         "weekly_idea_scan",
         payload,
-        cache_key=f"idea_scan:manual:v1:{digest}",
+        cache_key=f"idea_scan:manual:v{MOMENTUM_VERSION}:{digest}",
         reuse_completed=False,
     )
     return enqueue_response(row, "/api/idea-scan/jobs/{job_id}")
@@ -114,6 +115,15 @@ def screen_idea_scan_preset(body: ScreenPresetRequest):
     frame = store.load_frame(str(run["run_id"])) if run else None
     if run is None or frame is None:
         raise HTTPException(status_code=409, detail="No weekly scan has saved its data yet. Run the idea scan first.")
+    if not compatible_frame(frame):
+        raise HTTPException(
+            status_code=409,
+            detail="The saved scan uses the previous momentum method. Run a new idea scan before screening these presets.",
+        )
+    if body.preset.legacy_momentum_params is not None:
+        raise HTTPException(
+            status_code=422, detail="Choose a momentum condition in Presets to replace the saved percentile cutoff."
+        )
     revisions = {str(t): float(v) for t, v in frame["revision_30d"].dropna().items()} if "revision_30d" in frame else {}
     preset = body.preset.model_copy(update={"max_names": body.limit})
     result = evaluate_preset(preset, frame, revisions=revisions, near_miss_limit=body.limit)
@@ -155,6 +165,8 @@ def card_notes(run: dict[str, Any], card: dict[str, Any]) -> str:
         f"Presets: {', '.join(p['name'] for p in card.get('presets') or [])}",
         f"Agreement score: {card.get('agreement_score', 0):.2f} (macro boost {card.get('macro_boost', 0):+.2f})",
     ]
+    if card.get("momentum"):
+        lines += ["", "Momentum:", *evidence_lines(card["momentum"], card["direction"])]
     signals = card.get("signals") or []
     if signals:
         lines += ["", "Signals:", *[f"- {s['label']}" for s in signals]]
