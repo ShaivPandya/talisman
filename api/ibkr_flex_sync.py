@@ -222,9 +222,21 @@ def sync_ibkr_flex(_payload=None) -> dict[str, Any]:
         raise RuntimeError(error) from None
 
 
-def ibkr_flex_status() -> dict[str, Any]:
+def ibkr_flex_status(*, actor=None) -> dict[str, Any]:
     record = read_snapshot(SNAPSHOT_KEY)
     payload = dict(record.payload or {}) if record else {}
+    proposal_ids = {row.get("approval_id") for row in payload.get("staged_proposals", [])}
+    pending_proposals = []
+    if proposal_ids:
+        from ontology.command_service import OntologyCommandService
+
+        pending_proposals = [
+            {"approval_id": row["id"], "action_id": row["action_id"]}
+            for row in OntologyCommandService().list_approvals(
+                status="pending", actor=actor or system_actor("ibkr_flex"), limit=1000
+            )
+            if row["id"] in proposal_ids
+        ]
     expected = previous_market_session(datetime.now(MARKET_TIMEZONE).date() - timedelta(days=1)).isoformat()
     report_date = _snapshot_report_date(record)
     stale = bool(record and (not report_date or report_date < expected))
@@ -241,4 +253,6 @@ def ibkr_flex_status() -> dict[str, Any]:
         "stale": stale,
         "error": record.error if record else None,
         "expected_as_of": expected,
+        "last_attempt_at": record.fetched_at if record else None,
+        "pending_proposals": pending_proposals,
     }

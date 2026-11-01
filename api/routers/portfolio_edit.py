@@ -236,10 +236,10 @@ def _import_ibkr_flex_positions(payload: bytes, *, filename: str | None, actor: 
 
 
 @router.get("/portfolio-positions/ibkr-flex-status")
-def get_ibkr_flex_status():
+def get_ibkr_flex_status(actor: ActorDep):
     from api.ibkr_flex_sync import ibkr_flex_status
 
-    return ibkr_flex_status()
+    return ibkr_flex_status(actor=actor)
 
 
 def _flatten_object(row: dict) -> dict:
