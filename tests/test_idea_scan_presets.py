@@ -133,3 +133,66 @@ def test_new_default_presets_are_merged_into_saved_settings():
     loaded.presets = [x for x in loaded.presets if x.id != "short-breaking-down"]
     p.set_idea_scan_settings(loaded)
     assert "short-breaking-down" not in {x.id for x in p.get_idea_scan_settings().presets}
+
+
+def test_legacy_defaults_migrate_without_losing_custom_settings():
+    from api.llm_settings import set_setting
+
+    old = p.default_settings().model_dump()
+    old.pop("momentum_version")
+    by_id = {x["id"]: x for x in old["presets"]}
+    vm = by_id["long-value-momentum-quality"]
+    vm["params"].pop("momentum_requirement")
+    vm["params"]["min_price_momentum_pct"] = 0.7
+    vm.update(name="My value screen", max_names=4, enabled=False)
+    vm["weights"]["quality"] = 0.8
+    bd = by_id["short-breaking-down"]["params"]
+    bd.pop("momentum_requirement")
+    bd["max_price_momentum_pct"] = 0.1
+    sm = by_id["short-small-weak-low-roic"]["params"]
+    sm.pop("momentum_requirement")
+    sm["rules"].insert(0, {"metric": "price_momentum", "max_pct": 0.4})
+    # Previously normalized percentile rules contained explicit null bounds.
+    sm["rules"][0]["min_pct"] = None
+    set_setting(p.IDEA_SCAN_SETTINGS_KEY, __import__("json").dumps(old))
+    loaded = p.get_idea_scan_settings()
+    assert loaded.momentum_version == 2
+    updated = {x.id: x for x in loaded.presets}
+    assert updated[vm["id"]].name == "My value screen"
+    assert updated[vm["id"]].max_names == 4 and not updated[vm["id"]].enabled
+    assert updated[vm["id"]].weights.quality == 0.8
+    for pid in (vm["id"], "short-breaking-down", "short-small-weak-low-roic"):
+        assert updated[pid].params["momentum_requirement"] == "either"
+        assert updated[pid].legacy_momentum_params is None
+
+
+def test_custom_legacy_cutoff_is_preserved_and_skipped_until_explicitly_resolved():
+    import pandas as pd
+
+    from api.idea_scan.screening import evaluate_preset
+
+    custom = p.IdeaScanPreset(
+        id="my-rule",
+        name="Custom",
+        direction="short",
+        screen="percentile_rules",
+        params={"rules": [{"metric": "price_momentum", "max_pct": 0.25}, {"metric": "roic", "max_pct": 0.4}]},
+    )
+    assert custom.legacy_momentum_params["rules"][0]["max_pct"] == 0.25
+    assert custom.params["rules"][0]["metric"] == "roic"
+    p.set_idea_scan_settings(p.IdeaScanSettings(presets=[custom]))
+    loaded = p.get_idea_scan_settings().presets[0]
+    assert loaded.legacy_momentum_params == custom.legacy_momentum_params
+    assert evaluate_preset(loaded, pd.DataFrame()).skipped_reason
+    resolved = loaded.model_dump()
+    resolved["legacy_momentum_params"] = None
+    resolved["params"]["momentum_requirement"] = "relative"
+    assert p.IdeaScanPreset.model_validate(resolved).legacy_momentum_params is None
+
+
+def test_old_relative_toggles_move_to_three_months():
+    preset = p.IdeaScanPreset(
+        id="long", name="Long", direction="long", screen="long_screen", params={"check_2m_pos_rel_momentum": True}
+    )
+    assert preset.params["check_3m_pos_rel_momentum"] is True
+    assert "check_2m_pos_rel_momentum" not in preset.params

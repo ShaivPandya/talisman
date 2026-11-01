@@ -17,6 +17,14 @@ import numpy as np
 import pandas as pd
 
 from api.idea_scan.data import MARKET_BENCHMARK, STATEMENTS, ScanDataset
+from api.idea_scan.momentum import (
+    MOMENTUM_VERSION,
+    MomentumRequirement,
+    calculate_momentum,
+    momentum_check,
+    momentum_credit,
+    momentum_evidence,
+)
 from api.idea_scan.presets import (
     PARAM_MODELS,
     RULE_METRIC_LABELS,
@@ -47,13 +55,10 @@ from portfolio.momentum.fundamental_momentum.eps_momentum_single import eps_metr
 from portfolio.momentum.fundamental_momentum.revenue_momentum_single import revenue_metrics_from_statements
 from portfolio.portfolio_optimizer.rank_universe import (
     DEFAULT_WEIGHTS,
-    combine_signals,
     compute_eps_momentum_scores,
-    compute_price_momentum_scores,
     compute_quality_scores,
     compute_revenue_momentum_scores,
 )
-from portfolio.portfolio_optimizer.signal_fetchers import fetch_price_momentum_batch
 
 # A +2 sector score at high confidence lifts a name by half a preset hit.
 MACRO_POINT_WEIGHT = 0.25
@@ -284,7 +289,6 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
             "return_52w": price_metrics.get("return_52w"),
             "drawdown_pct": price_metrics.get("drawdown_pct"),
             "return_3m": price_metrics.get("return_3m"),
-            "rel_return_2m": price_metrics.get("rel_return_2m"),
             "enterpriseToEbitda": _num(info.get("enterpriseToEbitda")),
             "forwardPE": _num(info.get("forwardPE")),
             "trailingPE": _num(info.get("trailingPE")),
@@ -297,9 +301,11 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
             "dollar_volume": _num(info.get("averageVolume")) * last_px,
             "analyst_count": _num(info.get("numberOfAnalystOpinions")),
             **capital_metrics(fundamentals),
+            **calculate_momentum(close, bench_close, bench, now=when),
         }
 
     frame = pd.DataFrame.from_dict(rows, orient="index")
+    frame.attrs["momentum_version"] = MOMENTUM_VERSION
     if frame.empty:
         return frame
     # Yahoo leaves the analyst count out for names nobody covers. Read that as zero, but only when the
@@ -307,17 +313,8 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
     if frame["analyst_count"].notna().any():
         uncovered = frame["analyst_count"].isna() & frame["market_cap"].notna()
         frame.loc[uncovered, "analyst_count"] = 0.0
-    tickers = list(frame.index)
-
-    momentum_prices = prices[[c for c in prices.columns if c in set(tickers) | {MARKET_BENCHMARK}]].tail(300)
-    momentum_raw = fetch_price_momentum_batch(
-        [t for t in tickers if t in momentum_prices.columns],
-        {t: MARKET_BENCHMARK for t in tickers},
-        momentum_prices,
-    )
     scores = {
         "quality": compute_quality_scores(pd.DataFrame.from_dict(quality_raw, orient="index"))[0],
-        "price_momentum": compute_price_momentum_scores(momentum_raw)[0],
         "eps_momentum": compute_eps_momentum_scores(pd.DataFrame.from_dict(eps_raw, orient="index"))[0],
         "revenue_momentum": compute_revenue_momentum_scores(pd.DataFrame.from_dict(revenue_raw, orient="index"))[0],
     }
@@ -327,25 +324,37 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
         frame[f"{name}_pct"] = aligned.rank(pct=True)
     frame["composite"] = composite_scores(frame, DEFAULT_WEIGHTS)
     frame["composite_pct"] = frame["composite"].rank(pct=True)
+    frame["short_composite_pct"] = composite_scores(frame, DEFAULT_WEIGHTS, direction="short").rank(pct=True)
     return frame
 
 
-def composite_scores(frame: pd.DataFrame, weights: dict[str, float]) -> pd.Series:
-    """rank_universe's weighted composite, re-normalised over the factors each ticker has.
-
-    Tickers whose factors carry less than ``MIN_COMPOSITE_COVERAGE`` of the weight get no
-    composite (NaN) and are left out of the ranking, so one strong factor can't top it.
-    """
-    signals = {name: frame[name] for name in FACTOR_COLUMNS if name in frame.columns}
-    active = {k: float(v) for k, v in weights.items() if k in signals and float(v) > 0}
-    if not active:
+def composite_scores(frame: pd.DataFrame, weights: dict[str, float], direction: str = "long") -> pd.Series:
+    """Directional composite with fixed momentum halves, preserving observed-weight coverage."""
+    numerator = pd.Series(0.0, index=frame.index)
+    denominator = numerator.copy()
+    observed = numerator.copy()
+    total_weight = sum(float(weights.get(k, 0)) for k in FACTOR_COLUMNS)
+    if total_weight <= 0:
         return pd.Series(np.nan, index=frame.index)
-    coverage = sum(signals[k].notna() * w for k, w in active.items()) / sum(active.values())
-    covered = list(frame.index[coverage >= MIN_COMPOSITE_COVERAGE])
-    if not covered:
-        return pd.Series(np.nan, index=frame.index)
-    combined = combine_signals({k: signals[k] for k in active}, active, covered)
-    return combined.reindex(frame.index).clip(-3.0, 3.0)
+    sign = 1 if direction == "long" else -1
+    for name in FACTOR_COLUMNS:
+        weight = float(weights.get(name, 0))
+        if weight <= 0:
+            continue
+        if name == "price_momentum":
+            credit, coverage = momentum_credit(frame, direction)
+            numerator += weight * credit
+            observed += weight * coverage
+            # Reserve both halves even when one is unknown; never promote half credit to full.
+            denominator += weight
+        else:
+            values = pd.to_numeric(frame.get(name, pd.Series(np.nan, index=frame.index)), errors="coerce")
+            values = values.where(np.isfinite(values))
+            numerator += weight * sign * values.fillna(0)
+            denominator += weight * values.notna()
+            observed += weight * values.notna()
+    score = numerator / denominator.replace(0, np.nan)
+    return score.where(observed / total_weight >= MIN_COMPOSITE_COVERAGE)
 
 
 # ---------------------------------------------------------------------------
@@ -367,6 +376,7 @@ class PresetResult:
     hits_total: int = 0
     hits: list[dict[str, Any]] = field(default_factory=list)
     near_misses: list[dict[str, Any]] = field(default_factory=list)
+    skipped_reason: str | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -377,6 +387,7 @@ class PresetResult:
             "hits": self.hits_total,
             "kept": len(self.hits),
             "near_misses": len(self.near_misses),
+            "skipped_reason": self.skipped_reason,
         }
 
 
@@ -391,7 +402,7 @@ def _fmt(value: Any, digits: int = 1, suffix: str = "") -> str:
 def _price_dict(row: pd.Series) -> dict[str, float | None]:
     return {
         key: (None if not _present(row.get(key)) else float(row[key]))
-        for key in ("return_52w", "drawdown_pct", "return_3m", "rel_return_2m")
+        for key in ("return_52w", "drawdown_pct", "return_3m")
     }
 
 
@@ -444,14 +455,22 @@ def _long_checks(row: pd.Series, p: LongScreenParams) -> list[Check]:
         checks.append(
             Check(f"Market cap / EBIT {_fmt(data.get('ebit_multiple'), 1)} (≤ {p.max_ebit_multiple:g})", ok, has)
         )
-    price = _price_dict(row)
-    for flag, label, key in (
-        ("check_52w_positive", "52-week return positive", "return_52w"),
-        ("check_3m_pos_momentum", "3-month return positive", "return_3m"),
-        ("check_2m_pos_rel_momentum", "Beating benchmark over 2 months", "rel_return_2m"),
-    ):
-        if getattr(p, flag):
-            checks.append(Check(label, long_price_filters_pass(price, **{flag: True}), price.get(key) is not None))
+    if p.check_52w_positive:
+        price = _price_dict(row)
+        checks.append(
+            Check(
+                "52-week return positive",
+                long_price_filters_pass(price, check_52w_positive=True),
+                price.get("return_52w") is not None,
+            )
+        )
+    momentum_checks: tuple[tuple[bool, MomentumRequirement], ...] = (
+        (p.check_3m_pos_momentum, "absolute"),
+        (p.check_3m_pos_rel_momentum, "relative"),
+    )
+    for enabled, requirement in momentum_checks:
+        if enabled:
+            checks.append(Check(*momentum_check(row, "long", requirement)))
     return checks
 
 
@@ -496,13 +515,13 @@ def _short_checks(row: pd.Series, p: ShortScreenParams) -> list[Check]:
     if p.require_dilution:
         net = row.get("net_issuance")
         checks.append(Check("Net share issuance (last fiscal year)", _present(net) and float(net) > 0, _present(net)))
-    price = _price_dict(row)
-    for flag, label, key in (
-        ("check_3m_neg_momentum", "3-month return negative", "return_3m"),
-        ("check_2m_neg_rel_momentum", "Lagging benchmark over 2 months", "rel_return_2m"),
-    ):
-        if getattr(p, flag):
-            checks.append(Check(label, short_price_filters_pass(price, **{flag: True}), price.get(key) is not None))
+    momentum_checks: tuple[tuple[bool, MomentumRequirement], ...] = (
+        (p.check_3m_neg_momentum, "absolute"),
+        (p.check_3m_neg_rel_momentum, "relative"),
+    )
+    for enabled, requirement in momentum_checks:
+        if enabled:
+            checks.append(Check(*momentum_check(row, "short", requirement)))
     return checks
 
 
@@ -637,14 +656,9 @@ def _quality_value_checks(row: pd.Series, p: QualityValueParams, valuation_pct: 
 
 
 def _value_momentum_checks(row: pd.Series, p: ValueMomentumParams, valuation_pct: float) -> list[Check]:
-    pm_pct = row.get("price_momentum_pct")
     return [
         *_quality_value_checks(row, p, valuation_pct),
-        Check(
-            f"Price momentum percentile {_fmt(pm_pct * 100 if _present(pm_pct) else None, 0)} (≥ {p.min_price_momentum_pct * 100:g})",
-            _present(pm_pct) and float(pm_pct) >= p.min_price_momentum_pct,
-            _present(pm_pct),
-        ),
+        Check(*momentum_check(row, "long", p.momentum_requirement)),
     ]
 
 
@@ -659,14 +673,7 @@ def _composite_checks(composite_pct: float, p: CompositeTopParams) -> list[Check
 
 
 def _breakdown_checks(row: pd.Series, p: BreakdownParams, revision: float | None) -> list[Check]:
-    pm_pct = row.get("price_momentum_pct")
-    checks = [
-        Check(
-            f"Price momentum percentile {_fmt(pm_pct * 100 if _present(pm_pct) else None, 0)} (≤ {p.max_price_momentum_pct * 100:g})",
-            _present(pm_pct) and float(pm_pct) <= p.max_price_momentum_pct,
-            _present(pm_pct),
-        )
-    ]
+    checks = [Check(*momentum_check(row, "short", p.momentum_requirement))]
     if p.require_negative_revisions:
         checks.append(
             Check(
@@ -679,18 +686,19 @@ def _breakdown_checks(row: pd.Series, p: BreakdownParams, revision: float | None
 
 
 def breakdown_revision_tickers(frame: pd.DataFrame, presets: list[IdeaScanPreset]) -> list[str]:
-    """Tickers whose EPS revisions a breakdown preset needs: those already in its price-momentum tail."""
+    """Fetch revisions only for names passing the directional momentum condition."""
     wanted: set[str] = set()
     for preset in presets:
-        if not preset.enabled or preset.screen != "breakdown":
+        if not preset.enabled or preset.legacy_momentum_params is not None or preset.screen != "breakdown":
             continue
         params = BreakdownParams.model_validate(preset.params)
         if not params.require_negative_revisions or frame.empty:
             continue
         in_universe = frame["universes"].apply(lambda u, keys=set(preset.universes): bool(keys & set(u)))
-        # A little past the cut-off so near-misses can show their revisions too.
-        tail = frame[in_universe & (frame["price_momentum_pct"] <= min(1.0, params.max_price_momentum_pct * 1.5))]
-        wanted.update(tail.index)
+        qualifying = frame.loc[in_universe].apply(
+            lambda row, requirement=params.momentum_requirement: momentum_check(row, "short", requirement)[1], axis=1
+        )
+        wanted.update(qualifying[qualifying.astype(bool)].index)
     return sorted(wanted)
 
 
@@ -706,7 +714,6 @@ def _row_card(row: pd.Series) -> dict[str, Any]:
         "return_52w",
         "drawdown_pct",
         "return_3m",
-        "rel_return_2m",
         "enterpriseToEbitda",
         "forwardPE",
         "trailingPE",
@@ -728,6 +735,9 @@ def evaluate_preset(
     near_miss_limit: int = 10,
 ) -> PresetResult:
     result = PresetResult(preset=preset)
+    if preset.legacy_momentum_params is not None:
+        result.skipped_reason = "Choose a momentum condition in Presets to replace the saved percentile cutoff."
+        return result
     if frame.empty or not preset.enabled:
         return result
     revisions = revisions or {}
@@ -737,7 +747,7 @@ def evaluate_preset(
     if scope.empty:
         return result
 
-    composite = composite_scores(frame, preset.weights.model_dump()).rank(pct=True)
+    composite = composite_scores(frame, preset.weights.model_dump(), direction=preset.direction).rank(pct=True)
     valuation_pct = (
         sector_valuation_pct(frame, PARAM_MODELS[preset.screen].model_validate(preset.params).valuation_metric)  # type: ignore[attr-defined]
         if preset.screen in {"quality_value", "value_momentum"}
@@ -781,6 +791,8 @@ def evaluate_preset(
         elif preset.screen == "percentile_rules":
             assert rule_params is not None
             checks = _percentile_rule_checks(row, rule_params, rule_ranks, ticker, _scope_label(preset.universes))
+            if rule_params.momentum_requirement:
+                checks.append(Check(*momentum_check(row, preset.direction, rule_params.momentum_requirement)))
         elif preset.screen == "liquid_covered":
             assert liquidity_ranks is not None
             checks = _liquid_covered_checks(
@@ -794,7 +806,7 @@ def evaluate_preset(
             assert liquidity_ranks is not None
             checks += _liquidity_coverage_checks(row, liquidity_filter, liquidity_ranks.loc[ticker])
         failed = [c for c in checks if not c.ok]
-        score = composite_pct if preset.direction == "long" else 1.0 - composite_pct
+        score = composite_pct
         entry = {
             "ticker": str(ticker),
             "preset_id": preset.id,
@@ -804,6 +816,7 @@ def evaluate_preset(
             "signals": [c.label for c in checks if c.ok],
             "failed": [c.label for c in failed],
             "revision_30d": revisions.get(str(ticker)),
+            "momentum": momentum_evidence(row, preset.direction),
         }
         if not failed:
             hits.append(entry)
@@ -813,8 +826,8 @@ def evaluate_preset(
     def by_score(item: dict[str, Any]) -> float:
         return item["preset_score"] if item["preset_score"] is not None else -1.0
 
-    hits.sort(key=by_score, reverse=True)
-    near.sort(key=by_score, reverse=True)
+    hits.sort(key=lambda item: (-by_score(item), item["ticker"]))
+    near.sort(key=lambda item: (-by_score(item), item["ticker"]))
     result.hits_total = len(hits)
     result.hits = hits[: preset.max_names]
     result.near_misses = near[:near_miss_limit]
@@ -856,7 +869,11 @@ def merge_candidates(results: list[PresetResult], frame: pd.DataFrame) -> list[d
             "macro_boost": 0.0,
             "final_score": agreement,
             "macro_fit": None,
-            "factor_ranks": {f"{name}_pct": row.get(f"{name}_pct") for name in (*FACTOR_COLUMNS, "composite")},
+            "factor_ranks": {
+                **{f"{name}_pct": row.get(f"{name}_pct") for name in FACTOR_COLUMNS if name != "price_momentum"},
+                "composite_pct": row.get("composite_pct" if direction == "long" else "short_composite_pct"),
+            },
+            "momentum": momentum_evidence(row, direction),
             "metrics": _row_card(row),
             "revision_30d": next((h["revision_30d"] for h in entry["hits"] if h["revision_30d"] is not None), None),
             "days_to_earnings": row.get("days_to_earnings"),
@@ -958,6 +975,7 @@ def collect_near_misses(
                         "preset_name": miss["preset_name"],
                         "failed_check": miss["failed"][0] if miss["failed"] else None,
                         "signals": miss["signals"],
+                        "momentum": miss["momentum"],
                         "preset_score": miss["preset_score"],
                     }
                 )

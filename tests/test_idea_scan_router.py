@@ -141,7 +141,7 @@ def test_manual_run_enqueues_the_job(auth_client, monkeypatch):
     job_type, payload, kwargs = calls[0]
     assert job_type == "weekly_idea_scan"
     assert payload["source"] == "manual" and payload["tickers"] == ["AAPL"] and payload["max_reviews"] == 1
-    assert kwargs["reuse_completed"] is False and kwargs["cache_key"].startswith("idea_scan:manual:v1:")
+    assert kwargs["reuse_completed"] is False and kwargs["cache_key"].startswith("idea_scan:manual:v2:")
     assert auth_client.post("/api/idea-scan/runs", json={"source": "scheduler"}).status_code == 422
 
 
@@ -164,7 +164,7 @@ def test_scheduler_endpoint_needs_the_secret(client, monkeypatch):
         (
             "weekly_idea_scan",
             {"source": "scheduler"},
-            {"cache_key": "maintenance:weekly_idea_scan:v1", "reuse_completed": False},
+            {"cache_key": "maintenance:weekly_idea_scan:v2", "reuse_completed": False},
         )
     ]
 
@@ -205,3 +205,17 @@ def test_screen_runs_a_preset_on_the_latest_saved_frame(auth_client):
     other.update(params={"min_composite_pct": 0.0}, liquidity_coverage={"min_dollar_volume_industry_pct": 0.75})
     body = auth_client.post("/api/idea-scan/screen", json={"preset": other}).json()
     assert {h["ticker"] for h in body["hits"]} == {"S7", "S8", "S9", "TINY1"}
+
+
+def test_screen_rejects_legacy_frames_without_rewriting_the_run(auth_client):
+    from tests.test_idea_scan_screening import make_frame
+
+    saved_run()
+    frame = make_frame({"AAA": {}})
+    frame.attrs.clear()
+    store.save_frame("20261024T120000Z-abc123", frame)
+    preset = default_settings().presets[0].model_dump()
+    response = auth_client.post("/api/idea-scan/screen", json={"preset": preset})
+    assert response.status_code == 409
+    assert "Run a new idea scan" in response.json()["detail"]
+    assert auth_client.get("/api/idea-scan/runs/20261024T120000Z-abc123").status_code == 200

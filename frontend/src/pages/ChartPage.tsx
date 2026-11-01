@@ -1,3 +1,4 @@
+import { PriceRangeChange } from "@/components/shared/PriceRangeChange"
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Download, Loader2 } from "lucide-react"
@@ -503,6 +504,7 @@ export function ChartPage() {
         {mode === "single" && (
           <div className="flex flex-wrap items-end gap-4">
             <TextInput
+              id="chart-ticker"
               label="Ticker"
               value={ticker}
               onChange={setTicker}
@@ -610,6 +612,7 @@ export function ChartPage() {
                   <p className="text-sm text-gray-600">
                     Current Price: {currentPrice != null ? PRICE_FORMATTER.format(currentPrice) : "N/A"}
                   </p>
+                  <PriceRangeChange rows={priceMultiData} lookback={lookback} />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-600 mb-1.5">Scale</label>

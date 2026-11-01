@@ -1299,6 +1299,9 @@ const DIGEST_COLUMNS: ColumnDef[] = [
   { key: "dollar_volume", header: "Avg $ Volume", format: formatDollars },
   { key: "analyst_count", header: "Analysts", format: v => formatPlainNumber(v, 0) },
   { key: "composite_pct", header: "Composite Pct", format: formatPercentile },
+  { key: "momentum_absolute", header: "3M absolute", format: v => String(v ?? "Unavailable") },
+  { key: "momentum_relative", header: "3M relative", format: v => String(v ?? "Unavailable") },
+  { key: "momentum_benchmark", header: "Benchmark" },
   { key: "signals", header: "Signals", format: formatList },
 ]
 
@@ -1399,8 +1402,14 @@ const DigestPresetResults = memo(function DigestPresetResults() {
   const { data: snapshot } = useScreenerResult<IdeaScanScreenResult>("Digest Presets")
   const data = snapshot?.result
   if (!data) return null
-  const hits = data.hits as unknown as Record<string, unknown>[]
-  const nearMisses = data.near_misses as unknown as Record<string, unknown>[]
+  const evidenceRows = (rows: typeof data.hits) => rows.map(row => ({
+    ...row,
+    momentum_absolute: row.momentum?.absolute.passes == null ? "Unavailable" : row.momentum.absolute.passes ? "Yes" : "No",
+    momentum_relative: row.momentum?.relative.passes == null ? "Unavailable" : row.momentum.relative.passes ? "Yes" : "No",
+    momentum_benchmark: row.momentum?.benchmark ?? "—",
+  }))
+  const hits = evidenceRows(data.hits)
+  const nearMisses = evidenceRows(data.near_misses)
   return (
     <>
       <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">

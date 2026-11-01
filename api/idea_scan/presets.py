@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import copy
 import json
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from api.idea_scan.momentum import MOMENTUM_VERSION, MomentumRequirement
 from api.llm_settings import get_setting, set_setting
 
 IDEA_SCAN_SETTINGS_KEY = "idea_scan.settings"
@@ -33,7 +35,6 @@ ScreenKind = Literal[
 
 # Factor-frame columns a percentile rule can rank, with the label its check shows.
 RuleMetric = Literal[
-    "price_momentum",
     "quality",
     "eps_momentum",
     "revenue_momentum",
@@ -45,7 +46,6 @@ RuleMetric = Literal[
     "market_cap",
 ]
 RULE_METRIC_LABELS: dict[str, str] = {
-    "price_momentum": "Price momentum",
     "quality": "Quality",
     "eps_momentum": "EPS momentum",
     "revenue_momentum": "Revenue momentum",
@@ -74,7 +74,7 @@ class LongScreenParams(_Params):
     max_ebit_multiple: float = Field(default=20.0, gt=0)
     check_52w_positive: bool = False
     check_3m_pos_momentum: bool = False
-    check_2m_pos_rel_momentum: bool = False
+    check_3m_pos_rel_momentum: bool = False
 
 
 class ShortScreenParams(_Params):
@@ -86,7 +86,7 @@ class ShortScreenParams(_Params):
     max_eps_growth: float = 0.0
     require_dilution: bool = False
     check_3m_neg_momentum: bool = False
-    check_2m_neg_rel_momentum: bool = False
+    check_3m_neg_rel_momentum: bool = False
 
 
 class QualityValueParams(_Params):
@@ -96,11 +96,11 @@ class QualityValueParams(_Params):
 
 
 class ValueMomentumParams(QualityValueParams):
-    """Top 30% on all three: cheap within its sector, high quality, strong price momentum."""
+    """Cheap within its sector, high quality, with directional momentum evidence."""
 
     min_quality_pct: float = Field(default=0.7, ge=0, le=1)
     max_sector_valuation_pct: float = Field(default=0.3, gt=0, le=1)
-    min_price_momentum_pct: float = Field(default=0.7, ge=0, le=1)
+    momentum_requirement: MomentumRequirement = "either"
 
 
 class CompositeTopParams(_Params):
@@ -108,7 +108,7 @@ class CompositeTopParams(_Params):
 
 
 class BreakdownParams(_Params):
-    max_price_momentum_pct: float = Field(default=0.1, gt=0, le=1)
+    momentum_requirement: MomentumRequirement = "either"
     require_negative_revisions: bool = True
 
 
@@ -138,7 +138,14 @@ class PercentileRule(_Params):
 class PercentileRulesParams(_Params):
     """Every rule must hold. Percentiles are ranked within the preset's universes, not the whole data set."""
 
-    rules: list[PercentileRule] = Field(min_length=1, max_length=8)
+    rules: list[PercentileRule] = Field(default_factory=list, max_length=8)
+    momentum_requirement: MomentumRequirement | None = None
+
+    @model_validator(mode="after")
+    def _has_condition(self) -> PercentileRulesParams:
+        if not self.rules and not self.momentum_requirement:
+            raise ValueError("At least one percentile rule or momentum condition is required.")
+        return self
 
 
 class LiquidCoveredParams(LiquidityCoverageFilter):
@@ -202,6 +209,52 @@ class IdeaScanPreset(BaseModel):
     # Extra checks on top of the screen, for any screen kind.
     liquidity_coverage: LiquidityCoverageFilter | None = None
 
+    # Preserve custom legacy cutoffs for review; these presets cannot run until resolved.
+    legacy_momentum_params: dict[str, Any] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _migrate_momentum(cls, value: Any) -> Any:
+        if not isinstance(value, dict):
+            return value
+        value = copy.deepcopy(value)
+        params = value.get("params") or {}
+        if not isinstance(params, dict):
+            return value
+        original = copy.deepcopy(params)
+        screen, pid = value.get("screen"), value.get("id")
+        needs_review = False
+        for side in ("pos", "neg"):
+            old = f"check_2m_{side}_rel_momentum"
+            if old in params:
+                params.setdefault(f"check_3m_{side}_rel_momentum", params.pop(old))
+        for field, kind, default_id, cutoff in (
+            ("min_price_momentum_pct", "value_momentum", "long-value-momentum-quality", 0.7),
+            ("max_price_momentum_pct", "breakdown", "short-breaking-down", 0.1),
+        ):
+            if field in params and screen == kind:
+                threshold = float(params.pop(field))
+                if not 0 <= threshold <= 1:
+                    raise ValueError("Legacy momentum percentile must be between 0 and 1.")
+                needs_review |= pid != default_id or threshold != cutoff
+                params.setdefault("momentum_requirement", "either")
+        if screen == "percentile_rules" and isinstance(params.get("rules"), list):
+            if not all(isinstance(r, dict) for r in params["rules"]):
+                return value
+            old_rules = [r for r in params["rules"] if r.get("metric") == "price_momentum"]
+            if old_rules:
+                needs_review |= not (
+                    pid == "short-small-weak-low-roic"
+                    and [{k: v for k, v in rule.items() if v is not None} for rule in old_rules]
+                    == [{"metric": "price_momentum", "max_pct": 0.4}]
+                )
+                params["rules"] = [r for r in params["rules"] if r.get("metric") != "price_momentum"]
+                params.setdefault("momentum_requirement", "either")
+        if needs_review and value.get("legacy_momentum_params") is None:
+            value["legacy_momentum_params"] = original
+        value["params"] = params
+        return value
+
     @field_validator("universes")
     @classmethod
     def _dedupe_universes(cls, value: list[str]) -> list[str]:
@@ -230,6 +283,7 @@ class IdeaScanConfig(BaseModel):
 class IdeaScanSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
+    momentum_version: Literal[2] = MOMENTUM_VERSION
     presets: list[IdeaScanPreset]
     config: IdeaScanConfig = Field(default_factory=lambda: IdeaScanConfig())
     # Default preset ids these settings were saved alongside. A default added later is merged in on
@@ -303,9 +357,9 @@ def default_presets() -> list[IdeaScanPreset]:
             screen="percentile_rules",
             params={
                 "rules": [
-                    {"metric": "price_momentum", "max_pct": 0.4},
                     {"metric": "roic", "max_pct": 0.4},
-                ]
+                ],
+                "momentum_requirement": "either",
             },
         ),
         IdeaScanPreset(

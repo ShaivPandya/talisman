@@ -6,6 +6,7 @@ import pytest
 
 from api.idea_scan import screening as sc
 from api.idea_scan.data import ScanDataset, TickerFundamentals
+from api.idea_scan.momentum import MOMENTUM_VERSION, momentum_credit, state
 from api.idea_scan.presets import IdeaScanPreset, default_presets
 from equities.long_screen.long_screen import long_fundamentals_pass
 from equities.short_screen.short_screen import compute_price_metrics, compute_quarterly_growth
@@ -42,6 +43,13 @@ DEFAULT_ROW = {
 
 def make_frame(rows: dict[str, dict]) -> pd.DataFrame:
     frame = pd.DataFrame.from_dict({t: {"ticker": t, **DEFAULT_ROW, **r} for t, r in rows.items()}, orient="index")
+    frame.attrs["momentum_version"] = MOMENTUM_VERSION
+    frame["momentum_version"] = MOMENTUM_VERSION
+    for column in ("momentum_absolute_state", "momentum_relative_state"):
+        if column not in frame:
+            frame[column] = [state(rows[t].get("price_momentum", 1.0)) for t in frame.index]
+        else:
+            frame[column] = frame[column].fillna("positive")
     for name in sc.FACTOR_COLUMNS:
         if name not in frame.columns:
             frame[name] = 0.0
@@ -51,6 +59,11 @@ def make_frame(rows: dict[str, dict]) -> pd.DataFrame:
         frame, {"quality": 0.33, "price_momentum": 0.33, "revenue_momentum": 0.2, "eps_momentum": 0.14}
     )
     frame["composite_pct"] = frame["composite"].rank(pct=True)
+    frame["short_composite_pct"] = sc.composite_scores(
+        frame,
+        {"quality": 0.33, "price_momentum": 0.33, "revenue_momentum": 0.2, "eps_momentum": 0.14},
+        direction="short",
+    ).rank(pct=True)
     return frame
 
 
@@ -167,9 +180,9 @@ def test_value_momentum_quality_needs_all_three():
     result = sc.evaluate_preset(preset("long-value-momentum-quality"), make_frame(rows))
     assert [h["ticker"] for h in result.hits] == ["VMQ"]
     assert len(result.hits[0]["signals"]) == 3
-    assert result.hits[0]["signals"][2].startswith("Price momentum percentile")
+    assert result.hits[0]["signals"][2].startswith("Momentum (either)")
     misses = {m["ticker"]: m["failed"] for m in result.near_misses}
-    assert misses["NOMOM"][0].startswith("Price momentum percentile")
+    assert misses["NOMOM"][0].startswith("Momentum (either)")
     assert misses["PRICEY"][0].startswith("enterpriseToEbitda 80.0")
 
 
@@ -219,7 +232,7 @@ def test_composite_needs_half_the_weight():
 
 
 def test_breakdown_needs_negative_revisions():
-    rows = {f"T{i:02d}": {"price_momentum": float(i)} for i in range(20)}
+    rows = {f"T{i:02d}": {"price_momentum": -1.0 if i < 3 else 1.0} for i in range(20)}
     frame = make_frame(rows)
     assert sc.breakdown_revision_tickers(frame, [preset("short-breaking-down")]) == ["T00", "T01", "T02"]
     result = sc.evaluate_preset(preset("short-breaking-down"), frame, revisions={"T00": -0.04, "T01": 0.02})
@@ -445,7 +458,7 @@ def test_build_factor_frame_from_shared_statements():
     frame = sc.build_factor_frame(dataset, now=pd.Timestamp("2026-10-24", tz="UTC").to_pydatetime())
     assert set(frame.index) == {*tickers, "NOQUOTE"}
     assert frame.loc["NOQUOTE"]["sector"] == "Unknown" and frame.loc["NOQUOTE"]["quality_pct"] > 0
-    for col in ("quality_pct", "price_momentum_pct", "eps_momentum_pct", "revenue_momentum_pct", "composite_pct"):
+    for col in ("quality_pct", "eps_momentum_pct", "revenue_momentum_pct", "composite_pct"):
         assert frame.loc[tickers, col].notna().all(), col
     s0 = frame.loc["S0"]
     assert s0["price_to_book"] == pytest.approx(0.8)
@@ -458,8 +471,8 @@ def test_build_factor_frame_from_shared_statements():
     # A missing analyst count means no coverage, unless the quote itself is missing.
     assert frame.loc["S1"]["analyst_count"] == 7 and s0["analyst_count"] == 0
     assert np.isnan(frame.loc["NOQUOTE"]["analyst_count"])
-    # Strongest drift should rank above the weakest on price momentum.
-    assert frame.loc["S11"]["price_momentum_pct"] > frame.loc["S0"]["price_momentum_pct"]
+    assert "price_momentum_pct" not in frame
+    assert momentum_credit(frame, "long")[0]["S11"] > momentum_credit(frame, "long")[0]["S0"]
 
 
 # ---------------------------------------------------------------------------
@@ -578,7 +591,7 @@ def test_capital_metrics_from_annual_statements():
 def rule_rows() -> dict[str, dict]:
     """Ten small caps whose momentum and ROIC rise with the index, plus large caps that must not affect their ranks."""
     rows = {
-        f"SM{i}": {"universes": ["russell2000"], "price_momentum": float(i), "roic": i / 100, "composite": float(-i)}
+        f"SM{i}": {"universes": ["russell2000"], "price_momentum": -1.0, "roic": i / 100, "composite": float(-i)}
         for i in range(10)
     }
     rows.update(
@@ -593,7 +606,7 @@ def test_small_cap_rule_preset_ranks_within_its_universes():
     # Bottom 40% of the ten small caps on both: SM0-SM3. The large caps' lower values don't count.
     assert {h["ticker"] for h in result.hits} == {"SM0", "SM1", "SM2", "SM3"}
     labels = next(h for h in result.hits if h["ticker"] == "SM1")["signals"]
-    assert labels[1] == "ROIC 1.0%, 20 pct of S&P 600 + Russell 2000 (≤ 40)"
+    assert labels[0] == "ROIC 1.0%, 20 pct of S&P 600 + Russell 2000 (≤ 40)"
 
 
 def test_large_cap_dilution_preset_needs_all_three_rules():

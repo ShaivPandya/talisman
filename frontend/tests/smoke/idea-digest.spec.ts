@@ -151,7 +151,7 @@ const SCREEN_RESULT: IdeaScanScreenResult = {
   }],
 }
 
-async function mockDigest(page: Page, run: IdeaScanRun) {
+async function mockDigest(page: Page, run: IdeaScanRun, settings = SETTINGS) {
   const calls = { dismissed: [] as string[], promoted: [] as string[], saved: [] as IdeaScanSettings[], screened: [] as IdeaScanPreset[] }
   let current = structuredClone(run)
   await page.route("**/api/idea-scan/**", async route => {
@@ -162,7 +162,7 @@ async function mockDigest(page: Page, run: IdeaScanRun) {
       return route.fulfill({ json: { runs: [{ run_id: run.run_id, week: run.week, status: run.status, source: run.source, created_at: run.created_at, completed_at: run.completed_at ?? null, candidates: run.candidates?.length ?? 0, reviewed: 2, spent_usd: 1.62, limited: false }] } })
     }
     if (method === "GET" && path === `/api/idea-scan/runs/${RUN_ID}`) return route.fulfill({ json: current })
-    if (method === "GET" && path === "/api/idea-scan/settings") return route.fulfill({ json: { settings: SETTINGS, defaults: SETTINGS } })
+    if (method === "GET" && path === "/api/idea-scan/settings") return route.fulfill({ json: { settings, defaults: SETTINGS } })
     if (method === "PUT" && path === "/api/idea-scan/settings") {
       calls.saved.push(request.postDataJSON())
       return route.fulfill({ json: { settings: request.postDataJSON() } })
@@ -315,4 +315,45 @@ test("the digest fits a phone screen", async ({ page }) => {
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
   expect(overflow).toBeLessThanOrEqual(0)
   await page.screenshot({ path: test.info().outputPath("idea-digest-mobile.png"), fullPage: true })
+})
+
+
+test("fixed-credit evidence shows both signals and an unavailable benchmark", async ({ page }) => {
+  const run = fullRun()
+  run.momentum_version = 2
+  run.candidates = [card({ momentum: {
+    version: 2, lookback_sessions: 63, start_date: "2026-07-31", end_date: "2026-10-30",
+    benchmark: "MDY", benchmark_return: null,
+    absolute: { state: "positive", passes: true, value: 12.1, reason: null },
+    relative: { state: "unavailable", passes: null, value: null, reason: "No price history" },
+    credit: 0.5, coverage: 0.5,
+  } })]
+  await mockDigest(page, run)
+  await page.goto("/idea-digest")
+  const candidate = page.getByTestId("digest-card-long-AAA")
+  await expect(candidate).toContainText("Up over 3 months: Yes (+12.10%)")
+  await expect(candidate).toContainText("Outperforming MDY over 3 months: Unavailable (No price history)")
+  await expect(candidate).toContainText("Momentum credit 50%")
+  await candidate.getByRole("button", { name: "Discuss with Stan" }).click()
+  await expect(page.getByRole("textbox", { name: "Message Stan" })).toHaveValue(/Outperforming MDY over 3 months: Unavailable/)
+})
+
+test("custom legacy momentum thresholds require an explicit replacement", async ({ page }) => {
+  const settings = structuredClone(SETTINGS)
+  settings.presets[0] = {
+    ...settings.presets[0], screen: "value_momentum", params: { momentum_requirement: "either" },
+    legacy_momentum_params: { min_price_momentum_pct: 0.85 },
+  }
+  const calls = await mockDigest(page, fullRun(), settings)
+  await page.goto("/idea-digest")
+  await page.getByRole("button", { name: "Presets" }).click()
+  const dialog = page.getByRole("dialog", { name: "Idea scan presets" })
+  await expect(dialog.getByText("This preset is skipped until")).toBeVisible()
+  await dialog.getByText("Original parameters").click()
+  await expect(dialog.getByText('"min_price_momentum_pct": 0.85', { exact: false })).toBeVisible()
+  await dialog.getByLabel("Momentum condition").selectOption("both")
+  await expect(dialog.getByText("This preset is skipped until")).toHaveCount(0)
+  await dialog.getByRole("button", { name: "Save presets" }).click()
+  await expect(dialog).toBeHidden()
+  expect(calls.saved[0].presets[0]).toMatchObject({ params: { momentum_requirement: "both" }, legacy_momentum_params: null })
 })

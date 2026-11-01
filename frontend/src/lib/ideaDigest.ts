@@ -1,4 +1,4 @@
-import type { IdeaScanCandidate } from "@/lib/api"
+import type { IdeaScanCandidate, IdeaScanMomentum } from "@/lib/api"
 
 export function formatPct(value: number | null | undefined, digits = 1): string {
   return value == null ? "n/a" : `${value.toFixed(digits)}%`
@@ -18,6 +18,7 @@ export function stanDraftForCard(card: IdeaScanCandidate, week: string): string 
     `Presets: ${card.presets.map(p => p.name).join(", ")}`,
     `Signals: ${card.signals.map(s => s.label).join("; ") || "none"}`,
   ]
+  if (card.momentum) lines.push(...momentumLines(card.momentum, card.direction))
   if (card.macro_fit) {
     lines.push(`Macro: ${card.macro_fit.sector} ${formatSigned(card.macro_fit.score)} (${card.macro_fit.confidence}) — ${card.macro_fit.reason}`)
   }
@@ -31,3 +32,15 @@ export function stanDraftForCard(card: IdeaScanCandidate, week: string): string 
 
 /** The preset filter's starting thresholds; the backend's LiquidityCoverageFilter defaults. */
 export const DEFAULT_LIQUIDITY_COVERAGE = { min_dollar_volume_industry_pct: 0.75, require_above_median_coverage: true }
+
+export function momentumLines(momentum: IdeaScanMomentum, direction: "long" | "short"): string[] {
+  return (["absolute", "relative"] as const).map(kind => {
+    const signal = momentum[kind]
+    const label = kind === "absolute"
+      ? `${direction === "long" ? "Up" : "Down"} over 3 months`
+      : `${direction === "long" ? "Outperforming" : "Underperforming"} ${momentum.benchmark ?? "benchmark"} over 3 months`
+    const result = signal.passes == null ? "Unavailable" : signal.passes ? "Yes" : "No"
+    const detail = signal.value == null ? signal.reason : `${formatSigned(signal.value, 2)}${kind === "absolute" ? "%" : " percentage points"}`
+    return `${label}: ${result}${detail ? ` (${detail})` : ""}`
+  })
+}

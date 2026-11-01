@@ -23,6 +23,8 @@ def scan_frame():
     rows["F17"].update({"sector": "Energy"})
     rows["F00"].update({"price_to_book": 8.0, "operating_income": -1.0, "rev_yoy_avg": -3.0, "sector": "Energy"})
     rows["F01"].update({"sector": "Energy"})
+    rows["F00"]["price_momentum"] = -1.0
+    rows["F01"]["price_momentum"] = -1.0
     return make_frame(rows)
 
 
@@ -236,7 +238,7 @@ def test_week_over_week_compares_with_last_full_run(env):
     first = store.get_run(run()["run_id"])
     env.frame = make_frame(
         {
-            **{f"F{i:02d}": {"quality": float(i), "price_momentum": float(i)} for i in range(19)},
+            **{f"F{i:02d}": {"quality": float(i), "price_momentum": -1.0 if i == 0 else float(i)} for i in range(19)},
             "NEW": {"quality": 99.0, "price_momentum": 99.0},
         }
     )
@@ -274,3 +276,17 @@ def test_job_spec_resolves():
     assert spec.queue_name == "screens" and spec.supports_progress
     assert import_string(spec.compute_func) is pipeline.run_weekly_idea_scan
     assert import_string(spec.request_model) is pipeline.IdeaScanRunRequest
+
+
+def test_revision_fetch_limit_is_visible_and_missing_is_not_a_failed_check(env, monkeypatch):
+    monkeypatch.setattr(pipeline, "REVISION_FETCH_LIMIT", 1)
+    saved = store.get_run(run()["run_id"])
+    assert saved["stats"]["revision_eligible"] == 2
+    assert saved["stats"]["revision_requested"] == 1
+    assert saved["stats"]["revision_available"] == 1
+    assert any("1 were not fetched because of the 1-name limit" in warning for warning in saved["warnings"])
+    frame = store.load_frame(saved["run_id"])
+    unavailable = set(frame.index[frame["revision_30d"].isna()])
+    breakdown = next(p for p in saved["presets"] if p["id"] == "short-breaking-down")
+    assert breakdown["hits"] == 1
+    assert not any(c["preset_id"] == "short-breaking-down" and c["ticker"] in unavailable for c in saved["near_misses"])

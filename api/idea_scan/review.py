@@ -17,6 +17,7 @@ from urllib.parse import urlsplit
 
 from api.idea_scan.budget import RunBudget
 from api.idea_scan.macro_view import resolve_effort
+from api.idea_scan.momentum import evidence_lines
 
 LOGGER = logging.getLogger(__name__)
 
@@ -231,6 +232,11 @@ def build_prompt(
         if macro_row
         else "No macro row for this sector this week."
     )
+    momentum = (
+        "\n".join(evidence_lines(candidate["momentum"], candidate["direction"]))
+        if candidate.get("momentum")
+        else "Legacy momentum methodology."
+    )
     short_block = ""
     if candidate.get("direction") == "short":
         sd = candidate.get("short_data") or {}
@@ -249,8 +255,11 @@ Signals that fired:
 {signals}
 
 Factor percentiles (100 = best in the scanned universe):
-- Composite {_pct(ranks.get("composite_pct"))}, quality {_pct(ranks.get("quality_pct"))}, price momentum {_pct(ranks.get("price_momentum_pct"))},
+- Composite {_pct(ranks.get("composite_pct"))}, quality {_pct(ranks.get("quality_pct"))},
   EPS momentum {_pct(ranks.get("eps_momentum_pct"))}, revenue momentum {_pct(ranks.get("revenue_momentum_pct"))}
+
+Price momentum (each passing signal earns fixed half credit; larger returns add no credit):
+{momentum}
 
 Key metrics:
 {chr(10).join(_metric_lines(candidate)) or "- (none available)"}
