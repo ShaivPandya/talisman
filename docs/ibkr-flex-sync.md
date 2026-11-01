@@ -69,7 +69,9 @@ No alternate broker host, third-party proxy, or TLS verification bypass is used.
 [Google's static egress guide](https://docs.cloud.google.com/run/docs/configuring/static-outbound-ip)
 and [Cloud NAT pricing](https://cloud.google.com/nat/pricing) describe this setup.
 
-Default: weekdays at **16:35 America/New_York**. Override with
+Default: every day at **06:35 and 16:35 America/New_York**, including weekends.
+The morning pull collects the prior session's overnight statement; weekend pulls
+collect Friday's statement without waiting until Monday afternoon. Override with
 `IBKR_FLEX_SYNC_SCHEDULE` and `IBKR_FLEX_SYNC_TIME_ZONE`. Activity data normally
 covers the previous business day: the actual statement date is always visible.
 A statement older than the previous market session is treated as stale, including
@@ -86,8 +88,11 @@ redirecting credentials. Requests/polling and statement size are bounded.
 
 The portfolio editor shows sync state, report date, broker marks in instrument
 currency, unrealized P&L in base currency, cash, NAV and available lot open dates.
-Use Workspace to review portfolio/hedge/settings proposals. NAV respects existing
-book-size bounds ($10,000–$10,000,000); the $100,000 default remains until a book
+Use Workspace to review portfolio/hedge/settings proposals.
+The editor links directly to pending broker proposals and offers **Sync IBKR Flex
+now** for administrators, using the same durable worker and approval boundary.
+Receiving a statement does not mean its holdings have been approved.
+NAV respects existing book-size bounds ($10,000–$10,000,000); the $100,000 default remains until a book
 size is configured or approved. An out-of-range or non-USD NAV fails validation.
 
 A matching pending proposal is reused. Unchanged holdings generate no new holding

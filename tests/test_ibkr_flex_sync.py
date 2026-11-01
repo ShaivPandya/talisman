@@ -204,6 +204,45 @@ def test_scheduled_pull_records_snapshot_and_stages_approvals(scheduled):
     assert "test-token" not in str(status)
 
 
+def test_status_only_links_currently_pending_statement_proposals(scheduled, monkeypatch):
+    from ontology.command_service import OntologyCommandService
+
+    sync.sync_ibkr_flex()
+    pending = [
+        {"id": action, "action_id": action} for action, _ in scheduled if action != "update_portfolio_settings"
+    ] + [{"id": "unrelated", "action_id": "update_portfolio_positions"}]
+    monkeypatch.setattr(OntologyCommandService, "list_approvals", lambda *a, **k: pending)
+    status = sync.ibkr_flex_status()
+    assert {row["action_id"] for row in status["pending_proposals"]} == {
+        "update_portfolio_positions",
+        "update_hedge_positions",
+    }
+    assert status["last_attempt_at"]
+    pending.clear()
+    assert sync.ibkr_flex_status()["pending_proposals"] == []
+
+
+@pytest.mark.parametrize("now", ["2026-10-31T07:00:00-04:00", "2026-11-01T07:00:00-05:00"])
+def test_weekend_pull_catches_friday_statement(scheduled, monkeypatch, now):
+    from portfolio.ibkr_flex_client import FlexClient
+
+    class WeekendClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime.fromisoformat(now).astimezone(tz)
+
+    monkeypatch.setattr(sync, "datetime", WeekendClock)
+    monkeypatch.setattr(FlexClient, "fetch_statement", lambda self: XML.replace(DATE, "20261029").encode())
+    with pytest.raises(RuntimeError, match="expected 2026-10-30"):
+        sync.sync_ibkr_flex()
+    assert not scheduled
+    monkeypatch.setattr(FlexClient, "fetch_statement", lambda self: XML.replace(DATE, "20261030").encode())
+    sync.sync_ibkr_flex()
+    assert len(scheduled) == 3
+    assert sync.ibkr_flex_status()["status"] == "ok"
+    assert sync.ibkr_flex_status()["as_of"] == "2026-10-30"
+
+
 @pytest.mark.parametrize("day_offset", [0, 1])
 def test_postgres_snapshot_roundtrip_compares_report_days(scheduled, monkeypatch, day_offset):
     from api.snapshot_store import _row_to_record

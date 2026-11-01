@@ -104,10 +104,10 @@ export WORKER_SECRETS=(
   "SENTRY_DSN=SENTRY_DSN:latest"
 )
 
-# Optional daily read-only IBKR statement reconciliation. First configure the
+# Optional twice-daily read-only IBKR statement reconciliation. First configure the
 # Flex query, then enable this and run setup-secrets.sh before deploying.
 export SCHEDULE_IBKR_FLEX_SYNC="${SCHEDULE_IBKR_FLEX_SYNC:-0}"
-export IBKR_FLEX_SYNC_SCHEDULE="${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}"
+export IBKR_FLEX_SYNC_SCHEDULE="${IBKR_FLEX_SYNC_SCHEDULE:-35 6,16 * * *}"
 export IBKR_FLEX_SYNC_TIME_ZONE="${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
 # Flex uses its own worker and static Cloud NAT egress because IBKR can reject
 # Cloud Run's shared outbound IPs. Run setup-ibkr-flex-egress.sh once first.

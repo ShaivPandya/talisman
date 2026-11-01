@@ -1,5 +1,7 @@
-import { useQuery } from "@tanstack/react-query"
-import { fetchIbkrFlexStatus } from "@/lib/api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
+import { fetchIbkrFlexStatus, refreshIbkrFlex } from "@/lib/api"
+import { invalidateApprovalSummaries } from "@/lib/approvalQueries"
 
 function money(value: number | null | undefined, currency = "USD") {
   if (value == null) return "—"
@@ -11,6 +13,14 @@ function money(value: number | null | undefined, currency = "USD") {
 }
 
 export function IbkrFlexStatusPanel() {
+  const queryClient = useQueryClient()
+  const sync = useMutation({
+    mutationFn: refreshIbkrFlex,
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["ibkr-flex-status"] })
+      void invalidateApprovalSummaries(queryClient)
+    },
+  })
   const query = useQuery({ queryKey: ["ibkr-flex-status"], queryFn: fetchIbkrFlexStatus, staleTime: 30_000, refetchInterval: 60_000 })
   if (query.isPending) return <p className="text-sm text-muted mb-4">Loading broker sync status…</p>
   if (query.error) return <p role="status" className="theme-notice theme-notice-error mb-4">Broker sync status unavailable. {String(query.error)}</p>
@@ -21,13 +31,30 @@ export function IbkrFlexStatusPanel() {
     <section aria-label="IBKR Flex sync" className={`theme-notice ${warning ? "theme-notice-warning" : "theme-notice-info"} mb-4`}>
       <div className="min-w-0 w-full">
         <div className="flex flex-wrap justify-between gap-2">
-          <strong>IBKR Flex · {data.status === "never_synced" ? "Awaiting first sync" : data.status === "ok" ? "Synced" : data.status === "stale" ? "Statement is stale" : "Sync failed"}</strong>
+          <strong>IBKR Flex · {data.status === "never_synced" ? "Awaiting first sync" : data.status === "ok" ? "Statement received" : data.status === "stale" ? "Statement is stale" : "Sync failed"}</strong>
           {data.as_of && <span>Statement as of {data.as_of}</span>}
         </div>
         <p className="text-sm mt-1">Latest available daily statement. Portfolio and NAV changes require approval.</p>
+        {data.stale && data.expected_as_of && <p className="text-sm mt-1">Expected statement: {data.expected_as_of}. Pull the latest statement to check for updated holdings.</p>}
         {!data.configured && <p className="text-sm mt-1">Scheduled sync is not configured.</p>}
         {data.error && <p role="status" className="text-sm mt-1">{data.error} {data.last_success_at ? "The last successful statement remains below." : "The approved book is unchanged."}</p>}
         {data.last_success_at && <p className="text-xs mt-1">Last successful pull: {new Date(data.last_success_at).toLocaleString()}</p>}
+        {!!data.pending_proposals?.length && (
+          <div className="mt-3">
+            <p className="text-sm">{data.pending_proposals.length} broker change proposal(s) awaiting approval. Approve them in Workspace to update the portfolio.</p>
+            <div className="flex flex-wrap gap-3 mt-2">
+              {data.pending_proposals.map(proposal => (
+                <Link key={proposal.approval_id} className="theme-btn theme-btn-outline" to={`/workspace?approval_id=${encodeURIComponent(proposal.approval_id)}`}>
+                  Review {proposal.action_id === "update_portfolio_positions" ? "positions" : proposal.action_id === "update_hedge_positions" ? "hedges" : "book size"}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+        {data.configured && <button type="button" className="theme-btn theme-btn-outline mt-3" disabled={sync.isPending} onClick={() => sync.mutate()}>{sync.isPending ? "Pulling statement…" : "Sync IBKR Flex now"}</button>}
+        {sync.isPending && <p role="status" className="text-sm mt-1">Fetching the broker statement. This can take a few minutes.</p>}
+        {sync.error && <p role="status" className="text-sm mt-1">{String(sync.error)}</p>}
+        {sync.isSuccess && <p role="status" className="text-sm mt-1">Statement pull completed. Review any broker change proposals above.</p>}
         {data.as_of && (
           <details className="mt-3">
             <summary className="cursor-pointer">Broker holdings and balances</summary>

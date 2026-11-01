@@ -162,7 +162,7 @@ upsert_api_job workspace-source-refresh "${WORKSPACE_SOURCE_REFRESH_SCHEDULE:-30
 upsert_api_job continuous-optimizer "${CONTINUOUS_OPTIMIZER_SCHEDULE:-15 10 * * 1-5}" /api/admin/jobs/enqueue-continuous-optimizer "${CONTINUOUS_OPTIMIZER_TIME_ZONE:-America/New_York}"
 
 if [[ "${SCHEDULE_IBKR_FLEX_SYNC:-0}" == "1" ]]; then
-  upsert_api_job ibkr-flex-sync "${IBKR_FLEX_SYNC_SCHEDULE:-35 16 * * 1-5}" /api/admin/jobs/enqueue-ibkr-flex-sync "${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
+  upsert_api_job ibkr-flex-sync "${IBKR_FLEX_SYNC_SCHEDULE:-35 6,16 * * *}" /api/admin/jobs/enqueue-ibkr-flex-sync "${IBKR_FLEX_SYNC_TIME_ZONE:-America/New_York}"
 else
   delete_scheduler_job_if_present ibkr-flex-sync
 fi

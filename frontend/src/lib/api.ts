@@ -1246,6 +1246,8 @@ export interface IbkrFlexStatus {
   positions?: PortfolioPosition[]
   cash_balances?: { currency: string; balance: number; settled_cash?: number | null }[]
   staged_proposals?: StagedMutationResponse[]
+  expected_as_of?: string
+  pending_proposals?: { approval_id: string; action_id: string }[]
 }
 
 export const fetchIbkrFlexStatus = () =>
@@ -3182,6 +3184,9 @@ export const startMacroSnapshotRefresh = () =>
 export const startWorkspaceSourceRefresh = () =>
   client.post("/admin/jobs/enqueue-workspace-source-refresh", {}, { timeout: 30_000 }).then(r => r.data as AdminJobResponse)
 
+export const startIbkrFlexSync = () =>
+  client.post("/admin/jobs/enqueue-ibkr-flex-sync", {}, { timeout: 30_000 }).then(r => r.data as AdminJobResponse)
+
 export const fetchAdminJob = (job_id: string) =>
   client.get(`/admin/jobs/${encodeURIComponent(job_id)}`, { timeout: 30_000 }).then(r => r.data as AdminJobResponse)
 
@@ -3194,7 +3199,7 @@ async function waitForAdminJob(started: AdminJobResponse, label: string): Promis
 
   for (; ;) {
     if (Date.now() > deadline) {
-      throw new Error("Timeout: market snapshot refresh is still running. Try again in a few minutes.")
+      throw new Error(`Timeout: ${label} is still running. Try again in a few minutes.`)
     }
 
     await new Promise(r => setTimeout(r, 2000))
@@ -3214,6 +3219,10 @@ export async function refreshMacroSnapshots(): Promise<unknown> {
 
 export async function refreshWorkspaceSources(): Promise<unknown> {
   return waitForAdminJob(await startWorkspaceSourceRefresh(), "Workspace source refresh")
+}
+
+export async function refreshIbkrFlex(): Promise<unknown> {
+  return waitForAdminJob(await startIbkrFlexSync(), "IBKR Flex sync")
 }
 
 // ---------------------------------------------------------------------------
