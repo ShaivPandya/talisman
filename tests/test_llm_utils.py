@@ -11,9 +11,11 @@ import llm_utils
 def test_provider_and_model_resolution_defaults(monkeypatch):
     monkeypatch.delenv("LLM_PROVIDER", raising=False)
     assert llm_utils.selected_provider() == "anthropic"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "anthropic") == "claude-haiku-4-5"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "openai") == "gpt-6-luna"
-    assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "gemini") == "gemini-3.1-flash-lite"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "anthropic") == "claude-haiku-5-5"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "openai") == "gpt-6-luna"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "openai") == "gpt-6.1-terra"
+    assert llm_utils.resolve_model("gpt-6-luna", "openai") == "gpt-6-luna"
+    assert llm_utils.model_for_tier(llm_utils.MODEL_LOW, "gemini") == "gemini-3.8-flash"
     assert llm_utils.model_for_tier(llm_utils.MODEL_MID, "gemini") == "gemini-4-argon"
     assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "gemini") == "gemini-4-argon"
     assert llm_utils.model_for_tier(llm_utils.MODEL_HIGH, "openai") == "gpt-6.1-sol"
@@ -23,7 +25,7 @@ def test_provider_and_model_resolution_defaults(monkeypatch):
     assert llm_utils.resolve_model("claude-opus-4-7", "openai") == "gpt-6.1-sol"
     assert llm_utils.reasoning_effort_options("openai", "gpt-6.1-sol") == ["low", "medium", "high", "xhigh"]
     assert "none" in llm_utils.reasoning_effort_options("openai", "gpt-5.4")
-    assert "none" in llm_utils.reasoning_effort_options("openai", "gpt-5.4-mini")
+    assert "none" in llm_utils.reasoning_effort_options("openai", "gpt-6-luna")
 
 
 def test_provider_model_overrides(monkeypatch):
@@ -118,7 +120,7 @@ def test_anthropic_text_request_shape_and_citations(monkeypatch):
 
     assert text == "answer"
     assert citations == [("Source", "https://example.com")]
-    assert fake_messages.kwargs["model"] == "claude-haiku-4-5"
+    assert fake_messages.kwargs["model"] == "claude-haiku-5-5"
     assert fake_messages.kwargs["max_tokens"] == 123
     assert fake_messages.kwargs["system"] == "system"
     assert fake_messages.kwargs["tools"] == [
@@ -387,7 +389,7 @@ def test_openai_text_request_shape_and_citations(monkeypatch):
 
     assert text == "openai answer"
     assert citations == [("OpenAI Source", "https://example.com/openai")]
-    assert fake_responses.kwargs["model"] == "gpt-5.4-mini"
+    assert fake_responses.kwargs["model"] == "gpt-6-luna"
     assert fake_responses.kwargs["max_output_tokens"] == 456
     assert fake_responses.kwargs["instructions"] == "instructions"
     assert fake_responses.kwargs["tools"] == [
@@ -654,7 +656,7 @@ def test_openai_none_reasoning_effort_request_shape(monkeypatch):
     )
 
     assert text == "fast"
-    assert fake_responses.kwargs["model"] == "gpt-6-luna"
+    assert fake_responses.kwargs["model"] == "gpt-6.1-terra"
     assert fake_responses.kwargs["reasoning"] == {"effort": "none"}
 
 
@@ -773,8 +775,36 @@ def test_anthropic_opus_5_5_uses_adaptive_thinking(monkeypatch):
     assert fake_messages.kwargs["output_config"] == {"effort": "xhigh"}
 
 
+@pytest.mark.parametrize("summarize", [False, True])
+@pytest.mark.parametrize("effort", ["medium", "xhigh", "max"])
+def test_haiku_5_5_uses_adaptive_thinking(summarize, effort):
+    kwargs = {}
+
+    llm_utils.apply_reasoning_config(
+        kwargs,
+        provider="anthropic",
+        model="claude-haiku-5-5",
+        max_tokens=4096,
+        reasoning_effort=effort,
+        summarize=summarize,
+    )
+
+    assert kwargs["thinking"] == {"type": "adaptive", "display": "summarized" if summarize else "omitted"}
+    assert kwargs["output_config"] == {"effort": effort}
+
+
+def test_gemini_3_8_flash_rejects_minimal_reasoning():
+    assert llm_utils.reasoning_effort_options("gemini", "gemini-3.8-flash") == ["low", "medium", "high"]
+    assert "minimal" in llm_utils.reasoning_effort_options("gemini", "gemini-3.1-flash-lite")
+    with pytest.raises(ValueError, match="reasoning_effort"):
+        llm_utils.apply_reasoning_config(
+            {}, provider="gemini", model="gemini-3.8-flash", max_tokens=4096, reasoning_effort="minimal"
+        )
+
+
 def test_anthropic_manual_thinking_request_shape(monkeypatch):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("ANTHROPIC_MODEL_LOW", "claude-haiku-4-5")
     monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
 
     class FakeMessages:
@@ -870,15 +900,15 @@ def test_gemini_pdf_input_shape(monkeypatch):
         api_key=None,
         system="system",
         filename="deck.pdf",
-        reasoning_effort=llm_utils.REASONING_MINIMAL,
+        reasoning_effort=llm_utils.REASONING_LOW,
     )
 
     assert text == "pdf answer"
-    assert fake_models.kwargs["model"] == "gemini-3.1-flash-lite"
+    assert fake_models.kwargs["model"] == "gemini-3.8-flash"
     assert fake_models.kwargs["contents"][0]["parts"][0]["inline_data"]["mime_type"] == "application/pdf"
     assert fake_models.kwargs["contents"][0]["parts"][0]["inline_data"]["data"].startswith("JVBERi10ZXN0")
     assert fake_models.kwargs["contents"][0]["parts"][1] == {"text": "read"}
-    assert fake_models.kwargs["config"]["thinking_config"] == {"thinking_level": "minimal"}
+    assert fake_models.kwargs["config"]["thinking_config"] == {"thinking_level": "low"}
 
 
 def test_json_cache_key_survives_repair_and_reaches_openai_transport(monkeypatch):

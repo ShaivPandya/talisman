@@ -68,6 +68,7 @@ const PROVIDER_FALLBACK_LABELS: Record<LLMProvider, string> = {
 }
 const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "claude-haiku-4-5": "Claude Haiku 4.5",
+  "claude-haiku-5-5": "Claude Haiku 5.5",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
   "claude-sonnet-5-5": "Claude Sonnet 5.5",
   "claude-opus-4-7": "Claude Opus 4.7",
@@ -75,9 +76,11 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   "gpt-5.4-mini": "GPT 5.4 Mini",
   "gpt-5.4": "GPT 5.4",
   "gpt-5.5": "GPT 5.5",
-  "gpt-6-luna": "GPT 6 Luna",
-  "gpt-6.1-sol": "GPT 6.1 Sol",
+  "gpt-6-luna": "GPT-6 Luna",
+  "gpt-6.1-terra": "GPT-6.1 Terra",
+  "gpt-6.1-sol": "GPT-6.1 Sol",
   "gemini-3.1-flash-lite": "Gemini 3.1 Flash-Lite",
+  "gemini-3.8-flash": "Gemini 3.8 Flash",
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
   "gemini-3.1-pro-preview-customtools": "Gemini 3.1 Pro Preview (Custom Tools)",
   "gemini-4-argon": "Gemini 4 Argon",

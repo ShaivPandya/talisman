@@ -96,8 +96,10 @@ def test_get_llm_settings_returns_env_fallback(temp_llm_settings, auth_client, m
         "mid": "anthropic",
         "high": "anthropic",
     }
-    assert payload["models"]["low"] == "claude-haiku-4-5"
-    assert payload["models_by_provider"]["openai"]["mid"] == "gpt-6-luna"
+    assert payload["models"]["low"] == "claude-haiku-5-5"
+    assert payload["models_by_provider"]["openai"]["low"] == "gpt-6-luna"
+    assert payload["models_by_provider"]["openai"]["mid"] == "gpt-6.1-terra"
+    assert payload["models_by_provider"]["gemini"]["low"] == "gemini-3.8-flash"
     assert payload["models_by_provider"]["gemini"]["mid"] == "gemini-4-argon"
     assert payload["models_by_provider"]["gemini"]["high"] == "gemini-4-argon"
     assert payload["models_by_provider"]["openai"]["high"] == "gpt-6.1-sol"
@@ -135,7 +137,6 @@ def test_get_llm_settings_returns_env_fallback(temp_llm_settings, auth_client, m
         "xhigh",
     ]
     assert [item["effort"] for item in payload["reasoning_options"]["gemini"]["low"]] == [
-        "minimal",
         "low",
         "medium",
         "high",
@@ -323,7 +324,7 @@ def test_put_llm_settings_persists_gemini_provider(temp_llm_settings, auth_clien
         json={
             "provider": "gemini",
             "reasoning_efforts": {
-                "low": "minimal",
+                "low": "low",
                 "mid": "high",
                 "high": "medium",
             },
@@ -334,12 +335,12 @@ def test_put_llm_settings_persists_gemini_provider(temp_llm_settings, auth_clien
     assert response.json()["provider"] == "gemini"
     assert response.json()["models_by_provider"]["gemini"]["high"] == "gemini-4-argon"
     assert response.json()["reasoning_efforts"]["gemini"] == {
-        "low": "minimal",
+        "low": "low",
         "mid": "high",
         "high": "medium",
     }
     assert temp_llm_settings.get_llm_provider_setting() == "gemini"
-    assert temp_llm_settings.get_llm_reasoning_effort_setting("gemini", "low") == "minimal"
+    assert temp_llm_settings.get_llm_reasoning_effort_setting("gemini", "low") == "low"
 
 
 def test_put_llm_settings_persists_custom_provider_by_tier(temp_llm_settings, auth_client, monkeypatch):
@@ -359,7 +360,7 @@ def test_put_llm_settings_persists_custom_provider_by_tier(temp_llm_settings, au
             },
             "reasoning_efforts_by_provider": {
                 "gemini": {
-                    "low": "minimal",
+                    "low": "low",
                     "mid": "medium",
                     "high": "high",
                 },
@@ -382,7 +383,7 @@ def test_put_llm_settings_persists_custom_provider_by_tier(temp_llm_settings, au
         "high": "openai",
     }
     assert payload["models"] == {
-        "low": "gemini-3.1-flash-lite",
+        "low": "gemini-3.8-flash",
         "mid": "gemini-4-argon",
         "high": "gpt-6.1-sol",
     }
@@ -690,7 +691,7 @@ def test_put_llm_settings_rejects_unsupported_reasoning_effort(temp_llm_settings
         json={
             "provider": "anthropic",
             "reasoning_efforts": {
-                "low": "xhigh",
+                "low": "minimal",
                 "mid": "high",
                 "high": "high",
             },
@@ -698,10 +699,13 @@ def test_put_llm_settings_rejects_unsupported_reasoning_effort(temp_llm_settings
     )
 
     assert response.status_code == 422
-    assert "claude-haiku-4-5" in response.text
+    assert "claude-haiku-5-5" in response.text
 
 
-def test_put_llm_settings_rejects_unsupported_gemini_reasoning_effort(temp_llm_settings, auth_client, monkeypatch):
+@pytest.mark.parametrize("tier, model", [("low", "gemini-3.8-flash"), ("mid", "gemini-4-argon")])
+def test_put_llm_settings_rejects_unsupported_gemini_reasoning_effort(
+    temp_llm_settings, auth_client, monkeypatch, tier, model
+):
     monkeypatch.setenv("LLM_PROVIDER", "anthropic")
     monkeypatch.setenv("GEMINI_API_KEY", "AIza-test-key-12345678901234567890")
 
@@ -710,15 +714,16 @@ def test_put_llm_settings_rejects_unsupported_gemini_reasoning_effort(temp_llm_s
         json={
             "provider": "gemini",
             "reasoning_efforts": {
-                "low": "minimal",
-                "mid": "minimal",
+                "low": "low",
+                "mid": "medium",
                 "high": "high",
+                tier: "minimal",
             },
         },
     )
 
     assert response.status_code == 422
-    assert "gemini-4-argon" in response.text
+    assert model in response.text
 
 
 def test_get_agent_response_preferences_returns_defaults(temp_llm_settings, auth_client):
