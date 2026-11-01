@@ -8,7 +8,7 @@ from typing import Any
 
 from api.portfolio_settings import get_configured_portfolio_book_size, normalize_portfolio_book_size
 from api.snapshot_store import read_snapshot, write_snapshot_failure, write_snapshot_success
-from ontology.policy import system_actor
+from ontology.policy import PolicyDenied, system_actor
 from portfolio.ibkr_flex_import import (
     FlexStatement,
     merge_ibkr_flex_hedge_replacement,
@@ -230,12 +230,15 @@ def ibkr_flex_status(*, actor=None) -> dict[str, Any]:
     if proposal_ids:
         from ontology.command_service import OntologyCommandService
 
-        pending_proposals = [
-            {"approval_id": row["id"], "action_id": row["action_id"]}
-            for row in OntologyCommandService().list_approvals(
+        try:
+            pending = OntologyCommandService().list_approvals(
                 status="pending", actor=actor or system_actor("ibkr_flex"), limit=1000
             )
-            if row["id"] in proposal_ids
+        except PolicyDenied:
+            # Statement visibility does not grant access to the approval queue.
+            pending = []
+        pending_proposals = [
+            {"approval_id": row["id"], "action_id": row["action_id"]} for row in pending if row["id"] in proposal_ids
         ]
     expected = previous_market_session(datetime.now(MARKET_TIMEZONE).date() - timedelta(days=1)).isoformat()
     report_date = _snapshot_report_date(record)
