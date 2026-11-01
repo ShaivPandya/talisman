@@ -223,6 +223,8 @@ class IdeaScanConfig(BaseModel):
     review_web_searches: int = Field(default=2, ge=0, le=5)
     macro_web_searches: int = Field(default=5, ge=0, le=10)
     near_miss_limit: int = Field(default=10, ge=0, le=50)
+    use_news_digests: bool = True
+    news_digest_days: int = Field(default=7, ge=1, le=14)
 
 
 class IdeaScanSettings(BaseModel):

@@ -4058,9 +4058,12 @@ export interface IdeaScanRunSummary {
 }
 
 export interface IdeaScanEvidence {
-  type: "snapshot" | "search"
+  type: "snapshot" | "digest" | "search"
   ref: string
   detail: string
+  /** Digest evidence only: the cited story's headline and digest date. */
+  headline?: string
+  date?: string | null
 }
 
 export interface IdeaScanMacroRow {
@@ -4083,6 +4086,11 @@ export interface IdeaScanMacroView {
   dropped: { sector: string; reason: string }[]
   sources: { title: string; url: string }[]
   snapshots: { key: string; as_of: string | null; stale: boolean | null }[]
+  news?: {
+    window_days: number | null
+    digests: { id: string; title: string | null; generated_date: string | null }[]
+    stories: number
+  } | null
   previous_run_id?: string | null
   error: string | null
 }
@@ -4235,6 +4243,8 @@ export interface IdeaScanSettings {
     review_web_searches: number
     macro_web_searches: number
     near_miss_limit: number
+    use_news_digests: boolean
+    news_digest_days: number
   }
 }
 

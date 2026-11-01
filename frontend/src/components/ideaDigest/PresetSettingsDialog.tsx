@@ -31,12 +31,13 @@ const SCREEN_LABELS: Record<IdeaScanPreset["screen"], string> = {
   percentile_rules: "Percentile rules within its universes",
 }
 
-type ConfigKey = keyof IdeaScanSettings["config"]
+type ConfigKey = Exclude<keyof IdeaScanSettings["config"], "use_news_digests">
 const CONFIG_FIELDS: { key: ConfigKey; label: string; helper: string }[] = [
   { key: "max_reviews", label: "Names reviewed per run", helper: "Across all presets" },
   { key: "max_cost_usd", label: "Budget per run (USD)", helper: "Reviews stop before this is exceeded" },
   { key: "review_web_searches", label: "Web searches per review", helper: "" },
   { key: "macro_web_searches", label: "Web searches for the macro view", helper: "" },
+  { key: "news_digest_days", label: "News digest lookback (days)", helper: "Digests older than this are left out" },
 ]
 
 interface Draft {
@@ -140,6 +141,19 @@ export function PresetSettingsDialog({ open, onOpenChange, settings }: PresetSet
               }
             />
           ))}
+          <div className="sm:col-span-2">
+            <Toggle
+              label="Use my news digests in the macro view"
+              description="Recent stories from uploaded news digests are read alongside the market data."
+              checked={draft.settings.config.use_news_digests}
+              onChange={on =>
+                setDraft(current => ({
+                  ...current,
+                  settings: { ...current.settings, config: { ...current.settings.config, use_news_digests: on } },
+                }))
+              }
+            />
+          </div>
         </section>
 
         <section className="space-y-4">

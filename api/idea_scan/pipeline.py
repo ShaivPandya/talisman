@@ -13,7 +13,7 @@ from typing import Any
 from api.idea_scan import store
 from api.idea_scan.budget import RunBudget
 from api.idea_scan.data import fetch_dataset, fetch_eps_revisions, resolve_membership
-from api.idea_scan.macro_view import resolve_effort, run_macro_view
+from api.idea_scan.macro_view import gather_digest_stories, resolve_effort, run_macro_view
 from api.idea_scan.presets import UNIVERSE_KEYS, get_idea_scan_settings
 from api.idea_scan.requests import IdeaScanRunRequest
 from api.idea_scan.review import build_scout_record, review_candidate
@@ -233,11 +233,18 @@ def run_weekly_idea_scan(
         enter("macro")
         digest_reserve = budget.estimate("digest")
         previous = store.latest_completed_run(before_run_id=run_id, full_only=False)
+        news = None
+        if config.use_news_digests:
+            try:
+                news = gather_digest_stories(config.news_digest_days)
+            except Exception:
+                LOGGER.warning("News digests unavailable for the macro view", exc_info=True)
         macro = run_macro_view(
             budget=budget,
             previous_view=(previous or {}).get("macro_view"),
             searches=config.macro_web_searches,
             reserve_usd=digest_reserve,
+            news=news,
             call=macro_call,
         )
         macro["previous_run_id"] = (previous or {}).get("run_id")

@@ -55,6 +55,12 @@ function MacroRow({ row }: { row: IdeaScanMacroRow }) {
                     <ExternalLink size={11} className="mt-0.5 shrink-0" aria-hidden="true" />
                     <span>{item.detail || item.ref}</span>
                   </a>
+                ) : item.type === "digest" ? (
+                  <span>
+                    <span className="text-subtle">News digest{item.date ? ` ${item.date}` : ""}: </span>
+                    <span className="text-app">{item.headline || item.ref}</span>
+                    {item.detail && <> — {item.detail}</>}
+                  </span>
                 ) : (
                   <span>
                     <span className="font-mono text-[11px] text-subtle">{item.ref}</span> — {item.detail}
@@ -67,6 +73,15 @@ function MacroRow({ row }: { row: IdeaScanMacroRow }) {
       )}
     </li>
   )
+}
+
+function newsLine(news: IdeaScanMacroView["news"]): string {
+  if (!news) return "Market data only."
+  const dates = news.digests.map(d => d.generated_date).filter((d): d is string => Boolean(d)).sort()
+  if (news.stories === 0 || dates.length === 0) return "No news digests in the lookback window; market data only."
+  const span = dates[0] === dates[dates.length - 1] ? dates[0] : `${dates[0]} to ${dates[dates.length - 1]}`
+  const count = news.digests.length
+  return `Read with ${news.stories} stories from ${count} news digest${count === 1 ? "" : "s"} (${span}).`
 }
 
 export function MacroViewPanel({ view }: { view: IdeaScanMacroView | undefined }) {
@@ -86,6 +101,7 @@ export function MacroViewPanel({ view }: { view: IdeaScanMacroView | undefined }
       ) : (
         <>
           {view.summary && <p className="mt-2 text-sm text-muted">{view.summary}</p>}
+          <p className="mt-1 text-xs text-subtle">{newsLine(view.news)}</p>
           {view.rows.length === 0 ? (
             <p className="mt-3 text-sm text-muted">No sector rows had verifiable evidence this week.</p>
           ) : (

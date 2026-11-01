@@ -133,6 +133,7 @@ def test_report_context_keeps_top_and_multi_signal_stories_first(monkeypatch, tm
         "Apple cuts iPhone 18 Pro orders on soft demand",
     ]
     assert kept[0]["source"] == "FT Markets Afternoon Briefing"
+    assert all(str(story["id"]).startswith("story-") for story in kept)
     assert kept[0]["top_rank"] == 1
     assert kept[0]["implication"] == "Bank funding spreads widen first where there is no backstop."
 

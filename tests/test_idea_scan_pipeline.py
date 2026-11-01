@@ -41,6 +41,24 @@ class FakeWriteback:
         ]
 
 
+NEWS = {
+    "window_days": 7,
+    "digests": [{"id": "2026-10-26-digest", "title": "Digest", "generated_date": "2026-10-26"}],
+    "stories": [
+        {
+            "ref": "2026-10-26-digest/story-1",
+            "date": "2026-10-26",
+            "section": "AI credit",
+            "headline": "Neocloud bonds yield over 15%",
+            "takeaway": "",
+            "top_rank": None,
+            "multi_signal": True,
+            "confidence": 0.9,
+        }
+    ],
+}
+
+
 def macro_call(**_kwargs):
     llm_utils._notify_response_observer("anthropic", "claude-opus-5-5", _usage(30_000, 4_000, searches=3))
     rows = [_row("Technology", 2, confidence="high"), _row("Energy", -2, confidence="high")]
@@ -99,6 +117,7 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "_existing_scout_status", lambda cid: state.existing.get(cid))
     monkeypatch.setattr("api.idea_scan.review.recent_filings", lambda _t, now=None: FILINGS)
     monkeypatch.setattr("api.idea_scan.macro_view.gather_snapshots", lambda read=None: SNAPSHOTS)
+    monkeypatch.setattr(pipeline, "gather_digest_stories", lambda days: NEWS)
     monkeypatch.setattr("decision_quality.opportunity_scout.DecisionOntologyWriteback", FakeWriteback)
     FakeWriteback.records = []
     return state
@@ -129,6 +148,7 @@ def test_scheduled_run_publishes_a_digest(env):
     assert "revision_30d" in frame.columns
     assert saved["macro_view"]["status"] == "ok"
     assert {r["sector"] for r in saved["macro_view"]["rows"]} == {"Technology", "Energy"}
+    assert saved["macro_view"]["news"] == {"window_days": 7, "digests": NEWS["digests"], "stories": 1}
 
     cards = saved["candidates"]
     keys = [(c["ticker"], c["direction"]) for c in cards]
