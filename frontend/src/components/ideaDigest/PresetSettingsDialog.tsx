@@ -28,6 +28,7 @@ const SCREEN_LABELS: Record<IdeaScanPreset["screen"], string> = {
   composite_top: "Composite ranker, top",
   breakdown: "Price momentum + revisions, bottom",
   liquid_covered: "Liquidity + analyst coverage",
+  percentile_rules: "Percentile rules within its universes",
 }
 
 type ConfigKey = keyof IdeaScanSettings["config"]

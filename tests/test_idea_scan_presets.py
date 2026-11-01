@@ -16,9 +16,15 @@ def test_starting_presets_exist_and_validate():
         "long-liquid-covered",
         "short-expensive-deteriorating",
         "short-breaking-down",
+        "short-small-weak-low-roic",
+        "short-large-diluting-capex",
     ]
     assert {preset.direction for preset in settings.presets} == {"long", "short"}
-    assert all(set(preset.universes) == set(p.UNIVERSE_KEYS) for preset in settings.presets)
+    by_id = {preset.id: preset for preset in settings.presets}
+    assert by_id["short-small-weak-low-roic"].universes == ["sp600", "russell2000"]
+    assert by_id["short-large-diluting-capex"].universes == ["sp500"]
+    others = [x for x in settings.presets if x.screen != "percentile_rules"]
+    assert all(set(preset.universes) == set(p.UNIVERSE_KEYS) for preset in others)
     assert settings.config.max_reviews == 15
     assert settings.config.max_cost_usd == 4.0
 
@@ -44,6 +50,15 @@ def test_params_are_normalized_with_screen_defaults():
         {"direction": "long", "screen": "composite_top", "universes": ["nasdaq100"]},
         {"direction": "long", "screen": "liquid_covered", "params": {"min_dollar_volume_industry_pct": 0}},
         {"direction": "long", "screen": "composite_top", "liquidity_coverage": {"min_dollar_volume_industry_pct": 2}},
+        {"direction": "short", "screen": "percentile_rules"},
+        {"direction": "short", "screen": "percentile_rules", "params": {"rules": []}},
+        {"direction": "short", "screen": "percentile_rules", "params": {"rules": [{"metric": "roic"}]}},
+        {"direction": "short", "screen": "percentile_rules", "params": {"rules": [{"metric": "pe", "max_pct": 0.4}]}},
+        {
+            "direction": "short",
+            "screen": "percentile_rules",
+            "params": {"rules": [{"metric": "roic", "min_pct": 0.6, "max_pct": 0.4}]},
+        },
     ],
 )
 def test_invalid_presets_are_rejected(kwargs):
