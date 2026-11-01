@@ -222,6 +222,32 @@ def test_status_only_links_currently_pending_statement_proposals(scheduled, monk
     assert sync.ibkr_flex_status()["pending_proposals"] == []
 
 
+def test_viewer_can_read_statement_without_access_to_approvals(scheduled, monkeypatch, auth_client):
+    from api.routers.auth import require_actor
+    from ontology.command_service import OntologyCommandService
+    from ontology.policy import PolicyDenied, user_actor
+
+    sync.sync_ibkr_flex()
+    viewer = user_actor("smoke", ("viewer",))
+
+    def denied(self, **kwargs):
+        assert kwargs["actor"] == viewer
+        raise PolicyDenied("Actor is not allowed to perform policy action 'approval.read'")
+
+    monkeypatch.setattr(OntologyCommandService, "list_approvals", denied)
+    auth_client.app.dependency_overrides[require_actor] = lambda: viewer
+    try:
+        response = auth_client.get("/api/portfolio-positions/ibkr-flex-status")
+    finally:
+        auth_client.app.dependency_overrides.pop(require_actor, None)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["as_of"] == AS_OF
+    assert len(body["positions"]) == 3
+    assert body["pending_proposals"] == []
+
+
 @pytest.mark.parametrize("now", ["2026-10-31T07:00:00-04:00", "2026-11-01T07:00:00-05:00"])
 def test_weekend_pull_catches_friday_statement(scheduled, monkeypatch, now):
     from portfolio.ibkr_flex_client import FlexClient
