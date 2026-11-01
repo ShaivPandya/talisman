@@ -4019,7 +4019,19 @@ export const removeAlternativeDataMapping = (mappingId: string) =>
 // Weekly idea scan
 export type IdeaScanDirection = "long" | "short"
 export type IdeaScanUniverse = "sp500" | "sp400" | "sp600" | "russell2000"
-export type IdeaScanScreen = "long_screen" | "short_screen" | "quality_value" | "value_momentum" | "composite_top" | "breakdown"
+export type IdeaScanScreen =
+  | "long_screen"
+  | "short_screen"
+  | "quality_value"
+  | "value_momentum"
+  | "composite_top"
+  | "breakdown"
+  | "liquid_covered"
+
+export interface IdeaScanLiquidityCoverage {
+  min_dollar_volume_industry_pct: number
+  require_above_median_coverage: boolean
+}
 export type IdeaScanReviewStatus = "reviewed" | "review_failed" | "not_reviewed_budget" | "not_reviewed_cap"
 
 export interface IdeaScanRunSummary {
@@ -4201,10 +4213,12 @@ export interface IdeaScanPreset {
   weights: { quality: number; price_momentum: number; revenue_momentum: number; eps_momentum: number }
   max_names: number
   enabled: boolean
+  liquidity_coverage: IdeaScanLiquidityCoverage | null
 }
 
 export interface IdeaScanSettings {
   presets: IdeaScanPreset[]
+  known_defaults: string[]
   config: {
     max_reviews: number
     max_cost_usd: number
@@ -4239,6 +4253,33 @@ export const saveIdeaScanSettings = (settings: IdeaScanSettings) =>
 
 export const resetIdeaScanSettings = () =>
   client.post("/idea-scan/settings/reset").then(r => r.data as { settings: IdeaScanSettings })
+
+export interface IdeaScanScreenRow {
+  ticker: string
+  company: string | null
+  sector: string | null
+  industry: string | null
+  market_cap: number | null
+  dollar_volume: number | null
+  analyst_count: number | null
+  composite_pct: number | null
+  preset_score: number | null
+  signals: string[]
+  failed: string[]
+}
+
+export interface IdeaScanScreenResult {
+  run_id: string
+  week: string | null
+  data_fetched_at: string | null
+  evaluated: number
+  hits_total: number
+  hits: IdeaScanScreenRow[]
+  near_misses: IdeaScanScreenRow[]
+}
+
+export const screenIdeaScanPreset = (body: { preset: IdeaScanPreset; limit?: number }) =>
+  client.post("/idea-scan/screen", body, { timeout: 120_000 }).then(r => r.data as IdeaScanScreenResult)
 
 const ideaScanCardPath = (runId: string, direction: IdeaScanDirection, ticker: string) =>
   `/idea-scan/runs/${encodeURIComponent(runId)}/candidates/${direction}/${encodeURIComponent(ticker)}`

@@ -21,6 +21,8 @@ from api.idea_scan.presets import (
     BreakdownParams,
     CompositeTopParams,
     IdeaScanPreset,
+    LiquidCoveredParams,
+    LiquidityCoverageFilter,
     LongScreenParams,
     QualityValueParams,
     ShortScreenParams,
@@ -64,6 +66,8 @@ FACTOR_COLUMNS = ("quality", "price_momentum", "eps_momentum", "revenue_momentum
 # Share of the ranking weight a ticker's available factors must carry to get a composite.
 # With the default weights, revenue + EPS momentum alone (34%) or quality alone (33%) isn't enough.
 MIN_COMPOSITE_COVERAGE = 0.5
+# Industries with fewer names than this across the data set are ranked within their sector instead.
+MIN_INDUSTRY_PEERS = 8
 
 
 def _num(value: Any) -> float:
@@ -224,11 +228,18 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
             "shares_short": _num(info.get("sharesShort")),
             "date_short_interest": _num(info.get("dateShortInterest")),
             "days_to_earnings": _days_to_earnings(info, when),
+            "dollar_volume": _num(info.get("averageVolume")) * last_px,
+            "analyst_count": _num(info.get("numberOfAnalystOpinions")),
         }
 
     frame = pd.DataFrame.from_dict(rows, orient="index")
     if frame.empty:
         return frame
+    # Yahoo leaves the analyst count out for names nobody covers. Read that as zero, but only when the
+    # data set was fetched with the field at all; an older checkpoint has it for no one.
+    if frame["analyst_count"].notna().any():
+        uncovered = frame["analyst_count"].isna() & frame["market_cap"].notna()
+        frame.loc[uncovered, "analyst_count"] = 0.0
     tickers = list(frame.index)
 
     momentum_prices = prices[[c for c in prices.columns if c in set(tickers) | {MARKET_BENCHMARK}]].tail(300)
@@ -434,6 +445,75 @@ def sector_valuation_pct(frame: pd.DataFrame, metric: str) -> pd.Series:
     return values.groupby(frame["sector"]).rank(pct=True)
 
 
+def peer_groups(frame: pd.DataFrame) -> pd.Series:
+    """Each ticker's industry, or its sector when the industry has too few names to rank within."""
+    industry = frame["industry"].fillna("").astype(str)
+    sizes = industry.map(industry.value_counts())
+    small = (industry == "") | (sizes < MIN_INDUSTRY_PEERS)
+    return industry.where(~small, frame["sector"].fillna("Unknown").astype(str))
+
+
+def liquidity_coverage_ranks(frame: pd.DataFrame) -> pd.DataFrame:
+    """Dollar-volume percentile and analyst-count median within each ticker's peer group."""
+    groups = peer_groups(frame)
+    missing = pd.Series(np.nan, index=frame.index)
+    dollar_volume = frame.get("dollar_volume", missing).astype(float)
+    analyst_count = frame.get("analyst_count", missing).astype(float)
+    return pd.DataFrame(
+        {
+            "peer_group": groups,
+            "dollar_volume_pct": dollar_volume.where(dollar_volume > 0).groupby(groups).rank(pct=True),
+            "analyst_median": analyst_count.groupby(groups).transform("median"),
+        },
+        index=frame.index,
+    )
+
+
+def _money(value: Any) -> str:
+    if not _present(value):
+        return "n/a"
+    value = float(value)
+    for size, unit in ((1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(value) >= size:
+            return f"${value / size:.1f}{unit}"
+    return f"${value:.0f}"
+
+
+def _liquidity_coverage_checks(row: pd.Series, p: LiquidityCoverageFilter, ranks: pd.Series) -> list[Check]:
+    group = ranks.get("peer_group")
+    dv_pct = ranks.get("dollar_volume_pct")
+    checks = [
+        Check(
+            f"Dollar volume {_money(row.get('dollar_volume'))}/day, "
+            f"{_fmt(dv_pct * 100 if _present(dv_pct) else None, 0)} pct of {group} "
+            f"(≥ {p.min_dollar_volume_industry_pct * 100:g})",
+            _present(dv_pct) and float(dv_pct) >= p.min_dollar_volume_industry_pct,
+            _present(dv_pct),
+        )
+    ]
+    if p.require_above_median_coverage:
+        count = row.get("analyst_count")
+        median = ranks.get("analyst_median")
+        has = _present(count) and _present(median)
+        checks.append(
+            Check(
+                f"{_fmt(count, 0)} analysts (> {group} median {_fmt(median, 1)})",
+                has and float(count) > float(median),
+                has,
+            )
+        )
+    return checks
+
+
+def _liquid_covered_checks(
+    row: pd.Series, p: LiquidCoveredParams, ranks: pd.Series, composite_pct: float
+) -> list[Check]:
+    checks = _liquidity_coverage_checks(row, p, ranks)
+    if p.min_composite_pct is not None:
+        checks += _composite_checks(composite_pct, CompositeTopParams(min_composite_pct=p.min_composite_pct))
+    return checks
+
+
 def _quality_value_checks(row: pd.Series, p: QualityValueParams, valuation_pct: float) -> list[Check]:
     quality_pct = row.get("quality_pct")
     metric_value = row.get(p.valuation_metric)
@@ -525,6 +605,8 @@ def _row_card(row: pd.Series) -> dict[str, Any]:
         "enterpriseToEbitda",
         "forwardPE",
         "trailingPE",
+        "dollar_volume",
+        "analyst_count",
     )
     return cast(dict[str, Any], json_safe({k: row.get(k) for k in keys}))
 
@@ -552,6 +634,10 @@ def evaluate_preset(
         if preset.screen in {"quality_value", "value_momentum"}
         else None
     )
+    liquidity_filter = preset.liquidity_coverage
+    liquidity_ranks = (
+        liquidity_coverage_ranks(frame) if preset.screen == "liquid_covered" or liquidity_filter is not None else None
+    )
 
     hits: list[dict[str, Any]] = []
     near: list[dict[str, Any]] = []
@@ -573,10 +659,18 @@ def evaluate_preset(
             )
         elif preset.screen == "composite_top":
             checks = _composite_checks(composite_pct, CompositeTopParams.model_validate(preset.params))
+        elif preset.screen == "liquid_covered":
+            assert liquidity_ranks is not None
+            checks = _liquid_covered_checks(
+                row, LiquidCoveredParams.model_validate(preset.params), liquidity_ranks.loc[ticker], composite_pct
+            )
         else:
             checks = _breakdown_checks(row, BreakdownParams.model_validate(preset.params), revisions.get(str(ticker)))
         if not checks:
             continue
+        if liquidity_filter is not None and preset.screen != "liquid_covered":
+            assert liquidity_ranks is not None
+            checks += _liquidity_coverage_checks(row, liquidity_filter, liquidity_ranks.loc[ticker])
         failed = [c for c in checks if not c.ok]
         score = composite_pct if preset.direction == "long" else 1.0 - composite_pct
         entry = {

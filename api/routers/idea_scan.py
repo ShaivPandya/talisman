@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from api.async_job_runner import enqueue_registered_job, enqueue_response, poll_registered_job
 from api.idea_scan import store
 from api.idea_scan.presets import (
+    IdeaScanPreset,
     IdeaScanSettings,
     default_settings,
     get_idea_scan_settings,
@@ -34,6 +35,13 @@ class ManualRunRequest(BaseModel):
     max_reviews: int | None = Field(default=None, ge=0, le=50)
     max_cost_usd: float | None = Field(default=None, ge=0, le=10)
     publish_to_scout: bool = True
+
+
+class ScreenPresetRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    preset: IdeaScanPreset
+    limit: int = Field(default=200, ge=1, le=1000)
 
 
 def _run_or_404(run_id: str) -> dict[str, Any]:
@@ -95,6 +103,36 @@ def put_idea_scan_settings(body: IdeaScanSettings):
 @router.post("/idea-scan/settings/reset")
 def reset_idea_scan_settings_endpoint():
     return {"settings": reset_idea_scan_settings().model_dump()}
+
+
+@router.post("/idea-scan/screen")
+def screen_idea_scan_preset(body: ScreenPresetRequest):
+    """Run one preset, as given, on the factor frame saved by the latest full weekly scan."""
+    from api.idea_scan.screening import evaluate_preset, json_safe
+
+    run = store.latest_completed_run(full_only=True)
+    frame = store.load_frame(str(run["run_id"])) if run else None
+    if run is None or frame is None:
+        raise HTTPException(status_code=409, detail="No weekly scan has saved its data yet. Run the idea scan first.")
+    revisions = {str(t): float(v) for t, v in frame["revision_30d"].dropna().items()} if "revision_30d" in frame else {}
+    preset = body.preset.model_copy(update={"max_names": body.limit})
+    result = evaluate_preset(preset, frame, revisions=revisions, near_miss_limit=body.limit)
+    columns = ("company", "sector", "industry", "market_cap", "dollar_volume", "analyst_count", "composite_pct")
+
+    def rows(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{**item, **{k: frame.at[item["ticker"], k] for k in columns if k in frame.columns}} for item in items]
+
+    return json_safe(
+        {
+            "run_id": run["run_id"],
+            "week": run.get("week"),
+            "data_fetched_at": (run.get("data") or {}).get("fetched_at"),
+            "evaluated": result.evaluated,
+            "hits_total": result.hits_total,
+            "hits": rows(result.hits),
+            "near_misses": rows(result.near_misses),
+        }
+    )
 
 
 @router.post("/idea-scan/runs/{run_id}/candidates/{direction}/{ticker}/dismiss")

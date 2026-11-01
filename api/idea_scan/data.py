@@ -75,6 +75,7 @@ INFO_FIELDS = (
     "earningsTimestampStart",
     "earningsTimestampEnd",
     "averageVolume",
+    "numberOfAnalystOpinions",
 )
 
 STATEMENTS = ("financials", "quarterly_financials", "balance_sheet", "cashflow")
