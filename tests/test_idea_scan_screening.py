@@ -539,3 +539,83 @@ def test_frames_without_liquidity_columns_fail_the_checks_without_data():
     frame = make_frame(filler(10))
     result = sc.evaluate_preset(preset("long-liquid-covered"), frame)
     assert result.hits == [] and result.near_misses == []
+
+
+# ---------------------------------------------------------------------------
+# Capital metrics and percentile rules
+# ---------------------------------------------------------------------------
+
+
+def _annual_statements(shares: list[float], *, capex: float = -30.0, fcf: float | None = 50.0) -> TickerFundamentals:
+    years = pd.to_datetime(["2025-12-31", "2024-12-31", "2023-12-31", "2022-12-31"][: len(shares)])
+    income = pd.DataFrame(
+        {d: {"Total Revenue": 1000.0, "Operating Income": 200.0, "Tax Rate For Calcs": 0.25} for d in years}
+    )
+    balance = pd.DataFrame(
+        {d: {"Invested Capital": 1500.0, "Ordinary Shares Number": n} for d, n in zip(years, shares, strict=True)}
+    )
+    flows = {"Capital Expenditure": capex, "Operating Cash Flow": 90.0}
+    if fcf is not None:
+        flows["Free Cash Flow"] = fcf
+    cashflow = pd.DataFrame({d: flows for d in years})
+    return TickerFundamentals(info={"marketCap": 1e9}, financials=income, balance_sheet=balance, cashflow=cashflow)
+
+
+def test_capital_metrics_from_annual_statements():
+    out = sc.capital_metrics(_annual_statements([130.0, 120.0, 110.0, 100.0]))
+    assert out["roic"] == pytest.approx(200 * 0.75 / 1500)
+    assert out["fcf_margin"] == pytest.approx(0.05)
+    assert out["capex_to_sales"] == pytest.approx(0.03)
+    assert out["share_growth_3y"] == pytest.approx(0.30)
+
+    # Free cash flow falls back to operating cash flow less capex; two years of shares isn't three.
+    short = sc.capital_metrics(_annual_statements([130.0, 120.0], fcf=None))
+    assert short["fcf_margin"] == pytest.approx(0.06)
+    assert np.isnan(short["share_growth_3y"])
+    assert all(np.isnan(v) for v in sc.capital_metrics(TickerFundamentals()).values())
+
+
+def rule_rows() -> dict[str, dict]:
+    """Ten small caps whose momentum and ROIC rise with the index, plus large caps that must not affect their ranks."""
+    rows = {
+        f"SM{i}": {"universes": ["russell2000"], "price_momentum": float(i), "roic": i / 100, "composite": float(-i)}
+        for i in range(10)
+    }
+    rows.update(
+        {f"LG{i}": {"universes": ["sp500"], "price_momentum": -10.0, "roic": -1.0, "composite": 0.0} for i in range(10)}
+    )
+    return rows
+
+
+def test_small_cap_rule_preset_ranks_within_its_universes():
+    result = sc.evaluate_preset(preset("short-small-weak-low-roic"), make_frame(rule_rows()))
+    assert result.evaluated == 10
+    # Bottom 40% of the ten small caps on both: SM0-SM3. The large caps' lower values don't count.
+    assert {h["ticker"] for h in result.hits} == {"SM0", "SM1", "SM2", "SM3"}
+    labels = next(h for h in result.hits if h["ticker"] == "SM1")["signals"]
+    assert labels[1] == "ROIC 1.0%, 20 pct of S&P 600 + Russell 2000 (≤ 40)"
+
+
+def test_large_cap_dilution_preset_needs_all_three_rules():
+    rows = {
+        f"LG{i}": {
+            "universes": ["sp500"],
+            "share_growth_3y": i / 100,
+            "fcf_margin": (9 - i) / 100,
+            "capex_to_sales": i / 50,
+        }
+        for i in range(10)
+    }
+    rows["LG9"]["capex_to_sales"] = 0.0  # heaviest diluter, but light capex: a near miss
+    result = sc.evaluate_preset(preset("short-large-diluting-capex"), make_frame(rows))
+    # LG6-LG8: top 30% share growth (LG6-LG9), bottom 40% FCF margin (LG6-LG9), capex above median.
+    assert {h["ticker"] for h in result.hits} == {"LG6", "LG7", "LG8"}
+    miss = next(m for m in result.near_misses if m["ticker"] == "LG9")
+    # Tied with LG0 at zero capex, so both rank at 15.
+    assert miss["failed"] == ["Capex / sales 0.0%, 15 pct of S&P 500 (≥ 50)"]
+
+
+def test_rule_on_a_missing_metric_has_no_data():
+    frame = make_frame(filler(10, universes=["sp600"]))
+    result = sc.evaluate_preset(preset("short-small-weak-low-roic"), frame)
+    assert result.hits == [] and result.near_misses == []

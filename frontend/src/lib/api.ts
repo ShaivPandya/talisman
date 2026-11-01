@@ -4027,6 +4027,7 @@ export type IdeaScanScreen =
   | "composite_top"
   | "breakdown"
   | "liquid_covered"
+  | "percentile_rules"
 
 export interface IdeaScanLiquidityCoverage {
   min_dollar_volume_industry_pct: number

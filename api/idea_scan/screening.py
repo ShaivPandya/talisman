@@ -8,6 +8,7 @@ card can say which checks fired and a near-miss can say which one failed.
 from __future__ import annotations
 
 import math
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -18,12 +19,15 @@ import pandas as pd
 from api.idea_scan.data import MARKET_BENCHMARK, STATEMENTS, ScanDataset
 from api.idea_scan.presets import (
     PARAM_MODELS,
+    RULE_METRIC_LABELS,
+    UNIVERSE_LABELS,
     BreakdownParams,
     CompositeTopParams,
     IdeaScanPreset,
     LiquidCoveredParams,
     LiquidityCoverageFilter,
     LongScreenParams,
+    PercentileRulesParams,
     QualityValueParams,
     ShortScreenParams,
     ValueMomentumParams,
@@ -66,6 +70,10 @@ FACTOR_COLUMNS = ("quality", "price_momentum", "eps_momentum", "revenue_momentum
 # Share of the ranking weight a ticker's available factors must carry to get a composite.
 # With the default weights, revenue + EPS momentum alone (34%) or quality alone (33%) isn't enough.
 MIN_COMPOSITE_COVERAGE = 0.5
+DEFAULT_TAX_RATE = 0.21
+SHARE_GROWTH_YEARS = 3
+# Rule metrics that are fractions, shown as percentages on the card.
+PERCENT_METRICS = {"roic", "share_growth_3y", "fcf_margin", "capex_to_sales"}
 # Industries with fewer names than this across the data set are ranked within their sector instead.
 MIN_INDUSTRY_PEERS = 8
 
@@ -103,6 +111,64 @@ def _net_issuance(cashflow: pd.DataFrame | None) -> float:
     if np.isnan(issued) and np.isnan(repurchased):
         return np.nan
     return (0.0 if np.isnan(issued) else abs(issued)) - (0.0 if np.isnan(repurchased) else abs(repurchased))
+
+
+def _annual(statement: pd.DataFrame | None, keys: list[str]) -> pd.Series:
+    """The first matching row of an annual statement, newest year first, with missing years dropped."""
+    if statement is None or statement.empty:
+        return pd.Series(dtype=float)
+    for key in keys:
+        if key in statement.index:
+            row = pd.to_numeric(statement.loc[key], errors="coerce").dropna()
+            row.index = pd.to_datetime(row.index, errors="coerce")
+            return row[row.index.notna()].sort_index(ascending=False)
+    return pd.Series(dtype=float)
+
+
+def _latest(statement: pd.DataFrame | None, keys: list[str]) -> float:
+    row = _annual(statement, keys)
+    return float(row.iloc[0]) if not row.empty else np.nan
+
+
+def _share_growth(shares: pd.Series, years: int = SHARE_GROWTH_YEARS) -> float:
+    """Growth in share count from the year closest to ``years`` before the latest one."""
+    if len(shares) < 2:
+        return np.nan
+    target = shares.index[0] - pd.DateOffset(years=years)
+    gaps = abs(shares.index - target)
+    pos = int(np.argmin(gaps))
+    if pos == 0 or gaps[pos] > pd.Timedelta(days=180) or shares.iloc[pos] <= 0:
+        return np.nan
+    return float(shares.iloc[0] / shares.iloc[pos] - 1)
+
+
+def capital_metrics(fundamentals: Any) -> dict[str, float]:
+    """ROIC, FCF margin, capex / sales and 3-year share count growth from the latest annual statements."""
+    income, balance, cashflow = fundamentals.financials, fundamentals.balance_sheet, fundamentals.cashflow
+    revenue = _latest(income, ["Total Revenue", "TotalRevenue"])
+    ebit = _latest(income, ["Operating Income", "OperatingIncome", "EBIT"])
+    tax = _latest(income, ["Tax Rate For Calcs"])
+    tax = DEFAULT_TAX_RATE if np.isnan(tax) else min(max(tax, 0.0), 0.5)
+    invested = _latest(balance, ["Invested Capital", "InvestedCapital"])
+    if np.isnan(invested):
+        debt = _latest(balance, ["Total Debt", "TotalDebt"])
+        equity = _latest(balance, ["Stockholders Equity", "StockholdersEquity"])
+        cash = _latest(balance, ["Cash And Cash Equivalents", "CashAndCashEquivalents"])
+        invested = (0.0 if np.isnan(debt) else debt) + equity - (0.0 if np.isnan(cash) else cash)
+    capex = _latest(cashflow, ["Capital Expenditure", "CapitalExpenditure"])
+    fcf = _latest(cashflow, ["Free Cash Flow", "FreeCashFlow"])
+    if np.isnan(fcf):
+        fcf = _latest(cashflow, ["Operating Cash Flow", "OperatingCashFlow"]) - abs(capex)
+    shares = _annual(balance, ["Ordinary Shares Number", "Share Issued"])
+    if len(shares) < 2:
+        shares = _annual(income, ["Diluted Average Shares", "DilutedAverageShares"])
+    has_revenue = not np.isnan(revenue) and revenue > 0
+    return {
+        "roic": ebit * (1 - tax) / invested if not np.isnan(invested) and invested > 0 else np.nan,
+        "fcf_margin": fcf / revenue if has_revenue else np.nan,
+        "capex_to_sales": abs(capex) / revenue if has_revenue else np.nan,
+        "share_growth_3y": _share_growth(shares),
+    }
 
 
 def _days_to_earnings(info: dict[str, Any], now: datetime) -> int | None:
@@ -230,6 +296,7 @@ def build_factor_frame(dataset: ScanDataset, *, now: datetime | None = None) -> 
             "days_to_earnings": _days_to_earnings(info, when),
             "dollar_volume": _num(info.get("averageVolume")) * last_px,
             "analyst_count": _num(info.get("numberOfAnalystOpinions")),
+            **capital_metrics(fundamentals),
         }
 
     frame = pd.DataFrame.from_dict(rows, orient="index")
@@ -514,6 +581,44 @@ def _liquid_covered_checks(
     return checks
 
 
+def _scope_label(universes: Sequence[str]) -> str:
+    return " + ".join(UNIVERSE_LABELS.get(u, u) for u in universes)
+
+
+def _rule_value(metric: str, value: Any) -> str:
+    if metric in PERCENT_METRICS:
+        return _fmt(float(value) * 100 if _present(value) else None, 1, "%")
+    if metric in {"dollar_volume", "market_cap"}:
+        return _money(value)
+    return _fmt(value, 2)
+
+
+def _percentile_rule_checks(
+    row: pd.Series, p: PercentileRulesParams, ranks: Mapping[str, pd.Series], ticker: Any, scope: str
+) -> list[Check]:
+    checks = []
+    for rule in p.rules:
+        pct = ranks[rule.metric].get(ticker, np.nan)
+        has = _present(pct)
+        bounds = []
+        ok = has
+        if rule.min_pct is not None:
+            bounds.append(f"≥ {rule.min_pct * 100:g}")
+            ok = ok and float(pct) >= rule.min_pct
+        if rule.max_pct is not None:
+            bounds.append(f"≤ {rule.max_pct * 100:g}")
+            ok = ok and float(pct) <= rule.max_pct
+        checks.append(
+            Check(
+                f"{RULE_METRIC_LABELS[rule.metric]} {_rule_value(rule.metric, row.get(rule.metric))}, "
+                f"{_fmt(pct * 100 if has else None, 0)} pct of {scope} ({', '.join(bounds)})",
+                bool(ok),
+                has,
+            )
+        )
+    return checks
+
+
 def _quality_value_checks(row: pd.Series, p: QualityValueParams, valuation_pct: float) -> list[Check]:
     quality_pct = row.get("quality_pct")
     metric_value = row.get(p.valuation_metric)
@@ -607,6 +712,10 @@ def _row_card(row: pd.Series) -> dict[str, Any]:
         "trailingPE",
         "dollar_volume",
         "analyst_count",
+        "roic",
+        "share_growth_3y",
+        "fcf_margin",
+        "capex_to_sales",
     )
     return cast(dict[str, Any], json_safe({k: row.get(k) for k in keys}))
 
@@ -634,6 +743,16 @@ def evaluate_preset(
         if preset.screen in {"quality_value", "value_momentum"}
         else None
     )
+    rule_params = PercentileRulesParams.model_validate(preset.params) if preset.screen == "percentile_rules" else None
+    # Ranked within the preset's own universes: "bottom 40% ROIC" among small caps, not the whole data set.
+    rule_ranks: dict[str, pd.Series] = {
+        rule.metric: (
+            pd.to_numeric(scope[rule.metric], errors="coerce")
+            if rule.metric in scope.columns
+            else pd.Series(np.nan, index=scope.index)
+        ).rank(pct=True)
+        for rule in (rule_params.rules if rule_params else [])
+    }
     liquidity_filter = preset.liquidity_coverage
     liquidity_ranks = (
         liquidity_coverage_ranks(frame) if preset.screen == "liquid_covered" or liquidity_filter is not None else None
@@ -659,6 +778,9 @@ def evaluate_preset(
             )
         elif preset.screen == "composite_top":
             checks = _composite_checks(composite_pct, CompositeTopParams.model_validate(preset.params))
+        elif preset.screen == "percentile_rules":
+            assert rule_params is not None
+            checks = _percentile_rule_checks(row, rule_params, rule_ranks, ticker, _scope_label(preset.universes))
         elif preset.screen == "liquid_covered":
             assert liquidity_ranks is not None
             checks = _liquid_covered_checks(

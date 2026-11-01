@@ -21,8 +21,41 @@ UNIVERSE_LABELS: dict[str, str] = {
 }
 
 ScreenKind = Literal[
-    "long_screen", "short_screen", "quality_value", "value_momentum", "composite_top", "breakdown", "liquid_covered"
+    "long_screen",
+    "short_screen",
+    "quality_value",
+    "value_momentum",
+    "composite_top",
+    "breakdown",
+    "liquid_covered",
+    "percentile_rules",
 ]
+
+# Factor-frame columns a percentile rule can rank, with the label its check shows.
+RuleMetric = Literal[
+    "price_momentum",
+    "quality",
+    "eps_momentum",
+    "revenue_momentum",
+    "roic",
+    "share_growth_3y",
+    "fcf_margin",
+    "capex_to_sales",
+    "dollar_volume",
+    "market_cap",
+]
+RULE_METRIC_LABELS: dict[str, str] = {
+    "price_momentum": "Price momentum",
+    "quality": "Quality",
+    "eps_momentum": "EPS momentum",
+    "revenue_momentum": "Revenue momentum",
+    "roic": "ROIC",
+    "share_growth_3y": "3-year share count growth",
+    "fcf_margin": "FCF margin",
+    "capex_to_sales": "Capex / sales",
+    "dollar_volume": "Dollar volume",
+    "market_cap": "Market cap",
+}
 
 
 class _Params(BaseModel):
@@ -86,6 +119,28 @@ class LiquidityCoverageFilter(_Params):
     require_above_median_coverage: bool = True
 
 
+class PercentileRule(_Params):
+    """One metric's percentile among the preset's universes: at least ``min_pct``, at most ``max_pct``, or both."""
+
+    metric: RuleMetric
+    min_pct: float | None = Field(default=None, ge=0, le=1)
+    max_pct: float | None = Field(default=None, ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _bounded(self) -> PercentileRule:
+        if self.min_pct is None and self.max_pct is None:
+            raise ValueError("A percentile rule needs min_pct, max_pct or both.")
+        if self.min_pct is not None and self.max_pct is not None and self.min_pct > self.max_pct:
+            raise ValueError("min_pct can't be above max_pct.")
+        return self
+
+
+class PercentileRulesParams(_Params):
+    """Every rule must hold. Percentiles are ranked within the preset's universes, not the whole data set."""
+
+    rules: list[PercentileRule] = Field(min_length=1, max_length=8)
+
+
 class LiquidCoveredParams(LiquidityCoverageFilter):
     """The liquidity and coverage filter as a screen of its own; the composite ranker orders the hits."""
 
@@ -100,6 +155,7 @@ PARAM_MODELS: dict[str, type[_Params]] = {
     "composite_top": CompositeTopParams,
     "breakdown": BreakdownParams,
     "liquid_covered": LiquidCoveredParams,
+    "percentile_rules": PercentileRulesParams,
 }
 
 SCREEN_DIRECTIONS: dict[str, set[str]] = {
@@ -110,6 +166,7 @@ SCREEN_DIRECTIONS: dict[str, set[str]] = {
     "composite_top": {"long"},
     "breakdown": {"short"},
     "liquid_covered": {"long", "short"},
+    "percentile_rules": {"long", "short"},
 }
 
 
@@ -235,6 +292,33 @@ def default_presets() -> list[IdeaScanPreset]:
             direction="short",
             screen="breakdown",
             params=BreakdownParams().model_dump(),
+        ),
+        IdeaScanPreset(
+            id="short-small-weak-low-roic",
+            name="Short · Small cap, weak momentum, low ROIC",
+            direction="short",
+            universes=["sp600", "russell2000"],
+            screen="percentile_rules",
+            params={
+                "rules": [
+                    {"metric": "price_momentum", "max_pct": 0.4},
+                    {"metric": "roic", "max_pct": 0.4},
+                ]
+            },
+        ),
+        IdeaScanPreset(
+            id="short-large-diluting-capex",
+            name="Short · Large cap diluting, weak FCF, heavy capex",
+            direction="short",
+            universes=["sp500"],
+            screen="percentile_rules",
+            params={
+                "rules": [
+                    {"metric": "share_growth_3y", "min_pct": 0.7},
+                    {"metric": "fcf_margin", "max_pct": 0.4},
+                    {"metric": "capex_to_sales", "min_pct": 0.5},
+                ]
+            },
         ),
     ]
 
