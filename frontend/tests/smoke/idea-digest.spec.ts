@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "./fixtures"
-import type { IdeaScanCandidate, IdeaScanRun, IdeaScanSettings } from "@/lib/api"
+import type { IdeaScanCandidate, IdeaScanPreset, IdeaScanRun, IdeaScanScreenResult, IdeaScanSettings } from "@/lib/api"
 
 const RUN_ID = "20261031T120000000000Z-abc123"
 
@@ -107,14 +107,38 @@ const SETTINGS: IdeaScanSettings = {
     {
       id: "long-cheap-improving", name: "Long · Cheap & improving", direction: "long", universes: ["sp500", "sp400", "sp600", "russell2000"],
       screen: "long_screen", params: { pb_threshold: 1.5 }, weights: { quality: 0.33, price_momentum: 0.33, revenue_momentum: 0.2, eps_momentum: 0.14 },
-      max_names: 10, enabled: true,
+      max_names: 10, enabled: true, liquidity_coverage: null,
+    },
+    {
+      id: "long-liquid-covered", name: "Long · Liquid & well covered", direction: "long", universes: ["sp500", "sp400", "sp600", "russell2000"],
+      screen: "liquid_covered", params: { min_dollar_volume_industry_pct: 0.75, require_above_median_coverage: true, min_composite_pct: null },
+      weights: { quality: 0.33, price_momentum: 0.33, revenue_momentum: 0.2, eps_momentum: 0.14 }, max_names: 10, enabled: true, liquidity_coverage: null,
     },
   ],
   config: { max_reviews: 15, max_cost_usd: 2, review_web_searches: 2, macro_web_searches: 5, near_miss_limit: 10 },
+  known_defaults: ["long-cheap-improving", "long-liquid-covered"],
+}
+
+const SCREEN_RESULT: IdeaScanScreenResult = {
+  run_id: RUN_ID,
+  week: "2026-W44",
+  data_fetched_at: "2026-10-31T10:00:00+00:00",
+  evaluated: 3401,
+  hits_total: 1,
+  hits: [{
+    ticker: "AAA", company: "Alpha Industries", sector: "Technology", industry: "Semiconductors", market_cap: 4.2e10,
+    dollar_volume: 8.4e8, analyst_count: 31, composite_pct: 0.93, preset_score: 0.93,
+    signals: ["P/B 1.20 (< 1.5)", "Dollar volume $840.0M/day, 96 pct of Semiconductors (≥ 80)", "31 analysts (> Semiconductors median 12.0)"], failed: [],
+  }],
+  near_misses: [{
+    ticker: "BBB", company: "Beta Devices", sector: "Technology", industry: "Semiconductors", market_cap: 3e9,
+    dollar_volume: 2e7, analyst_count: 14, composite_pct: 0.71, preset_score: 0.71,
+    signals: ["P/B 1.10 (< 1.5)"], failed: ["Dollar volume $20.0M/day, 41 pct of Semiconductors (≥ 80)"],
+  }],
 }
 
 async function mockDigest(page: Page, run: IdeaScanRun) {
-  const calls = { dismissed: [] as string[], promoted: [] as string[], saved: [] as IdeaScanSettings[] }
+  const calls = { dismissed: [] as string[], promoted: [] as string[], saved: [] as IdeaScanSettings[], screened: [] as IdeaScanPreset[] }
   let current = structuredClone(run)
   await page.route("**/api/idea-scan/**", async route => {
     const request = route.request()
@@ -128,6 +152,10 @@ async function mockDigest(page: Page, run: IdeaScanRun) {
     if (method === "PUT" && path === "/api/idea-scan/settings") {
       calls.saved.push(request.postDataJSON())
       return route.fulfill({ json: { settings: request.postDataJSON() } })
+    }
+    if (method === "POST" && path === "/api/idea-scan/screen") {
+      calls.screened.push(request.postDataJSON().preset)
+      return route.fulfill({ json: SCREEN_RESULT })
     }
     const match = path.match(/\/candidates\/(long|short)\/([^/]+)\/(dismiss|promote)$/)
     if (method === "POST" && match) {
@@ -213,12 +241,50 @@ test("presets can be edited from the digest", async ({ page }) => {
   await page.goto("/idea-digest")
   await page.getByRole("button", { name: "Presets" }).click()
   const dialog = page.getByRole("dialog", { name: "Idea scan presets" })
-  await dialog.getByLabel("Maximum names").fill("4")
+  await dialog.getByLabel("Maximum names").first().fill("4")
   await dialog.getByLabel("Names reviewed per run").fill("8")
   await dialog.getByRole("button", { name: "Save presets" }).click()
   await expect(dialog).toBeHidden()
   expect(calls.saved[0].presets[0].max_names).toBe(4)
   expect(calls.saved[0].config.max_reviews).toBe(8)
+})
+
+test("any preset can require liquid, well-covered names", async ({ page }) => {
+  const calls = await mockDigest(page, fullRun())
+  await page.goto("/idea-digest")
+  await page.getByRole("button", { name: "Presets" }).click()
+  const dialog = page.getByRole("dialog", { name: "Idea scan presets" })
+  // The liquid-covered preset is that screen already, so only the other preset offers the filter.
+  await expect(dialog.getByRole("switch", { name: "Only liquid, well-covered names" })).toHaveCount(1)
+  await dialog.getByText("Only liquid, well-covered names").click()
+  await dialog.getByLabel("Dollar volume, min. percentile in industry").fill("80")
+  await dialog.getByRole("button", { name: "Save presets" }).click()
+  await expect(dialog).toBeHidden()
+  expect(calls.saved[0].presets[0].liquidity_coverage).toEqual({ min_dollar_volume_industry_pct: 0.8, require_above_median_coverage: true })
+  expect(calls.saved[0].presets[1].liquidity_coverage).toBeNull()
+})
+
+test("the Screeners page runs a digest preset with the filter", async ({ page }) => {
+  const calls = await mockDigest(page, fullRun())
+  await page.goto("/screeners")
+  // A notification toast can slide over the end of the tab bar; retry the click until the panel shows.
+  await expect(async () => {
+    await page.getByRole("button", { name: "Digest Presets", exact: true }).click()
+    await expect(page.getByLabel("Preset")).toBeVisible({ timeout: 1_000 })
+  }).toPass()
+  await page.getByLabel("Universe").selectOption("sp400")
+  await page.getByText("Only liquid, well-covered names").click()
+  await page.getByRole("button", { name: "Run Screen" }).click()
+  await expect(page.getByText("Matches:")).toBeVisible()
+  await expect(page.getByRole("cell", { name: "Alpha Industries" })).toBeVisible()
+  await expect(page.getByRole("cell", { name: "$840.0M", exact: true })).toBeVisible()
+  await expect(page.getByText("Near misses (one check failed)")).toBeVisible()
+  expect(calls.screened[0]).toMatchObject({
+    id: "long-cheap-improving",
+    universes: ["sp400"],
+    liquidity_coverage: { min_dollar_volume_industry_pct: 0.75, require_above_median_coverage: true },
+  })
+  await page.screenshot({ path: test.info().outputPath("screeners-digest-presets.png"), fullPage: true })
 })
 
 test("the digest fits a phone screen", async ({ page }) => {

@@ -122,7 +122,11 @@ def test_scheduled_run_publishes_a_digest(env):
     saved = store.get_run(out["run_id"])
     assert saved["status"] == "completed" and saved["source"] == "scheduler" and not saved["limited"]
     assert env.fetches == 1, "one shared fetch per run"
-    assert len(saved["presets"]) == 6
+    assert len(saved["presets"]) == 7
+    frame = store.load_frame(out["run_id"])
+    assert frame is not None and set(frame.index) == set(env.frame.index)
+    assert frame.loc["F00", "universes"] == list(env.frame.loc["F00", "universes"])
+    assert "revision_30d" in frame.columns
     assert saved["macro_view"]["status"] == "ok"
     assert {r["sector"] for r in saved["macro_view"]["rows"]} == {"Technology", "Energy"}
 

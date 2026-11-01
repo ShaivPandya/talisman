@@ -423,6 +423,8 @@ def test_build_factor_frame_from_shared_statements():
         t: _statements(i, pb=0.8 + i * 0.3, grow=0.02 * i, buyback=i % 2 == 0) for i, t in enumerate(tickers)
     }
     fundamentals["BROKEN"] = TickerFundamentals(error="no data returned")
+    fundamentals["S0"].info["averageVolume"] = 1000
+    fundamentals["S1"].info["numberOfAnalystOpinions"] = 7
     # Quote data missing (expired crumb) but statements loaded: still scored, sector unknown.
     no_quote = _statements(5, pb=1.0, grow=0.05, buyback=True)
     fundamentals["NOQUOTE"] = TickerFundamentals(
@@ -451,5 +453,89 @@ def test_build_factor_frame_from_shared_statements():
     assert frame.loc["S1"]["net_issuance"] == pytest.approx(80.0)
     assert frame.loc["S11"]["rev_yoy_avg"] > frame.loc["S1"]["rev_yoy_avg"]
     assert s0["days_to_earnings"] > 0
+    assert s0["dollar_volume"] == pytest.approx(1000 * prices["S0"].iloc[-1])
+    assert np.isnan(frame.loc["S1"]["dollar_volume"])
+    # A missing analyst count means no coverage, unless the quote itself is missing.
+    assert frame.loc["S1"]["analyst_count"] == 7 and s0["analyst_count"] == 0
+    assert np.isnan(frame.loc["NOQUOTE"]["analyst_count"])
     # Strongest drift should rank above the weakest on price momentum.
     assert frame.loc["S11"]["price_momentum_pct"] > frame.loc["S0"]["price_momentum_pct"]
+
+
+# ---------------------------------------------------------------------------
+# Liquidity and analyst coverage
+# ---------------------------------------------------------------------------
+
+
+def liquidity_rows() -> dict[str, dict]:
+    """Ten semiconductor names, dollar volume and analysts rising with the index, plus a small industry."""
+    rows = {
+        f"S{i}": {
+            "industry": "Semiconductors",
+            "sector": "Technology",
+            "dollar_volume": float((i + 1) * 1e7),
+            "analyst_count": float(i),
+            "quality": float(i),
+        }
+        for i in range(10)
+    }
+    rows["TINY1"] = {
+        "industry": "Electronic Gaming",
+        "sector": "Technology",
+        "dollar_volume": 2e9,
+        "analyst_count": 30.0,
+    }
+    rows["TINY2"] = {"industry": "Software", "sector": "Technology", "dollar_volume": 1e6, "analyst_count": 1.0}
+    return rows
+
+
+def test_peer_groups_fall_back_to_sector_for_small_industries():
+    frame = make_frame(liquidity_rows())
+    groups = sc.peer_groups(frame)
+    assert groups["S0"] == "Semiconductors"
+    assert groups["TINY1"] == groups["TINY2"] == "Technology"
+
+
+def test_liquid_covered_preset_needs_top_quartile_volume_and_above_median_coverage():
+    frame = make_frame(liquidity_rows())
+    result = sc.evaluate_preset(preset("long-liquid-covered"), frame)
+    # Top quartile of ten names by dollar volume is S7-S9; all are above the median of 4.5 analysts.
+    # TINY1 is ranked against TINY2 within the Technology sector.
+    assert {h["ticker"] for h in result.hits} == {"S7", "S8", "S9", "TINY1"}
+    labels = next(h for h in result.hits if h["ticker"] == "S9")["signals"]
+    assert any("pct of Semiconductors" in label for label in labels)
+    assert any("analysts (> Semiconductors median 4.5)" in label for label in labels)
+    # S6 is above the analyst median but just outside the volume cut: a near miss.
+    assert "S6" in {m["ticker"] for m in result.near_misses}
+
+
+def test_coverage_must_be_strictly_above_the_median():
+    rows = liquidity_rows()
+    for name in rows:
+        rows[name]["analyst_count"] = 3.0
+    frame = make_frame(rows)
+    assert sc.evaluate_preset(preset("long-liquid-covered"), frame).hits == []
+
+
+def test_missing_volume_is_not_a_near_miss():
+    rows = liquidity_rows()
+    rows["S9"]["dollar_volume"] = np.nan
+    result = sc.evaluate_preset(preset("long-liquid-covered"), make_frame(rows))
+    assert "S9" not in {h["ticker"] for h in [*result.hits, *result.near_misses]}
+
+
+def test_liquidity_filter_adds_checks_to_another_screen():
+    rows = liquidity_rows()
+    base = preset("long-momentum-quality").model_copy(update={"params": {"min_composite_pct": 0.0}})
+    filtered = base.model_copy(update={"liquidity_coverage": sc.LiquidityCoverageFilter()})
+    frame = make_frame(rows)
+    assert sc.evaluate_preset(base, frame).hits_total == len(frame)
+    hits = sc.evaluate_preset(filtered, frame).hits
+    assert {h["ticker"] for h in hits} == {"S7", "S8", "S9", "TINY1"}
+    assert all(len(h["signals"]) == 3 for h in hits)
+
+
+def test_frames_without_liquidity_columns_fail_the_checks_without_data():
+    frame = make_frame(filler(10))
+    result = sc.evaluate_preset(preset("long-liquid-covered"), frame)
+    assert result.hits == [] and result.near_misses == []

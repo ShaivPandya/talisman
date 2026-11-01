@@ -6,6 +6,11 @@ import {
   runLongScreen,
   runFundamentalMomentum,
   runPriceMomentum,
+  fetchIdeaScanSettings,
+  screenIdeaScanPreset,
+  type IdeaScanPreset,
+  type IdeaScanScreenResult,
+  type IdeaScanUniverse,
   type QualityScreenRequest,
   type LongScreenRequest,
   type PriceMomentumRequest,
@@ -19,6 +24,7 @@ import {
   Toggle, ActionButton, ControlPanel,
 } from "@/components/shared/FormControls"
 import { colorPositiveNegative, colorZscore } from "@/lib/colors"
+import { DEFAULT_LIQUIDITY_COVERAGE } from "@/lib/ideaDigest"
 
 const EMPTY_ROWS: Record<string, unknown>[] = []
 
@@ -1265,9 +1271,162 @@ function FundamentalMomentumPanel() {
   return <><FundamentalMomentumForm /><FundamentalMomentumResults /></>
 }
 
+/* ─── Digest Presets ─── */
+
+const DIGEST_UNIVERSES: { value: IdeaScanUniverse | "preset"; label: string }[] = [
+  { value: "preset", label: "Preset's universes" },
+  { value: "sp500", label: "S&P 500" },
+  { value: "sp400", label: "S&P 400" },
+  { value: "sp600", label: "S&P 600" },
+  { value: "russell2000", label: "Russell 2000" },
+]
+
+function formatDollars(v: unknown): string {
+  if (typeof v !== "number") return "N/A"
+  for (const [size, unit] of [[1e9, "B"], [1e6, "M"], [1e3, "K"]] as const) {
+    if (Math.abs(v) >= size) return `$${(v / size).toFixed(1)}${unit}`
+  }
+  return `$${v.toFixed(0)}`
+}
+
+const formatPercentile = (v: unknown) => (typeof v === "number" ? (v * 100).toFixed(0) : "N/A")
+const formatList = (v: unknown) => (Array.isArray(v) ? v.join("; ") : "")
+
+const DIGEST_COLUMNS: ColumnDef[] = [
+  { key: "ticker", header: "Ticker" },
+  { key: "company", header: "Company" },
+  { key: "industry", header: "Industry" },
+  { key: "dollar_volume", header: "Avg $ Volume", format: formatDollars },
+  { key: "analyst_count", header: "Analysts", format: v => formatPlainNumber(v, 0) },
+  { key: "composite_pct", header: "Composite Pct", format: formatPercentile },
+  { key: "signals", header: "Signals", format: formatList },
+]
+
+const NEAR_MISS_COLUMNS: ColumnDef[] = [
+  ...DIGEST_COLUMNS.slice(0, 6),
+  { key: "failed", header: "Failed check", format: formatList },
+]
+
+function DigestPresetForm() {
+  const settingsQuery = useQuery({ queryKey: ["idea-scan", "settings"], queryFn: fetchIdeaScanSettings, staleTime: 5 * 60_000 })
+  const presets = settingsQuery.data?.settings.presets ?? []
+  const [presetId, setPresetId] = useState("")
+  const [universe, setUniverse] = useState<IdeaScanUniverse | "preset">("preset")
+  const [filterOverride, setFilterOverride] = useState<Record<string, boolean>>({})
+  const [minDollarVolumePct, setMinDollarVolumePct] = useState(75)
+  const { mutation, hasResult } = useScreenerMutation<IdeaScanScreenResult, { preset: IdeaScanPreset }>("Digest Presets", {
+    mutationFn: screenIdeaScanPreset,
+  })
+
+  const selected = presets.find(p => p.id === presetId) ?? presets[0]
+  const canFilter = selected != null && selected.screen !== "liquid_covered"
+  const filterOn = selected != null && canFilter && (filterOverride[selected.id] ?? selected.liquidity_coverage != null)
+
+  function handleRun() {
+    if (!selected) return
+    mutation.mutate({
+      preset: {
+        ...selected,
+        enabled: true,
+        universes: universe === "preset" ? selected.universes : [universe],
+        liquidity_coverage: filterOn
+          ? { ...DEFAULT_LIQUIDITY_COVERAGE, ...selected.liquidity_coverage, min_dollar_volume_industry_pct: minDollarVolumePct / 100 }
+          : null,
+      },
+    })
+  }
+
+  return (
+    <>
+      <ControlPanel>
+        {settingsQuery.isError && <ErrorMessage message={errorMessage(settingsQuery.error)} />}
+        <SelectInput
+          id="digest-preset"
+          label="Preset"
+          value={selected?.id ?? ""}
+          onChange={id => {
+            setPresetId(id)
+            const next = presets.find(p => p.id === id)
+            if (next?.liquidity_coverage) setMinDollarVolumePct(Math.round(next.liquidity_coverage.min_dollar_volume_industry_pct * 100))
+          }}
+          options={presets.map(p => ({ value: p.id, label: p.name }))}
+        />
+        <SelectInput
+          id="digest-universe"
+          label="Universe"
+          value={universe}
+          onChange={value => setUniverse(value as IdeaScanUniverse | "preset")}
+          options={DIGEST_UNIVERSES}
+        />
+        {canFilter && (
+          <Toggle
+            label="Only liquid, well-covered names"
+            checked={filterOn}
+            onChange={on => selected && setFilterOverride(current => ({ ...current, [selected.id]: on }))}
+            description="Dollar volume high for its industry and analyst count above the industry median"
+          />
+        )}
+        {filterOn && (
+          <SliderInput
+            label="Min. dollar volume percentile in industry"
+            value={minDollarVolumePct}
+            onChange={setMinDollarVolumePct}
+            min={50}
+            max={95}
+            step={5}
+            formatValue={v => v.toFixed(0)}
+            minLabel="50"
+            maxLabel="95"
+          />
+        )}
+        <ActionButton onClick={handleRun} disabled={!selected} loading={mutation.isPending} loadingText="Screening...">
+          Run Screen
+        </ActionButton>
+      </ControlPanel>
+
+      {mutation.isPending && <LoadingSpinner message="Screening the latest weekly data set..." />}
+      {mutation.isError && <ErrorMessage message={errorMessage(mutation.error)} />}
+      {!hasResult && !mutation.isPending && !mutation.isError && (
+        <p className="text-gray-400 text-sm">
+          Runs a digest preset on the data set from the latest weekly idea scan, so it takes seconds and makes no new data calls.
+        </p>
+      )}
+    </>
+  )
+}
+
+const DigestPresetResults = memo(function DigestPresetResults() {
+  const { data: snapshot } = useScreenerResult<IdeaScanScreenResult>("Digest Presets")
+  const data = snapshot?.result
+  if (!data) return null
+  const hits = data.hits as unknown as Record<string, unknown>[]
+  const nearMisses = data.near_misses as unknown as Record<string, unknown>[]
+  return (
+    <>
+      <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">
+        <span>Data from: <strong>{data.week ?? "—"}</strong></span>
+        <span>Evaluated: <strong>{data.evaluated}</strong></span>
+        <span>Matches: <strong>{data.hits_total}</strong></span>
+        {data.hits_total > hits.length && <span>Showing top <strong>{hits.length}</strong> by composite</span>}
+      </div>
+      {hits.length > 0 ? <DataTable columns={DIGEST_COLUMNS} rows={hits} /> : <p className="text-gray-400">No candidates matching criteria.</p>}
+      {nearMisses.length > 0 && (
+        <div className="mt-6">
+          <h2 className="mb-2 text-sm font-semibold text-gray-700">Near misses (one check failed)</h2>
+          <DataTable columns={NEAR_MISS_COLUMNS} rows={nearMisses} />
+        </div>
+      )}
+    </>
+  )
+})
+
+function DigestPresetPanel() {
+  return <><DigestPresetForm /><DigestPresetResults /></>
+}
+
 /* ─── Main Screeners Page ─── */
 
-type ScreenerTab = "Quality" | "Short" | "Long" | "Price Momentum" | "Fundamental Momentum"
+type ScreenerTab = "Quality" | "Short" | "Long" | "Price Momentum" | "Fundamental Momentum" | "Digest Presets"
 
 export function Screeners() {
   const [activeTab, setActiveTab] = useState<ScreenerTab>("Quality")
@@ -1278,7 +1437,7 @@ export function Screeners() {
         <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Screeners</h1>
       </div>
 
-      <div className="mb-6 max-w-2xl overflow-x-auto">
+      <div className="mb-6 max-w-3xl overflow-x-auto">
         <SegmentedControl
           options={[
             { value: "Quality" as const, label: "Quality" },
@@ -1286,6 +1445,7 @@ export function Screeners() {
             { value: "Long" as const, label: "Long" },
             { value: "Price Momentum" as const, label: "Price Momentum" },
             { value: "Fundamental Momentum" as const, label: "Fund. Momentum" },
+            { value: "Digest Presets" as const, label: "Digest Presets" },
           ]}
           value={activeTab}
           onChange={setActiveTab}
@@ -1297,6 +1457,7 @@ export function Screeners() {
       {activeTab === "Long" && <LongPanel />}
       {activeTab === "Price Momentum" && <PriceMomentumPanel />}
       {activeTab === "Fundamental Momentum" && <FundamentalMomentumPanel />}
+      {activeTab === "Digest Presets" && <DigestPresetPanel />}
     </div>
   )
 }

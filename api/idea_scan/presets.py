@@ -20,7 +20,9 @@ UNIVERSE_LABELS: dict[str, str] = {
     "russell2000": "Russell 2000",
 }
 
-ScreenKind = Literal["long_screen", "short_screen", "quality_value", "value_momentum", "composite_top", "breakdown"]
+ScreenKind = Literal[
+    "long_screen", "short_screen", "quality_value", "value_momentum", "composite_top", "breakdown", "liquid_covered"
+]
 
 
 class _Params(BaseModel):
@@ -77,6 +79,19 @@ class BreakdownParams(_Params):
     require_negative_revisions: bool = True
 
 
+class LiquidityCoverageFilter(_Params):
+    """Traded and followed more than its industry peers: dollar volume and analyst count, ranked within industry."""
+
+    min_dollar_volume_industry_pct: float = Field(default=0.75, gt=0, le=1)
+    require_above_median_coverage: bool = True
+
+
+class LiquidCoveredParams(LiquidityCoverageFilter):
+    """The liquidity and coverage filter as a screen of its own; the composite ranker orders the hits."""
+
+    min_composite_pct: float | None = Field(default=None, ge=0, le=1)
+
+
 PARAM_MODELS: dict[str, type[_Params]] = {
     "long_screen": LongScreenParams,
     "short_screen": ShortScreenParams,
@@ -84,6 +99,7 @@ PARAM_MODELS: dict[str, type[_Params]] = {
     "value_momentum": ValueMomentumParams,
     "composite_top": CompositeTopParams,
     "breakdown": BreakdownParams,
+    "liquid_covered": LiquidCoveredParams,
 }
 
 SCREEN_DIRECTIONS: dict[str, set[str]] = {
@@ -93,6 +109,7 @@ SCREEN_DIRECTIONS: dict[str, set[str]] = {
     "value_momentum": {"long"},
     "composite_top": {"long"},
     "breakdown": {"short"},
+    "liquid_covered": {"long", "short"},
 }
 
 
@@ -125,6 +142,8 @@ class IdeaScanPreset(BaseModel):
     weights: RankWeights = Field(default_factory=lambda: RankWeights())
     max_names: int = Field(default=10, ge=1, le=100)
     enabled: bool = True
+    # Extra checks on top of the screen, for any screen kind.
+    liquidity_coverage: LiquidityCoverageFilter | None = None
 
     @field_validator("universes")
     @classmethod
@@ -154,6 +173,9 @@ class IdeaScanSettings(BaseModel):
 
     presets: list[IdeaScanPreset]
     config: IdeaScanConfig = Field(default_factory=lambda: IdeaScanConfig())
+    # Default preset ids these settings were saved alongside. A default added later is merged in on
+    # read; one listed here but missing from ``presets`` was removed on purpose and stays removed.
+    known_defaults: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _unique_ids(self) -> IdeaScanSettings:
@@ -194,6 +216,13 @@ def default_presets() -> list[IdeaScanPreset]:
             params=ValueMomentumParams().model_dump(),
         ),
         IdeaScanPreset(
+            id="long-liquid-covered",
+            name="Long · Liquid & well covered",
+            direction="long",
+            screen="liquid_covered",
+            params=LiquidCoveredParams().model_dump(),
+        ),
+        IdeaScanPreset(
             id="short-expensive-deteriorating",
             name="Short · Expensive & deteriorating",
             direction="short",
@@ -211,7 +240,18 @@ def default_presets() -> list[IdeaScanPreset]:
 
 
 def default_settings() -> IdeaScanSettings:
-    return IdeaScanSettings(presets=default_presets())
+    presets = default_presets()
+    return IdeaScanSettings(presets=presets, known_defaults=[p.id for p in presets])
+
+
+def merge_new_defaults(settings: IdeaScanSettings) -> IdeaScanSettings:
+    """Append default presets added since these settings were saved."""
+    known = set(settings.known_defaults) | {p.id for p in settings.presets}
+    defaults = default_presets()
+    added = [p for p in defaults if p.id not in known]
+    return settings.model_copy(
+        update={"presets": [*settings.presets, *added], "known_defaults": [p.id for p in defaults]}
+    )
 
 
 def get_idea_scan_settings() -> IdeaScanSettings:
@@ -219,15 +259,17 @@ def get_idea_scan_settings() -> IdeaScanSettings:
     if not row:
         return default_settings()
     try:
-        return IdeaScanSettings.model_validate(json.loads(str(row.get("value") or "{}")))
+        saved = IdeaScanSettings.model_validate(json.loads(str(row.get("value") or "{}")))
     except (TypeError, ValueError):
         return default_settings()
+    return merge_new_defaults(saved)
 
 
 def set_idea_scan_settings(settings: IdeaScanSettings | dict[str, Any]) -> IdeaScanSettings:
     normalized = IdeaScanSettings.model_validate(
         settings.model_dump() if isinstance(settings, IdeaScanSettings) else settings
     )
+    normalized.known_defaults = [p.id for p in default_presets()]
     set_setting(IDEA_SCAN_SETTINGS_KEY, normalized.model_dump_json())
     return normalized
 

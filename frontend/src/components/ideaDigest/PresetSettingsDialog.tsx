@@ -11,6 +11,7 @@ import {
   type IdeaScanSettings,
   type IdeaScanUniverse,
 } from "@/lib/api"
+import { DEFAULT_LIQUIDITY_COVERAGE } from "@/lib/ideaDigest"
 
 const UNIVERSES: { value: IdeaScanUniverse; label: string }[] = [
   { value: "sp500", label: "S&P 500" },
@@ -26,6 +27,7 @@ const SCREEN_LABELS: Record<IdeaScanPreset["screen"], string> = {
   value_momentum: "Value + momentum + quality",
   composite_top: "Composite ranker, top",
   breakdown: "Price momentum + revisions, bottom",
+  liquid_covered: "Liquidity + analyst coverage",
 }
 
 type ConfigKey = keyof IdeaScanSettings["config"]
@@ -166,6 +168,33 @@ export function PresetSettingsDialog({ open, onOpenChange, settings }: PresetSet
                   onChange={value => updatePreset(preset.id, { max_names: Number(value) })}
                 />
               </div>
+              {preset.screen !== "liquid_covered" && (
+                <div className="mt-3 grid grid-cols-1 items-end gap-4 sm:grid-cols-2">
+                  <Toggle
+                    label="Only liquid, well-covered names"
+                    checked={preset.liquidity_coverage != null}
+                    onChange={on => updatePreset(preset.id, { liquidity_coverage: on ? DEFAULT_LIQUIDITY_COVERAGE : null })}
+                  />
+                  {preset.liquidity_coverage && (
+                    <TextInput
+                      id={`preset-liquidity-${preset.id}`}
+                      label="Dollar volume, min. percentile in industry"
+                      type="number"
+                      helperText="Analyst count must also be above the industry median"
+                      value={String(Math.round(preset.liquidity_coverage.min_dollar_volume_industry_pct * 100))}
+                      onChange={value =>
+                        updatePreset(preset.id, {
+                          liquidity_coverage: {
+                            ...DEFAULT_LIQUIDITY_COVERAGE,
+                            ...preset.liquidity_coverage,
+                            min_dollar_volume_industry_pct: Number(value) / 100,
+                          },
+                        })
+                      }
+                    />
+                  )}
+                </div>
+              )}
               <fieldset className="mt-3">
                 <legend className="theme-field-label">Universes</legend>
                 <div className="mt-1 flex flex-wrap gap-x-4 gap-y-2">

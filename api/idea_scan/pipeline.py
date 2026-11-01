@@ -221,6 +221,10 @@ def run_weekly_idea_scan(
         frame = build_factor_frame(dataset)
         revision_tickers = breakdown_revision_tickers(frame, presets)
         revisions = fetch_eps_revisions(revision_tickers) if revision_tickers else {}
+        try:
+            store.save_frame(run_id, frame.assign(revision_30d=frame.index.map(revisions.get)))
+        except Exception:
+            LOGGER.warning("Idea scan factor frame save failed for %s", run_id, exc_info=True)
         results = [
             evaluate_preset(p, frame, revisions=revisions, near_miss_limit=config.near_miss_limit) for p in presets
         ]

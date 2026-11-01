@@ -13,6 +13,7 @@ def test_starting_presets_exist_and_validate():
         "long-momentum-quality",
         "long-quality-fair-price",
         "long-value-momentum-quality",
+        "long-liquid-covered",
         "short-expensive-deteriorating",
         "short-breaking-down",
     ]
@@ -41,6 +42,8 @@ def test_params_are_normalized_with_screen_defaults():
         {"direction": "long", "screen": "value_momentum", "params": {"min_price_momentum_pct": 1.5}},
         {"direction": "long", "screen": "composite_top", "universes": []},
         {"direction": "long", "screen": "composite_top", "universes": ["nasdaq100"]},
+        {"direction": "long", "screen": "liquid_covered", "params": {"min_dollar_volume_industry_pct": 0}},
+        {"direction": "long", "screen": "composite_top", "liquidity_coverage": {"min_dollar_volume_industry_pct": 2}},
     ],
 )
 def test_invalid_presets_are_rejected(kwargs):
@@ -76,3 +79,42 @@ def test_corrupt_saved_settings_fall_back_to_defaults():
 
     set_setting(p.IDEA_SCAN_SETTINGS_KEY, '{"presets": "nope"}')
     assert p.get_idea_scan_settings() == p.default_settings()
+
+
+def test_liquidity_filter_is_optional_on_any_screen():
+    preset = p.IdeaScanPreset(
+        id="cheap-liquid",
+        name="Cheap, liquid",
+        direction="short",
+        screen="short_screen",
+        liquidity_coverage={"min_dollar_volume_industry_pct": 0.9},
+    )
+    assert preset.liquidity_coverage is not None
+    assert preset.liquidity_coverage.min_dollar_volume_industry_pct == 0.9
+    assert preset.liquidity_coverage.require_above_median_coverage is True
+    assert p.default_presets()[0].liquidity_coverage is None
+    assert p.IdeaScanPreset(id="lc", name="LC", direction="short", screen="liquid_covered").params == {
+        "min_dollar_volume_industry_pct": 0.75,
+        "require_above_median_coverage": True,
+        "min_composite_pct": None,
+    }
+
+
+def test_new_default_presets_are_merged_into_saved_settings():
+    from api.llm_settings import set_setting
+
+    # Settings saved before the liquid-covered preset existed, with one old default edited.
+    old = p.default_settings().model_dump()
+    old["presets"] = [x for x in old["presets"] if x["id"] != "long-liquid-covered"]
+    old["presets"][0]["max_names"] = 4
+    del old["known_defaults"]
+    set_setting(p.IDEA_SCAN_SETTINGS_KEY, p.IdeaScanSettings.model_validate(old).model_dump_json())
+
+    loaded = p.get_idea_scan_settings()
+    assert [x.id for x in loaded.presets][-1] == "long-liquid-covered"
+    assert loaded.presets[0].max_names == 4
+
+    # Once saved alongside it, removing a default sticks.
+    loaded.presets = [x for x in loaded.presets if x.id != "short-breaking-down"]
+    p.set_idea_scan_settings(loaded)
+    assert "short-breaking-down" not in {x.id for x in p.get_idea_scan_settings().presets}

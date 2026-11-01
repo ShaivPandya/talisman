@@ -28,3 +28,6 @@ export function stanDraftForCard(card: IdeaScanCandidate, week: string): string 
   lines.push("", "What would you check first, and what would change your mind?")
   return lines.join("\n")
 }
+
+/** The preset filter's starting thresholds; the backend's LiquidityCoverageFilter defaults. */
+export const DEFAULT_LIQUIDITY_COVERAGE = { min_dollar_volume_industry_pct: 0.75, require_above_median_coverage: true }

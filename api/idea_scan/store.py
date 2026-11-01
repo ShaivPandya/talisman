@@ -6,16 +6,20 @@ without opening each run.
 
 from __future__ import annotations
 
+import io
 import json
 import secrets
 import threading
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from api import state_storage
 from paths import PROJECT_ROOT
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 LOCAL_ROOT: Path = PROJECT_ROOT / "data_cache" / "idea_scan" / "runs"
 GCS_ROOT = "idea_scan/runs"
@@ -110,6 +114,31 @@ def mutate_run(run_id: str, change: Callable[[dict[str, Any]], None]) -> dict[st
         run = get_run(run_id)
     change(run)
     return save_run(run)
+
+
+def _frame_name(run_id: str) -> str:
+    if not run_id or "/" in run_id or ".." in run_id:
+        raise RunNotFound(run_id)
+    return f"frames/{run_id}.parquet"
+
+
+def save_frame(run_id: str, frame: pd.DataFrame) -> None:
+    """Keep a run's factor frame so the Screeners page can rerun presets on it without refetching."""
+    buffer = io.BytesIO()
+    frame.to_parquet(buffer)
+    local, remote = _paths(_frame_name(run_id))
+    state_storage.write_bytes(local, remote, buffer.getvalue(), content_type="application/vnd.apache.parquet")
+
+
+def load_frame(run_id: str) -> pd.DataFrame | None:
+    import pandas as pd
+
+    local, remote = _paths(_frame_name(run_id))
+    if not state_storage.exists_text(local, remote):
+        return None
+    frame = pd.read_parquet(io.BytesIO(state_storage.read_bytes(local, remote)))
+    frame["universes"] = frame["universes"].apply(lambda u: [str(x) for x in u] if u is not None else [])
+    return frame
 
 
 def latest_completed_run(*, before_run_id: str | None = None, full_only: bool = True) -> dict[str, Any] | None:

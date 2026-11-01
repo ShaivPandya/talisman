@@ -183,3 +183,25 @@ def test_promote_card_through_the_real_idea_create(auth_client, ideas_store):  #
     assert props["metadata"]["analyzer_direction"] == "short"
     assert "Why now: Guidance cut." in props["user_notes"]
     assert store.get_run("20261024T120000Z-abc123")["candidates"][0]["idea_id"] == idea_id
+
+
+def test_screen_runs_a_preset_on_the_latest_saved_frame(auth_client):
+    from tests.test_idea_scan_screening import liquidity_rows, make_frame
+
+    preset = next(p for p in default_settings().model_dump()["presets"] if p["id"] == "long-liquid-covered")
+    assert auth_client.post("/api/idea-scan/screen", json={"preset": preset}).status_code == 409
+
+    saved_run(data={"fetched_at": "2026-10-24T00:00:00+00:00"})
+    store.save_frame("20261024T120000Z-abc123", make_frame(liquidity_rows()))
+    body = auth_client.post("/api/idea-scan/screen", json={"preset": preset}).json()
+    assert body["week"] == "2026-W43" and body["evaluated"] == 12
+    assert {h["ticker"] for h in body["hits"]} == {"S7", "S8", "S9", "TINY1"}
+    hit = next(h for h in body["hits"] if h["ticker"] == "S9")
+    assert hit["industry"] == "Semiconductors" and hit["dollar_volume"] == 1e8 and hit["analyst_count"] == 9
+    assert "S6" in {m["ticker"] for m in body["near_misses"]}
+
+    # The filter on another preset, sent as edited in the Screeners tab.
+    other = next(p for p in default_settings().model_dump()["presets"] if p["id"] == "long-momentum-quality")
+    other.update(params={"min_composite_pct": 0.0}, liquidity_coverage={"min_dollar_volume_industry_pct": 0.75})
+    body = auth_client.post("/api/idea-scan/screen", json={"preset": other}).json()
+    assert {h["ticker"] for h in body["hits"]} == {"S7", "S8", "S9", "TINY1"}
