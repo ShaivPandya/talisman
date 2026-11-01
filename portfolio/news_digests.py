@@ -675,6 +675,7 @@ def get_report_context(
                 if id(story) not in kept:
                     continue
                 payload: dict[str, Any] = {
+                    "id": story.get("id"),
                     "headline": _truncate(str(story.get("headline") or ""), max_text_chars),
                     "notes": [
                         _truncate(str(note), max_text_chars) for note in (story.get("notes") or [])[:notes_per_story]

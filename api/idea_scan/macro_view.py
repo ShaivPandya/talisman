@@ -1,8 +1,9 @@
 """Weekly sector macro view: one high-tier LLM call over the latest macro snapshots.
 
-The model scores each sector from -2 to +2. Rows are checked here, not
-trusted: every row must cite a snapshot we supplied or a URL the search
-returned, and a score that moved from last week must say why. Rows that fail
+The model scores each sector from -2 to +2, reading the snapshots alongside
+recent stories from the user's uploaded news digests. Rows are checked here,
+not trusted: every row must cite a snapshot or digest story we supplied or a
+URL the search returned, and a score that moved from last week must say why. Rows that fail
 are dropped and listed. ``origin`` lets hand-written ``rule`` rows join later
 without changing anything downstream.
 """
@@ -62,6 +63,10 @@ MACRO_SNAPSHOT_KEYS = (
     keys.SNAPSHOT_MARKET_BREADTH,
 )
 SNAPSHOT_CHAR_LIMIT = 2500
+DIGEST_MAX_DIGESTS = 7
+DIGEST_MAX_STORIES = 40
+DIGEST_CHAR_LIMIT = 12000
+DIGEST_TEXT_CHARS = 240
 MAX_OUTPUT_TOKENS = 8000
 REASONING_EFFORT = "medium"
 
@@ -83,7 +88,7 @@ MACRO_VIEW_SCHEMA: dict[str, Any] = {
                         "items": {
                             "type": "object",
                             "properties": {
-                                "type": {"type": "string", "enum": ["snapshot", "search"]},
+                                "type": {"type": "string", "enum": ["snapshot", "digest", "search"]},
                                 "ref": {"type": "string"},
                                 "detail": {"type": "string"},
                             },
@@ -163,7 +168,87 @@ def gather_snapshots(read: Callable[[str], Any] | None = None) -> list[dict[str,
     return out
 
 
-def build_prompt(snapshots: list[dict[str, Any]], previous_rows: list[dict[str, Any]], *, searches: int) -> str:
+def gather_digest_stories(days: int, load: Callable[..., dict[str, Any]] | None = None) -> dict[str, Any]:
+    """Recent stories from the user's news digests, each with a ref rows can cite.
+
+    Only digests generated within ``days`` count; an older digest is never used
+    as a stand-in, since stale news would read as this week's backdrop.
+    """
+    if load is None:
+        from portfolio.news_digests import get_report_context
+
+        load = get_report_context
+    context = load(
+        days=days,
+        max_digests=DIGEST_MAX_DIGESTS,
+        max_stories=DIGEST_MAX_STORIES,
+        notes_per_story=1,
+        max_text_chars=DIGEST_TEXT_CHARS,
+    )
+    out: dict[str, Any] = {"window_days": days, "digests": [], "stories": []}
+    if context.get("fallback_used"):
+        return out
+    for digest in context.get("digests") or []:
+        digest_id = str(digest.get("id") or "")
+        used = False
+        for section in digest.get("sections") or []:
+            for story in section.get("stories") or []:
+                if not digest_id or not story.get("id") or not story.get("headline"):
+                    continue
+                out["stories"].append(
+                    {
+                        "ref": f"{digest_id}/{story['id']}",
+                        "date": digest.get("generated_date"),
+                        "section": section.get("name"),
+                        "headline": story["headline"],
+                        # One line on why it matters: the digest's implication, else its first note.
+                        "takeaway": story.get("implication") or (story.get("notes") or [""])[0],
+                        "top_rank": story.get("top_rank"),
+                        "multi_signal": bool(story.get("multi_signal")),
+                        "confidence": story.get("confidence"),
+                    }
+                )
+                used = True
+        if used:
+            out["digests"].append(
+                {"id": digest_id, "title": digest.get("title"), "generated_date": digest.get("generated_date")}
+            )
+    # Strongest stories first, so the size cap drops the weakest: Top N, then multi-signal, then confidence.
+    out["stories"].sort(
+        key=lambda s: (
+            s["top_rank"] is None,
+            s["top_rank"] or 0,
+            not s["multi_signal"],
+            -(s["confidence"] or 0.0),
+        )
+    )
+    return out
+
+
+def _digest_block(stories: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
+    """Prompt text for the digest stories and the stories that fit under the size cap."""
+    lines: list[str] = []
+    kept: list[dict[str, Any]] = []
+    used = 0
+    for story in stories:
+        text = f"[digest:{story['ref']}] {story.get('date')} · {story.get('section')}: {story['headline']}"
+        if story.get("takeaway"):
+            text += f"\n  {story['takeaway']}"
+        if used + len(text) > DIGEST_CHAR_LIMIT:
+            continue
+        lines.append(text)
+        kept.append(story)
+        used += len(text) + 1
+    return "\n".join(lines), kept
+
+
+def build_prompt(
+    snapshots: list[dict[str, Any]],
+    previous_rows: list[dict[str, Any]],
+    *,
+    searches: int,
+    digest_text: str = "",
+) -> str:
     previous = (
         "\n".join(
             f"- {r.get('sector')}: score {r.get('score')}, confidence {r.get('confidence')} — {r.get('reason')}"
@@ -190,10 +275,14 @@ Rules:
 - confidence is low, medium or high.
 - reason is one line, under 200 characters.
 - evidence needs at least one item per row. Use {{"type": "snapshot", "ref": "<snapshot key>", "detail": "<the data point>"}}
-  for a value from the snapshots below, or {{"type": "search", "ref": "<url>", "detail": "<what it says>"}} for a page you found.
+  for a value from the snapshots below, {{"type": "digest", "ref": "<id inside digest:[...]>", "detail": "<the point it makes>"}}
+  for a story from the news digests below, or {{"type": "search", "ref": "<url>", "detail": "<what it says>"}} for a page you found.
   A row without evidence will be discarded.
 - change_explanation: if the score differs from last week's, explain what changed. Otherwise use an empty string.
-- You may run up to {searches} web searches for recent developments the snapshots don't cover.
+- The news digests are the research team's own curated reading. Weigh them alongside the data: they often
+  carry credit, policy and industry developments the snapshots can't show yet. A story is evidence about a
+  sector only when it bears on that sector directly.
+- You may run up to {searches} web searches for recent developments the snapshots and digests don't cover.
 - summary is two or three sentences on the overall backdrop.
 - Do not recommend buying, selling or shorting anything.
 
@@ -202,6 +291,9 @@ Last week's view:
 
 Latest snapshots:
 {snapshot_text}
+
+Recent news digest stories:
+{digest_text or "(none this week)"}
 """
 
 
@@ -216,7 +308,9 @@ def validate_rows(
     snapshot_keys: set[str],
     citation_urls: list[str],
     previous_scores: dict[str, int],
+    digest_stories: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    digest_stories = digest_stories or {}
     cited = {_normalize_url(u) for u in citation_urls if u}
     rows: list[dict[str, Any]] = []
     dropped: list[dict[str, str]] = []
@@ -240,16 +334,23 @@ def validate_rows(
         if not -2 <= score <= 2:
             dropped.append({"sector": sector, "reason": "score outside -2..+2"})
             continue
-        evidence: list[dict[str, str]] = []
+        evidence: list[dict[str, Any]] = []
         for item in raw.get("evidence") or []:
             if not isinstance(item, dict):
                 continue
             kind = str(item.get("type") or "")
             ref = str(item.get("ref") or "").strip()
+            extra: dict[str, Any] = {}
             if kind == "snapshot":
                 ref = ref.removeprefix("snapshot:")
                 if ref not in snapshot_keys:
                     continue
+            elif kind == "digest":
+                ref = ref.removeprefix("digest:")
+                story = digest_stories.get(ref)
+                if story is None:
+                    continue
+                extra = {"headline": story["headline"], "date": story.get("date")}
             elif kind == "search":
                 normalized = _normalize_url(ref)
                 if not normalized or not any(
@@ -258,7 +359,7 @@ def validate_rows(
                     continue
             else:
                 continue
-            evidence.append({"type": kind, "ref": ref, "detail": str(item.get("detail") or "")[:300]})
+            evidence.append({"type": kind, "ref": ref, "detail": str(item.get("detail") or "")[:300], **extra})
         if not evidence:
             dropped.append({"sector": sector, "reason": "no verifiable evidence"})
             continue
@@ -304,6 +405,7 @@ def run_macro_view(
     searches: int,
     reserve_usd: float,
     snapshots: list[dict[str, Any]] | None = None,
+    news: dict[str, Any] | None = None,
     call: Callable[..., Any] | None = None,
 ) -> dict[str, Any]:
     from llm_utils import MODEL_HIGH, call_llm_json
@@ -314,6 +416,8 @@ def run_macro_view(
         str(r["sector"]): int(r["score"]) for r in previous_rows if r.get("sector") and r.get("score") is not None
     }
     snapshots = gather_snapshots() if snapshots is None else snapshots
+    digest_text, stories = _digest_block((news or {}).get("stories") or [])
+    cited_digests = {s["ref"].split("/", 1)[0] for s in stories}
     base = {
         "as_of": datetime.now(UTC).isoformat(),
         "rows": [],
@@ -322,6 +426,14 @@ def run_macro_view(
         "summary": "",
         "snapshots": [{"key": s["key"], "as_of": s.get("as_of"), "stale": s.get("stale")} for s in snapshots],
         "previous_scores": previous_scores,
+        # None when digests were turned off or could not be read; otherwise what the prompt carried.
+        "news": None
+        if news is None
+        else {
+            "window_days": news.get("window_days"),
+            "digests": [d for d in news.get("digests") or [] if d.get("id") in cited_digests],
+            "stories": len(stories),
+        },
         "error": None,
     }
     if not budget.can_start("macro", reserve_usd=reserve_usd):
@@ -329,7 +441,7 @@ def run_macro_view(
         return {**base, "status": "skipped", "error": "Not run: the run budget could not cover it."}
 
     provider, effort = resolve_effort(MODEL_HIGH, REASONING_EFFORT)
-    prompt = build_prompt(snapshots, previous_rows, searches=searches)
+    prompt = build_prompt(snapshots, previous_rows, searches=searches, digest_text=digest_text)
     try:
         with budget.track("macro", "Sector macro view") as record:
             parsed, citations, _response, diagnostics = call(
@@ -359,6 +471,7 @@ def run_macro_view(
         snapshot_keys={s["key"] for s in snapshots},
         citation_urls=urls,
         previous_scores=previous_scores,
+        digest_stories={s["ref"]: s for s in stories},
     )
     return {
         **base,

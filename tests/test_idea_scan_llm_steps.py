@@ -89,6 +89,126 @@ def test_run_macro_view_with_stubbed_call():
     assert budget.spent_usd == pytest.approx(0.08 + 0.06 + 0.02)
 
 
+def _context(fallback=False):
+    story = {"id": "story-3", "headline": "Oracle CDS hit new highs", "notes": ["Spreads at 17-month highs."]}
+    ranked = {"id": "story-9", "headline": "Top story", "notes": [], "implication": "Credit leads.", "top_rank": 2}
+    return {
+        "fallback_used": fallback,
+        "digests": [
+            {
+                "id": "2026-10-26-digest",
+                "title": "Newsletter Digest",
+                "generated_date": "2026-10-26",
+                "sections": [{"name": "AI credit", "stories": [story, {"headline": "no id, skipped"}, ranked]}],
+            },
+            {"id": "2026-10-25-digest", "title": "Empty", "generated_date": "2026-10-25", "sections": []},
+        ],
+    }
+
+
+def test_gather_digest_stories_gives_each_story_a_ref():
+    calls = []
+
+    def load(**kwargs):
+        calls.append(kwargs)
+        return _context()
+
+    news = mv.gather_digest_stories(7, load=load)
+    assert calls[0]["days"] == 7 and calls[0]["max_stories"] == mv.DIGEST_MAX_STORIES
+    assert news["digests"] == [
+        {"id": "2026-10-26-digest", "title": "Newsletter Digest", "generated_date": "2026-10-26"}
+    ]
+    assert [(s["ref"], s["takeaway"]) for s in news["stories"]] == [
+        ("2026-10-26-digest/story-9", "Credit leads."),
+        ("2026-10-26-digest/story-3", "Spreads at 17-month highs."),
+    ], "the Top N story comes first; a story without an implication falls back to its note"
+
+
+def test_gather_digest_stories_never_uses_an_old_digest_as_a_stand_in():
+    news = mv.gather_digest_stories(7, load=lambda **_kwargs: _context(fallback=True))
+    assert news == {"window_days": 7, "digests": [], "stories": []}
+
+
+def test_macro_view_cites_digest_stories_it_was_given():
+    news = mv.gather_digest_stories(7, load=lambda **_kwargs: _context())
+    prompts = []
+
+    def fake(**kwargs):
+        prompts.append(kwargs["prompt"])
+        llm_utils._notify_response_observer("anthropic", "claude-opus-5-5", _usage(10_000, 1_000))
+        rows = [
+            _row(
+                "Technology",
+                -1,
+                evidence=[
+                    {"type": "digest", "ref": "digest:2026-10-26-digest/story-3", "detail": "AI credit tightening"}
+                ],
+            ),
+            _row("Utilities", 1, evidence=[{"type": "digest", "ref": "2026-10-26-digest/story-99", "detail": "?"}]),
+        ]
+        return {"summary": "s", "rows": rows}, [], None, {"status": "ok"}
+
+    view = mv.run_macro_view(
+        budget=RunBudget(2.0),
+        previous_view=None,
+        searches=5,
+        reserve_usd=0.1,
+        snapshots=SNAPSHOTS,
+        news=news,
+        call=fake,
+    )
+    assert "[digest:2026-10-26-digest/story-3] 2026-10-26 · AI credit: Oracle CDS hit new highs" in prompts[0]
+    assert [r["sector"] for r in view["rows"]] == ["Technology"]
+    assert view["rows"][0]["evidence"] == [
+        {
+            "type": "digest",
+            "ref": "2026-10-26-digest/story-3",
+            "detail": "AI credit tightening",
+            "headline": "Oracle CDS hit new highs",
+            "date": "2026-10-26",
+        }
+    ]
+    assert view["dropped"] == [{"sector": "Utilities", "reason": "no verifiable evidence"}]
+    assert view["news"] == {
+        "window_days": 7,
+        "digests": [{"id": "2026-10-26-digest", "title": "Newsletter Digest", "generated_date": "2026-10-26"}],
+        "stories": 2,
+    }
+
+
+def test_macro_view_without_digests_records_none_and_says_so():
+    prompts = []
+
+    def fake(**kwargs):
+        prompts.append(kwargs["prompt"])
+        llm_utils._notify_response_observer("anthropic", "claude-opus-5-5", _usage(10_000, 1_000))
+        return {"summary": "s", "rows": [_row("Technology", 1)]}, [], None, {"status": "ok"}
+
+    view = mv.run_macro_view(
+        budget=RunBudget(2.0), previous_view=None, searches=5, reserve_usd=0.1, snapshots=SNAPSHOTS, call=fake
+    )
+    assert view["news"] is None
+    assert "Recent news digest stories:\n(none this week)" in prompts[0]
+
+
+def test_digest_block_stops_at_the_size_cap(monkeypatch):
+    monkeypatch.setattr(mv, "DIGEST_CHAR_LIMIT", 160)
+    stories = [
+        {
+            "ref": f"d/story-{i}",
+            "date": "2026-10-26",
+            "section": "S",
+            "headline": "x" * 60,
+            "note": "",
+            "implication": "",
+        }
+        for i in range(5)
+    ]
+    text, kept = mv._digest_block(stories)
+    assert [s["ref"] for s in kept] == ["d/story-0"]
+    assert "story-1" not in text
+
+
 def test_macro_view_skipped_when_budget_cannot_cover_it():
     budget = RunBudget(0.3)
     view = mv.run_macro_view(

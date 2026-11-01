@@ -64,13 +64,27 @@ function fullRun(): IdeaScanRun {
         },
         {
           sector: "Energy", score: -2, previous_score: -2, confidence: "medium", reason: "Oil inventories building",
-          evidence: [{ type: "snapshot", ref: "economic_backdrop:current:v1", detail: "Industrial production flat" }],
+          evidence: [
+            { type: "snapshot", ref: "economic_backdrop:current:v1", detail: "Industrial production flat" },
+            {
+              type: "digest", ref: "2026-10-26-digest/story-7", detail: "Geopolitical premium fading",
+              headline: "Brent sits $20 above fair value", date: "2026-10-26",
+            },
+          ],
           change_explanation: "", origin: "llm",
         },
       ],
       dropped: [{ sector: "Utilities", reason: "no verifiable evidence" }],
       sources: [{ title: "Capex story", url: "https://news.example.com/capex" }],
       snapshots: [],
+      news: {
+        window_days: 7,
+        digests: [
+          { id: "2026-10-25-digest", title: "Digest", generated_date: "2026-10-25" },
+          { id: "2026-10-26-digest", title: "Digest", generated_date: "2026-10-26" },
+        ],
+        stories: 31,
+      },
       error: null,
     },
     candidates: [
@@ -115,7 +129,7 @@ const SETTINGS: IdeaScanSettings = {
       weights: { quality: 0.33, price_momentum: 0.33, revenue_momentum: 0.2, eps_momentum: 0.14 }, max_names: 10, enabled: true, liquidity_coverage: null,
     },
   ],
-  config: { max_reviews: 15, max_cost_usd: 2, review_web_searches: 2, macro_web_searches: 5, near_miss_limit: 10 },
+  config: { max_reviews: 15, max_cost_usd: 2, review_web_searches: 2, macro_web_searches: 5, near_miss_limit: 10, use_news_digests: true, news_digest_days: 7 },
   known_defaults: ["long-cheap-improving", "long-liquid-covered"],
 }
 
@@ -187,6 +201,10 @@ test("the digest shows the macro view, both sides, and run stats", async ({ page
   await expect(macro.getByText("Two more hyperscalers raised capex guidance.")).toBeVisible()
   await expect(macro.getByRole("link", { name: "Hyperscaler capex up 40%" })).toHaveAttribute("href", "https://news.example.com/capex")
   await expect(macro.getByText("Dropped: Utilities (no verifiable evidence)")).toBeVisible()
+  await expect(macro.getByText("Read with 31 stories from 2 news digests (2026-10-25 to 2026-10-26).")).toBeVisible()
+  await macro.getByRole("button", { name: /Energy/ }).click()
+  await expect(macro.getByText("News digest 2026-10-26:")).toBeVisible()
+  await expect(macro.getByText("Brent sits $20 above fair value")).toBeVisible()
 
   const longs = page.getByRole("region", { name: /Long ideas/ })
   const shorts = page.getByRole("region", { name: /Short ideas/ })
@@ -243,10 +261,12 @@ test("presets can be edited from the digest", async ({ page }) => {
   const dialog = page.getByRole("dialog", { name: "Idea scan presets" })
   await dialog.getByLabel("Maximum names").first().fill("4")
   await dialog.getByLabel("Names reviewed per run").fill("8")
+  await dialog.getByLabel("News digest lookback (days)").fill("10")
+  await dialog.getByText("Use my news digests in the macro view").click()
   await dialog.getByRole("button", { name: "Save presets" }).click()
   await expect(dialog).toBeHidden()
   expect(calls.saved[0].presets[0].max_names).toBe(4)
-  expect(calls.saved[0].config.max_reviews).toBe(8)
+  expect(calls.saved[0].config).toMatchObject({ max_reviews: 8, news_digest_days: 10, use_news_digests: false })
 })
 
 test("any preset can require liquid, well-covered names", async ({ page }) => {
