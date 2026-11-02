@@ -66,6 +66,7 @@ export function ResearchReader() {
       <article className="min-w-0 rounded-xl border border-app bg-card p-5 sm:p-8" aria-label="Condensed research">
         {data.sections?.map(section => <section key={section.id} id={section.id} className="mb-7 scroll-mt-6 last:mb-0">
           {section.heading && <div className="mb-3 flex items-baseline justify-between gap-3"><div role="heading" aria-level={section.level} className={`${section.level <= 2 ? "text-xl" : "text-lg"} font-semibold text-app`}>{section.heading}</div><a href={`${researchDownloadUrl(id, "original")}#page=${section.pages[0]}`} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-subtle hover:text-link">p. {section.pages[0]}</a></div>}
+          {section.source_retained && <p className="mb-3 text-xs text-muted">Extracted source text retained for this section.</p>}
           <MarkdownRenderer content={section.output.paragraph} />
           {section.output.visuals.map((visual, index) => <div key={index} className="my-4 border-l-2 border-strong bg-card-muted px-4 py-2"><MarkdownRenderer content={visual} /></div>)}
         </section>)}
