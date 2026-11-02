@@ -40,8 +40,14 @@ def test_firebase_hosting_spa_rewrite_does_not_capture_missing_assets() -> None:
     assert spa_rewrite["regex"] == no_cache_route_headers[0]["regex"]
 
     spa_pattern = re.compile(spa_rewrite["regex"])
-    for path in ["/", "/index.html", "/sizer", "/sizer/results", "/analyzer", "/alternative-data", "/source-files"]:
-        assert spa_pattern.fullmatch(path)
+    # Navigation through React can work even when opening or refreshing the same
+    # URL fails at Firebase. Cover the actual route registry, including new pages.
+    route_source = (ROOT / "frontend/src/lib/pageRoutes.ts").read_text()
+    registered_paths = re.findall(r'\bpath:\s*"([^"]+)"', route_source)
+    assert registered_paths, "No registered frontend routes found"
+    concrete_paths = [re.sub(r":[^/]+", "example", path) for path in registered_paths]
+    for path in [*concrete_paths, "/index.html", "/login", "/sizer/results"]:
+        assert spa_pattern.fullmatch(path), f"Firebase must serve the app for {path}"
 
     for path in [
         "/api/health",
