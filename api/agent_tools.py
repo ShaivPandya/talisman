@@ -2152,6 +2152,16 @@ def _dispatch(
         data, meta = fetch(long_cache, key, _load)
         return data, meta
 
+    if name == "search_research":
+        from api.research import search_research
+
+        return search_research(str(args["query"]), int(args.get("limit", 10))), {"cache": "n/a"}
+
+    if name == "read_research_report":
+        from api.research import read_report
+
+        return read_report(str(args["report_id"]), int(args.get("start", 0))), {"cache": "n/a"}
+
     if name == "list_name_documents":
         from api.name_documents import list_documents
 
@@ -2176,7 +2186,15 @@ def _dispatch(
         doc_types = (
             [t for t in requested_types if t != "conversation_summary"]
             if requested_types
-            else ["thesis", "management_quality", "news_digest", "weekly_report", "daily_report"]
+            else [
+                "thesis",
+                "management_quality",
+                "news_digest",
+                "weekly_report",
+                "daily_report",
+                "research",
+                "research_source",
+            ]
         )
         if not doc_types:
             return {"results": [], "query": query, "count": 0}, {"cache": "n/a"}
@@ -2186,6 +2204,10 @@ def _dispatch(
             from api.retrieval import search
 
             results = search(query=query, doc_types=doc_types, tickers=tickers, top_k=top_k)
+            if any(r.get("doc_type") in {"research", "research_source"} for r in results):
+                from api.research import enrich_hits
+
+                results = enrich_hits(results)
             return {"results": results, "query": query, "count": len(results)}, {"cache": "n/a"}
         except ImportError:
             return {

@@ -816,10 +816,12 @@ def call_llm_pdf_text(
     filename: str = "document.pdf",
     provider: str | None = None,
     reasoning_effort: str | None = None,
+    page_images: Sequence[bytes] | None = None,
 ) -> tuple[str, list[tuple[str, str]], Any]:
     resolved_provider = _provider_for_model_argument(model, provider)
     resolved_model = resolve_model(model, resolved_provider)
     pdf_b64 = base64.b64encode(pdf_bytes).decode("ascii")
+    images_b64 = [base64.b64encode(image).decode("ascii") for image in (page_images or [])]
     if resolved_provider == PROVIDER_ANTHROPIC:
         response = _call_anthropic_messages(
             messages=[
@@ -834,6 +836,10 @@ def call_llm_pdf_text(
                                 "data": pdf_b64,
                             },
                         },
+                        *[
+                            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": image}}
+                            for image in images_b64
+                        ],
                         {"type": "text", "text": prompt},
                     ],
                 }
@@ -855,6 +861,10 @@ def call_llm_pdf_text(
                             "filename": filename,
                             "file_data": f"data:application/pdf;base64,{pdf_b64}",
                         },
+                        *[
+                            {"type": "input_image", "image_url": f"data:image/jpeg;base64,{image}", "detail": "high"}
+                            for image in images_b64
+                        ],
                         {"type": "input_text", "text": prompt},
                     ],
                 }
@@ -873,6 +883,7 @@ def call_llm_pdf_text(
                     "user",
                     [
                         {"inline_data": {"mime_type": "application/pdf", "data": pdf_b64}},
+                        *[{"inline_data": {"mime_type": "image/jpeg", "data": image}} for image in images_b64],
                         {"text": prompt},
                     ],
                 )

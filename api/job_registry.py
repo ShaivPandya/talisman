@@ -342,6 +342,23 @@ JOB_SPECS: dict[str, JobSpec] = {
         initial_progress={"phase": "queued", "report_available": False},
         error_message="Company research failed",
     ),
+    "research_conversion": JobSpec(
+        job_type="research_conversion",
+        request_model="api.research_processing.ResearchJobRequest",
+        compute_func="api.research_processing.run_research_job",
+        cache_key_func=None,
+        timeout_s=80 * 60,
+        initial_progress={"phase": "queued"},
+        error_message="Research conversion failed",
+    ),
+    "research_index": JobSpec(
+        job_type="research_index",
+        request_model="api.research_processing.ResearchJobRequest",
+        compute_func="api.research.run_index_job",
+        cache_key_func=None,
+        timeout_s=10 * 60,
+        error_message="Research indexing failed",
+    ),
     "document_generation": JobSpec(
         job_type="document_generation",
         request_model="api.document_generation_jobs.DocumentGenerationJobRequest",

@@ -46,6 +46,8 @@ const DCFModel = lazyPage(() => import("@/pages/DCFModel"), "DCFModel")
 const AISettings = lazyPage(() => import("@/pages/AISettings"), "AISettings")
 const PolicyMatrixSettings = lazyPage(() => import("@/pages/PolicyMatrixSettings"), "PolicyMatrixSettings")
 const PersonalizationSettings = lazyPage(() => import("@/pages/PersonalizationSettings"), "PersonalizationSettings")
+const Research = lazyPage(() => import("@/pages/Research"), "Research")
+const ResearchReader = lazyPage(() => import("@/pages/ResearchReader"), "ResearchReader")
 const SourceLibrary = lazyPage(() => import("@/pages/SourceLibrary"), "SourceLibrary")
 
 export { LoginPage }
@@ -97,6 +99,8 @@ export const PAGE_ROUTES = [
   { path: "/settings/policy-matrix", page: PolicyMatrixSettings },
   { path: "/settings/personalization", page: PersonalizationSettings },
   { path: "/source-files", page: SourceLibrary },
+  { path: "/research", page: Research },
+  { path: "/research/:id", page: ResearchReader },
 ] as const
 
 export const ROUTE_REDIRECTS: Record<string, string> = {

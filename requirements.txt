@@ -27,6 +27,7 @@ xlrd>=2.0.1
 pandas>=2.0.0
 exchange-calendars>=4.13.2
 pdfminer.six>=20260107
+pypdfium2==5.7.1
 pyarrow>=19.0.0
 pyproj>=3.7.2
 python-dotenv

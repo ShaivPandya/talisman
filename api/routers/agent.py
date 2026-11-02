@@ -1710,6 +1710,8 @@ def _select_tool_names(
     if "workspace" in text:
         add("get_workspace")
 
+    if re.search(r"\b(research|strategy|report|reports|upload|uploaded|document|documents)\b", text):
+        add("search_research", "read_research_report")
     if re.search(r"\b(upload|uploaded|file|files|document|documents|survey|note|notes)\b", text):
         add("list_name_documents", "read_name_document")
     if _routing_tickers(user_text, screen_context, recent_conversation):
@@ -3498,12 +3500,18 @@ def _usage_dict(message: object) -> dict:
     input_tokens = _obj_value(
         usage,
         "input_tokens",
-        _obj_value(usage, "prompt_tokens", _obj_value(usage, "prompt_token_count", _obj_value(usage, "promptTokenCount"))),
+        _obj_value(
+            usage, "prompt_tokens", _obj_value(usage, "prompt_token_count", _obj_value(usage, "promptTokenCount"))
+        ),
     )
     output_tokens = _obj_value(
         usage,
         "output_tokens",
-        _obj_value(usage, "completion_tokens", _obj_value(usage, "candidates_token_count", _obj_value(usage, "candidatesTokenCount"))),
+        _obj_value(
+            usage,
+            "completion_tokens",
+            _obj_value(usage, "candidates_token_count", _obj_value(usage, "candidatesTokenCount")),
+        ),
     )
     out: dict[str, int] = {}
     if isinstance(input_tokens, int):
@@ -3531,7 +3539,9 @@ def _usage_dict(message: object) -> dict:
     # Gemini reports cached prompt tokens and billable thinking outside the candidate count.
     gemini_usage = _obj_value(message, "usage_metadata", _obj_value(message, "usageMetadata"))
     if gemini_usage:
-        cached = _obj_value(gemini_usage, "cached_content_token_count", _obj_value(gemini_usage, "cachedContentTokenCount"))
+        cached = _obj_value(
+            gemini_usage, "cached_content_token_count", _obj_value(gemini_usage, "cachedContentTokenCount")
+        )
         thoughts = _obj_value(gemini_usage, "thoughts_token_count", _obj_value(gemini_usage, "thoughtsTokenCount"))
         if isinstance(cached, int):
             out["cache_read_input_tokens"] = cached
