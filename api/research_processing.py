@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from api import research_store as store
 from api.exceptions import NotFoundError, ValidationError
-from api.research_prompts import CATEGORY_GUIDANCE, CONVERSION_PROMPT, PROMPT_VERSION, SOURCE_SYSTEM
+from api.research_prompts import CATEGORY_GUIDANCE, CONVERSION_PROMPT, PRACTICAL_GUIDANCE, PROMPT_VERSION, SOURCE_SYSTEM
 from llm_utils import call_llm_pdf_text, call_llm_text, model_for_tier, selected_provider_for_tier
 
 logger = logging.getLogger(__name__)
@@ -203,9 +203,21 @@ def sections_from_blocks(blocks: list[Block]) -> list[dict[str, Any]]:
 
 
 def clean_markdown(value: str) -> str:
-    # Plain report Markdown only: do not silently strip unsafe or invented structure.
-    if re.search(r"!\[|<\s*/?\s*[A-Za-z][^>]*>|^\s*#{1,6}\s|```", value, re.MULTILINE):
-        raise ValueError("Generated section contains images, HTML, headings, or code fences.")
+    # Normalize model presentation mistakes while retaining their text for the source check.
+    value = re.sub(r"^\s*(?:```|~~~)[^\n]*$", "", value, flags=re.MULTILINE)
+    value = re.sub(r"^\s*#{1,6}\s+", "", value, flags=re.MULTILINE)
+    value = re.sub(r"!\[([^\]]*)\]\([^\n)]*\)", r"\1", value)
+    value = value.replace("![", "[")
+    if re.search(r"<\s*/?\s*[A-Za-z][^>]*>", value):
+        from bs4 import BeautifulSoup, NavigableString, Tag
+
+        soup = BeautifulSoup(value, "html.parser")
+        for element in soup.find_all(["script", "style", "iframe", "object"]):
+            element.decompose()
+        for element in soup.find_all("img"):
+            if isinstance(element, Tag):
+                element.replace_with(NavigableString(str(element.get("alt") or "")))
+        value = soup.get_text(" ").strip()
     return value.strip()
 
 
@@ -225,7 +237,12 @@ def condense(converter: Converter, section: dict[str, Any], repair: list[str] | 
         groups.append(group)
     outputs = []
     for group in groups:
-        instruction = CONVERSION_PROMPT + "\nProduce ONLY this section's body, not its heading or metadata.\n"
+        instruction = (
+            CONVERSION_PROMPT
+            + "\n"
+            + PRACTICAL_GUIDANCE
+            + "\nProduce ONLY this section's body, not its heading or metadata.\n"
+        )
         instruction += "paragraph: one cohesive summary paragraph; visuals: one description per visual block, in order, including its exact caption.\n"
         instruction += "Do not add headings, HTML, images or commentary. Preserve all material sources and caveats.\n"
         instruction += json.dumps(
@@ -233,15 +250,26 @@ def condense(converter: Converter, section: dict[str, Any], repair: list[str] | 
         )
         result = converter.ask(instruction, SectionOutput)
         expected = [block for block in group if block["kind"] == "visual"]
-        if len(result.visuals) != len(expected):
-            raise ValueError(f"Visual coverage mismatch in {section['heading'] or 'opening text'}.")
-        if any(b["kind"] == "text" for b in group) and not result.paragraph.strip():
-            raise ValueError("A substantive text section was omitted.")
+        recovered_visuals = len(result.visuals) != len(expected)
+        if recovered_visuals:
+            result.visuals = source_output({"blocks": group}).visuals
+            section["source_retained"] = True
+        if (
+            any(b["kind"] == "text" for b in group)
+            and not result.paragraph.strip()
+            and (not result.visuals or recovered_visuals)
+        ):
+            # Preserve extracted source text rather than rejecting an otherwise usable report.
+            result.paragraph = source_output({"blocks": group}).paragraph
+            section["source_retained"] = True
         result.paragraph = clean_markdown(result.paragraph)
         result.visuals = [clean_markdown(v) for v in result.visuals]
-        for visual, source in zip(result.visuals, expected, strict=True):
-            if not visual or (source["caption"] and source["caption"] not in visual):
-                raise ValueError("A figure caption or description was omitted.")
+        for index, (visual, source) in enumerate(zip(result.visuals, expected, strict=True)):
+            if not visual:
+                result.visuals[index] = source_output({"blocks": [source]}).visuals[0]
+                section["source_retained"] = True
+            elif source["caption"] and source["caption"] not in visual:
+                result.visuals[index] = clean_markdown(source["caption"]) + ". " + visual
         outputs.append(result)
     if len(outputs) == 1:
         return outputs[0]
@@ -253,8 +281,41 @@ def condense(converter: Converter, section: dict[str, Any], repair: list[str] | 
         SectionOutput,
     )
     return SectionOutput(
-        paragraph=clean_markdown(reconciled.paragraph), visuals=[v for o in outputs for v in o.visuals]
+        paragraph=clean_markdown(reconciled.paragraph) or "\n\n".join(paragraphs),
+        visuals=[v for o in outputs for v in o.visuals],
     )
+
+
+def source_output(section: dict[str, Any]) -> SectionOutput:
+    """Retain source evidence when a model cannot produce a reliable condensed section."""
+
+    def plain(value: str) -> str:
+        # Render extracted text literally, without executable HTML or Markdown images/headings.
+        return re.sub(r"([\\`*_{}\[\]()#+!<>|])", r"\\\1", value).strip()
+
+    return SectionOutput(
+        paragraph="\n\n".join(plain(b["text"]) for b in section["blocks"] if b["kind"] == "text"),
+        visuals=[
+            plain("\n".join(filter(None, [b.get("caption"), b["text"]])))
+            for b in section["blocks"]
+            if b["kind"] == "visual"
+        ],
+    )
+
+
+def best_effort_section(
+    converter: Converter, section: dict[str, Any], findings: list[str] | None = None
+) -> SectionOutput:
+    for _ in range(2):
+        try:
+            return condense(converter, section, findings)
+        except (store.SupersededResearch, NotFoundError):
+            raise
+        except Exception as exc:
+            logger.warning("Retriable condensation issue in %s (%s)", section["id"], type(exc).__name__)
+            findings = ["Return a complete usable section, preserving the supplied source evidence."]
+    section["source_retained"] = True
+    return source_output(section)
 
 
 def assemble(metadata: Metadata, sections: list[dict[str, Any]]) -> str:
@@ -294,13 +355,19 @@ def verify(
         candidate = [{k: v for k, v in s.items() if k != "blocks"} for s in relevant]
         instruction = (
             CONVERSION_PROMPT
+            + "\n"
+            + PRACTICAL_GUIDANCE
             + f"""\nIndependently compare original PDF pages {start} through {end} (attached page 1 corresponds to original page {start})
 against the candidate condensed sections and report metadata below. Read the actual PDF images.
 Check that EVERY substantive heading, visual, argument, source/caveat and important numeric finding
 on these pages is represented, in order, with no unsupported claims. Compare author credits when
 present. Distinguish forecasts/scenarios from facts. Sections spanning other pages can contain facts
 from those pages; do not flag them merely because they are outside this slice. Report only concrete
-defects with original page and section id. pages_checked must list all inspected original pages.
+defects with original page and section id. Report ONLY material analytical errors: invented or
+wrong figures, reversed conclusions, lost substantive research or misleading factual claims.
+Do not flag unlabeled/unreadable chart values, concise standard legal boilerplate, cosmetic
+differences or redundant text. These are editorial choices, not publication failures.
+pages_checked must list all inspected original pages.
 An empty issues list means no defects found, not a guarantee of correctness.\n"""
         )
         check = converter.ask(
@@ -344,7 +411,7 @@ def run_research_job(req: ResearchJobRequest, *, job_id: str | None = None) -> d
         )
 
     try:
-        update(status="reading", job_id=job_id, error=None)
+        initial = update(status="reading", job_id=job_id, error=None)
         data = store.read_blob(report_id, "original.pdf")
         count = inspect_pdf(data)
         provider = selected_provider_for_tier("mid")
@@ -375,6 +442,9 @@ def run_research_job(req: ResearchJobRequest, *, job_id: str | None = None) -> d
             Metadata,
         )
 
+        # Missing bibliographic fields must not prevent an otherwise useful conversion.
+        metadata.title = (metadata.title or "").strip() or initial.get("title") or "Untitled research report"
+
         def apply_metadata(state: dict[str, Any]) -> None:
             if not state.get("current_revision"):
                 for key in ("title", "subtitle", "institution", "publication_date", "authors"):
@@ -386,33 +456,14 @@ def run_research_job(req: ResearchJobRequest, *, job_id: str | None = None) -> d
         store.mutate(report_id, apply_metadata, actor=req.actor, token=token)
         sections = sections_from_blocks(blocks)
         for index, section in enumerate(sections):
-            # One local repair attempt for malformed output; source-level repairs happen below.
-            try:
-                output = condense(converter, section)
-            except ValueError as exc:
-                output = condense(converter, section, [str(exc)])
-            section["output"] = output.model_dump()
+            section["output"] = best_effort_section(converter, section).model_dump()
             update(progress={"done": index + 1, "total": len(sections)})
         save("sections", sections)
         update(status="checking", progress={"done": 0, "total": count})
-        issues = [issue for e in extracted for issue in e.issues]
-        if not metadata.title:
-            issues.append("The original title could not be established; correct the PDF and retry.")
-        findings = verify(
-            converter,
-            data,
-            count,
-            metadata,
-            sections,
-            lambda done, total: update(progress={"done": done, "total": total}),
-        )
-        if findings:
-            # Repair only sections explicitly identified by the independent check. Missing headings
-            # or ambiguous findings remain visible for review; never claim a guessed repair passed.
-            for section in sections:
-                defects = [f for f in findings if re.search(rf"\b{re.escape(section['id'])}\b", f)]
-                if defects:
-                    section["output"] = condense(converter, section, defects).model_dump()
+        extraction_notes = [issue for e in extracted for issue in e.issues]
+        findings: list[str] = []
+        verification_complete = False
+        try:
             findings = verify(
                 converter,
                 data,
@@ -421,22 +472,47 @@ def run_research_job(req: ResearchJobRequest, *, job_id: str | None = None) -> d
                 sections,
                 lambda done, total: update(progress={"done": done, "total": total}),
             )
-        issues.extend(findings)
+            if findings:
+                for section in sections:
+                    defects = [f for f in findings if re.search(rf"\b{re.escape(section['id'])}\b", f)]
+                    if defects:
+                        section["output"] = best_effort_section(converter, section, defects).model_dump()
+                findings = verify(
+                    converter,
+                    data,
+                    count,
+                    metadata,
+                    sections,
+                    lambda done, total: update(progress={"done": done, "total": total}),
+                )
+            verification_complete = True
+        except (store.SupersededResearch, NotFoundError):
+            raise
+        except Exception as exc:
+            logger.warning("Research verification unavailable (%s); preserving extracted source", type(exc).__name__)
+            findings = ["Source comparison unavailable; extracted source retained."]
+        # A persistent material defect uses source text rather than blocking the whole report.
+        identified = {s["id"] for s in sections for f in findings if re.search(rf"\b{re.escape(s['id'])}\b", f)}
+        unlocated = any(not any(re.search(rf"\b{re.escape(s['id'])}\b", f) for s in sections) for f in findings)
+        for section in sections:
+            if findings and (unlocated or section["id"] in identified):
+                section["output"] = source_output(section).model_dump()
+                section["source_retained"] = True
         save("sections", sections)
         save(
             "validation",
             {
-                "issues": issues,
-                "pages_checked": count,
+                "extraction_notes": extraction_notes,
+                "findings": findings,
+                "verification_complete": verification_complete,
+                "pages_checked": count if verification_complete else None,
+                "source_retained_sections": [s["id"] for s in sections if s.get("source_retained")],
                 "prompt_version": PROMPT_VERSION,
                 "provider": provider,
                 "model": model,
                 "calls": converter.calls,
             },
         )
-        if issues:
-            update(status="needs_review", issues=issues)
-            return {"report_id": report_id, "status": "needs_review"}
         markdown = assemble(metadata, sections)
         store.save_artifact(report_id, token, f"{token}.md", markdown.encode(), "text/markdown; charset=utf-8")
 

@@ -4371,6 +4371,7 @@ export type ResearchCategory = keyof typeof RESEARCH_CATEGORIES
 export type ResearchStatus = "queued" | "reading" | "condensing" | "checking" | "ready" | "needs_review" | "failed"
 export interface ResearchSection {
   id: string
+  source_retained?: boolean
   heading: string
   level: number
   pages: number[]

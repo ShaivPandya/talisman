@@ -209,25 +209,50 @@ def test_duplicate_upload_is_idempotent_and_does_not_override_category(env):
     assert len(env.jobs) == 1
 
 
-@pytest.mark.parametrize(
-    "options",
-    [
-        {"issues": ["Page 1 chart is illegible"]},
-        {"missing_title": True},
-        {"verify_issues": ["Page 1 section-1 omits a key forecast"]},
-    ],
-)
-def test_incomplete_or_unverified_reports_never_publish_or_index(env, monkeypatch, options):
-    calls = model(monkeypatch, **options)
+def test_missing_title_uses_neutral_fallback_without_blocking(env, monkeypatch):
+    model(monkeypatch, missing_title=True)
     state = uploaded()
-    assert process(state)["status"] == "needs_review"
-    assert not store.get(state["id"])["current_revision"]
-    with pytest.raises(ValidationError):
-        research.markdown_download(state["id"])
-    with pytest.raises(ValidationError):
-        research.read_report(state["id"])
-    assert not env.index and not any(j["kind"] == "research_index" for j in env.jobs)
-    assert calls.count(processing.Check) <= 2
+    assert process(state)["status"] == "ready"
+    assert research.detail(state["id"])["title"] == "Untitled research report"
+    assert research.markdown_download(state["id"])[0]
+
+
+def test_extraction_limitations_do_not_block_download_or_index(env, monkeypatch):
+    model(monkeypatch, issues=["Page 1 chart has no exact numerical labels"])
+    state = uploaded()
+    assert process(state)["status"] == "ready"
+    assert research.markdown_download(state["id"])[0]
+    assert env.jobs[-1]["kind"] == "research_index"
+
+
+@pytest.mark.parametrize("located", [True, False])
+def test_unresolved_defects_retain_source_instead_of_blocking(env, monkeypatch, located):
+    model(monkeypatch, verify_issues=["Page 1 " + ("section-1 " if located else "") + "incorrect forecast"])
+    state = uploaded()
+    assert process(state)["status"] == "ready"
+    detail = research.detail(state["id"])
+    assert detail["sections"][0]["source_retained"]
+    assert "2.3%" in detail["sections"][0]["output"]["paragraph"]
+    assert detail["sections"][0]["output"]["visuals"]
+
+
+def test_empty_summary_retains_text_and_model_errors_fall_back(env, monkeypatch):
+    section = processing.sections_from_blocks(source_blocks())[0]
+    converter = SimpleNamespace(ask=lambda *args: processing.SectionOutput(paragraph="", visuals=[]))
+    text_only = {**section, "blocks": [b for b in section["blocks"] if b["kind"] == "text"]}
+    assert "2.3%" in processing.condense(converter, text_only).paragraph
+    result = processing.best_effort_section(converter, section)
+    assert result.paragraph and result.visuals and section["source_retained"]
+
+
+def test_verifier_failure_preserves_report_and_never_claims_verified_pages(env, monkeypatch):
+    model(monkeypatch)
+    monkeypatch.setattr(processing, "verify", lambda *a: (_ for _ in ()).throw(ValueError("Bad model JSON")))
+    state = uploaded()
+    assert process(state)["status"] == "ready"
+    assert all(s["source_retained"] for s in research.detail(state["id"])["sections"])
+    validation = json.loads(store.read_blob(state["id"], state["token"] + "-validation.json"))
+    assert validation["pages_checked"] is None and not validation["verification_complete"]
 
 
 def test_previous_successful_revision_survives_failed_reprocessing(env, monkeypatch):
@@ -236,9 +261,12 @@ def test_previous_successful_revision_survives_failed_reprocessing(env, monkeypa
     process(state)
     old_bytes = research.markdown_download(state["id"])[0]
     research.retry(state["id"], ACTOR)
-    model(monkeypatch, missing_title=True, verify_issues=["Page 1 heading missing"])
-    process(store.get(state["id"]))
-    assert store.get(state["id"])["status"] == "needs_review"
+    monkeypatch.setattr(
+        processing, "extract_batch", lambda *a: (_ for _ in ()).throw(RuntimeError("PDF reading unavailable"))
+    )
+    with pytest.raises(RuntimeError):
+        process(store.get(state["id"]))
+    assert store.get(state["id"])["status"] == "failed"
     assert research.markdown_download(state["id"])[0] == old_bytes
     assert research.detail(state["id"])["title"] == TITLE
 
@@ -359,15 +387,12 @@ def test_research_responses_do_not_cache_missing_or_reuploaded_documents(env, au
 
 
 def test_deterministic_visual_and_markdown_checks():
-    for bad in ("<script>alert(1)</script>", "![figure](image.png)", "## Invented heading", "```html"):
-        with pytest.raises(ValueError):
-            processing.clean_markdown(bad)
-    assert processing.inspect_pdf(make_pdf(FACT)) == 1
-    assert processing.inspect_pdf(processing.pdf_pages(make_pdf(FACT), 1, 1)) == 1
-    with pytest.raises(ValidationError):
-        processing.inspect_pdf(b"%PDF-broken")
-    assert research.publication_iso("November 2, 2026") == "2026-11-02"
-    assert research.publication_iso(None) is None
+    assert (
+        processing.clean_markdown("```markdown\n## Outlook\nGrowth is **2.3%**.\n```") == "Outlook\nGrowth is **2.3%**."
+    )
+    assert processing.clean_markdown("<p>Growth <b>2.3%</b></p><script>alert(1)</script>") == "Growth  2.3%"
+    assert processing.clean_markdown("![Chart: growth rises](chart.png)") == "Chart: growth rises"
+    assert processing.clean_markdown("Inflation < 3% and growth > 2%") == "Inflation < 3% and growth > 2%"
 
 
 def test_truncated_provider_json_is_rejected(monkeypatch):

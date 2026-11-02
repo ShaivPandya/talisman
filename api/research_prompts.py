@@ -1,6 +1,18 @@
 """Versioned research conversion instructions. Changes create a new output revision."""
 
-PROMPT_VERSION = "1"
+PROMPT_VERSION = "2"
+
+PRACTICAL_GUIDANCE = """Use editorial judgment. The goal is usable condensed research.
+An unlabeled chart is not an error: describe its readable direction, comparisons and takeaway;
+omit exact values that are not legible. Do not demand data the original never supplies.
+Condense standard legal, jurisdictional, distribution and options boilerplate into a short
+disclosure paragraph. Do not reproduce every jurisdiction or generic trading prerequisite.
+Preserve qualifications that actually change the report's analysis, forecasts or conclusions.
+Keep conditional disclosures conditional; never imply this report contains ratings or
+recommendations merely because a generic disclaimer mentions them.
+Repeated metadata, captions and text already represented by a visual need not be repeated
+in a separate paragraph. An empty paragraph is acceptable when the visuals cover the content.
+"""
 
 CONVERSION_PROMPT = """Convert the attached PDF research report into a standalone, condensed Markdown (.md) document.
 Objective: Preserve the complete structure, analytical substance, and key information of the original report while significantly reducing its length. The result should read like a concise version of the original research, not a generic executive summary.
