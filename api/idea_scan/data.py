@@ -14,7 +14,9 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
+import threading
 import time
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -52,6 +54,11 @@ RATE_LIMIT_BACKOFF_S = 30.0
 # Leaves room in the 150-minute job for screening, the LLM steps and publishing.
 FETCH_DEADLINE_S = float(os.getenv("IDEA_SCAN_FETCH_DEADLINE_SECONDS") or 100 * 60)
 NOT_FETCHED = "not fetched: time limit"
+# Every eligible name is fetched; pace starts rather than truncating the universe.
+REVISION_CALL_INTERVAL_S = max(0.0, float(os.getenv("IDEA_SCAN_REVISION_INTERVAL_SECONDS") or 0.5))
+REVISION_CACHE_MAX_AGE_S = 24 * 60 * 60
+REVISION_CHECKPOINT_CHUNK = 25
+REVISION_CACHE_KEY = "eps-revisions-v1"
 
 # Only the .info fields the presets, ranker and cards read; the full dict is ~150 keys.
 INFO_FIELDS = (
@@ -552,29 +559,120 @@ def fetch_dataset(
     )
 
 
-def fetch_eps_revisions(tickers: list[str], *, workers: int | None = None) -> dict[str, float]:
+def _revision_cache(now: datetime) -> dict[str, dict[str, Any]]:
+    """Only finite, successful observations less than a day old can satisfy a lookup."""
+    raw = _read_gz(REVISION_CACHE_KEY, "revisions.json.gz")
+    try:
+        records = json.loads(raw) if raw else {}
+    except (ValueError, TypeError):
+        return {}
+    if not isinstance(records, dict):
+        return {}
+    fresh = {}
+    for ticker, record in records.items():
+        try:
+            value = record["value"]
+            age = (now - datetime.fromisoformat(record["fetched_at"])).total_seconds()
+            if (
+                isinstance(value, (int, float))
+                and not isinstance(value, bool)
+                and math.isfinite(value)
+                and 0 <= age < REVISION_CACHE_MAX_AGE_S
+            ):
+                fresh[ticker] = record
+        except (KeyError, TypeError, ValueError, OverflowError):
+            continue
+    return fresh
+
+
+def fetch_eps_revisions(
+    tickers: list[str],
+    *,
+    workers: int | None = None,
+    now: datetime | None = None,
+    progress: ProgressCallback | None = None,
+) -> dict[str, float]:
     """30-day change in consensus EPS for the current and next fiscal year, as a fraction.
 
-    Read from yfinance ``eps_trend``; only fetched for the names a preset needs.
+    Fetch every requested name through the Yahoo throttle with spaced request starts.
+    Successful values are checkpointed every 25 names and reused across universes for
+    24 hours. Failed/empty responses are retried in paced rounds after exponential
+    backoff, and are never cached as successful checks.
     """
     import yfinance as yf
 
     from equities.short_screen.short_screen import PHASE1_WORKERS, _throttled_yf_call
 
+    symbols = list(dict.fromkeys(tickers))
+    if not symbols:
+        return {}
+    cache = _revision_cache(now or datetime.now(UTC))
+    out = {ticker: float(cache[ticker]["value"]) for ticker in symbols if ticker in cache}
+    pending = [ticker for ticker in symbols if ticker not in out]
+    cached_count = len(out)
+    pace_lock = threading.Lock()
+    last_started: float | None = None
+
+    def trend(ticker: str) -> pd.DataFrame:
+        nonlocal last_started
+        # Pace actual request starts, including retries, after the shared Yahoo cooldown.
+        with pace_lock:
+            if last_started is not None:
+                delay = REVISION_CALL_INTERVAL_S - (time.monotonic() - last_started)
+                if delay > 0:
+                    _sleep(delay)
+            last_started = time.monotonic()
+        # A new Ticker on each attempt avoids reusing yfinance's empty-response cache.
+        return yf.Ticker(ticker).eps_trend
+
     def one(ticker: str) -> float | None:
         try:
-            trend = _throttled_yf_call(f"{ticker}.eps_trend", lambda: yf.Ticker(ticker).eps_trend)
+            return eps_revision_from_trend(_throttled_yf_call(f"{ticker}.eps_trend", lambda: trend(ticker)))
         except Exception:
+            LOGGER.debug("EPS revision fetch failed for %s", ticker, exc_info=True)
             return None
-        return eps_revision_from_trend(trend)
 
-    out: dict[str, float] = {}
+    if progress:
+        progress("eps_revisions", cached_count, len(symbols))
     with ThreadPoolExecutor(max_workers=max(1, workers or PHASE1_WORKERS)) as pool:
-        futures = {pool.submit(one, ticker): ticker for ticker in tickers}
-        for future in as_completed(futures):
-            value = future.result()
-            if value is not None:
-                out[futures[future]] = value
+        for attempt in range(RATE_LIMIT_RETRIES + 1):
+            if not pending:
+                break
+            if attempt:
+                backoff = RATE_LIMIT_BACKOFF_S * 2 ** (attempt - 1)
+                LOGGER.info("Retrying EPS revisions for %d names after %.0fs", len(pending), backoff)
+                _sleep(backoff)
+            failed = []
+            for start in range(0, len(pending), REVISION_CHECKPOINT_CHUNK):
+                chunk = pending[start : start + REVISION_CHECKPOINT_CHUNK]
+                futures = {pool.submit(one, ticker): ticker for ticker in chunk}
+                recovered = False
+                for future in as_completed(futures):
+                    ticker = futures[future]
+                    value = future.result()
+                    if value is None:
+                        failed.append(ticker)
+                    else:
+                        out[ticker] = value
+                        cache[ticker] = {"value": value, "fetched_at": (now or datetime.now(UTC)).isoformat()}
+                        recovered = True
+                if recovered:
+                    try:
+                        _write_gz(REVISION_CACHE_KEY, "revisions.json.gz", json.dumps(cache, allow_nan=False))
+                    except Exception:
+                        LOGGER.warning("EPS revision checkpoint failed; keeping fetched results", exc_info=True)
+                if progress:
+                    phase = "eps_revisions_retry" if attempt else "eps_revisions"
+                    done = start + len(chunk) + (0 if attempt else cached_count)
+                    progress(phase, done, len(pending) if attempt else len(symbols))
+            pending = sorted(failed)
+    LOGGER.info(
+        "EPS revisions: %d eligible, %d cached, %d available, %d unavailable",
+        len(symbols),
+        cached_count,
+        len(out),
+        len(pending),
+    )
     return out
 
 
@@ -590,6 +688,8 @@ def eps_revision_from_trend(trend: pd.DataFrame | None) -> float | None:
             prior = float(trend.loc[period, "30daysAgo"])
         except (TypeError, ValueError):
             continue
-        if prior and pd.notna(prior) and pd.notna(current):
-            changes.append((current - prior) / abs(prior))
-    return float(sum(changes) / len(changes)) if changes else None
+        if prior and math.isfinite(prior) and math.isfinite(current):
+            change = (current - prior) / abs(prior)
+            if math.isfinite(change):
+                changes.append(change)
+    return float(sum(change / len(changes) for change in changes)) if changes else None

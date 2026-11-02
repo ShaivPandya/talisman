@@ -34,6 +34,17 @@ queue (150-minute timeout).
    percentile (inverted for shorts). A name whose available factors carry less
    than half the ranking weight gets no composite, so it can't hit the composite
    preset and ranks after scored names in the others.
+   Every name meeting a breakdown preset's momentum condition gets an EPS-revisions
+   lookup. Requests start at least 0.5 seconds apart
+   (`IDEA_SCAN_REVISION_INTERVAL_SECONDS`) and use the shared Yahoo cooldown.
+   Successful observations are cached for 24 hours across universes in state storage
+   (`idea_scan/datasets/eps-revisions-v1/revisions.json.gz`), checkpointed every 25
+   names. Only unavailable names are retried, in up to three more paced rounds
+   after 30, 60 and 120 seconds. Empty responses are retried too, since they can
+   reflect transient provider failures. Unavailable results are never cached;
+   a rerun resumes using fresh successes and retries the rest. The digest warns
+   about estimates still unavailable after retries; these remain unknown, rather
+   than passing or failing the revisions check. There is no name-count cutoff.
 4. **Macro view.** One high-tier call over the latest macro snapshots, last
    week's view and up to 5 web searches scores each yfinance sector from -2 to
    +2. Rows without a snapshot or returned-URL citation, and score changes
