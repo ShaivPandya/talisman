@@ -427,7 +427,11 @@ class ApiMiddleware:
 
         async def send_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                _apply_response_headers(MutableHeaders(scope=message), rid)
+                headers = MutableHeaders(scope=message)
+                _apply_response_headers(headers, rid)
+                if request.url.path.startswith("/api/research/"):
+                    # Firebase otherwise caches 404s, hiding a re-uploaded report for ten minutes.
+                    headers["Cache-Control"] = "private, no-store"
                 set_request_context(status_code=message["status"])
             await send(message)
 
