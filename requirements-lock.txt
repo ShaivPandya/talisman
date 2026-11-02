@@ -19,7 +19,7 @@ azure-core==1.40.0
 azure-identity==1.25.3
 bcrypt==5.0.0
 beautifulsoup4==4.13.3
-black==26.3.0
+black==26.10.1
 blinker==1.9.0
 boolean.py==5.0
 CacheControl==0.14.4
