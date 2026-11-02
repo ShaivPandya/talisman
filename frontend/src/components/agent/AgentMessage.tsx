@@ -217,7 +217,7 @@ export const AgentMessage = memo(function AgentMessage({
             }}
           />
         ) : (
-          <div className="agent-user-bubble max-w-[min(88%,45rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-3.5 py-2.5 text-[0.9375rem] leading-relaxed text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
+          <div className="agent-user-bubble max-w-[min(88%,45rem)] rounded-2xl rounded-br-md bg-[hsl(var(--accent))] px-3.5 py-2.5 text-[16px] leading-relaxed text-[hsl(var(--accent-foreground))] shadow-sm whitespace-pre-wrap">
             {message.content}
           </div>
         )}
@@ -245,7 +245,7 @@ export const AgentMessage = memo(function AgentMessage({
   // Assistant message
   return (
     <div className="group mb-4 flex flex-col items-start">
-      <div className="max-w-[min(94%,51rem)] rounded-2xl rounded-bl-md border border-app bg-card px-3.5 py-3 text-[0.9375rem] leading-relaxed text-app shadow-sm">
+      <div className="max-w-[min(94%,51rem)] rounded-2xl rounded-bl-md border border-app bg-card px-3.5 py-3 text-[16px] leading-relaxed text-app shadow-sm">
         {messageDecisionState === "proposal" && (
           <div className="mb-2 flex flex-wrap items-center gap-2">
             <DecisionStateBadge state={messageDecisionState} />
@@ -263,7 +263,7 @@ export const AgentMessage = memo(function AgentMessage({
 
         {/* Markdown content */}
         {displayContent && (
-          <div className="prose text-[0.9375rem] max-w-none break-words dark:prose-invert prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-code:break-words">
+          <div className="prose text-[16px] max-w-none break-words dark:prose-invert prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-code:break-words">
             <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{displayContent}</Markdown>
           </div>
         )}
