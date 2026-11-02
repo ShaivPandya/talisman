@@ -22,6 +22,8 @@ Per-report Postgres advisory locks serialize uploads, publication, category chan
 
 A separate retryable `research_index` job indexes both the condensed Markdown and page-labelled source extraction into the existing Postgres full-text retrieval tables. Library content filtering collects distinct matching documents before pagination. Stan gets `search_research` and paginated `read_research_report`, with report metadata, section/original-page links and private-source instructions. General knowledge-base search also includes research. Revision checks exclude stale index hits. OCR passages are labelled as extracted source text; condensed passages are paraphrases, not verbatim quotations. The PDF remains the authority for exact quotations.
 
+Cloud Run requires the worker service account to have `roles/run.jobsExecutorWithOverrides` on the generic async job, allowing conversion to enqueue indexing. `infra/gcp/iam.sh` maintains this job-scoped binding; apply it when introducing Research to an existing environment whose routine deployments skip IAM synchronization.
+
 ## Operations and validation
 
 Use Retry processing for failed/interrupted conversion, Reprocess for a new revision, or Retry search indexing when Markdown is ready but indexing failed. The UI reconciles failed/cancelled jobs and missing job records. Check the existing job/provenance logs for infrastructure failures; never log PDF bodies or provider credentials. A needs_review report exposes the source-check findings and original PDF for correction/retry.

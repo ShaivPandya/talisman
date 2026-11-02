@@ -13,7 +13,7 @@
 #   Cloud Run job ${TOP50_REFRESH_JOB}:
 #     migrator-sa  -> roles/run.jobsExecutor
 #   Cloud Run job ${ASYNC_JOB_RUNNER_JOB}:
-#     api-sa       -> roles/run.jobsExecutorWithOverrides
+#     api-sa, worker-sa -> roles/run.jobsExecutorWithOverrides
 #
 # Re-running is safe — gcloud `add-iam-policy-binding` is idempotent.
 
@@ -95,6 +95,8 @@ fi
 if [[ -n "${ASYNC_JOB_RUNNER_JOB:-}" ]]; then
   log "Cloud Run job executor with overrides: ${ASYNC_JOB_RUNNER_JOB}"
   bind_run_job_role "${ASYNC_JOB_RUNNER_JOB}" "${API_SA}" roles/run.jobsExecutorWithOverrides
+  # Research conversion dispatches its separate, retryable indexing job.
+  bind_run_job_role "${ASYNC_JOB_RUNNER_JOB}" "${WORKER_SA}" roles/run.jobsExecutorWithOverrides
 fi
 
 log "IAM sync complete."
