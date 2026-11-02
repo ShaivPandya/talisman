@@ -41,6 +41,7 @@ const ROUTE_PAGE_MAP: Record<string, RouteEntry> = {
     tools: ["get_portfolio_positions", "get_hedge_positions", "propose_portfolio_positions_update"],
   },
   "/workspace": { pageName: "Workspace", tools: ["get_workspace"] },
+  "/research": { pageName: "Research", tools: ["search_research", "read_research_report"] },
   "/theses": { pageName: "Investment Theses", tools: ["get_thesis"] },
   "/dossier": { pageName: "Position Dossier", tools: ["get_dossier", "get_position_valuation"] },
 

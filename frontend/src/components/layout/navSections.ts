@@ -67,6 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Portfolio Risk", path: "/risk", icon: ShieldAlert },
       { label: "Edit Portfolio", path: "/portfolio/edit", icon: PencilLine },
       { label: "Workspace", path: "/workspace", icon: ListChecks },
+      { label: "Research", path: "/research", icon: Library },
       { label: "Investment Theses", path: "/theses", icon: ScrollText },
       { label: "Idea Watchlist", path: "/ideas", icon: Lightbulb },
       { label: "Idea Digest", path: "/idea-digest", icon: Newspaper },
@@ -144,6 +145,7 @@ export function getRouteLabel(pathname: string) {
     const match = section.pages.find(page => page.path === pathname)
     if (match) return match.label
   }
+  if (pathname.startsWith("/research/")) return "Research"
   if (pathname.startsWith("/dossier/")) return "Position Dossier"
   if (pathname === "/explore" || pathname.startsWith("/explore/")) return "Company Explorer"
   if (pathname.startsWith("/ideas/") && pathname !== "/ideas") return "Idea Detail"

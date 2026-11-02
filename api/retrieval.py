@@ -15,6 +15,7 @@ import sqlite3
 import struct
 import threading
 import uuid
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -277,7 +278,16 @@ def _chunk_document(content: str, doc_type: str) -> list[tuple[str | None, str]]
     Markdown docs (thesis, management quality, news digests, reports): split by ## headings, then window large sections.
     Plain text (summaries): window-based chunking.
     """
-    if doc_type in ("thesis", "overview", "management_quality", "news_digest", "weekly_report", "daily_report"):
+    if doc_type in (
+        "thesis",
+        "overview",
+        "management_quality",
+        "news_digest",
+        "weekly_report",
+        "daily_report",
+        "research",
+        "research_source",
+    ):
         heading_chunks = _chunk_by_headings(content)
         # Sub-chunk large sections
         max_chars = _MAX_CHUNK_TOKENS * _CHARS_PER_TOKEN
@@ -313,6 +323,7 @@ def index_document(
     freshness_as_of: str | None = None,
     stale_after: str | None = None,
     is_stale: bool = False,
+    connection: Any = None,
 ) -> str:
     """Index a document into ontology-linked retrieval chunks.
 
@@ -351,6 +362,7 @@ def index_document(
             freshness_as_of=freshness_as_of,
             stale_after=stale_after,
             is_stale=is_stale,
+            connection=connection,
         )
         logger.info(
             "Indexed doc_id=%s type=%s ticker=%s chunks=%d",
@@ -761,10 +773,10 @@ def _retrieval_result_from_row(
     return result
 
 
-def delete_document(doc_id: str) -> bool:
+def delete_document(doc_id: str, *, connection: Any = None) -> bool:
     """Delete a document and its chunks."""
     if use_postgres_state():
-        with connect(register_pgvector=True) as conn:
+        with nullcontext(connection) if connection is not None else connect(register_pgvector=True) as conn:
             cur = conn.execute("DELETE FROM retrieval_documents WHERE doc_id = %s", (doc_id,))
             conn.commit()
             return bool(cur.rowcount > 0)
@@ -850,6 +862,7 @@ def _pg_index_document(
     freshness_as_of: str | None,
     stale_after: str | None,
     is_stale: bool,
+    connection: Any = None,
 ) -> None:
     created_at = datetime.fromisoformat(updated_at)
     rows = [
@@ -874,7 +887,7 @@ def _pg_index_document(
         )
         for i, (heading, text) in enumerate(raw_chunks)
     ]
-    with connect(register_pgvector=True) as conn:
+    with nullcontext(connection) if connection is not None else connect(register_pgvector=True) as conn:
         conn.execute("DELETE FROM retrieval_chunks WHERE doc_id = %s", (doc_id,))
         conn.execute(
             """

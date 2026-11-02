@@ -137,6 +137,7 @@ Core portfolio and research workflows:
 - One-click company overview and management-quality research on equity Dossier and Ideas pages. The two web-grounded jobs run independently, automatically save through the governed action path, and retain full cited reports alongside structured summaries. Edit Research Prompts saves global templates containing `{ticker}`; running jobs keep their starting prompts. Failed reports can be retried individually, and Markdown/PDF uploads remain available.
 - Workspace entities: catalysts, kill conditions, approvals, actions, triggers, recommendations, and workflow runs.
 - Agent chat and memory for cross-cutting research questions over portfolio data, theses, market data, materialized ontology risk snapshots, and workflow artifacts.
+- [Research library](docs/research.md) (`/research`) for native or scanned PDFs across Equity Strategy, Credit Strategy, Economic, and Industry & Thematic. Optional automatic categorization, source-checked condensed Markdown downloads, original-page citations, and private Stan search.
 
 Market and macro modules:
 

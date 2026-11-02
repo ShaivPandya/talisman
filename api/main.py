@@ -82,6 +82,7 @@ from api.routers import (
     overview,
     portfolio,
     portfolio_edit,
+    research,
     settings,
     thesis,
 )
@@ -210,6 +211,7 @@ def _multipart_request_body_limit(file_limit_bytes: int) -> int:
 
 
 _ENDPOINT_BODY_LIMITS = {
+    "/api/research/reports": _multipart_request_body_limit(30 * 1024 * 1024),
     "/api/thesis/generate": _multipart_request_body_limit(30 * 1024 * 1024),
     "/api/overview/generate": _multipart_request_body_limit(30 * 1024 * 1024),
     "/api/management-quality/generate": _multipart_request_body_limit(30 * 1024 * 1024),
@@ -493,6 +495,7 @@ app.include_router(memory.router, prefix=_API_PREFIX, dependencies=_auth_dep, ta
 app.include_router(agent.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(chat_attachments.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["agent"])
 app.include_router(name_documents.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["research"])
+app.include_router(research.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["research"])
 app.include_router(settings.router, prefix=_API_PREFIX, dependencies=_auth_dep, tags=["settings"])
 
 # Investing OS routers

@@ -4360,3 +4360,75 @@ export const promoteIdeaScanCandidate = (runId: string, direction: IdeaScanDirec
   client
     .post(`${ideaScanCardPath(runId, direction, ticker)}/promote`)
     .then(r => r.data as { candidate: IdeaScanCandidate; idea_id: string; created: boolean })
+
+export const RESEARCH_CATEGORIES = {
+  equity_strategy: "Equity Strategy",
+  credit_strategy: "Credit Strategy",
+  economic: "Economic",
+  industry_thematic: "Industry & Thematic",
+} as const
+export type ResearchCategory = keyof typeof RESEARCH_CATEGORIES
+export type ResearchStatus = "queued" | "reading" | "condensing" | "checking" | "ready" | "needs_review" | "failed"
+export interface ResearchSection {
+  id: string
+  heading: string
+  level: number
+  pages: number[]
+  output: { paragraph: string; visuals: string[] }
+}
+export interface ResearchReport {
+  id: string
+  filename: string
+  size: number
+  page_count: number
+  title: string | null
+  subtitle: string | null
+  institution: string | null
+  publication_date: string | null
+  authors: string[]
+  category: ResearchCategory | null
+  category_source: "manual" | "automatic"
+  category_uncertain: boolean
+  status: ResearchStatus
+  created_at: string
+  updated_at: string
+  current_revision: string | null
+  revisions: { id: string; created_at: string; title: string }[]
+  issues: string[]
+  error: string | null
+  index_status: string
+  index_error?: string | null
+  progress?: { done: number; total: number } | null
+  can_manage?: boolean
+  content?: string | null
+  sections?: ResearchSection[]
+}
+export interface ResearchFilters {
+  q?: string
+  category?: ResearchCategory
+  institution?: string
+  date_from?: string
+  date_to?: string
+  sort?: "publication" | "uploaded"
+  offset?: number
+}
+export interface ResearchLibrary {
+  reports: ResearchReport[]
+  total: number
+  counts: Record<ResearchCategory, number>
+  institutions: string[]
+  can_manage: boolean
+}
+export const fetchResearch = (filters: ResearchFilters) => client.get<ResearchLibrary>("/research/reports", { params: filters }).then(r => r.data)
+export const fetchResearchReport = (id: string) => client.get<ResearchReport>(`/research/reports/${id}`).then(r => r.data)
+export const uploadResearch = (file: File, category?: ResearchCategory) => {
+  const body = new FormData()
+  body.append("file", file)
+  if (category) body.append("category", category)
+  return client.post<{ report: ResearchReport; duplicate: boolean }>("/research/reports", body).then(r => r.data)
+}
+export const updateResearchCategory = (id: string, category: ResearchCategory) => client.patch(`/research/reports/${id}`, { category }).then(r => r.data)
+export const retryResearch = (id: string) => client.post(`/research/reports/${id}/retry`).then(r => r.data)
+export const reindexResearch = (id: string) => client.post(`/research/reports/${id}/reindex`).then(r => r.data)
+export const deleteResearch = (id: string) => client.delete(`/research/reports/${id}`)
+export const researchDownloadUrl = (id: string, kind: "markdown" | "original") => `${client.defaults.baseURL}/research/reports/${id}/${kind}`
