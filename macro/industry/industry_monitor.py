@@ -532,6 +532,16 @@ def _upsert_transcript(
             content_sha256=excluded.content_sha256,
             fetched_at=excluded.fetched_at,
             transcript_date=excluded.transcript_date,
+            summary_json=CASE
+                WHEN COALESCE(transcripts.content_sha256, '') != COALESCE(excluded.content_sha256, '')
+                THEN NULL
+                ELSE transcripts.summary_json
+            END,
+            summarized_at=CASE
+                WHEN COALESCE(transcripts.content_sha256, '') != COALESCE(excluded.content_sha256, '')
+                THEN NULL
+                ELSE transcripts.summarized_at
+            END,
             price_reaction_2d=CASE
                 WHEN COALESCE(transcripts.transcript_date, '') != COALESCE(excluded.transcript_date, '')
                 THEN NULL
@@ -952,11 +962,12 @@ def _company_from_row(
         "age_days": age_days,
         "is_stale": bool(row["is_stale"]) or is_age_stale,
         "missing_data": False,
+        "summary_available": bool(raw_summary) and not _summary_looks_like_fallback(row["summary_json"], company_name),
     }
 
 
 # ---------- Main ----------
-def _fetch_and_store(conn: sqlite3.Connection) -> None:
+def _fetch_and_store(conn: sqlite3.Connection, *, summarize=None) -> None:
     # Phase 1: Extract PDFs and upsert transcripts (fast, sequential)
     to_summarize: list[tuple[str, str, dict]] = []  # (row_id, text, meta)
 
@@ -1004,6 +1015,13 @@ def _fetch_and_store(conn: sqlite3.Connection) -> None:
                     target_row_id=row_id,
                 )
 
+                if (
+                    summarize is not None
+                    and reusable_summary is not None
+                    and _summary_looks_like_fallback(reusable_summary["summary_json"], company_name)
+                ):
+                    reusable_summary = None
+
                 now_iso = _now_iso()
                 _upsert_transcript(
                     conn,
@@ -1025,7 +1043,8 @@ def _fetch_and_store(conn: sqlite3.Connection) -> None:
                 _set_fresh_row(conn, ticker, row_id)
 
                 if existing and existing["content_sha256"] == sha and existing["summary_json"]:
-                    continue
+                    if summarize is None or not _summary_looks_like_fallback(existing["summary_json"], company_name):
+                        continue
                 if reusable_summary is not None:
                     continue
 
@@ -1052,6 +1071,15 @@ def _fetch_and_store(conn: sqlite3.Connection) -> None:
     def _do_summarize(item: tuple[str, str, dict]) -> tuple[str, dict]:
         row_id, text, meta = item
         return row_id, summarize_with_llm(text, meta)
+
+    # Callers with a dollar budget can summarize serially and decline a call.
+    # A declined summary stays absent so a later refresh can retry it.
+    if summarize is not None:
+        for row_id, text, meta in to_summarize:
+            summary = summarize(text, meta)
+            if summary is not None:
+                _set_summary(conn, row_id, summary)
+        return
 
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {pool.submit(_do_summarize, item): item for item in to_summarize}
@@ -1113,13 +1141,16 @@ def _query_data(conn: sqlite3.Connection) -> tuple[dict, list, dict]:
     return by_sector, sectors, counts
 
 
-def get_data(db_path: str | None = None, refresh: bool = False) -> dict:
+def get_data(db_path: str | None = None, refresh: bool = False, *, summarize=None) -> dict:
     conn = None
     try:
         conn = _connect_db(db_path)
         init_db(conn)
         if refresh:
-            _fetch_and_store(conn)
+            if summarize is None:
+                _fetch_and_store(conn)
+            else:
+                _fetch_and_store(conn, summarize=summarize)
         _fetch_missing_price_reactions(conn)
         by_sector, sectors, counts = _query_data(conn)
         return {

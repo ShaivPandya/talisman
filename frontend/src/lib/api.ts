@@ -4077,11 +4077,35 @@ export interface IdeaScanMacroRow {
   origin: "llm" | "rule"
 }
 
+export interface IdeaScanMacroApproach {
+  key: "industry_monitor" | "market_prices" | "economic_indicators" | "news"
+  title: string
+  status: "ok" | "unavailable"
+  signal: string
+  interpretation: string
+  confidence: "low" | "medium" | "high"
+  caveats: string
+  evidence: IdeaScanEvidence[]
+  sources: { key: string; as_of: string | null; stale: boolean | null; refreshed?: boolean | null; warning?: string | null }[]
+}
+
+export interface IdeaScanMacroSynthesis {
+  outlook: string
+  horizon: string
+  confidence: "low" | "medium" | "high"
+  agreements: string
+  conflicts: string
+  watchpoints: string[]
+  evidence: IdeaScanEvidence[]
+}
+
 export interface IdeaScanMacroView {
   status: "ok" | "skipped" | "failed"
   as_of: string
   model?: string
   summary: string
+  approaches?: IdeaScanMacroApproach[]
+  synthesis?: IdeaScanMacroSynthesis | null
   rows: IdeaScanMacroRow[]
   dropped: { sector: string; reason: string }[]
   sources: { title: string; url: string }[]

@@ -56,6 +56,34 @@ function fullRun(): IdeaScanRun {
       as_of: "2026-10-31T12:40:00Z",
       model: "claude-opus-5-5",
       summary: "Growth is steady, liquidity is easing.",
+      approaches: [
+        {
+          key: "industry_monitor", title: "Industry Monitor", status: "ok", signal: "Freight volumes weakened.",
+          interpretation: "Goods demand is slowing.", confidence: "low", caveats: "Some transcripts remain stale.",
+          evidence: [{ type: "snapshot", ref: "industry_monitor:current:v1", detail: "ODFL volumes declined." }],
+          sources: [{ key: "industry_monitor:current:v1", as_of: "2026-10-20", stale: true, refreshed: true }],
+        },
+        {
+          key: "market_prices", title: "Economic growth dashboard", status: "ok", signal: "Copper and AUD/JPY diverge from large-cap indices.",
+          interpretation: "Cross-asset growth expectations are mixed.", confidence: "medium", caveats: "Price action does not establish causality.",
+          evidence: [{ type: "snapshot", ref: "economic_growth:current:v1", detail: "Copper fell over one month." }], sources: [],
+        },
+        {
+          key: "economic_indicators", title: "Economic indicators", status: "unavailable", signal: "No verifiable evidence available for this approach.",
+          interpretation: "", confidence: "low", caveats: "", evidence: [], sources: [],
+        },
+        {
+          key: "news", title: "News and other market drivers", status: "ok", signal: "Oil supply was disrupted.",
+          interpretation: "Oil strength may reflect supply rather than stronger demand.", confidence: "medium", caveats: "The duration remains uncertain.",
+          evidence: [{ type: "search", ref: "https://news.example.com/oil", detail: "Dated supply disruption report" }], sources: [],
+        },
+      ],
+      synthesis: {
+        outlook: "Slower goods demand with supply-driven inflation risk.", horizon: "Next one to three months", confidence: "low",
+        agreements: "Freight and copper point to softer demand.", conflicts: "Large-cap indices remain strong while cyclicals lag.",
+        watchpoints: ["Reassess if industrial production and freight recover together."],
+        evidence: [{ type: "snapshot", ref: "economic_growth:current:v1", detail: "Copper and cyclicals lag." }],
+      },
       rows: [
         {
           sector: "Technology", score: 2, previous_score: 1, confidence: "high", reason: "AI capex keeps rising",
@@ -195,6 +223,17 @@ test("the digest shows the macro view, both sides, and run stats", async ({ page
   await expect(page.getByText("Quality tech leads the long side")).toBeVisible()
 
   const macro = page.getByRole("region", { name: "Macro view by sector" })
+  for (const name of ["1. Industry Monitor", "2. Economic growth dashboard", "3. Economic indicators", "4. News and other market drivers", "Combined macro outlook"]) {
+    await expect(macro.getByRole("heading", { name, exact: true })).toBeVisible()
+  }
+  await expect(macro.getByText("Evidence unavailable", { exact: true })).toBeVisible()
+  await expect(macro.getByText("Some transcripts remain stale.", { exact: false })).toBeVisible()
+  await expect(macro.getByText("As of 2026-10-20 · stale or incomplete · refresh completed")).toBeVisible()
+  await expect(macro.getByText("Oil strength may reflect supply rather than stronger demand.", { exact: false })).toBeVisible()
+  await expect(macro.getByText("Reassess if industrial production and freight recover together.")).toBeVisible()
+  const news = macro.getByRole("region", { name: "4. News and other market drivers" })
+  await news.getByText("Evidence (1)").click()
+  await expect(news.getByRole("link", { name: "Dated supply disruption report" })).toHaveAttribute("href", "https://news.example.com/oil")
   await expect(macro.getByText("AI capex keeps rising")).toBeVisible()
   await expect(macro.getByText("was +1")).toBeVisible()
   await macro.getByRole("button", { name: /Technology/ }).click()
@@ -356,4 +395,16 @@ test("custom legacy momentum thresholds require an explicit replacement", async 
   await dialog.getByRole("button", { name: "Save presets" }).click()
   await expect(dialog).toBeHidden()
   expect(calls.saved[0].presets[0]).toMatchObject({ params: { momentum_requirement: "both" }, legacy_momentum_params: null })
+})
+
+
+test("older digests retain their summary and sector rows without inventing a breakdown", async ({ page }) => {
+  const run = fullRun()
+  delete run.macro_view!.approaches
+  delete run.macro_view!.synthesis
+  await mockDigest(page, run)
+  await page.goto("/idea-digest")
+  await expect(page.getByText("This saved digest predates the four-source breakdown.", { exact: false })).toBeVisible()
+  await expect(page.getByText("Growth is steady, liquidity is easing.")).toBeVisible()
+  await expect(page.getByRole("heading", { name: "Combined macro outlook" })).toHaveCount(0)
 })
