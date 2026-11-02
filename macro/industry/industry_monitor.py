@@ -532,6 +532,16 @@ def _upsert_transcript(
             content_sha256=excluded.content_sha256,
             fetched_at=excluded.fetched_at,
             transcript_date=excluded.transcript_date,
+            summary_json=CASE
+                WHEN COALESCE(transcripts.content_sha256, '') != COALESCE(excluded.content_sha256, '')
+                THEN NULL
+                ELSE transcripts.summary_json
+            END,
+            summarized_at=CASE
+                WHEN COALESCE(transcripts.content_sha256, '') != COALESCE(excluded.content_sha256, '')
+                THEN NULL
+                ELSE transcripts.summarized_at
+            END,
             price_reaction_2d=CASE
                 WHEN COALESCE(transcripts.transcript_date, '') != COALESCE(excluded.transcript_date, '')
                 THEN NULL

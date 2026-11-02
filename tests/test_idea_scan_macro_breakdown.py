@@ -208,4 +208,11 @@ def test_declined_industry_summary_is_retried_on_next_refresh(monkeypatch):
     assert conn.execute("SELECT summary_json FROM transcripts").fetchone()["summary_json"] is None
     im._fetch_and_store(conn, summarize=lambda *args: {"summary_headline": "Orders declining"})
     assert "Orders declining" in conn.execute("SELECT summary_json FROM transcripts").fetchone()["summary_json"]
+    # Replacing a PDF for the same reporting period must not reuse its old
+    # summary when the new summarization has to wait for a future budget.
+    monkeypatch.setattr(
+        im, "_extract_text_from_bytes", lambda _: "Q3 2026 Earnings Call October 20, 2026 Revised orders"
+    )
+    im._fetch_and_store(conn, summarize=lambda *args: None)
+    assert conn.execute("SELECT summary_json FROM transcripts").fetchone()["summary_json"] is None
     conn.close()
