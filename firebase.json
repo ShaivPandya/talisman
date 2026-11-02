@@ -8,6 +8,15 @@
     ],
     "headers": [
       {
+        "source": "/api/research/**",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "private, no-store"
+          }
+        ]
+      },
+      {
         "source": "/assets/**",
         "headers": [
           {

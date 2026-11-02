@@ -340,6 +340,24 @@ def test_viewer_cannot_mutate_research(env, auth_client):
         app.dependency_overrides.pop(require_actor, None)
 
 
+def test_research_responses_do_not_cache_missing_or_reuploaded_documents(env, auth_client):
+    import hashlib
+
+    data = make_pdf(FACT)
+    path = "/api/research/reports/" + hashlib.sha256(data).hexdigest()
+    missing = auth_client.get(path)
+    assert missing.status_code == 404
+    assert missing.headers["cache-control"] == "private, no-store"
+    state = uploaded()
+    assert auth_client.get(path).status_code == 200
+    research.delete(state["id"], ACTOR)
+    assert auth_client.get(path).status_code == 404
+    uploaded()
+    restored = auth_client.get(path)
+    assert restored.status_code == 200
+    assert restored.headers["cache-control"] == "private, no-store"
+
+
 def test_deterministic_visual_and_markdown_checks():
     for bad in ("<script>alert(1)</script>", "![figure](image.png)", "## Invented heading", "```html"):
         with pytest.raises(ValueError):
