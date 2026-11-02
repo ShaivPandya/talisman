@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 from api import snapshot_keys as keys
 from api.idea_scan.budget import RunBudget
+from api.idea_scan.macro_inputs import INDUSTRY_KEY, gather_industry_monitor
 
 LOGGER = logging.getLogger(__name__)
 
@@ -67,7 +68,7 @@ DIGEST_MAX_DIGESTS = 7
 DIGEST_MAX_STORIES = 40
 DIGEST_CHAR_LIMIT = 12000
 DIGEST_TEXT_CHARS = 240
-MAX_OUTPUT_TOKENS = 8000
+MAX_OUTPUT_TOKENS = 10000
 REASONING_EFFORT = "medium"
 
 MACRO_VIEW_SCHEMA: dict[str, Any] = {
@@ -107,6 +108,51 @@ MACRO_VIEW_SCHEMA: dict[str, Any] = {
     "additionalProperties": False,
 }
 
+EVIDENCE_SCHEMA = MACRO_VIEW_SCHEMA["properties"]["rows"]["items"]["properties"]["evidence"]
+APPROACHES = {
+    "industry_monitor": "Industry Monitor",
+    "market_prices": "Economic growth dashboard",
+    "economic_indicators": "Economic indicators",
+    "news": "News and other market drivers",
+}
+APPROACH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "signal": {"type": "string"},
+        "interpretation": {"type": "string"},
+        "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+        "caveats": {"type": "string"},
+        "evidence": EVIDENCE_SCHEMA,
+    },
+    "required": ["signal", "interpretation", "confidence", "caveats", "evidence"],
+    "additionalProperties": False,
+}
+MACRO_VIEW_SCHEMA["properties"].update(
+    {
+        "approaches": {
+            "type": "object",
+            "properties": {key: APPROACH_SCHEMA for key in APPROACHES},
+            "required": list(APPROACHES),
+            "additionalProperties": False,
+        },
+        "synthesis": {
+            "type": "object",
+            "properties": {
+                "outlook": {"type": "string"},
+                "horizon": {"type": "string"},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "agreements": {"type": "string"},
+                "conflicts": {"type": "string"},
+                "watchpoints": {"type": "array", "items": {"type": "string"}},
+                "evidence": EVIDENCE_SCHEMA,
+            },
+            "required": ["outlook", "horizon", "confidence", "agreements", "conflicts", "watchpoints", "evidence"],
+            "additionalProperties": False,
+        },
+    }
+)
+MACRO_VIEW_SCHEMA["required"] += ["approaches", "synthesis"]
+
 SYSTEM_PROMPT = (
     "You are a macro strategist preparing a weekly sector backdrop for an equity research team. "
     "The output only decides which screened names get a closer look; it is not a trade recommendation. "
@@ -124,14 +170,14 @@ def normalize_sector(value: Any) -> str | None:
     return SECTOR_ALIASES.get(text.lower())
 
 
-def _compact(value: Any, depth: int = 0) -> Any:
+def _compact(value: Any, depth: int = 0, *, field: str = "") -> Any:
     """Keep a snapshot's shape and latest values while dropping long series."""
-    if depth > 4:
+    if depth > 6:
         return "…"
     if isinstance(value, dict):
-        return {str(k): _compact(v, depth + 1) for k, v in list(value.items())[:40] if k != "raw_modules"}
+        return {str(k): _compact(v, depth + 1, field=str(k)) for k, v in list(value.items())[:40] if k != "raw_modules"}
     if isinstance(value, list):
-        tail = value[-3:] if len(value) > 3 else value
+        tail = value[:40] if field == "readings" else value[-3:]
         return [_compact(v, depth + 1) for v in tail]
     if isinstance(value, float):
         return round(value, 4)
@@ -155,15 +201,37 @@ def gather_snapshots(read: Callable[[str], Any] | None = None) -> list[dict[str,
         except Exception:
             LOGGER.warning("Macro snapshot %s unreadable", key, exc_info=True)
             continue
-        if not isinstance(payload, dict):
+        if not isinstance(payload, dict) or payload.get("error"):
             continue
         meta = (payload.get("_meta") or {}).get("snapshot") or {}
         body = {k: v for k, v in payload.items() if k != "_meta"}
+        # Keep every dashboard asset class and indicator reading. A single prefix
+        # cap used to lose currencies and all but the last three indicators.
+        if key == keys.SNAPSHOT_ECONOMIC_GROWTH:
+            groups = (
+                "equities",
+                "equity_relative_returns",
+                "currencies",
+                "commodities",
+                "benchmarks",
+                "crb_available",
+                "crb_latest_date",
+                "timestamp",
+            )
+            body = {k: body[k] for k in groups if k in body}
         text = json.dumps(_compact(body), default=str, separators=(",", ":"))
-        if len(text) > SNAPSHOT_CHAR_LIMIT:
+        if (
+            key not in {keys.SNAPSHOT_ECONOMIC_GROWTH, keys.SNAPSHOT_ECONOMIC_BACKDROP}
+            and len(text) > SNAPSHOT_CHAR_LIMIT
+        ):
             text = text[:SNAPSHOT_CHAR_LIMIT] + "…"
         out.append(
-            {"key": key, "as_of": meta.get("as_of") or meta.get("fetched_at"), "stale": meta.get("stale"), "text": text}
+            {
+                "key": key,
+                "as_of": meta.get("as_of") or meta.get("fetched_at"),
+                "stale": True if meta.get("refresh_status") not in (None, "ok") else meta.get("stale"),
+                "text": text,
+            }
         )
     return out
 
@@ -283,7 +351,30 @@ Rules:
   carry credit, policy and industry developments the snapshots can't show yet. A story is evidence about a
   sector only when it bears on that sector directly.
 - You may run up to {searches} web searches for recent developments the snapshots and digests don't cover.
-- summary is two or three sentences on the overall backdrop.
+- Build approaches with all four sections below, keeping observed facts (signal) separate from
+  interpretation. Each section needs its own supplied evidence, confidence and caveats. If its
+  source is absent, stale or incomplete, say so; never invent a signal to fill a section.
+  1. industry_monitor: What do earnings-call demand, pricing and guidance across Housing, Trucking,
+     Banks, Retail and Capital Goods say about the economy? Use industry_monitor:current:v1.
+     Respect individual transcript dates, summary_available and refresh warnings; a refresh does
+     not make an old transcript current. Do not extrapolate one company to the whole economy.
+  2. market_prices: What does price action in the economic_growth dashboard's equity indices,
+     benchmark-relative returns, currencies and commodities imply? Compare time windows, breadth
+     and cross-asset agreement. Explain currency quote direction. Separate growth/inflation/rates
+     expectations from risk appetite; a price move alone does not establish its cause.
+  3. economic_indicators: Cross-check market-implied expectations against economic_backdrop, labor,
+     housing and liquidity observations. Preserve observation dates, release lags and units;
+     distinguish actual data from publisher nowcasts/forecasts. Note confirmation and disagreement.
+  4. news: Use dated digest stories and verified search results to explain alternative causes of
+     price moves: supply disruptions, geopolitics, policy, positioning, flows, index concentration,
+     earnings or one-off events. Distinguish an evidenced driver from an unconfirmed hypothesis.
+     Investors are not always forecasting the macro when markets move.
+- synthesis combines the four approaches into a conditional broader economic outlook, with a
+  stated horizon, confidence, agreements, conflicts and specific watchpoints that would confirm,
+  invalidate or change the view. Explain unresolved contradictions instead of averaging them away.
+  Account for common underlying evidence rather than counting correlated signals as independent.
+  Include evidence from the approaches used. Lower conviction when key sources are missing/stale.
+- summary is two or three sentences summarizing that consolidated outlook.
 - Do not recommend buying, selling or shorting anything.
 
 Last week's view:
@@ -302,6 +393,42 @@ def _normalize_url(url: str) -> str:
     return f"{parts.netloc.lower()}{parts.path.rstrip('/')}"
 
 
+def validate_evidence(
+    raw_evidence: Any,
+    *,
+    snapshot_keys: set[str],
+    citation_urls: list[str],
+    digest_stories: dict[str, dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    digest_stories = digest_stories or {}
+    cited = {_normalize_url(u) for u in citation_urls if u}
+    evidence: list[dict[str, Any]] = []
+    for item in raw_evidence if isinstance(raw_evidence, list) else []:
+        if not isinstance(item, dict):
+            continue
+        kind = str(item.get("type") or "")
+        ref = str(item.get("ref") or "").strip()
+        extra: dict[str, Any] = {}
+        if kind == "snapshot":
+            ref = ref.removeprefix("snapshot:")
+            if ref not in snapshot_keys:
+                continue
+        elif kind == "digest":
+            ref = ref.removeprefix("digest:")
+            story = digest_stories.get(ref)
+            if story is None:
+                continue
+            extra = {"headline": story["headline"], "date": story.get("date")}
+        elif kind == "search":
+            normalized = _normalize_url(ref)
+            if not normalized or normalized not in cited or urlsplit(ref).scheme not in {"http", "https"}:
+                continue
+        else:
+            continue
+        evidence.append({"type": kind, "ref": ref, "detail": str(item.get("detail") or "")[:300], **extra})
+    return evidence
+
+
 def validate_rows(
     raw_rows: Any,
     *,
@@ -311,7 +438,6 @@ def validate_rows(
     digest_stories: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     digest_stories = digest_stories or {}
-    cited = {_normalize_url(u) for u in citation_urls if u}
     rows: list[dict[str, Any]] = []
     dropped: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -334,32 +460,12 @@ def validate_rows(
         if not -2 <= score <= 2:
             dropped.append({"sector": sector, "reason": "score outside -2..+2"})
             continue
-        evidence: list[dict[str, Any]] = []
-        for item in raw.get("evidence") or []:
-            if not isinstance(item, dict):
-                continue
-            kind = str(item.get("type") or "")
-            ref = str(item.get("ref") or "").strip()
-            extra: dict[str, Any] = {}
-            if kind == "snapshot":
-                ref = ref.removeprefix("snapshot:")
-                if ref not in snapshot_keys:
-                    continue
-            elif kind == "digest":
-                ref = ref.removeprefix("digest:")
-                story = digest_stories.get(ref)
-                if story is None:
-                    continue
-                extra = {"headline": story["headline"], "date": story.get("date")}
-            elif kind == "search":
-                normalized = _normalize_url(ref)
-                if not normalized or not any(
-                    normalized == c or normalized.startswith(c) or c.startswith(normalized) for c in cited
-                ):
-                    continue
-            else:
-                continue
-            evidence.append({"type": kind, "ref": ref, "detail": str(item.get("detail") or "")[:300], **extra})
+        evidence = validate_evidence(
+            raw.get("evidence"),
+            snapshot_keys=snapshot_keys,
+            citation_urls=citation_urls,
+            digest_stories=digest_stories,
+        )
         if not evidence:
             dropped.append({"sector": sector, "reason": "no verifiable evidence"})
             continue
@@ -384,6 +490,98 @@ def validate_rows(
         )
     rows.sort(key=lambda r: SECTORS.index(r["sector"]))
     return rows, dropped
+
+
+def validate_breakdown(
+    parsed: dict[str, Any],
+    *,
+    snapshots: list[dict[str, Any]],
+    urls: list[str],
+    stories: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+    available = {s["key"] for s in snapshots if s.get("available") is not False}
+    by_key = {s["key"]: s for s in snapshots}
+    families = {
+        "industry_monitor": {INDUSTRY_KEY},
+        "market_prices": {
+            keys.SNAPSHOT_ECONOMIC_GROWTH,
+            keys.SNAPSHOT_SECTOR_METRICS,
+            keys.SNAPSHOT_MARKET_BREADTH,
+            keys.SNAPSHOT_VIX_TERM_STRUCTURE,
+        },
+        "economic_indicators": {
+            keys.SNAPSHOT_ECONOMIC_BACKDROP,
+            keys.SNAPSHOT_LABOR_MARKET,
+            keys.SNAPSHOT_HOUSING,
+            keys.SNAPSHOT_LIQUIDITY,
+        },
+        "news": set(),
+    }
+    raw_approaches = parsed.get("approaches")
+    raw_approaches = raw_approaches if isinstance(raw_approaches, dict) else {}
+    sections = []
+    for key, title in APPROACHES.items():
+        raw = raw_approaches.get(key)
+        raw = raw if isinstance(raw, dict) else {}
+        evidence = validate_evidence(
+            raw.get("evidence"),
+            snapshot_keys=available & families[key],
+            citation_urls=urls if key == "news" else [],
+            digest_stories={s["ref"]: s for s in stories} if key == "news" else {},
+        )
+        # The price-action approach must actually read the growth dashboard.
+        if key == "market_prices" and not any(e["ref"] == keys.SNAPSHOT_ECONOMIC_GROWTH for e in evidence):
+            evidence = []
+        source_rows = [by_key[e["ref"]] for e in evidence if e["type"] == "snapshot"]
+        warnings = [
+            s.get("warning") or f"{s['key']}: stale source data."
+            for s in source_rows
+            if s.get("warning") or s.get("stale")
+        ]
+        if key == "industry_monitor" and not evidence and INDUSTRY_KEY in by_key:
+            warnings.append(by_key[INDUSTRY_KEY].get("warning") or "Industry Monitor evidence unavailable.")
+        confidence = raw.get("confidence")
+        sections.append(
+            {
+                "key": key,
+                "title": title,
+                "status": "ok" if evidence else "unavailable",
+                "signal": str(raw.get("signal") or "")[:1200]
+                if evidence
+                else "No verifiable evidence available for this approach.",
+                "interpretation": str(raw.get("interpretation") or "")[:1600] if evidence else "",
+                "confidence": confidence if confidence in {"medium", "high"} and evidence and not warnings else "low",
+                "caveats": " ".join([str(raw.get("caveats") or "")[:1000] if evidence else "", *warnings]).strip(),
+                "evidence": evidence,
+                "sources": [
+                    {k: source.get(k) for k in ("key", "as_of", "stale", "refreshed", "warning")}
+                    for source in source_rows
+                ],
+            }
+        )
+    raw = parsed.get("synthesis")
+    synthesis: dict[str, Any] | None = None
+    if isinstance(raw, dict):
+        evidence = validate_evidence(
+            raw.get("evidence"),
+            snapshot_keys=available,
+            citation_urls=urls,
+            digest_stories={s["ref"]: s for s in stories},
+        )
+        if evidence and str(raw.get("outlook") or "").strip():
+            confidence = raw.get("confidence")
+            incomplete = any(s["status"] != "ok" or s["confidence"] == "low" for s in sections)
+            synthesis = {k: str(raw.get(k) or "")[:1800] for k in ("outlook", "horizon", "agreements", "conflicts")}
+            synthesis.update(
+                {
+                    "confidence": confidence if confidence in {"medium", "high"} and not incomplete else "low",
+                    "watchpoints": [str(w)[:600] for w in raw.get("watchpoints", [])[:8]]
+                    if isinstance(raw.get("watchpoints"), list)
+                    else [],
+                    "evidence": evidence,
+                }
+            )
+    return sections, synthesis
 
 
 def resolve_effort(tier: str, preferred: str) -> tuple[str | None, str | None]:
@@ -415,7 +613,13 @@ def run_macro_view(
     previous_scores = {
         str(r["sector"]): int(r["score"]) for r in previous_rows if r.get("sector") and r.get("score") is not None
     }
-    snapshots = gather_snapshots() if snapshots is None else snapshots
+    if snapshots is None:
+        snapshots = gather_snapshots()
+        if budget.can_start("macro", reserve_usd=reserve_usd):
+            snapshots = [
+                *snapshots,
+                gather_industry_monitor(budget, reserve_usd=reserve_usd + budget.estimate("macro")),
+            ]
     digest_text, stories = _digest_block((news or {}).get("stories") or [])
     cited_digests = {s["ref"].split("/", 1)[0] for s in stories}
     base = {
@@ -424,7 +628,11 @@ def run_macro_view(
         "dropped": [],
         "sources": [],
         "summary": "",
-        "snapshots": [{"key": s["key"], "as_of": s.get("as_of"), "stale": s.get("stale")} for s in snapshots],
+        "approaches": [],
+        "synthesis": None,
+        "snapshots": [
+            {k: s.get(k) for k in ("key", "as_of", "stale", "available", "refreshed", "warning")} for s in snapshots
+        ],
         "previous_scores": previous_scores,
         # None when digests were turned off or could not be read; otherwise what the prompt carried.
         "news": None
@@ -468,14 +676,17 @@ def run_macro_view(
     urls = [url for _title, url in returned]
     rows, dropped = validate_rows(
         parsed.get("rows"),
-        snapshot_keys={s["key"] for s in snapshots},
+        snapshot_keys={s["key"] for s in snapshots if s.get("available") is not False},
         citation_urls=urls,
         previous_scores=previous_scores,
         digest_stories={s["ref"]: s for s in stories},
     )
+    approaches, synthesis = validate_breakdown(parsed, snapshots=snapshots, urls=urls, stories=stories)
     return {
         **base,
         "status": "ok",
+        "approaches": approaches,
+        "synthesis": synthesis,
         "model": record.model,
         "provider": record.provider,
         "summary": str(parsed.get("summary") or "")[:1200],

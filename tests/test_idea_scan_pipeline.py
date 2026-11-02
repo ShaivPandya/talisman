@@ -119,6 +119,10 @@ def env(tmp_path, monkeypatch):
     monkeypatch.setattr(pipeline, "_existing_scout_status", lambda cid: state.existing.get(cid))
     monkeypatch.setattr("api.idea_scan.review.recent_filings", lambda _t, now=None: FILINGS)
     monkeypatch.setattr("api.idea_scan.macro_view.gather_snapshots", lambda read=None: SNAPSHOTS)
+    monkeypatch.setattr(
+        "api.idea_scan.macro_view.gather_industry_monitor",
+        lambda *args, **kwargs: {"key": "industry_monitor:current:v1", "text": "{}", "available": False},
+    )
     monkeypatch.setattr(pipeline, "gather_digest_stories", lambda days: NEWS)
     monkeypatch.setattr("decision_quality.opportunity_scout.DecisionOntologyWriteback", FakeWriteback)
     FakeWriteback.records = []
