@@ -45,6 +45,8 @@ const PHASE_LABELS: Record<string, string> = {
   data: "Fetching prices and fundamentals",
   prices: "Fetching prices",
   fundamentals: "Fetching fundamentals",
+  eps_revisions: "Checking EPS revisions",
+  eps_revisions_retry: "Retrying unavailable EPS revisions",
   screens: "Screening and ranking",
   macro: "Writing the macro view",
   reviews: "Reviewing names",

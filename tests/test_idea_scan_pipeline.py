@@ -114,7 +114,7 @@ def env(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(pipeline, "fetch_dataset", fake_fetch)
     monkeypatch.setattr(pipeline, "build_factor_frame", lambda _dataset: state.frame)
-    monkeypatch.setattr(pipeline, "fetch_eps_revisions", lambda tickers: {t: -0.05 for t in tickers})
+    monkeypatch.setattr(pipeline, "fetch_eps_revisions", lambda tickers, **kwargs: {t: -0.05 for t in tickers})
     monkeypatch.setattr(pipeline, "tracked_tickers", lambda: dict(state.tracked))
     monkeypatch.setattr(pipeline, "_existing_scout_status", lambda cid: state.existing.get(cid))
     monkeypatch.setattr("api.idea_scan.review.recent_filings", lambda _t, now=None: FILINGS)
@@ -278,15 +278,35 @@ def test_job_spec_resolves():
     assert import_string(spec.request_model) is pipeline.IdeaScanRunRequest
 
 
-def test_revision_fetch_limit_is_visible_and_missing_is_not_a_failed_check(env, monkeypatch):
-    monkeypatch.setattr(pipeline, "REVISION_FETCH_LIMIT", 1)
+def test_missing_revisions_after_retries_are_visible_and_not_a_failed_check(env, monkeypatch):
+    monkeypatch.setattr(pipeline, "fetch_eps_revisions", lambda tickers, **kwargs: {"F00": -0.05})
     saved = store.get_run(run()["run_id"])
     assert saved["stats"]["revision_eligible"] == 2
-    assert saved["stats"]["revision_requested"] == 1
+    assert saved["stats"]["revision_requested"] == 2
     assert saved["stats"]["revision_available"] == 1
-    assert any("1 were not fetched because of the 1-name limit" in warning for warning in saved["warnings"])
+    assert any("1 of 2 momentum-qualified names after fetching and retries" in warning for warning in saved["warnings"])
     frame = store.load_frame(saved["run_id"])
     unavailable = set(frame.index[frame["revision_30d"].isna()])
     breakdown = next(p for p in saved["presets"] if p["id"] == "short-breaking-down")
     assert breakdown["hits"] == 1
     assert not any(c["preset_id"] == "short-breaking-down" and c["ticker"] in unavailable for c in saved["near_misses"])
+
+
+def test_every_momentum_qualified_name_reaches_revision_fetch(env, monkeypatch):
+    env.frame = make_frame({f"F{i:04d}": {"quality": float(i), "price_momentum": -1.0} for i in range(601)})
+    requested = []
+
+    def fetch(tickers, progress=None):
+        requested.extend(tickers)
+        if progress:
+            progress("eps_revisions", len(tickers), len(tickers))
+        return {t: -0.05 for t in tickers}
+
+    monkeypatch.setattr(pipeline, "fetch_eps_revisions", fetch)
+    saved = store.get_run(run(max_reviews=0)["run_id"])
+    assert set(requested) == set(env.frame.index)
+    assert len(requested) == saved["stats"]["revision_eligible"] == 601
+    assert saved["stats"]["revision_requested"] == saved["stats"]["revision_available"] == 601
+    assert saved["warnings"] == []
+    frame = store.load_frame(saved["run_id"])
+    assert frame["revision_30d"].notna().all()

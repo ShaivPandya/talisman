@@ -10,8 +10,6 @@ from collections.abc import Callable, Mapping
 from datetime import UTC, datetime
 from typing import Any
 
-import pandas as pd
-
 from api.idea_scan import store
 from api.idea_scan.budget import RunBudget
 from api.idea_scan.data import fetch_dataset, fetch_eps_revisions, resolve_membership
@@ -25,19 +23,16 @@ from api.idea_scan.screening import (
     breakdown_revision_tickers,
     build_factor_frame,
     collect_near_misses,
-    composite_scores,
     evaluate_preset,
     json_safe,
     merge_candidates,
     split_tracked,
     week_over_week,
 )
-from portfolio.portfolio_optimizer.rank_universe import DEFAULT_WEIGHTS
 
 LOGGER = logging.getLogger(__name__)
 
 DIGEST_MAX_OUTPUT_TOKENS = 1200
-REVISION_FETCH_LIMIT = 500
 
 
 def tracked_tickers() -> dict[str, str]:
@@ -227,19 +222,14 @@ def run_weekly_idea_scan(
         enter("screens")
         frame = build_factor_frame(dataset)
         revision_tickers = breakdown_revision_tickers(frame, presets)
-        # Broader categorical gates must not turn a scan into thousands of revision requests.
-        # Use the revised directional composite, never raw returns, for deterministic preselection.
-        revision_scores = composite_scores(frame, DEFAULT_WEIGHTS, direction="short")
-        revision_selected = sorted(
-            revision_tickers,
-            key=lambda t: (-(float(revision_scores[t]) if pd.notna(revision_scores[t]) else -float("inf")), t),
-        )[:REVISION_FETCH_LIMIT]
-        revisions = fetch_eps_revisions(revision_selected) if revision_selected else {}
+        enter("eps_revisions")
+        revisions = fetch_eps_revisions(revision_tickers, progress=progress) if revision_tickers else {}
+        enter("screens")
         warnings = []
         if len(revisions) < len(revision_tickers):
             warnings.append(
-                f"EPS revisions unavailable for {len(revision_tickers) - len(revisions)} momentum-qualified names; "
-                f"{len(revision_tickers) - len(revision_selected)} were not fetched because of the {REVISION_FETCH_LIMIT}-name limit. "
+                f"EPS revisions unavailable for {len(revision_tickers) - len(revisions)} of "
+                f"{len(revision_tickers)} momentum-qualified names after fetching and retries. "
                 "These names were not evaluated as passing or failing the revisions check."
             )
         try:
@@ -345,7 +335,7 @@ def run_weekly_idea_scan(
                     "universe": len(membership),
                     "with_data": int(len(frame)),
                     "revision_eligible": len(revision_tickers),
-                    "revision_requested": len(revision_selected),
+                    "revision_requested": len(revision_tickers),
                     "revision_available": len(revisions),
                     "preset_hits": {r.preset.id: r.hits_total for r in results},
                     "candidates": len(candidates),
