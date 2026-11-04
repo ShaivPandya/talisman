@@ -13,7 +13,10 @@ import { ActionButton, CopyButton, EditMessageForm, MessageActionRow } from "./A
 import { AgentProposalCard } from "./AgentProposalCard"
 import { AgentSources } from "./AgentSources"
 import { toolEffectScope } from "./agentToolDisplay"
+import { splitMarkdownBlocks } from "./markdownBlocks"
 import { messageCostDetail, messageCostLabel } from "@/hooks/agentMessageCost"
+
+const REMARK_PLUGINS = [remarkGfm]
 
 const MARKDOWN_COMPONENTS: Components = {
   table({ children, ...props }) {
@@ -58,6 +61,20 @@ function CodeBlock({ children }: { children?: ReactNode }) {
       </pre>
     </div>
   )
+}
+
+const MarkdownBlock = memo(function MarkdownBlock({ markdown }: { markdown: string }) {
+  return <Markdown remarkPlugins={REMARK_PLUGINS} components={MARKDOWN_COMPONENTS}>{markdown}</Markdown>
+})
+
+/**
+ * While an answer streams, each finished block renders once and only the
+ * growing last block re-parses, so an update costs the same however long the
+ * answer is. The finished answer renders as one document.
+ */
+function AgentMarkdown({ content, streaming }: { content: string; streaming?: boolean }) {
+  const blocks = streaming ? splitMarkdownBlocks(content) : [content]
+  return blocks.map((block, index) => <MarkdownBlock key={index} markdown={block} />)
 }
 
 const ARTIFACT_JSON_KEYS = [
@@ -264,7 +281,7 @@ export const AgentMessage = memo(function AgentMessage({
         {/* Markdown content */}
         {displayContent && (
           <div className="prose text-[16px] max-w-none break-words dark:prose-invert prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5 prose-ul:my-1.5 prose-li:my-0.5 prose-code:break-words">
-            <Markdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>{displayContent}</Markdown>
+            <AgentMarkdown content={displayContent} streaming={message.isStreaming} />
           </div>
         )}
 

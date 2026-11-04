@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query"
 import type { SessionSummary } from "./useAgentChat"
 import { fetchHistoryPage, pinSession, removeHistorySession, type SessionHistoryPage } from "./agentSessionHistory"
@@ -89,12 +89,14 @@ export function useAgentHistory(enabled: boolean, onDeleted: (sessionId: string)
     await queryClient.invalidateQueries({ queryKey: AGENT_HISTORY_QUERY_KEY })
   }
 
-  const seen = new Set<string>()
-  const history = (historyQuery.data?.pages.flatMap(page => page.sessions) ?? []).filter(session => {
-    if (session.message_count <= 0 || hiddenSessionIds.has(session.session_id) || seen.has(session.session_id)) return false
-    seen.add(session.session_id)
-    return true
-  })
+  const history = useMemo(() => {
+    const seen = new Set<string>()
+    return (historyQuery.data?.pages.flatMap(page => page.sessions) ?? []).filter(session => {
+      if (session.message_count <= 0 || hiddenSessionIds.has(session.session_id) || seen.has(session.session_id)) return false
+      seen.add(session.session_id)
+      return true
+    })
+  }, [historyQuery.data, hiddenSessionIds])
 
   return {
     history, search, setSearch, pendingDeletions, deleteError,

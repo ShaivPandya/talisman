@@ -1,5 +1,6 @@
 import { test, expect } from "./fixtures"
 import type { Page } from "@playwright/test"
+import { splitMarkdownBlocks } from "../../src/components/agent/markdownBlocks"
 
 const sessionId = "chat-performance-session"
 const baseline = process.env.TL187_BASELINE === "1"
@@ -28,18 +29,23 @@ async function prepareChat(page: Page, historyLength = 200) {
 
     type Fiber = {
       type?: { name?: string; displayName?: string }
+      key?: string | null
       flags: number
       alternate?: Fiber
       child?: Fiber
       sibling?: Fiber
       memoizedProps?: { message?: { id: string; isStreaming?: boolean } }
     }
+    const lastProps = new Map<string, unknown>()
     const metrics = {
       phase: "idle",
       started: 0,
       renders: 0,
       mounts: 0,
       chatRenders: 0,
+      streamingRenders: 0,
+      blockRenders: 0,
+      siblingRenders: 0,
       writes: [] as { key: string; time: number }[],
       longTasks: [] as number[],
       frames: [] as number[],
@@ -54,16 +60,33 @@ async function prepareChat(page: Page, historyLength = 200) {
         return 1
       },
       onCommitFiberRoot(_id: number, root: { current: Fiber }) {
-        const walk = (fiber?: Fiber) => {
+        // A fiber in a subtree React skipped keeps the flags of its last render,
+        // so memoized components count a render only when given new props: a
+        // memo bailout keeps the previous props object.
+        const rendered = (key: string, fiber: Fiber) => {
+          const changed = lastProps.get(key) !== fiber.memoizedProps
+          lastProps.set(key, fiber.memoizedProps)
+          return changed && metrics.phase !== "idle"
+        }
+        const walk = (fiber?: Fiber, streamingId?: string) => {
           if (!fiber) return
           const name = fiber.type?.displayName ?? fiber.type?.name
+          let childStreamingId = streamingId
           if (name === "AgentMessage" && fiber.memoizedProps?.message?.id.startsWith("history-")) {
             if (!fiber.alternate) metrics.mounts++
             else if (metrics.phase !== "idle" && (fiber.flags & 1)) metrics.renders++
           }
+          if (name === "AgentMessage" && fiber.memoizedProps?.message?.isStreaming) {
+            childStreamingId = fiber.memoizedProps.message.id
+            if (rendered(childStreamingId, fiber)) metrics.streamingRenders++
+          }
+          if (name === "MarkdownBlock" && streamingId && rendered(`${streamingId}:${fiber.key}`, fiber)) metrics.blockRenders++
+          if ((name === "AgentChatComposer" || name === "AgentChatHeader" || name === "AgentContextPane") && rendered(name, fiber)) {
+            metrics.siblingRenders++
+          }
           if (name === "AgentChat" && metrics.phase !== "idle" && (fiber.flags & 1)) metrics.chatRenders++
-          walk(fiber.child)
-          walk(fiber.sibling)
+          walk(fiber.child, childStreamingId)
+          walk(fiber.sibling, streamingId)
         }
         walk(root.current)
       },
@@ -399,6 +422,122 @@ test("Markdown is formatted before the streamed answer completes", async ({ page
   await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
   await expect(page.getByRole("button", { name: "Stop generating" })).toBeHidden()
   await expect(dialog.getByRole("heading", { name: "Live update" })).toBeVisible()
+})
+
+/** About `words` words of mixed Markdown, including fenced code and a loose list that contain blank lines. */
+function longMarkdownAnswer(words: number) {
+  const sections: string[] = []
+  for (let index = 0, count = 0; count < words; index++) {
+    const sentence = `Revenue grew **${index % 9 + 2}%** while margins held near \`${30 + index % 7}%\`, and the [filing](https://example.com/${index}) confirms guidance.`
+    const section = [
+      `### Section ${index + 1}`,
+      `${sentence} ${sentence} ${sentence}`,
+      "1. Recheck margins next quarter.\n\n2. Keep the position within the risk budget.\n\n   Trim it if the drawdown limit is hit.",
+      "- Earnings improving\n- Liquidity stable\n- Valuation stretched",
+      "| Signal | Reading | Change |\n| --- | --- | --- |\n| Earnings | Improving | +4% |\n| Liquidity | Stable | 0% |",
+      "> Watch valuation as rates change.",
+      "```ts\nconst exposure = 0.12\n\nconst limit = exposure * 2\n```",
+    ].join("\n\n")
+    sections.push(section)
+    count += section.split(/\s+/).length
+  }
+  return { markdown: sections.join("\n\n"), sections: sections.length }
+}
+
+test("a long streamed answer re-parses only its growing Markdown block", async ({ page }, testInfo) => {
+  test.setTimeout(120_000)
+  const answer = longMarkdownAnswer(5_000)
+  // Measure from 1,000 words on, where re-parsing the whole answer per update gets slow.
+  const measureFrom = answer.markdown.match(/^(?:\s*\S+){1000}/)?.[0].length ?? 0
+  await prepareChat(page, 4)
+  await page.getByRole("button", { name: "Use console layout" }).click()
+  await startStream(page)
+  const cdp = await page.context().newCDPSession(page)
+  await cdp.send("Performance.enable")
+  const before = await cdp.send("Performance.getMetrics")
+  type StreamMetrics = {
+    phase: string; started: number; streamingRenders: number; blockRenders: number; siblingRenders: number
+    longTasks: number[]; frames: number[]
+  }
+  const streaming = await page.evaluate(({ markdown, measureFrom, sessionId }) => new Promise<StreamMetrics & { elapsedMs: number }>(resolve => {
+    const browser = window as unknown as { pushChatEvent: (event: string, payload: object) => void; chatMetrics: StreamMetrics }
+    const metrics = browser.chatMetrics
+    let offset = 0
+    // Token-sized chunks well above a model's real rate, so each update has little new text.
+    const timer = setInterval(() => {
+      if (metrics.phase === "idle" && offset >= measureFrom) {
+        metrics.phase = "stream"
+        metrics.started = performance.now()
+      }
+      const text = markdown.slice(offset, offset + 32)
+      offset += text.length
+      browser.pushChatEvent("delta", { text, session_id: sessionId })
+      if (offset >= markdown.length) {
+        clearInterval(timer)
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          const result = { ...structuredClone(metrics), elapsedMs: performance.now() - metrics.started }
+          metrics.phase = "idle"
+          resolve(result)
+        }))
+      }
+    }, 8)
+  }), { markdown: answer.markdown, measureFrom, sessionId })
+  const after = await cdp.send("Performance.getMetrics")
+  const browserMs = (name: string) => Math.round(1000 * ((after.metrics.find(metric => metric.name === name)?.value ?? 0)
+    - (before.metrics.find(metric => metric.name === name)?.value ?? 0)))
+
+  const dialog = page.getByRole("dialog")
+  await expect(dialog.getByRole("heading", { name: `Section ${answer.sections}`, exact: true })).toBeVisible()
+  const answerView = dialog.locator(".prose").last()
+  // Compare top-level elements: a full parse also puts newline text nodes between them.
+  const rendered = () => answerView.evaluate(element => ({
+    elements: Array.from(element.children, child => `${child.tagName} ${(child.textContent ?? "").replace(/\s+/g, " ").trim()}`),
+    headings: element.querySelectorAll("h3").length,
+    tables: element.querySelectorAll("table").length,
+    lists: element.querySelectorAll("ol, ul").length,
+    items: element.querySelectorAll("li").length,
+    code: element.querySelectorAll("pre").length,
+    quotes: element.querySelectorAll("blockquote").length,
+  }))
+  const whileStreaming = await rendered()
+  await pushEvent(page, "done", { session_id: sessionId })
+  await page.evaluate(() => (window as unknown as { closeChatStream: () => void }).closeChatStream())
+  await expect(page.getByRole("button", { name: "Send message", exact: true })).toBeVisible()
+  // The finished answer is one full parse; the streamed blocks must have shown the same content.
+  const finished = await rendered()
+  expect(finished.headings).toBe(answer.sections)
+  expect(whileStreaming).toEqual(finished)
+
+  const frames = streaming.frames.toSorted((a, b) => a - b)
+  const result = {
+    words: answer.markdown.split(/\s+/).length,
+    streamMs: Math.round(streaming.elapsedMs),
+    frames: streaming.frames.length,
+    streamingRenders: streaming.streamingRenders,
+    blockRenders: streaming.blockRenders,
+    siblingRenders: streaming.siblingRenders,
+    longTaskCount: streaming.longTasks.length,
+    longestTaskMs: Math.max(0, ...streaming.longTasks),
+    frameP95Ms: frames[Math.floor(frames.length * 0.95)] ?? 0,
+    // Whole stream, including the first 1,000 words.
+    scriptMs: browserMs("ScriptDuration"),
+    layoutMs: browserMs("LayoutDuration"),
+    styleMs: browserMs("RecalcStyleDuration"),
+    taskMs: browserMs("TaskDuration"),
+  }
+  console.log(JSON.stringify({ longAnswerStreaming: result }))
+  await testInfo.attach("long-answer-streaming", { body: JSON.stringify(result, null, 2), contentType: "application/json" })
+  if (!baseline) {
+    // At most one render per frame, plus the 100 ms fallback flush when a
+    // frame runs long.
+    expect(result.streamingRenders).toBeLessThanOrEqual(result.frames + Math.ceil(result.streamMs / 100))
+    // Each render re-parses the growing block, and each block renders once
+    // more when it finishes, however long the answer already is.
+    const measuredBlocks = splitMarkdownBlocks(answer.markdown.slice(measureFrom)).length
+    expect(result.blockRenders).toBeLessThanOrEqual(result.streamingRenders + measuredBlocks + 1)
+    expect(result.siblingRenders).toBe(0)
+    if (process.env.TL187_MEASURE === "1") expect(result.longestTaskMs).toBeLessThanOrEqual(50)
+  }
 })
 
 test("streaming holds the reader's scroll position and jump to latest resumes following", async ({ page }, testInfo) => {

@@ -14,6 +14,7 @@ import { ComposerAttachmentChips, type PendingAttachment } from "./AgentAttachme
 import { resizeChatTextarea } from "./agentChatTextarea"
 import { composerTrigger, filterComposerSuggestions, mentionSuggestions, type ComposerSuggestion } from "./agentComposerSuggestions"
 import {
+  memo,
   useEffect,
   useId,
   useImperativeHandle,
@@ -64,7 +65,7 @@ interface AgentChatComposerProps {
   onToggleThinking: () => void
 }
 
-export function AgentChatComposer({
+export const AgentChatComposer = memo(function AgentChatComposer({
   ref,
   loadDraft,
   onDraftChange,
@@ -467,4 +468,4 @@ export function AgentChatComposer({
       </div>
     </div>
   )
-}
+})

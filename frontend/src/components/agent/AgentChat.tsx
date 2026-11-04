@@ -34,6 +34,8 @@ import type { AgentPanel, AgentViewMode } from "./AgentChatTypes"
 
 const PREFERENCES_STORAGE_KEY = "agent-response-preferences"
 const RESPONSE_PREFERENCES_QUERY_KEY = ["agent-response-preferences"] as const
+// Stable, so the memoized composer and context pane skip renders while workflows load.
+const NO_WORKFLOWS: AgentWorkflow[] = []
 
 const DEFAULT_RESPONSE_PREFERENCES: AgentResponsePreferences = {
   personality: "pragmatic",
@@ -212,7 +214,7 @@ export function AgentChat({
     },
   })
 
-  const workflows = workflowsQuery.data ?? []
+  const workflows = workflowsQuery.data ?? NO_WORKFLOWS
   const activePreferences = useMemo(() => preferencesQuery.data
     ? normalizePreferences(preferencesQuery.data)
     : cachedPreferences, [preferencesQuery.data, cachedPreferences])
@@ -396,7 +398,9 @@ export function AgentChat({
     sendTurn(prompt, isStreaming ? { mode: "enqueue" } : undefined)
   }, [isStreaming, sendTurn])
 
-  function handleWorkflow(workflow: AgentWorkflow) {
+  // Handlers passed to the header, composer and context pane are stable while
+  // an answer streams, so those memoized components skip its updates.
+  const handleWorkflow = useCallback((workflow: AgentWorkflow) => {
     const ticker = workflowTicker.trim().toUpperCase()
     if (workflow.requiresTicker && !ticker) return
     followingLatestRef.current = true
@@ -412,17 +416,26 @@ export function AgentChat({
     })
     setWorkflowTicker("")
     setShowCompactWorkflows(false)
-  }
+  }, [workflowTicker, isStreaming, sendTurn])
 
-  function handleShowHistory() {
-    setActivePanel("history")
-  }
+  const handleShowChat = useCallback(() => setActivePanel("chat"), [])
+  const handleShowMemory = useCallback(() => setActivePanel("memory"), [])
+  const handleShowHistory = useCallback(() => setActivePanel("history"), [])
 
-  function handleShowPreferences() {
+  const handleShowPreferences = useCallback(() => {
     setDraftPreferences(activePreferences)
     setPreferenceSaveError(null)
     setActivePanel("preferences")
-  }
+  }, [activePreferences])
+
+  const handleToggleViewMode = useCallback(() => {
+    onViewModeChange?.(viewMode === "console" ? "compact" : "console")
+  }, [onViewModeChange, viewMode])
+
+  const handleToggleWorkflows = useCallback(() => setShowCompactWorkflows(value => !value), [])
+  const handleToggleScreenContext = useCallback(() => setIncludeScreenContext(value => !value), [])
+  const defaultThinking = activePreferences.thinking_enabled
+  const handleToggleThinking = useCallback(() => setThinkingOverride(value => !(value ?? defaultThinking)), [defaultThinking])
 
   function handleSavePreferences() {
     if (preferencesMutation.isPending) return
@@ -434,8 +447,9 @@ export function AgentChat({
     setActivePanel("chat")
   }
 
-  async function handleRenameSession(targetSessionId: string, title: string) {
-    const previous = history.history.find(session => session.session_id === targetSessionId)
+  const historySessions = history.history
+  const handleRenameSession = useCallback(async (targetSessionId: string, title: string) => {
+    const previous = historySessions.find(session => session.session_id === targetSessionId)
     const previousActiveTitle = sessionId === targetSessionId ? sessionTitle : null
     if (sessionId === targetSessionId) {
       applySessionTitle(targetSessionId, title, "manual")
@@ -453,30 +467,37 @@ export function AgentChat({
       }
       throw err
     }
-  }
+  }, [historySessions, sessionId, sessionTitle, applySessionTitle, queryClient])
 
-  function handleClearChat() {
-    memory.resetDraft()
+  const handleRenameActiveSession = useCallback((title: string) => {
+    if (!sessionId) return Promise.resolve()
+    return handleRenameSession(sessionId, title)
+  }, [sessionId, handleRenameSession])
+
+  const handleClearChat = useCallback(() => {
+    resetMemoryDraft()
     clearChat()
     setActivePanel("chat")
-  }
+  }, [resetMemoryDraft, clearChat])
 
   function handleOpenChange(nextOpen: boolean) {
     if (!nextOpen) onClose()
   }
 
-  const compactWorkflowSlot = viewMode === "compact" ? (
+  const workflowsLoading = workflowsQuery.isLoading
+  const workflowsError = workflowsQuery.isError
+  const compactWorkflowSlot = useMemo(() => viewMode === "compact" ? (
     <AgentWorkflowLauncher
       workflows={workflows}
-      isLoading={workflowsQuery.isLoading}
-      isError={workflowsQuery.isError}
+      isLoading={workflowsLoading}
+      isError={workflowsError}
       isStreaming={isStreaming}
       workflowTicker={workflowTicker}
       onTickerChange={setWorkflowTicker}
       onWorkflow={handleWorkflow}
       variant="compact"
     />
-  ) : null
+  ) : null, [viewMode, workflows, workflowsLoading, workflowsError, isStreaming, workflowTicker, handleWorkflow])
 
   const historyNotices = (
     <>
@@ -541,16 +562,13 @@ export function AgentChat({
             canClear={messages.length > 0}
             sessionId={sessionId}
             sessionTitle={sessionTitle}
-            onRenameTitle={title => {
-              if (!sessionId) return Promise.resolve()
-              return handleRenameSession(sessionId, title)
-            }}
+            onRenameTitle={handleRenameActiveSession}
             backDisabled={activePanel === "memory" && memory.saving}
-            onBack={() => setActivePanel("chat")}
-            onShowMemory={() => setActivePanel("memory")}
+            onBack={handleShowChat}
+            onShowMemory={handleShowMemory}
             onShowHistory={handleShowHistory}
             onShowPreferences={handleShowPreferences}
-            onToggleViewMode={() => onViewModeChange?.(viewMode === "console" ? "compact" : "console")}
+            onToggleViewMode={handleToggleViewMode}
             onClearChat={handleClearChat}
             onClose={onClose}
           />
@@ -631,15 +649,15 @@ export function AgentChat({
                     textareaRef={textareaRef}
                     compactWorkflowSlot={compactWorkflowSlot}
                     workflowsOpen={showCompactWorkflows}
-                    onToggleWorkflows={() => setShowCompactWorkflows(value => !value)}
+                    onToggleWorkflows={handleToggleWorkflows}
                     workflows={workflows}
-                    workflowsLoading={workflowsQuery.isLoading}
-                    workflowsError={workflowsQuery.isError}
+                    workflowsLoading={workflowsLoading}
+                    workflowsError={workflowsError}
                     screenContext={screenContext}
                     includeScreenContext={includeScreenContext}
-                    onToggleScreenContext={() => setIncludeScreenContext(value => !value)}
-                    thinkingEnabled={thinkingOverride ?? activePreferences.thinking_enabled}
-                    onToggleThinking={() => setThinkingOverride(value => !(value ?? activePreferences.thinking_enabled))}
+                    onToggleScreenContext={handleToggleScreenContext}
+                    thinkingEnabled={thinkingOverride ?? defaultThinking}
+                    onToggleThinking={handleToggleThinking}
                   />
                 </>
               )}
@@ -650,8 +668,8 @@ export function AgentChat({
                 screenContext={screenContext}
                 contextIncluded={includeScreenContext}
                 workflows={workflows}
-                workflowsLoading={workflowsQuery.isLoading}
-                workflowsError={workflowsQuery.isError}
+                workflowsLoading={workflowsLoading}
+                workflowsError={workflowsError}
                 isStreaming={isStreaming}
                 workflowTicker={workflowTicker}
                 onTickerChange={setWorkflowTicker}

@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { Activity, MapPin, Route, Sparkles } from "lucide-react"
 import { AgentWorkflowLauncher } from "./AgentWorkflowLauncher"
 import type { QuickPromptGroup } from "./AgentChatTypes"
@@ -32,7 +33,7 @@ function compactEntries(value: Record<string, string> | undefined, limit: number
   return Object.entries(value ?? {}).slice(0, limit)
 }
 
-export function AgentContextPane({
+export const AgentContextPane = memo(function AgentContextPane({
   screenContext,
   contextIncluded,
   workflows,
@@ -169,4 +170,4 @@ export function AgentContextPane({
       </div>
     </aside>
   )
-}
+})

@@ -1,5 +1,5 @@
 import { ArrowLeft, Brain, Check, History, Maximize2, MessageCircle, Minimize2, PanelRight, Pencil, SlidersHorizontal, SquarePen, X } from "lucide-react"
-import { useEffect, useRef, useState, type KeyboardEvent } from "react"
+import { memo, useEffect, useRef, useState, type KeyboardEvent } from "react"
 import type { AgentPanel, AgentViewMode } from "./AgentChatTypes"
 
 interface AgentChatHeaderProps {
@@ -34,7 +34,7 @@ function panelSubtitle(panel: AgentPanel, viewMode: AgentViewMode) {
   return viewMode === "console" ? "Market intelligence console" : "Market intelligence"
 }
 
-export function AgentChatHeader({
+export const AgentChatHeader = memo(function AgentChatHeader({
   activePanel,
   viewMode,
   isDesktop,
@@ -262,4 +262,4 @@ export function AgentChatHeader({
       </div>
     </header>
   )
-}
+})
