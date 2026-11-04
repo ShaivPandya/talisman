@@ -16,7 +16,10 @@ import {
   type PriceMomentumRequest,
   type ScreenJobProgress,
   type ShortScreenRequest,
+  type ScreenerTab,
+  type ScreenerSnapshot,
 } from "@/lib/api"
+import { ScreenerRunHistory } from "@/components/ScreenerRunHistory"
 import { DataTable, type ColumnDef } from "@/components/shared/DataTable"
 import { LoadingSpinner, ErrorMessage } from "@/components/shared/LoadingSpinner"
 import {
@@ -27,8 +30,6 @@ import { colorPositiveNegative, colorZscore } from "@/lib/colors"
 import { DEFAULT_LIQUIDITY_COVERAGE } from "@/lib/ideaDigest"
 
 const EMPTY_ROWS: Record<string, unknown>[] = []
-
-type ScreenerSnapshot<T> = { result: T; benchmark?: string }
 
 function useScreenerResult<T>(screen: ScreenerTab) {
   return useQuery<ScreenerSnapshot<T>>({
@@ -42,6 +43,7 @@ function useScreenerMutation<T, Body>(screen: ScreenerTab, options: { mutationFn
   const queryClient = useQueryClient()
   const { data } = useScreenerResult<T>(screen)
   const mutation = useMutation({
+    mutationKey: ["screener-run", screen],
     mutationFn: options.mutationFn,
     onMutate: () => ({ query: queryClient.getQueryCache().find({ queryKey: ["screeners", screen] }) }),
     onSuccess: (result, body, context) => {
@@ -53,7 +55,9 @@ function useScreenerMutation<T, Body>(screen: ScreenerTab, options: { mutationFn
         : undefined
       // Keep the last completed run across tab/route unmounts. Auth clears this
       // cache on logout; inactive results use the app's bounded retention.
-      queryClient.setQueryData<ScreenerSnapshot<T>>(["screeners", screen], { result, benchmark })
+      queryClient.setQueryData<ScreenerSnapshot<T>>(["screeners", screen], {
+        result, benchmark, request: body as Record<string, unknown>, captured_at: new Date().toISOString(),
+      })
     },
   })
   return { mutation, hasResult: data !== undefined }
@@ -159,6 +163,7 @@ function formatScreenProgress(progress: ScreenJobProgress | undefined, fallback:
     queued: "Queued",
     prices: "Screening prices",
     quality: "Scoring quality",
+    liquidity_coverage: "Checking liquidity and analyst coverage",
     fundamentals: "Fetching fundamentals",
     issuance: "Checking issuance",
     finalizing: "Finalizing",
@@ -667,6 +672,8 @@ function buildLongColumns(rows: Record<string, unknown>[]): ColumnDef[] {
 }
 
 function LongForm() {
+  const [liquidityCoverage, setLiquidityCoverage] = useState(false)
+  const [minDollarVolumePct, setMinDollarVolumePct] = useState(75)
   const [inputMode, setInputMode] = useState<"Universe" | "Custom Tickers">("Universe")
   const [universe, setUniverse] = useState("S&P 500")
   const [tickers, setTickers] = useState("")
@@ -702,6 +709,9 @@ function LongForm() {
   function handleRun() {
     setProgress({ phase: "queued", done: 0, total: 0 })
     mutation.mutate({
+      liquidity_coverage: liquidityCoverage
+        ? { ...DEFAULT_LIQUIDITY_COVERAGE, min_dollar_volume_industry_pct: minDollarVolumePct / 100 }
+        : null,
       input_mode: inputMode,
       universe,
       tickers,
@@ -751,6 +761,22 @@ function LongForm() {
             onChange={setTickers}
             placeholder="AAPL, MSFT, GOOG"
             uppercase
+          />
+        )}
+
+        <Toggle
+          label="Only liquid, well-covered names"
+          checked={liquidityCoverage}
+          onChange={setLiquidityCoverage}
+          description="Same filter as Digest Presets: dollar volume high for its industry and analyst count above the industry median, using the latest weekly idea scan."
+        />
+        {liquidityCoverage && (
+          <SliderInput
+            label="Min. dollar volume percentile in industry"
+            value={minDollarVolumePct}
+            onChange={setMinDollarVolumePct}
+            min={50} max={95} step={5}
+            formatValue={v => v.toFixed(0)} minLabel="50" maxLabel="95"
           />
         )}
 
@@ -965,12 +991,17 @@ const LongResults = memo(function LongResults() {
         <>
           <div className="flex flex-wrap gap-6 text-sm text-gray-600 mb-4">
             <span>Universe: <strong>{data.phase1_count ?? "—"}</strong></span>
-            <span>Pass P/B + Profit: <strong>{data.phase1_pass_count ?? "—"}</strong></span>
+            <span>Pass fundamental filters: <strong>{data.phase1_pass_count ?? "—"}</strong></span>
             {data.phase3_pass_count != null && (
               <span>Pass price filters: <strong>{data.phase3_pass_count}</strong></span>
             )}
             <span>Final candidates: <strong>{data.final_count ?? rows.length}</strong></span>
           </div>
+          {data.liquidity_coverage_source && (
+            <p className="mb-3 text-sm text-muted">
+              Liquid and well covered: {data.liquidity_coverage_pass_count} names passed · Weekly data: {data.liquidity_coverage_source.week ?? "unknown"}.
+            </p>
+          )}
           <FailedTickerNotice failed={data.failed_tickers} />
           {rows.length > 0 ? (
             <DataTable columns={columns} rows={rows} />
@@ -1435,7 +1466,6 @@ function DigestPresetPanel() {
 
 /* ─── Main Screeners Page ─── */
 
-type ScreenerTab = "Quality" | "Short" | "Long" | "Price Momentum" | "Fundamental Momentum" | "Digest Presets"
 
 export function Screeners() {
   const [activeTab, setActiveTab] = useState<ScreenerTab>("Quality")
@@ -1460,6 +1490,8 @@ export function Screeners() {
           onChange={setActiveTab}
         />
       </div>
+
+      <ScreenerRunHistory key={activeTab} screen={activeTab} />
 
       {activeTab === "Quality" && <QualityPanel />}
       {activeTab === "Short" && <ShortPanel />}

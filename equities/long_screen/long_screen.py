@@ -20,7 +20,6 @@ Execution is phased:
 from __future__ import annotations
 
 import logging
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import numpy as np
@@ -28,11 +27,9 @@ import pandas as pd
 
 from equities.short_screen.short_screen import (
     PHASE1_WORKERS,
-    YF_BATCH_DELAY,
     YF_CHUNK_SIZE,
     _build_result_row,
     _report_progress,
-    _throttled_yf_call,
     compute_price_metrics,
     fetch_sec_issuance,
     fetch_yf_data,
@@ -181,6 +178,8 @@ def _apply_price_filters_long(
     check_3m_pos_momentum: bool,
     check_2m_pos_rel_momentum: bool,
     benchmark_ticker: str,
+    progress_callback=None,
+    failed_tickers: list[str] | None = None,
 ) -> tuple[list[dict], dict[str, dict]]:
     """
     Apply optional price-based filters to Phase 1/2 passers.
@@ -189,7 +188,7 @@ def _apply_price_filters_long(
     - 3m positive momentum: keep stocks with return_3m > 0
     - 2m positive relative momentum: keep stocks outperforming benchmark
     """
-    from utils.retry import yf_download
+    from utils.yf_jobs import download_price_chunks
 
     passer_tickers = [d["ticker"] for d in passers]
 
@@ -198,41 +197,21 @@ def _apply_price_filters_long(
     if need_benchmark and benchmark_ticker not in download_tickers:
         download_tickers.append(benchmark_ticker)
 
-    chunks = [download_tickers[i : i + YF_CHUNK_SIZE] for i in range(0, len(download_tickers), YF_CHUNK_SIZE)]
-    all_dfs: list[pd.DataFrame] = []
-    for i, chunk in enumerate(chunks):
-        try:
-            df = yf_download(
-                chunk,
-                period="1y",
-                interval="1d",
-                auto_adjust=False,
-                progress=False,
-                threads=True,
-            )
-            if df is not None and not df.empty:
-                all_dfs.append(df)
-        except Exception:
-            LOGGER.warning("Price filter batch %d/%d failed", i + 1, len(chunks), exc_info=True)
-        if i < len(chunks) - 1:
-            time.sleep(YF_BATCH_DELAY)
-
-    if not all_dfs:
-        LOGGER.warning("All price filter downloads failed; skipping price filters")
-        return passers, {}
-
-    if len(all_dfs) == 1:
-        raw = all_dfs[0]
-    else:
-        parts: dict[str, list[pd.DataFrame]] = {}
-        for df in all_dfs:
-            if isinstance(df.columns, pd.MultiIndex):
-                for level in df.columns.get_level_values(0).unique():
-                    parts.setdefault(str(level), []).append(df[level])
-            else:
-                for col in df.columns:
-                    parts.setdefault(str(col), []).append(df[[col]])
-        raw = pd.concat({k: pd.concat(v, axis=1) for k, v in parts.items() if v}, axis=1)
+    raw, failed = download_price_chunks(
+        download_tickers,
+        chunk_size=YF_CHUNK_SIZE,
+        period="1y",
+        interval="1d",
+        auto_adjust=False,
+        timeout=15,
+        raise_errors=True,
+        time_budget_s=10 * 60,
+        progress_callback=lambda done, total: _report_progress(progress_callback, "prices", done, total),
+    )
+    if failed_tickers is not None:
+        failed_tickers.extend(f"{ticker}: price history unavailable" for ticker in failed)
+    if raw.empty:
+        raise RuntimeError("Price history is unavailable. Please retry the screen shortly.")
 
     def _get_close(df: pd.DataFrame, ticker: str) -> pd.Series | None:
         if df is None or df.empty:
@@ -252,6 +231,8 @@ def _apply_price_filters_long(
     bench_close: pd.Series | None = None
     if need_benchmark:
         bench_close = _get_close(raw, benchmark_ticker)
+        if bench_close is None or len(bench_close) < 42:
+            raise RuntimeError(f"Insufficient price history for benchmark {benchmark_ticker}. Please retry the screen.")
 
     filtered: list[dict] = []
     metrics: dict[str, dict] = {}
@@ -363,43 +344,37 @@ def _screen_long_fundamentals(
     failed_tickers: list[str] = []
     done_count = 0
     total = len(universe)
-    batches = [universe[i : i + YF_CHUNK_SIZE] for i in range(0, total, YF_CHUNK_SIZE)]
-
     with ThreadPoolExecutor(max_workers=PHASE1_WORKERS) as pool:
-        for batch_idx, batch in enumerate(batches):
-            futures = {
-                pool.submit(
-                    screen_ticker_long,
-                    tk,
-                    pb_threshold,
-                    profit_type,
-                    check_revenue=check_revenue,
-                    min_revenue_growth=min_revenue_growth,
-                    check_eps=check_eps,
-                    min_eps_growth=min_eps_growth,
-                    check_ebit_multiple=check_ebit_multiple,
-                    max_ebit_multiple=max_ebit_multiple,
-                    need_market_cap=need_market_cap,
-                ): tk
-                for tk in batch
-            }
-            for future in as_completed(futures):
-                tk = futures[future]
-                try:
-                    passes, data = future.result()
-                    if passes:
-                        phase1_pass_data.append(data)
-                    elif "error" in data:
-                        failed_tickers.append(f"{tk}: {data.get('error') or 'data fetch failed'}")
-                except Exception as exc:
-                    failed_tickers.append(f"{tk}: {exc}")
+        futures = {
+            pool.submit(
+                screen_ticker_long,
+                tk,
+                pb_threshold,
+                profit_type,
+                check_revenue=check_revenue,
+                min_revenue_growth=min_revenue_growth,
+                check_eps=check_eps,
+                min_eps_growth=min_eps_growth,
+                check_ebit_multiple=check_ebit_multiple,
+                max_ebit_multiple=max_ebit_multiple,
+                need_market_cap=need_market_cap,
+            ): tk
+            for tk in universe
+        }
+        for future in as_completed(futures):
+            tk = futures[future]
+            try:
+                passes, data = future.result()
+                if passes:
+                    phase1_pass_data.append(data)
+                elif "error" in data:
+                    failed_tickers.append(f"{tk}: {data.get('error') or 'data fetch failed'}")
+            except Exception as exc:
+                failed_tickers.append(f"{tk}: {exc}")
 
-                done_count += 1
-                if done_count % 25 == 0 or done_count == total:
-                    _report_progress(progress_callback, "fundamentals", done_count, total)
-
-            if batch_idx < len(batches) - 1:
-                time.sleep(YF_BATCH_DELAY)
+            done_count += 1
+            if done_count % 25 == 0 or done_count == total:
+                _report_progress(progress_callback, "fundamentals", done_count, total)
 
     return phase1_pass_data, failed_tickers
 
@@ -441,9 +416,7 @@ def get_data(
     Returns on hard failure:
         {"error": str}
     """
-    import yfinance as yf
-
-    universe = tickers
+    universe = list(dict.fromkeys(tickers))
 
     if not universe:
         return {"error": "No tickers provided"}
@@ -464,17 +437,12 @@ def get_data(
         check_ebit_multiple=check_ebit_multiple,
     )
 
-    # Pre-warm yfinance session
-    try:
-        _throttled_yf_call(f"{universe[0]}.prewarm", lambda: yf.Ticker(universe[0]).fast_info.last_price)  # noqa: B018
-    except Exception:
-        LOGGER.debug("yfinance session pre-warm failed", exc_info=True)
-
     # ------------------------------------------------------------------
     # Price prefilter: use one cheap batch chart pass before heavyweight
     # quote-summary/statement calls when issuance does not need the full
     # fundamental-pass universe for its quartile cutoff.
     # ------------------------------------------------------------------
+    price_failures: list[str] = []
     price_metrics: dict[str, dict] = {}
     phase3_pass_count: int | None = None
     price_prefiltered = False
@@ -492,11 +460,13 @@ def get_data(
             check_3m_pos_momentum=check_3m_pos_momentum,
             check_2m_pos_rel_momentum=check_2m_pos_rel_momentum,
             benchmark_ticker=benchmark_ticker,
+            progress_callback=progress_callback,
+            failed_tickers=price_failures,
         )
         price_prefiltered = True
         phase3_pass_count = len(price_pass_data)
         candidate_universe = [d["ticker"] for d in price_pass_data]
-        _report_progress(progress_callback, "prices", phase3_pass_count, total)
+        _report_progress(progress_callback, "prices", total, total)
 
         if not needs_fundamentals:
             prefilter_rows = [
@@ -506,7 +476,7 @@ def get_data(
             results_df = pd.DataFrame(prefilter_rows)
             return {
                 "results_df": results_df,
-                "failed_tickers": [],
+                "failed_tickers": price_failures,
                 "phase1_count": total,
                 "phase1_pass_count": None,
                 "phase3_pass_count": phase3_pass_count,
@@ -531,6 +501,7 @@ def get_data(
         progress_callback=progress_callback,
     )
 
+    failed_tickers.extend(price_failures)
     phase1_pass_count = len(phase1_pass_data)
 
     if not phase1_pass_data:
@@ -587,6 +558,7 @@ def get_data(
                     }
 
     if any_price_filter and not price_prefiltered and phase2_pass_data:
+        price_input_count = len(phase2_pass_data)
         _report_progress(progress_callback, "prices", 0, len(phase2_pass_data))
         phase2_pass_data, price_metrics = _apply_price_filters_long(
             phase2_pass_data,
@@ -598,13 +570,16 @@ def get_data(
             check_3m_pos_momentum=check_3m_pos_momentum,
             check_2m_pos_rel_momentum=check_2m_pos_rel_momentum,
             benchmark_ticker=benchmark_ticker,
+            progress_callback=progress_callback,
+            failed_tickers=price_failures,
         )
         phase3_pass_count = len(phase2_pass_data)
-        _report_progress(progress_callback, "prices", phase3_pass_count, len(phase1_pass_data))
+        _report_progress(progress_callback, "prices", price_input_count, price_input_count)
 
     # ------------------------------------------------------------------
     # Build final result rows
     # ------------------------------------------------------------------
+    failed_tickers = list(dict.fromkeys([*failed_tickers, *price_failures]))
     final_rows: list[dict] = []
     for data in phase2_pass_data:
         tk = data["ticker"]
