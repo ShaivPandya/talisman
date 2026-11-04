@@ -662,6 +662,43 @@ async function startLiveAgentStream(
   return {}
 }
 
+/**
+ * Applies live-stream events, merging consecutive text deltas so the answer
+ * renders at most once per frame. Any other event applies the buffered text
+ * first, so order holds. Call `flush` when the stream ends.
+ */
+function batchLiveDeltas(apply: (event: AgentStreamEvent) => void) {
+  let pending: AgentStreamEvent | null = null
+  let frame = 0
+  let timer = 0
+  const flush = () => {
+    window.cancelAnimationFrame(frame)
+    window.clearTimeout(timer)
+    frame = 0
+    timer = 0
+    if (!pending) return
+    const event = pending
+    pending = null
+    apply(event)
+  }
+  const push = (event: AgentStreamEvent) => {
+    const text = event.payload.text
+    if (event.event_type !== "delta" || typeof text !== "string") {
+      flush()
+      apply(event)
+      return
+    }
+    pending = pending
+      ? { ...event, payload: { ...pending.payload, ...event.payload, text: (pending.payload.text as string) + text } }
+      : event
+    if (frame) return
+    frame = window.requestAnimationFrame(flush)
+    // Hidden tabs skip animation frames; the timer keeps their checkpoints current.
+    timer = window.setTimeout(flush, 100)
+  }
+  return { push, flush }
+}
+
 async function fetchAgentJobEvents(jobId: string, afterSeq: number, signal?: AbortSignal): Promise<AgentJobResponse> {
   const params = new URLSearchParams({ after_seq: String(afterSeq), wait_ms: "10000" })
   const resp = await fetch(`${BASE_URL}/agent/chat/async/${encodeURIComponent(jobId)}/events?${params}`, {
@@ -1452,6 +1489,15 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
       }
 
       let directSeq = 0
+      const liveEvents = batchLiveDeltas(event => {
+        const sessionId = typeof event.payload.session_id === "string" ? event.payload.session_id : null
+        applyJobEvents(assistantId, [{
+          seq: ++directSeq,
+          event_type: event.event_type as AgentJobEvent["event_type"],
+          payload: event.payload,
+        }], sessionId)
+      })
+      // Flushing on every exit applies text that arrived before an error, abort or handoff.
       const live = await startLiveAgentStream(body, event => {
         if (event.event_type === "error") {
           streamError = typeof event.payload.message === "string" ? event.payload.message : "An error occurred"
@@ -1461,12 +1507,8 @@ export function useAgentChat(onDurableComplete?: (completion: AgentJobCompletion
         }
         const sessionId = typeof event.payload.session_id === "string" ? event.payload.session_id : null
         if (sessionId) resolvedSessionId = sessionId
-        applyJobEvents(assistantId, [{
-          seq: ++directSeq,
-          event_type: event.event_type as AgentJobEvent["event_type"],
-          payload: event.payload,
-        }], sessionId)
-      }, controller.signal)
+        liveEvents.push(event)
+      }, controller.signal).finally(liveEvents.flush)
 
       if (live.handoff) {
         await beginDurableResponse(assistantId, clientTurnId, live.handoff, controller)
