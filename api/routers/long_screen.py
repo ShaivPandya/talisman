@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from api.async_job_runner import enqueue_registered_job, enqueue_response, poll_registered_job
+from api.idea_scan.presets import LiquidityCoverageFilter
 from api.serializers import serialize_dataframe, serialize_value
 
 router = APIRouter()
@@ -59,11 +60,12 @@ class LongScreenRequest(BaseModel):
     check_3m_pos_momentum: bool = False
     check_2m_pos_rel_momentum: bool = False
     rel_momentum_benchmark: str = "IWM"
+    liquidity_coverage: LiquidityCoverageFilter | None = None
 
 
 def _resolve_tickers(req: LongScreenRequest) -> list[str]:
     if req.input_mode == "Custom Tickers":
-        return [t.strip().upper() for t in req.tickers.split(",") if t.strip()]
+        return list(dict.fromkeys(t.strip().upper() for t in req.tickers.split(",") if t.strip()))
     from equities.common import get_universe_tickers
 
     key = _UNIVERSE_MAP.get(req.universe) or _SECTOR_PREFIX_MAP.get(req.universe, req.universe)
@@ -100,7 +102,51 @@ def _cache_key(req: LongScreenRequest) -> str:
     else:
         payload["tickers"] = ""
     payload["benchmark_ticker"] = _resolve_benchmark_ticker(req.rel_momentum_benchmark, req.universe)
-    return "long_screen:v2:" + json.dumps(payload, sort_keys=True, separators=(",", ":"))
+    if req.liquidity_coverage is not None:
+        from api.idea_scan import store
+
+        run = store.latest_completed_run(full_only=True)
+        payload["liquidity_source_run_id"] = run["run_id"] if run else None
+    return "long_screen:v3:" + json.dumps(payload, sort_keys=True, separators=(",", ":"))
+
+
+def _liquid_covered_tickers(
+    tickers: list[str], criteria: LiquidityCoverageFilter
+) -> tuple[list[str], list[str], dict[str, Any]]:
+    from api.idea_scan import store
+    from api.idea_scan.screening import _liquidity_coverage_checks, liquidity_coverage_ranks
+
+    run = store.latest_completed_run(full_only=True)
+    frame = store.load_frame(str(run["run_id"])) if run else None
+    if (
+        frame is None
+        or frame.empty
+        or not {"industry", "sector", "dollar_volume", "analyst_count"} <= set(frame.columns)
+    ):
+        raise ValueError("No weekly scan has liquidity and coverage data yet. Run the idea scan first.")
+
+    # Rank against the entire saved peer set, never just the price/fundamental passers.
+    ranks = liquidity_coverage_ranks(frame)
+    selected = []
+    missing = []
+    for ticker in tickers:
+        if ticker not in frame.index:
+            missing.append(f"{ticker}: missing weekly liquidity/coverage data")
+            continue
+        checks = _liquidity_coverage_checks(frame.loc[ticker], criteria, ranks.loc[ticker])
+        if all(check.ok for check in checks):
+            selected.append(ticker)
+        elif not all(check.has_data for check in checks):
+            missing.append(f"{ticker}: missing weekly liquidity/coverage data")
+    return (
+        selected,
+        missing,
+        {
+            "run_id": run["run_id"],
+            "week": run.get("week"),
+            "data_fetched_at": (run.get("data") or {}).get("fetched_at"),
+        },
+    )
 
 
 def _serialize_screen(data: dict) -> dict[str, Any]:
@@ -124,31 +170,50 @@ def _compute_long_screen(req: LongScreenRequest, progress_callback=None) -> dict
 
     from equities.long_screen.long_screen import get_data
 
-    data = get_data(
-        tickers=tickers,
-        pb_threshold=req.pb_threshold,
-        profit_type=req.profit_type,
-        check_issuance=req.check_issuance,
-        check_revenue=req.check_revenue,
-        min_revenue_growth=req.min_revenue_growth,
-        check_eps=req.check_eps,
-        min_eps_growth=req.min_eps_growth,
-        check_ebit_multiple=req.check_ebit_multiple,
-        max_ebit_multiple=req.max_ebit_multiple,
-        check_52w_positive=req.check_52w_positive,
-        check_min_drawdown=req.check_min_drawdown,
-        min_drawdown_pct=req.min_drawdown_pct,
-        check_max_drawdown=req.check_max_drawdown,
-        max_drawdown_pct=req.max_drawdown_pct,
-        check_3m_pos_momentum=req.check_3m_pos_momentum,
-        check_2m_pos_rel_momentum=req.check_2m_pos_rel_momentum,
-        benchmark_ticker=benchmark,
-        progress_callback=progress_callback,
+    input_count = len(tickers)
+    missing: list[str] = []
+    source = None
+    if req.liquidity_coverage is not None:
+        if progress_callback:
+            progress_callback("liquidity_coverage", 0, input_count)
+        tickers, missing, source = _liquid_covered_tickers(tickers, req.liquidity_coverage)
+        if progress_callback:
+            progress_callback("liquidity_coverage", input_count, input_count)
+
+    data = (
+        get_data(
+            tickers=tickers,
+            pb_threshold=req.pb_threshold,
+            profit_type=req.profit_type,
+            check_issuance=req.check_issuance,
+            check_revenue=req.check_revenue,
+            min_revenue_growth=req.min_revenue_growth,
+            check_eps=req.check_eps,
+            min_eps_growth=req.min_eps_growth,
+            check_ebit_multiple=req.check_ebit_multiple,
+            max_ebit_multiple=req.max_ebit_multiple,
+            check_52w_positive=req.check_52w_positive,
+            check_min_drawdown=req.check_min_drawdown,
+            min_drawdown_pct=req.min_drawdown_pct,
+            check_max_drawdown=req.check_max_drawdown,
+            max_drawdown_pct=req.max_drawdown_pct,
+            check_3m_pos_momentum=req.check_3m_pos_momentum,
+            check_2m_pos_rel_momentum=req.check_2m_pos_rel_momentum,
+            benchmark_ticker=benchmark,
+            progress_callback=progress_callback,
+        )
+        if tickers
+        else {"results_df": [], "failed_tickers": [], "phase1_pass_count": 0, "final_count": 0}
     )
 
     if data.get("error"):
         raise RuntimeError(str(data["error"]))
 
+    if source is not None:
+        data["phase1_count"] = input_count
+        data["liquidity_coverage_pass_count"] = len(tickers)
+        data["liquidity_coverage_source"] = source
+        data["failed_tickers"] = [*data.get("failed_tickers", []), *missing]
     return _serialize_screen(data)
 
 

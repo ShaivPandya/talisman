@@ -971,6 +971,8 @@ async function handleApiRoute(route: Route, state: ApiMockState) {
     return json(route, { username: "admin", roles: ["admin"], csrfToken: "smoke-csrf" })
   }
 
+  if (method === "GET" && path === "/api/screener-runs") return json(route, { runs: [] })
+
   if (method === "GET" && path === "/api/portfolio-positions/ibkr-flex-status") {
     return json(route, { configured: false, status: "never_synced", stale: false })
   }

@@ -2755,6 +2755,8 @@ type ScreenJobResponse<T> =
   | { job_id: string; status: "done"; result?: T; progress?: ScreenJobProgress }
 
 export type ScreenResult = {
+  liquidity_coverage_pass_count?: number
+  liquidity_coverage_source?: { run_id: string; week?: string | null; data_fetched_at?: string | null }
   results_df?: Record<string, unknown>[]
   failed_tickers?: string[]
   failed?: string[]
@@ -2799,6 +2801,7 @@ export type ShortScreenRequest = {
 }
 
 export type LongScreenRequest = {
+  liquidity_coverage?: IdeaScanLiquidityCoverage | null
   input_mode: string
   universe: string
   tickers: string
@@ -2820,6 +2823,38 @@ export type LongScreenRequest = {
   check_2m_pos_rel_momentum: boolean
   rel_momentum_benchmark: string
 }
+
+export type ScreenerTab = "Quality" | "Short" | "Long" | "Price Momentum" | "Fundamental Momentum" | "Digest Presets"
+
+export type ScreenerSnapshot<T = Record<string, unknown>> = {
+  result: T
+  request: Record<string, unknown>
+  benchmark?: string | null
+  captured_at: string
+  run_id?: string
+  name?: string
+}
+
+export type SavedScreenerRunSummary = {
+  run_id: string
+  screen: ScreenerTab
+  name: string
+  created_at: string
+}
+
+export type SavedScreenerRun = SavedScreenerRunSummary & ScreenerSnapshot
+
+export const saveScreenerRun = (body: ScreenerSnapshot & { screen: ScreenerTab; name: string }) =>
+  client.post<SavedScreenerRun>("/screener-runs", body).then(r => r.data)
+
+export const fetchScreenerRuns = (screen: ScreenerTab, offset = 0) =>
+  client.get<{ runs: SavedScreenerRunSummary[] }>("/screener-runs", { params: { screen, offset, limit: 50 } }).then(r => r.data.runs)
+
+export const fetchScreenerRun = (runId: string) =>
+  client.get<SavedScreenerRun>(`/screener-runs/${encodeURIComponent(runId)}`).then(r => r.data)
+
+export const deleteScreenerRun = (runId: string) =>
+  client.delete(`/screener-runs/${encodeURIComponent(runId)}`).then(() => undefined)
 
 export type PriceMomentumRequest = {
   input_mode: string
