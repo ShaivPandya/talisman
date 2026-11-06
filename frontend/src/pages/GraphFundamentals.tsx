@@ -764,6 +764,7 @@ export function GraphFundamentals() {
                 dates={dates}
                 syncId={syncId}
                 bottom={i === state.panes.length - 1}
+                period={state.period}
               />
             ))
           ) : (

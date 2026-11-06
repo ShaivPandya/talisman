@@ -520,3 +520,184 @@ def test_missing_ytd_quarter_is_not_a_six_month_flow_reported_as_one_quarter():
     ]
     normalized = _quarterly_flow_entries(rows)
     assert [(r["end"], r["val"]) for r in normalized] == [("2025-03-31", 10)]
+
+
+def test_yfinance_statement_rows_accept_raw_camel_case_and_pretty_labels():
+    import pandas as pd
+
+    class Ticker:
+        def get_balance_sheet(self, **kwargs):
+            return pd.DataFrame(
+                {
+                    pd.Timestamp("2025-12-31"): {
+                        "TotalDebt": 70,
+                        "OrdinarySharesNumber": 12,
+                        "Cash And Cash Equivalents": 8,
+                    }
+                }
+            )
+
+    rows = gf._yf_statements(Ticker(), "annual", "USD", getters=("get_balance_sheet",))
+    assert rows["debt_total"]["2025-12-31"]["val"] == 70
+    assert rows["shares"]["2025-12-31"]["val"] == 12
+    assert rows["cash"]["2025-12-31"]["val"] == 8
+
+
+def test_missing_sec_debt_can_use_reported_balance_fallback_without_overwriting_sec():
+    bundle = company()
+    end = "2025-12-31"
+    before = "2025-09-30"
+    for period in (before, end):
+        bundle["quarters"]["debt_total"].pop(period)
+    assert value(gf.compute_company(bundle, "quarters"), "roic") is None
+    fallback = {
+        "debt_total": {period: {"end": period, "val": 50, "source": "yfinance statements"} for period in (before, end)},
+        "cash": {end: {"end": end, "val": 999, "source": "yfinance statements"}},
+    }
+    gf._merge_statement_fallback(bundle["quarters"], fallback)
+    assert bundle["quarters"]["cash"][end]["val"] == 30
+    # Yahoo's TotalDebt already includes short-term debt. Do not add it again.
+    bundle["quarters"].setdefault("short_debt", {})[end] = {"val": 10}
+    grid = gf.compute_company(bundle, "quarters")
+    assert value(grid, "debt") == 50
+    assert value(grid, "roic") == pytest.approx(12.5)
+    assert "yfinance statement fallback" in grid["roic"]["source"]
+    assert "yfinance statement fallback" in grid["roic"]["points"][-1]["source"]
+    assert grid["revenue"]["source"] == "SEC EDGAR"
+
+
+def test_balance_fallback_aligns_nearby_fiscal_month_ends_and_preserves_source_date():
+    primary = {"revenue": {"2025-01-26": {"val": 100}, "2025-04-27": {"val": 110}}}
+    fallback = {
+        "shares": {
+            "2025-01-31": {"end": "2025-01-31", "val": 10, "source": "yfinance statements"},
+            "2025-02-28": {"end": "2025-02-28", "val": 99, "source": "yfinance statements"},
+        }
+    }
+    gf._merge_statement_fallback(primary, fallback)
+    assert set(primary["shares"]) == {"2025-01-26"}
+    assert primary["shares"]["2025-01-26"]["source_period_end"] == "2025-01-31"
+    assert primary["shares"]["2025-01-26"]["val"] == 10
+    assert gf._needs_balance_fallback(primary, 8)
+
+
+def test_balance_fallback_keeps_complete_sec_debt_components():
+    primary = {
+        "revenue": {"2025-12-31": {"val": 100}},
+        "debt_current": {"2025-12-31": {"val": 10}},
+        "debt_noncurrent": {"2025-12-31": {"val": 40}},
+    }
+    fallback = {"debt_total": {"2025-12-31": {"end": "2025-12-31", "val": 99, "source": "yfinance statements"}}}
+    gf._merge_statement_fallback(primary, fallback)
+    assert "debt_total" not in primary
+
+
+def test_us_filings_can_supplement_missing_balance_inputs_once_per_frequency(monkeypatch):
+    import pandas as pd
+    import yfinance as yf
+
+    facts = companyfacts()
+    facts["facts"]["us-gaap"].pop("LongTermDebtAndFinanceLeaseObligationsIncludingCurrentMaturities")
+    calls = []
+    monkeypatch.setattr(gf, "get_cik_for_ticker", lambda _: "1")
+    monkeypatch.setattr(gf, "fetch_companyfacts_by_cik", lambda *a, **kw: facts)
+
+    class Ticker:
+        def get_info(self):
+            return {"financialCurrency": "USD"}
+
+        def get_balance_sheet(self, **kwargs):
+            calls.append(kwargs["freq"])
+            return pd.DataFrame({pd.Timestamp(end): {"TotalDebt": 50} for end in ("2025-09-30", "2025-12-31")})
+
+        def history(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_history_metadata(self):
+            return {"currency": "USD"}
+
+        def get_earnings_estimate(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_revenue_estimate(self):
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yf, "Ticker", lambda _: Ticker())
+    loaded = gf.load_company("AAA")
+    assert calls == ["quarterly", "yearly"]
+    assert value(gf.compute_company(loaded, "quarters"), "roic") == pytest.approx(12.5)
+
+
+def test_balance_fallback_does_not_mix_statement_currencies(monkeypatch):
+    import pandas as pd
+    import yfinance as yf
+
+    facts = companyfacts()
+    facts["facts"]["us-gaap"].pop("LongTermDebtAndFinanceLeaseObligationsIncludingCurrentMaturities")
+    monkeypatch.setattr(gf, "get_cik_for_ticker", lambda _: "1")
+    monkeypatch.setattr(gf, "fetch_companyfacts_by_cik", lambda *a, **kw: facts)
+
+    class Ticker:
+        def get_info(self):
+            return {"financialCurrency": "EUR"}
+
+        def get_balance_sheet(self, **kwargs):
+            raise AssertionError("Incompatible currency must not be fetched/merged")
+
+        def history(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_history_metadata(self):
+            return {"currency": "USD"}
+
+        def get_earnings_estimate(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_revenue_estimate(self):
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yf, "Ticker", lambda _: Ticker())
+    assert value(gf.compute_company(gf.load_company("AAA"), "quarters"), "roic") is None
+
+
+def test_missing_reported_pretax_income_uses_statement_fallback_with_source(monkeypatch):
+    import pandas as pd
+    import yfinance as yf
+
+    facts = companyfacts()
+    facts["facts"]["us-gaap"].pop(
+        "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest"
+    )
+    calls = []
+    monkeypatch.setattr(gf, "get_cik_for_ticker", lambda _: "1")
+    monkeypatch.setattr(gf, "fetch_companyfacts_by_cik", lambda *a, **kw: facts)
+
+    class Ticker:
+        def get_info(self):
+            return {"financialCurrency": "USD"}
+
+        def get_income_stmt(self, **kwargs):
+            calls.append(kwargs["freq"])
+            return pd.DataFrame(
+                {pd.Timestamp("2025-12-31"): {"PretaxIncome": 16 if kwargs["freq"] == "quarterly" else 64}}
+            )
+
+        def history(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_history_metadata(self):
+            return {"currency": "USD"}
+
+        def get_earnings_estimate(self, **kwargs):
+            return pd.DataFrame()
+
+        def get_revenue_estimate(self):
+            return pd.DataFrame()
+
+    monkeypatch.setattr(yf, "Ticker", lambda _: Ticker())
+    loaded = gf.load_company("AAA")
+    assert calls == ["quarterly", "yearly"]
+    grid = gf.compute_company(loaded, "quarters")
+    assert value(grid, "roic") == pytest.approx(12.5)
+    assert "yfinance statement fallback" in grid["roic"]["source"]
+    assert grid["revenue"]["source"] == "SEC EDGAR"

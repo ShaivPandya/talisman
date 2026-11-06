@@ -16,6 +16,12 @@ new pane creates a custom pane without a field template.
 The catalog endpoint exposes all 40 fields enumerated in TL-251, with formulas,
 units, categories and estimate eligibility. Actuals prefer SEC companyfacts;
 tickers without usable SEC revenue histories use limited yfinance statements.
+When SEC revenue is usable but reported debt, shares, balance-sheet inputs or
+pretax/operating income are missing, matching-currency yfinance statements fill
+only those gaps. Existing SEC values are preserved. A unique fiscal period
+within seven days accommodates provider month-end labels for 52/53-week filers;
+the original provider date is retained. Tooltips and series metadata label the
+fallback, whose limited history may leave older periods unavailable.
 There is no non-GAAP adjustment engine: EPS actuals are **Diluted EPS (GAAP)**.
 
 The period selector controls flows: discrete quarters, rolling four-quarter
@@ -72,6 +78,11 @@ Addition/subtraction require matching units and currencies; cross-currency
 arithmetic is refused. Division by zero produces a gap. Removing an input also
 removes dependent calculations. Chart, table and CSV use the same calculations;
 CSV exports full numeric precision while the UI formats numbers for reading.
+Companies can report on different fiscal dates: line segments connect each
+series' own observations across other tickers' date slots. Explicit missing
+observations and missing reporting periods still break the line. Isolated valid
+observations render as dots, and the pane reports availability for the visible
+range rather than counting hidden warm-up data.
 
 Saved charts persist versioned layout state, not frozen data. Open refreshes
 values from sources; Save updates, Save As creates a copy, and the name input
@@ -118,3 +129,21 @@ returned 24 populated series in 4.45 seconds with exactly six companyfacts
 fetches. The same warm request took 0.003 seconds with no additional fetches.
 These observations measure provider conditions at verification time, not a
 latency guarantee during upstream outages.
+
+
+### Mixed-calendar regression verification
+
+CDNS/SNPS exposed a chart alignment bug: inserting every peer's dates as nulls
+broke all interleaved lines while their actual values were present. Plot segments
+now distinguish other companies' date slots from missing reported observations,
+and single valid observations remain visible as dots. Yahoo raw statement labels
+also require normalization (for example `TotalDebt`, not only `Total Debt`).
+Matching-currency fallback supplies missing reported balance and ROIC income
+inputs without replacing SEC values. Data cache keys are versioned to invalidate
+older incomplete results.
+
+The follow-up checks used CDNS, SNPS, ADBE, NVDA, COST, ORCL, MSFT, AAPL and the
+four original peers across Quarters, LTM and Annual. CDNS/SNPS browser checks
+confirmed actual SVG paths for both companies in all three default panes and
+visible isolated points in LTM. Older ROIC and valuation gaps remain when the
+required reported inputs are outside the available statement coverage.

@@ -128,3 +128,89 @@ test("removing an input also removes dependent calculations and empty panes", ()
   assert.ok(!next.panes.some((p) => p.id === "calc"))
   assert.equal(next.panes[0].series.length, 3)
 })
+
+test("different fiscal calendars keep continuous lines without fabricating values", async () => {
+  const { panePlotData } = await import("../../src/lib/graphFundamentals.ts")
+  const cdns = {
+    ...display("CDNS", []),
+    points: [
+      { date: "2025-03-31", value: 20 },
+      { date: "2025-06-30", value: 25 },
+      { date: "2025-09-30", value: 30 },
+    ],
+  }
+  const snps = {
+    ...display("SNPS", []),
+    points: [
+      { date: "2025-04-30", value: 10 },
+      { date: "2025-07-31", value: 15 },
+      { date: "2025-10-31", value: 20 },
+    ],
+  }
+  const dates = [...cdns.points, ...snps.points].map((p) => p.date).sort()
+  const plot = panePlotData([cdns, snps], dates)
+  assert.equal(plot.lines.length, 2)
+  assert.deepEqual(
+    plot.lines.map((line) => line.points.length),
+    [3, 3],
+  )
+  assert.equal(plot.rows.find((row) => row.date === "2025-04-30")[plot.lines[0].key], undefined)
+  assert.deepEqual(plot.lines[0].points, cdns.points)
+})
+
+test("real missing periods split lines and isolated observations remain visible", async () => {
+  const { panePlotData } = await import("../../src/lib/graphFundamentals.ts")
+  const a = {
+    ...display("A", []),
+    points: [
+      { date: "2025-03-31", value: 10 },
+      { date: "2025-06-30", value: null },
+      { date: "2025-09-30", value: 20 },
+      { date: "2026-03-31", value: 30 },
+    ],
+  }
+  const plot = panePlotData(
+    [a],
+    a.points.map((p) => p.date),
+  )
+  assert.deepEqual(
+    plot.lines.map((line) => line.points.map((p) => p.value)),
+    [[10], [20], [30]],
+  )
+  assert.equal(plot.lines.filter((line) => line.showLegend).length, 1)
+})
+
+test("estimates and bars preserve their own observations on a mixed date grid", async () => {
+  const { panePlotData } = await import("../../src/lib/graphFundamentals.ts")
+  const a = {
+    ...display("A", []),
+    points: [
+      { date: "2025-03-31", value: 10 },
+      { date: "2025-06-30", value: 15, estimate: true },
+      { date: "2025-09-30", value: 20, estimate: true },
+    ],
+  }
+  a.config.visualization = "bar"
+  const dates = ["2025-03-31", "2025-04-30", "2025-06-30", "2025-07-31", "2025-09-30"]
+  const plot = panePlotData([a], dates)
+  assert.deepEqual(
+    plot.lines[0].points.map((p) => p.value),
+    [10, 15, 20],
+  )
+  assert.equal(plot.lines[0].estimate, true)
+  assert.equal(plot.rows[0].A, 10)
+  assert.equal(plot.rows[1].A, undefined)
+})
+
+test("hidden warm-up points are excluded from plotted lines", async () => {
+  const { panePlotData } = await import("../../src/lib/graphFundamentals.ts")
+  const a = {
+    ...display("A", []),
+    points: [
+      { date: "2021-03-31", value: 10 },
+      { date: "2025-03-31", value: null },
+    ],
+  }
+  const plot = panePlotData([a], ["2025-03-31"])
+  assert.equal(plot.lines[0].points.length, 0)
+})

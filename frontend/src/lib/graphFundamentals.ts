@@ -22,6 +22,7 @@ export interface FundamentalPoint {
   as_of?: string
   basis?: string
   source?: string
+  source_period_end?: string | null
 }
 export interface FundamentalSeries {
   ticker: string
@@ -472,4 +473,66 @@ export function formatValue(value: number | null, unit: string, currency?: strin
     maximumFractionDigits: 2,
   }).format(value)
   return `${currency ? `${currency} ` : ""}${formatted}${unit === "percent" ? "%" : unit === "ratio" ? "×" : ""}`
+}
+
+export interface PanePlotLine {
+  key: string
+  series: DisplaySeries
+  points: FundamentalPoint[]
+  estimate: boolean
+  showLegend: boolean
+}
+
+/** Other tickers' fiscal dates are alignment slots, not gaps in this series.
+ * Split at real missing observations before connecting across alignment slots.
+ */
+export function panePlotData(series: DisplaySeries[], dates: string[], period: Period = "quarters") {
+  const visible = new Set(dates)
+  const rows = dates.map((date) => ({ date }) as Record<string, string | number | null>)
+  const byDate = new Map(rows.map((row) => [row.date, row]))
+  const lines: PanePlotLine[] = []
+  const maxGap = (period === "annual" ? 400 : 140) * DAY
+  function runs(points: FundamentalPoint[]): FundamentalPoint[][] {
+    const result: FundamentalPoint[][] = []
+    let run: FundamentalPoint[] = []
+    for (const point of points) {
+      if (!finite(point.value)) {
+        if (run.length) result.push(run)
+        run = []
+        continue
+      }
+      if (run.length && Date.parse(point.date) - Date.parse(run.at(-1)!.date) > maxGap) {
+        result.push(run)
+        run = []
+      }
+      run.push(point)
+    }
+    if (run.length) result.push(run)
+    return result
+  }
+  function addLine(s: DisplaySeries, points: FundamentalPoint[], key: string, estimate: boolean, showLegend: boolean) {
+    lines.push({ key, series: s, points, estimate, showLegend })
+    for (const point of points) {
+      const row = byDate.get(point.date)
+      if (row) row[key] = point.value
+    }
+  }
+  for (const s of series) {
+    const own = s.points.filter((p) => visible.has(p.date)).sort((a, b) => a.date.localeCompare(b.date))
+    const actual = own.filter((p) => !p.estimate)
+    if (s.config.visualization === "bar") {
+      for (const point of actual) byDate.get(point.date)![s.config.id] = point.value
+    } else {
+      const segments = runs(actual)
+      if (!segments.length) segments.push([]) // Keep a legend entry for unavailable series.
+      segments.forEach((points, index) => addLine(s, points, `${s.config.id}-actual-${index}`, false, index === 0))
+    }
+    const estimates = own.filter((p) => p.estimate)
+    if (estimates.length) {
+      const anchor = actual.at(-1)
+      const forecast = anchor && finite(anchor.value) ? [anchor, ...estimates] : estimates
+      runs(forecast).forEach((points, index) => addLine(s, points, `${s.config.id}-estimate-${index}`, true, false))
+    }
+  }
+  return { rows, lines }
 }
