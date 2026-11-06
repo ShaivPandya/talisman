@@ -91,6 +91,60 @@ export interface DisplaySeries {
   formula?: string
   reason?: string
 }
+// Display names stay available while the richer field catalog is loading.
+const FIELD_LABELS: Record<string, string> = {
+  revenue: "Revenue",
+  eps: "Diluted EPS (GAAP)",
+  net_income: "Net Income",
+  fcf: "Free Cash Flow",
+  gross_profit: "Gross Profit",
+  operating_income: "Operating Income",
+  ebitda: "EBITDA",
+  gross_margin: "Gross Margin",
+  operating_margin: "Operating Margin",
+  net_margin: "Net Margin",
+  sga_pct: "SG&A % of Revenue",
+  rd_pct: "R&D % of Revenue",
+  assets: "Total Assets",
+  cash: "Cash & Equivalents",
+  debt: "Total Debt",
+  net_debt: "Net Debt",
+  equity: "Shareholders' Equity",
+  book_value: "Book Value per Share",
+  shares: "Shares Outstanding",
+  cfo: "Cash from Operations",
+  capex: "Capex",
+  capex_pct: "Capex % of Revenue",
+  sbc: "Stock-Based Compensation",
+  dividends: "Dividends Paid",
+  buybacks: "Buybacks",
+  roic: "ROIC",
+  roe: "ROE",
+  roa: "ROA",
+  net_debt_ebitda: "Net Debt / EBITDA",
+  interest_coverage: "Interest Coverage",
+  asset_turnover: "Asset Turnover",
+  fcf_margin: "FCF Margin",
+  market_cap: "Market Cap",
+  enterprise_value: "Enterprise Value",
+  pe: "P/E",
+  ev_ebitda: "EV/EBITDA",
+  pb: "P/B",
+  ps: "P/S",
+  fcf_yield: "FCF Yield",
+  dividend_yield: "Dividend Yield",
+}
+export function fundamentalFieldLabel(id: string | undefined, catalog: FundamentalField[] = []): string {
+  if (!id) return "Metric"
+  return (
+    catalog.find((field) => field.id === id)?.label ??
+    FIELD_LABELS[id] ??
+    id
+      .split("_")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ")
+  )
+}
 export const COLORS = ["#38bdf8", "#a78bfa", "#fbbf24", "#34d399", "#fb7185", "#fb923c"]
 export const TRANSFORMS: { value: Transform; label: string }[] = [
   { value: "none", label: "None" },
@@ -245,7 +299,7 @@ export function displaySeries(
       const field = catalog.find((f) => f.id === config.field)
       result = {
         config,
-        label: config.label || `${config.ticker} · ${field?.label ?? config.field}`,
+        label: config.label || `${config.ticker} · ${fundamentalFieldLabel(config.field, catalog)}`,
         unit: raw?.unit ?? field?.unit ?? "ratio",
         currency: raw?.currency ?? null,
         source: raw?.source,

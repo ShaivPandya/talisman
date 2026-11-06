@@ -214,3 +214,32 @@ test("hidden warm-up points are excluded from plotted lines", async () => {
   const plot = panePlotData([a], ["2025-03-31"])
   assert.equal(plot.lines[0].points.length, 0)
 })
+
+test("catalog loading never exposes internal metric IDs", async () => {
+  const { fundamentalFieldLabel } = await import("../../src/lib/graphFundamentals.ts")
+  assert.equal(fundamentalFieldLabel("roic"), "ROIC")
+  assert.equal(fundamentalFieldLabel("fcf_yield"), "FCF Yield")
+  assert.equal(fundamentalFieldLabel("operating_margin"), "Operating Margin")
+  const state = {
+    ...defaultChart(),
+    tickers: ["CDNS"],
+    panes: [{ id: "p", field: "fcf_yield", series: [{ ...baseSeries("CDNS", "fcf_yield", 0), id: "a" }] }],
+  }
+  const data = {
+    series: [
+      {
+        ticker: "CDNS",
+        field: "fcf_yield",
+        unit: "percent",
+        currency: null,
+        source: "SEC",
+        points: [{ date: "2026-09-30", value: 2 }],
+        estimate_coverage: { supported: false },
+      },
+    ],
+    start_date: "2021-11-06",
+    end_date: null,
+    period: "quarters",
+  }
+  assert.equal(displaySeries(state, data, []).get("a").label, "CDNS · FCF Yield")
+})
