@@ -51,11 +51,11 @@ def _load(ticker: str, period: str):
     # range, so adding a field never refetches companyfacts, prices or estimates.
     def loader():
         company = get_or_set_cached(
-            long_cache, f"graph-company:v1:{ticker}", lambda: service.load_company(ticker), wait_timeout_s=48
+            long_cache, f"graph-company:v2:{ticker}", lambda: service.load_company(ticker), wait_timeout_s=48
         )
         return service.compute_company(company, period)
 
-    return get_or_set_cached(long_cache, f"graph-grid:v1:{ticker}:{period}", loader, wait_timeout_s=50)
+    return get_or_set_cached(long_cache, f"graph-grid:v2:{ticker}:{period}", loader, wait_timeout_s=50)
 
 
 @router.post("/graph-fundamentals")

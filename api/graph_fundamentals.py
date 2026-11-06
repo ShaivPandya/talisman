@@ -12,7 +12,7 @@ import logging
 import math
 from dataclasses import asdict, dataclass
 from datetime import UTC, date, datetime
-from functools import cache, lru_cache
+from functools import cache
 from typing import Any
 
 from portfolio.momentum.fundamental_momentum import _edgar_periods as periods
@@ -427,16 +427,24 @@ def _extract(facts: dict, currency: str, frequency: str) -> dict[str, dict[str, 
     return output
 
 
-def _yf_statements(ticker: Any, frequency: str, currency: str) -> dict:
+def _yf_statements(
+    ticker: Any,
+    frequency: str,
+    currency: str,
+    *,
+    getters: tuple[str, ...] = ("get_income_stmt", "get_balance_sheet", "get_cashflow"),
+) -> dict:
     output: dict = {}
-    for getter in ("get_income_stmt", "get_balance_sheet", "get_cashflow"):
+    for getter in getters:
         try:
             frame = getattr(ticker, getter)(freq="yearly" if frequency == "annual" else "quarterly")
+            labels = {"".join(c for c in str(label).casefold() if c.isalnum()): label for label in frame.index}
             for field, keys in YF_KEYS.items():
                 for key in keys:
-                    if key not in frame.index:
+                    label = labels.get("".join(c for c in key.casefold() if c.isalnum()))
+                    if label is None:
                         continue
-                    for timestamp, raw in frame.loc[key].items():
+                    for timestamp, raw in frame.loc[label].items():
                         value = number(raw)
                         if value is None:
                             continue
@@ -453,6 +461,81 @@ def _yf_statements(ticker: Any, frequency: str, currency: str) -> dict:
         except Exception:
             log.info("No %s %s statements", frequency, getter)
     return output
+
+
+BALANCE_KEYS = {"assets", "cash", "equity", "shares", "debt_total"}
+DEBT_KEYS = {"debt_total", "debt_current", "debt_noncurrent", "short_debt"}
+SOURCE_DEPENDENCIES = {
+    "operating_margin": {"operating_income"},
+    "ebitda": {"operating_income"},
+    "interest_coverage": {"operating_income"},
+    "debt": DEBT_KEYS,
+    "net_debt": DEBT_KEYS | {"cash"},
+    "book_value": {"equity", "shares"},
+    "roic": DEBT_KEYS | {"cash", "equity", "operating_income", "pretax", "tax"},
+    "roe": {"equity"},
+    "roa": {"assets"},
+    "asset_turnover": {"assets"},
+    "net_debt_ebitda": DEBT_KEYS | {"cash", "operating_income"},
+    "market_cap": {"shares"},
+    "enterprise_value": DEBT_KEYS | {"cash", "shares"},
+    "pe": {"shares"},
+    "ev_ebitda": DEBT_KEYS | {"cash", "shares", "operating_income"},
+    "pb": {"shares", "equity"},
+    "ps": {"shares"},
+    "fcf_yield": {"shares"},
+    "dividend_yield": {"shares"},
+}
+
+
+def _has_debt(data: dict, end: str) -> bool:
+    def present(key: str) -> bool:
+        return number(data.get(key, {}).get(end, {}).get("val")) is not None
+
+    return present("debt_total") or (present("debt_current") and present("debt_noncurrent"))
+
+
+def _needs_balance_fallback(data: dict, recent: int) -> bool:
+    ends = sorted(set(data.get("revenue", {})) | set(data.get("net_income", {})))[-recent:]
+    return any(
+        not _has_debt(data, end)
+        or any(number(data.get(k, {}).get(end, {}).get("val")) is None for k in BALANCE_KEYS - {"debt_total"})
+        for end in ends
+    )
+
+
+def _needs_income_fallback(data: dict, recent: int) -> bool:
+    ends = sorted(set(data.get("revenue", {})) | set(data.get("net_income", {})))[-recent:]
+    return any(
+        number(data.get(key, {}).get(end, {}).get("val")) is None
+        for key in ("pretax", "tax", "operating_income")
+        for end in ends
+    )
+
+
+def _merge_statement_fallback(primary: dict, fallback: dict, *, keys: set[str] | None = None) -> None:
+    """Fill missing reported statement inputs, preserving SEC values and period provenance.
+
+    Yahoo sometimes labels a 52/53-week fiscal end with its calendar month end.
+    A unique closest SEC period within seven days is the same reporting period;
+    the provider's original date remains on the fallback observation.
+    """
+    anchors = sorted(set(primary.get("revenue", {})) | set(primary.get("net_income", {})))
+    for key in BALANCE_KEYS if keys is None else keys:
+        for provider_end, row in fallback.get(key, {}).items():
+            if number(row.get("val")) is None:
+                continue
+            matches = sorted(
+                (abs((date.fromisoformat(provider_end) - date.fromisoformat(end)).days), end) for end in anchors
+            )
+            if not matches or matches[0][0] > 7 or (len(matches) > 1 and matches[0][0] == matches[1][0]):
+                continue
+            end = matches[0][1]
+            if number(primary.get(key, {}).get(end, {}).get("val")) is not None:
+                continue
+            if key == "debt_total" and _has_debt(primary, end):
+                continue
+            primary.setdefault(key, {})[end] = {**row, "end": end, "source_period_end": provider_end}
 
 
 def _estimates(ticker: Any, as_of: str) -> dict:
@@ -503,6 +586,29 @@ def load_company(ticker: str) -> dict:
         quote_currency = info.get("currency")
         quarterly = _yf_statements(yt, "quarters", currency)
         annual = _yf_statements(yt, "annual", currency)
+    elif any(
+        _needs_balance_fallback(data, recent) or _needs_income_fallback(data, recent)
+        for data, recent in ((quarterly, 8), (annual, 5))
+    ):
+        # SEC may supply revenue/income but omit a usable aggregate debt or
+        # period-end share tag. Supplement those inputs once per ticker, never
+        # replace reported SEC values or assume an absent debt component is zero.
+        try:
+            info = yt.get_info()
+        except Exception:
+            info = {}
+        if info.get("financialCurrency") == currency:
+            for frequency, data in (("quarters", quarterly), ("annual", annual)):
+                if _needs_balance_fallback(data, 8 if frequency == "quarters" else 5):
+                    _merge_statement_fallback(
+                        data, _yf_statements(yt, frequency, currency, getters=("get_balance_sheet",))
+                    )
+                if _needs_income_fallback(data, 8 if frequency == "quarters" else 5):
+                    _merge_statement_fallback(
+                        data,
+                        _yf_statements(yt, frequency, currency, getters=("get_income_stmt",)),
+                        keys={"pretax", "tax", "operating_income"},
+                    )
     prices = []
     try:
         frame = yt.history(period="max", auto_adjust=False, actions=True, timeout=10)
@@ -581,7 +687,13 @@ def compute_company(company: dict, frequency: str) -> dict[str, dict]:
         total = raw("debt_total", end)
         if total is not None:
             short = raw("short_debt", end)
-            return total + short if short is not None and company["source"] == "SEC EDGAR" else total
+            return (
+                total + short
+                if short is not None
+                and company["source"] == "SEC EDGAR"
+                and data.get("debt_total", {}).get(end, {}).get("source") != "yfinance statements"
+                else total
+            )
         long_term = add(raw("debt_current", end), raw("debt_noncurrent", end))
         short = raw("short_debt", end)
         current_concept = data.get("debt_current", {}).get(end, {}).get("concept")
@@ -699,9 +811,30 @@ def compute_company(company: dict, frequency: str) -> dict[str, dict]:
             value = number(value)
             entry = data.get(field.id, {}).get(end) or data.get("revenue", {}).get(end, {})
             accn = str(entry.get("accn") or "")
+            dependencies = SOURCE_DEPENDENCIES.get(field.id, {field.id})
+            dependency_ends = [end]
+            if field.id in {"roic", "roe", "roa", "asset_turnover"}:
+                lag = 1 if frequency in {"quarters", "annual"} else 4
+                pos = ends.index(end)
+                if pos >= lag:
+                    dependency_ends.append(ends[pos - lag])
+            uses_fallback = any(
+                data.get(key, {}).get(period_end, {}).get("source") == "yfinance statements"
+                for key in dependencies
+                for period_end in dependency_ends
+            )
+            source = company["source"]
+            if source == "SEC EDGAR" and uses_fallback:
+                source = (
+                    "SEC EDGAR + yfinance statement fallback"
+                    if field.id in SOURCE_DEPENDENCIES
+                    else "yfinance statement fallback"
+                )
             points.append(
                 {
                     "date": end,
+                    "source": source,
+                    "source_period_end": entry.get("source_period_end"),
                     "value": value,
                     "period_label": f"FY{entry.get('fy', end[:4])}"
                     if frequency == "annual"
@@ -719,7 +852,9 @@ def compute_company(company: dict, frequency: str) -> dict[str, dict]:
             "field": field.id,
             "unit": field.unit,
             "currency": company["currency"] if field.unit in {"currency", "per_share"} else None,
-            "source": company["source"],
+            "source": "SEC EDGAR + yfinance statement fallback"
+            if company["source"] == "SEC EDGAR" and any("statement fallback" in p["source"] for p in points)
+            else company["source"],
             "as_of": company["as_of"],
             "formula": field.formula,
             "computed": not field.concepts or field.category == "Market",

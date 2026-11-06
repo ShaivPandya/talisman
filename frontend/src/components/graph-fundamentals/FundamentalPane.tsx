@@ -11,8 +11,8 @@ import {
   XAxis,
   YAxis,
 } from "recharts"
-import { formatValue, mixedCurrencies, paneIssue } from "@/lib/graphFundamentals"
-import type { DisplaySeries, FundamentalPoint } from "@/lib/graphFundamentals"
+import { formatValue, mixedCurrencies, paneIssue, panePlotData } from "@/lib/graphFundamentals"
+import type { DisplaySeries, Period } from "@/lib/graphFundamentals"
 
 function FundamentalTooltip({ active, label, series }: { active?: boolean; label: string; series: DisplaySeries[] }) {
   if (!active) return null
@@ -43,6 +43,11 @@ function FundamentalTooltip({ active, label, series }: { active?: boolean; label
                 {s.as_of?.slice(0, 10) ?? "unknown"}
               </p>
             )}
+            {point.source_period_end && point.source_period_end !== point.date ? (
+              <p className="text-muted">
+                Provider period end {point.source_period_end}; aligned to this fiscal period.
+              </p>
+            ) : null}
             {point.reason ? <p className="text-amber-500">{point.reason}</p> : null}
           </div>
         )
@@ -57,12 +62,14 @@ export const FundamentalPane = memo(function FundamentalPane({
   dates,
   syncId,
   bottom,
+  period,
 }: {
   title: string
   series: DisplaySeries[]
   dates: string[]
   syncId: string
   bottom: boolean
+  period: Period
 }) {
   const issue = paneIssue(series)
   if (issue)
@@ -74,22 +81,9 @@ export const FundamentalPane = memo(function FundamentalPane({
         </p>
       </section>
     )
-  const lookups = new Map(series.map((s) => [s.config.id, new Map(s.points.map((p) => [p.date, p]))]))
-  const lastActuals = new Map(
-    series.map((s) => [s.config.id, s.points.filter((p) => !p.estimate && p.value !== null).at(-1)?.date]),
-  )
-  const rows = dates.map((date) => {
-    const row: Record<string, string | number | null> = { date }
-    for (const s of series) {
-      const point: FundamentalPoint | undefined = lookups.get(s.config.id)?.get(date)
-      row[s.config.id] = point && !point.estimate ? point.value : null
-      row[`${s.config.id}-estimate`] =
-        point && (point.estimate || (s.points.some((p) => p.estimate) && date === lastActuals.get(s.config.id)))
-          ? point.value
-          : null
-    }
-    return row
-  })
+  const { rows, lines } = panePlotData(series, dates, period)
+  const visible = new Set(dates)
+  const unavailable = series.filter((s) => !s.points.some((p) => p.value !== null && visible.has(p.date)))
   const unit = series[0]?.unit ?? "ratio"
   const currencies = [...new Set(series.map((s) => s.currency).filter(Boolean))]
   return (
@@ -106,15 +100,13 @@ export const FundamentalPane = memo(function FundamentalPane({
           Mixed reported currencies: {currencies.join(", ")}. Values have not been converted.
         </p>
       ) : null}
-      {series.some((s) => !s.points.some((p) => p.value !== null)) ? (
+      {unavailable.length ? (
         <div className="mb-2 text-xs text-amber-500">
-          {series
-            .filter((s) => !s.points.some((p) => p.value !== null))
-            .map((s) => (
-              <p key={s.config.id}>
-                {s.label}: {s.reason ?? "No comparable data in this range."}
-              </p>
-            ))}
+          {unavailable.map((s) => (
+            <p key={s.config.id}>
+              {s.label}: {s.reason ?? "No comparable data in this range."}
+            </p>
+          ))}
         </div>
       ) : null}
       {rows.length === 0 ? (
@@ -150,8 +142,9 @@ export const FundamentalPane = memo(function FundamentalPane({
             />
             <ReferenceLine y={0} stroke="hsl(var(--chart-axis))" strokeDasharray="3 3" />
             <Legend wrapperStyle={{ fontSize: 10 }} />
-            {series.map((s) =>
-              s.config.visualization === "bar" ? (
+            {series
+              .filter((s) => s.config.visualization === "bar")
+              .map((s) => (
                 <Bar
                   key={s.config.id}
                   dataKey={s.config.id}
@@ -160,38 +153,22 @@ export const FundamentalPane = memo(function FundamentalPane({
                   maxBarSize={20}
                   isAnimationActive={false}
                 />
-              ) : (
-                <Line
-                  key={s.config.id}
-                  type="linear"
-                  dataKey={s.config.id}
-                  name={s.label}
-                  stroke={s.config.color}
-                  strokeWidth={s.config.width}
-                  strokeDasharray={s.config.style === "dashed" ? "6 4" : undefined}
-                  dot={false}
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
-              ),
-            )}
-            {series
-              .filter((s) => s.points.some((p) => p.estimate))
-              .map((s) => (
-                <Line
-                  key={`${s.config.id}-estimate`}
-                  type="linear"
-                  dataKey={`${s.config.id}-estimate`}
-                  name={`${s.label} consensus`}
-                  stroke={s.config.color}
-                  strokeWidth={s.config.width}
-                  strokeDasharray="3 4"
-                  dot={{ r: 2 }}
-                  legendType="none"
-                  connectNulls={false}
-                  isAnimationActive={false}
-                />
               ))}
+            {lines.map((line) => (
+              <Line
+                key={line.key}
+                type="linear"
+                dataKey={line.key}
+                name={line.estimate ? `${line.series.label} consensus` : line.series.label}
+                stroke={line.series.config.color}
+                strokeWidth={line.series.config.width}
+                strokeDasharray={line.estimate ? "3 4" : line.series.config.style === "dashed" ? "6 4" : undefined}
+                dot={line.estimate ? { r: 2 } : line.points.length === 1 ? { r: 3 } : false}
+                legendType={line.showLegend ? "line" : "none"}
+                connectNulls
+                isAnimationActive={false}
+              />
+            ))}
           </ComposedChart>
         </ResponsiveContainer>
       )}
