@@ -1,4 +1,5 @@
 """Every mounted SPA route must be reachable directly on Firebase Hosting."""
+
 import json
 import re
 from pathlib import Path
@@ -12,8 +13,7 @@ def test_mounted_routes_have_spa_rewrites_and_uncached_html():
     uncached = [
         re.compile(rule["regex"])
         for rule in hosting["headers"]
-        if "regex" in rule
-        and any(h["key"] == "Cache-Control" and "no-store" in h["value"] for h in rule["headers"])
+        if "regex" in rule and any(h["key"] == "Cache-Control" and "no-store" in h["value"] for h in rule["headers"])
     ]
     for route in [*routes, "/login"]:
         path = re.sub(r":[^/]+", "SAMPLE", route)
