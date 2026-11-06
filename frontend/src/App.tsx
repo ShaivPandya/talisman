@@ -75,6 +75,9 @@ function RouteLoadBoundary({ children }: { children: ReactNode }) {
 
 function LoginRoute() {
   const { isAuthenticated, isLoading } = useAuth()
+  const location = useLocation()
+  const requested = location.state?.returnTo
+  const returnTo = typeof requested === "string" && requested.startsWith("/") && !requested.startsWith("//") && !requested.includes("\\") ? requested : "/"
 
   if (isLoading) {
     return (
@@ -85,7 +88,7 @@ function LoginRoute() {
   }
 
   return isAuthenticated ? (
-    <Navigate to="/" replace />
+    <Navigate to={returnTo} replace />
   ) : (
     <Suspense fallback={<RouteLoading />}>
       <LoginPage />

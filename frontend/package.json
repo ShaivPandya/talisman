@@ -13,7 +13,8 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test:smoke": "playwright test",
-    "test:smoke:headed": "playwright test --headed"
+    "test:smoke:headed": "playwright test --headed",
+    "test:graph-fundamentals": "node --experimental-strip-types --test tests/unit/graph-fundamentals.test.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

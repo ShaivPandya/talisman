@@ -80,6 +80,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: "Portfolio Sizer", path: "/sizer", icon: Scale },
       { label: "Hedging Tool", path: "/hedging-tool", icon: Umbrella },
       { label: "Chart", path: "/chart", icon: ChartCandlestick },
+      { label: "Graph Fundamentals", path: "/graph-fundamentals", icon: ChartLine },
       { label: "Company Explorer", path: "/explore", icon: Building2 },
       { label: "Screeners", path: "/screeners", icon: ListFilter },
       { label: "Financials", path: "/financials", icon: FileSpreadsheet },

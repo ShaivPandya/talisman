@@ -9,6 +9,7 @@ const PortfolioAnalyzer = lazyPage(() => import("@/pages/PortfolioAnalyzer"), "P
 const HedgingTool = lazyPage(() => import("@/pages/HedgingTool"), "HedgingTool")
 const PortfolioSizer = lazyPage(() => import("@/pages/PortfolioSizer"), "PortfolioSizer")
 const Momentum = lazyPage(() => import("@/pages/Momentum"), "Momentum")
+const GraphFundamentals = lazyPage(() => import("@/pages/GraphFundamentals"), "GraphFundamentals")
 const ChartPage = lazyPage(() => import("@/pages/ChartPage"), "ChartPage")
 const CompanyExplorer = lazyPage(() => import("@/pages/CompanyExplorer"), "CompanyExplorer")
 const Screeners = lazyPage(() => import("@/pages/Screeners"), "Screeners")
@@ -69,6 +70,7 @@ export const PAGE_ROUTES = [
   { path: "/signal-aggregator", page: SignalAggregator },
   { path: "/ontology", page: OntologyWorkbench },
   { path: "/chart", page: ChartPage },
+  { path: "/graph-fundamentals", page: GraphFundamentals },
   { path: "/explore", page: CompanyExplorer },
   { path: "/explore/:ticker", page: CompanyExplorer },
   { path: "/screeners", page: Screeners },
