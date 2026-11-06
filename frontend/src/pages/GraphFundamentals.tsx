@@ -23,6 +23,7 @@ import {
   displaySeries,
   encodeChart,
   formatValue,
+  fundamentalFieldLabel,
   newId,
   removeSeries,
   tableRows,
@@ -144,7 +145,7 @@ export function GraphFundamentals() {
       (!search.trim() || `${f.label} ${f.category}`.toLowerCase().includes(search.toLowerCase())),
   )
   function paneTitle(field: string | undefined, index: number) {
-    return field ? (fields.find((f) => f.id === field)?.label ?? field) : `Pane ${index + 1}`
+    return field ? fundamentalFieldLabel(field, fields) : `Pane ${index + 1}`
   }
   const paneOptions = state.panes.map((p, i) => ({ id: p.id, label: paneTitle(p.field, i) }))
   useEffect(() => {

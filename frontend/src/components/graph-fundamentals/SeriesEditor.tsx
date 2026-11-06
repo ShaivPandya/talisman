@@ -1,4 +1,4 @@
-import { TRANSFORMS } from "@/lib/graphFundamentals"
+import { TRANSFORMS, fundamentalFieldLabel } from "@/lib/graphFundamentals"
 import type { ChartSeries, FundamentalField } from "@/lib/graphFundamentals"
 
 const selectClass = "w-full rounded-md border border-border bg-surface px-2 py-1.5 text-xs"
@@ -29,7 +29,9 @@ export function SeriesEditor({
         <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: series.color }} />
         <span className="min-w-0 flex-1 truncate">
           {series.label ||
-            (series.operation ? "Calculated series" : `${series.ticker} · ${field?.label ?? series.field}`)}
+            (series.operation
+              ? "Calculated series"
+              : `${series.ticker} · ${fundamentalFieldLabel(series.field, fields)}`)}
         </span>
         <span aria-hidden="true" className="text-muted">
           Edit
