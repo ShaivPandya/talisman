@@ -28,6 +28,7 @@ out/
 .env
 .env.*
 !.env.example
+gha-creds-*.json
 
 # Python
 __pycache__/

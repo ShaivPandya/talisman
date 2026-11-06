@@ -11,6 +11,9 @@ venv/
 # Secrets
 .env
 .env.*
+gha-creds-*.json
+infra/gcp/config.sh
+infra/gcp/release-manifest.json
 open_positions.csv
 **/open_positions.csv
 
