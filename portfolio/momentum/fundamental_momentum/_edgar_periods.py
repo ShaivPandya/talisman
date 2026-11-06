@@ -484,6 +484,7 @@ def _quarterly_flow_entries(entries: list[dict]) -> list[dict]:
             fy_ends = fy_ends[-4:]
 
         ytd_prev: float | None = None
+        previous_quarter_index = 0
         for _, end_str, q_idx in fy_ends:
             candidates = by_end[end_str]
             prefer_form = "annual" if q_idx == 4 else "quarterly"
@@ -523,7 +524,7 @@ def _quarterly_flow_entries(entries: list[dict]) -> list[dict]:
                 if q_idx == 1:
                     value = ytd_val
                     source = ytd_entry
-                elif ytd_prev is not None:
+                elif ytd_prev is not None and previous_quarter_index == q_idx - 1:
                     value = ytd_val - ytd_prev
                     source = ytd_entry
 
@@ -535,6 +536,7 @@ def _quarterly_flow_entries(entries: list[dict]) -> list[dict]:
             elif value is not None:
                 if q_idx == 1 or ytd_prev is not None:
                     ytd_prev = value if ytd_prev is None else ytd_prev + value
+            previous_quarter_index = q_idx
 
     return _sort_newest(_keep_latest_by(normalized, lambda e: str(e.get("end") or "")))
 

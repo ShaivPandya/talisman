@@ -326,6 +326,15 @@ def _build_source_registry() -> dict[str, SourceRegistryEntry]:
             raw_function="Ticker",
         ),
         _entry(
+            "graph_fundamentals",
+            "sec_edgar",
+            "fundamental",
+            1,
+            LONG_CACHE_TTL_SECONDS,
+            True,
+            fallback_source_id="yfinance_fundamentals",
+        ),
+        _entry(
             "financials",
             "sec_edgar",
             "fundamental",

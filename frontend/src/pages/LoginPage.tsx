@@ -1,5 +1,5 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react"
-import { useNavigate } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import {
   Activity,
   ArrowRight,
@@ -1580,6 +1580,7 @@ function PublicShowcase() {
 function LoginCard() {
   const { login, mode } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState<string | null>(null)
@@ -1591,7 +1592,8 @@ function LoginCard() {
     setLoading(true)
     try {
       await login(password, username.trim() || undefined)
-      navigate("/", { replace: true })
+      const returnTo = location.state?.returnTo
+      navigate(typeof returnTo === "string" && returnTo.startsWith("/") && !returnTo.startsWith("//") && !returnTo.includes("\\") ? returnTo : "/", { replace: true })
     } catch {
       setError("Incorrect password. Please try again.")
     } finally {

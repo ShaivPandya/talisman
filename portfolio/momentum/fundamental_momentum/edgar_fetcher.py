@@ -80,13 +80,13 @@ def _load_cik_map() -> None:
             _cik_map_loaded = True
 
 
-def _fetch_edgar_facts(cik_str: str) -> dict | None:
+def _fetch_edgar_facts(cik_str: str, *, force_refresh: bool = False) -> dict | None:
     """
     Fetch XBRL companyfacts JSON from SEC EDGAR for one CIK.
     Results are cached for the process lifetime.
     """
     with _edgar_facts_lock:
-        if cik_str in _edgar_facts_cache:
+        if not force_refresh and cik_str in _edgar_facts_cache:
             return _edgar_facts_cache[cik_str]
 
     url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_str}.json"
@@ -288,12 +288,12 @@ def get_cik_for_ticker(ticker: str) -> str | None:
     return _cik_map.get(ticker.upper().strip())
 
 
-def fetch_companyfacts_by_cik(cik_str: str) -> dict | None:
+def fetch_companyfacts_by_cik(cik_str: str, *, force_refresh: bool = False) -> dict | None:
     """Fetch SEC companyfacts payload for a 10-digit CIK string."""
     cik = str(cik_str).strip()
     if not cik:
         return None
-    return _fetch_edgar_facts(cik.zfill(10))
+    return _fetch_edgar_facts(cik.zfill(10), force_refresh=force_refresh)
 
 
 def fetch_companyfacts_by_ticker(ticker: str) -> dict | None:

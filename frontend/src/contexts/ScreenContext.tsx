@@ -54,6 +54,7 @@ const ROUTE_PAGE_MAP: Record<string, RouteEntry> = {
   "/sizer": { pageName: "Portfolio Sizer", tools: ["run_portfolio_sizer", "get_portfolio_sizer_prefill"] },
   "/hedging-tool": { pageName: "Hedging Tool", tools: ["run_hedging_tool", "get_hedging_portfolio_weights"] },
   "/chart": { pageName: "Chart", tools: ["run_chart", "run_ratio_chart"] },
+  "/graph-fundamentals": { pageName: "Graph Fundamentals" },
   "/explore": { pageName: "Company Explorer", tools: ["get_financials", "run_chart", "get_dossier"] },
   "/financials": { pageName: "Financials", tools: ["get_financials"] },
   "/dcf-model": { pageName: "DCF Model" },

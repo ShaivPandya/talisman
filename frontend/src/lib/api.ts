@@ -4468,3 +4468,13 @@ export const retryResearch = (id: string) => client.post(`/research/reports/${id
 export const reindexResearch = (id: string) => client.post(`/research/reports/${id}/reindex`).then(r => r.data)
 export const deleteResearch = (id: string) => client.delete(`/research/reports/${id}`)
 export const researchDownloadUrl = (id: string, kind: "markdown" | "original") => `${client.defaults.baseURL}/research/reports/${id}/${kind}`
+
+
+// Graph Fundamentals: the saved object contains layout only; opening refreshes data.
+export const fetchFundamentalCatalog = () => client.get<{ fields: import("./graphFundamentals").FundamentalField[] }>("/graph-fundamentals/catalog").then(r => r.data.fields)
+export const searchFundamentalSecurities = (q: string) => client.get<{ securities: { ticker: string; name: string }[] }>("/graph-fundamentals/securities", { params: { q } }).then(r => r.data.securities)
+export const fetchGraphFundamentals = (body: { tickers: string[]; fields: string[]; series?: { ticker: string; field: string }[]; period: string; range: string; start_date?: string | null; end_date?: string | null }) => client.post<import("./graphFundamentals").FundamentalResponse>("/graph-fundamentals", body).then(r => r.data)
+export const fetchFundamentalCharts = (offset = 0) => client.get<{ charts: import("./graphFundamentals").SavedChart[] }>("/graph-fundamental-charts", { params: { offset, limit: 50 } }).then(r => r.data.charts)
+export const fetchFundamentalChart = (id: string) => client.get<import("./graphFundamentals").SavedChart>(`/graph-fundamental-charts/${encodeURIComponent(id)}`).then(r => r.data)
+export const saveFundamentalChart = (name: string, state: import("./graphFundamentals").ChartState, id?: string) => (id ? client.put<import("./graphFundamentals").SavedChart>(`/graph-fundamental-charts/${encodeURIComponent(id)}`, { name, state }) : client.post<import("./graphFundamentals").SavedChart>("/graph-fundamental-charts", { name, state })).then(r => r.data)
+export const deleteFundamentalChart = (id: string) => client.delete(`/graph-fundamental-charts/${encodeURIComponent(id)}`).then(() => undefined)
